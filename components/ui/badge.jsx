@@ -1,6 +1,6 @@
 import { cva } from "class-variance-authority";
 
-import { cn } from "../../lib/util"; "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 const badgeVariants = cva(
   "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors focus:outline-none",

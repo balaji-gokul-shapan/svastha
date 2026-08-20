@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "../../lib/util"; "@/lib/utils";
+import { cn } from "../../lib/utils"; 
 import { ResponsiveContainer, Tooltip } from "recharts";
 
 export function ChartContainer({ id, className, children, config = {} }) {

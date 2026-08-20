@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 
-import { cn } from "../../lib/util"; "@/lib/utils";
+import { cn } from "../../lib/utils"; 
 
 function normalizeOption(option) {
 	if (typeof option === "string") {

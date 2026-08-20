@@ -4,7 +4,7 @@ import * as React from "react";
 import { Drawer as DrawerPrimitive } from "@base-ui/react/drawer";
 import { X } from "lucide-react";
 
-import { cn } from "../../lib/util"; "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 function Drawer(props) {
   return <DrawerPrimitive.Root {...props} />;

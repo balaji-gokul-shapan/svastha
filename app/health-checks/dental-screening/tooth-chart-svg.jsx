@@ -2,8 +2,8 @@
 
 import { AlertTriangle } from "lucide-react";
 
-import { cn } from "../../lib/util"; "@/lib/utils";
 import { TOOTH_STATUS_COLOR, UPPER_TEETH, LOWER_TEETH } from "./dental-screening-data";
+import { cn } from "@/lib/utils";
 
 // A single simplified tooth silhouette: a domed crown tapering to one root.
 // Reused at both small (chart) and large (detail panel) sizes.
