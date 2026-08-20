@@ -3,7 +3,7 @@
 import { Accordion as AccordionPrimitive } from "@base-ui/react/accordion";
 import { ChevronDown } from "lucide-react";
 
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/util"; "@/lib/utils";
 
 function Accordion({ className, ...props }) {
   return <AccordionPrimitive.Root className={cn("w-full", className)} {...props} />;

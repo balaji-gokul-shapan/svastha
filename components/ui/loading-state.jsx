@@ -2,7 +2,7 @@
 
 import { Loader2 } from "lucide-react";
 
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/util"; "@/lib/utils";
 
 export function LoadingText({ label = "Loading...", className }) {
   return (

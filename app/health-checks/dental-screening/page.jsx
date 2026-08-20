@@ -18,7 +18,6 @@ import {
   TriangleAlert,
 } from "lucide-react";
 
-import { cn } from "@/lib/utils";
 import { useAppDispatch } from "@/lib/hooks";
 import { getDentalScreening } from "@/lib/features/getDentalScreening";
 import CampStudentSelectorDrawer from "@/components/health-checks/camp-student-selector-drawer";
@@ -50,6 +49,7 @@ import { ScoreMeter } from "./scoreMeter";
 import { EmptyState } from "@/components/ui/empty-state";
 import ToothIcon from "./toothIcon";
 import StudentProfileCard from "@/app/students/studentProfileCard";
+import { cn } from "../../lib/util"; "../../lib/util";
 
 function FieldLabel({ children }) {
   return (
