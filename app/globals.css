@@ -1,0 +1,418 @@
+/* ==========================================================================
+   Svastha — Health Screening & School Health Program
+   Global stylesheet — Tailwind v4 (CSS-first config, no tailwind.config.js)
+   Import this once in app/layout.tsx: `import "./style.css"`
+   Toggle dark mode by adding/removing the "dark" class on <html>.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+/* Enable class-based dark mode: add/remove .dark on <html> or any ancestor.
+   Without this, Tailwind v4 defaults to the prefers-color-scheme media query. */
+@custom-variant dark (&:is(.dark *));
+
+/* --------------------------------------------------------------------------
+   1. RAW COLOR TOKENS (light + dark)
+   Defined as plain CSS custom properties so they can swap live when the
+   .dark class toggles — @theme alone would bake values in at build time.
+   -------------------------------------------------------------------------- */
+
+:root {
+  /* Brand — pulled directly from the logo: the cyan-blue figure + green
+     medical cross. Kept as standalone tokens (not "primary") because the
+     raw hues fail WCAG contrast as text/button colors — see --primary
+     below for the accessible working version. Use --brand-* only for
+     logo marks, decorative gradients, and large graphic fills. */
+  --brand-blue: hsl(198 83% 49%);   /* #15A6E3 */
+  --brand-green: hsl(142 62% 65%);  /* medical-cross green, ≈ Tailwind green-500 */
+
+  /* Surfaces */
+  --background: hsl(210 24% 97%);   /* cool paper, not cream */
+  --foreground: hsl(222 47% 11%);   /* ink */
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(222 47% 11%);
+  --popover: var(--card);
+  --popover-foreground: var(--card-foreground);
+
+  /* Brand, accessibility-adjusted for UI use (text, buttons, links) */
+  --primary: hsl(199 86% 33%);      /* darkened brand blue — 5.7:1 with white text */
+  --primary-foreground: hsl(210 30% 98%);
+  --secondary: hsl(210 22% 93%);
+  --secondary-foreground: hsl(222 47% 15%);
+  --accent: var(--brand-green);     /* 7.1:1 with dark ink — pair with dark text, not white */
+  --accent-foreground: hsl(222 47% 11%);
+
+  /* Muted / supporting */
+  --muted: hsl(210 20% 93%);
+  --muted-foreground: hsl(215 16% 40%);
+  --border: hsl(214 20% 88%);
+  --input: hsl(214 20% 88%);
+  --ring: var(--primary);
+
+  /* Semantic status */
+  --success: hsl(152 52% 32%);
+  --success-foreground: hsl(0 0% 100%);
+  --warning: hsl(38 92% 45%);
+  --warning-foreground: hsl(32, 85%, 31%);
+  --destructive: hsl(4 62% 46%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --info: hsl(205 70% 42%);
+  --info-foreground: hsl(0 0% 100%);
+
+  /* Chart palette — one consolidated 7-color categorical set, used for
+     both severity scales (grade 1 → 4, worst to best) and general
+     category breakdowns (screening types, referral types, etc). Read
+     left to right: red → amber → green anchors the severity use case;
+     blue/violet/teal/pink extend it for plain categorical charts. */
+  --chart-1: hsl(4 72% 51%);    /* red — Grade 1 / Critical */
+  --chart-2: hsl(29 88% 50%);   /* orange — Grade 2 / High */
+  --chart-3: hsl(38 92% 50%);   /* amber — Grade 3 / Moderate */
+  --chart-4: hsl(142 66% 40%);  /* green — Grade 4 / Preventive, healthy */
+  --chart-5: hsl(199 86% 40%);  /* blue — brand-aligned */
+  --chart-6: hsl(262 60% 58%);  /* violet */
+  --chart-7: hsl(199 30% 55%);  /* muted teal-blue */
+
+  /* Brand gradient — subtle two-tone wash echoing the logo's blue + green,
+     applied to <body> at low opacity. Use .bg-brand-gradient to apply the
+     same treatment deliberately to a hero/login section instead. */
+  --brand-gradient: radial-gradient(120% 120% at 100% 0%, color-mix(in oklch, var(--brand-blue) 10%, transparent) 0%, transparent 45%),
+    radial-gradient(120% 120% at 0% 100%, color-mix(in oklch, var(--brand-green) 7%, transparent) 0%, transparent 45%);
+
+  /* Elevation */
+  --shadow-color: hsl(222 47% 11%);
+  --radius: 0.625rem;
+}
+
+.dark {
+  --brand-blue: hsl(199 90% 62%);
+  --brand-green: hsl(142, 62%, 65%);
+
+  --background: hsl(222 47% 7%);    /* near-navy ink */
+  --foreground: hsl(210 24% 92%);
+  --card: hsl(222 40% 10%);
+  --card-foreground: hsl(210 24% 92%);
+  --popover: var(--card);
+  --popover-foreground: var(--card-foreground);
+
+  --primary: hsl(199 88% 62%);      /* brighter for contrast against a dark surface */
+  --primary-foreground: hsl(222 47% 9%);
+  --secondary: hsl(222 30% 15%);
+  --secondary-foreground: hsl(210 24% 92%);
+  --accent: var(--brand-green);
+  --accent-foreground: hsl(222 47% 9%);
+
+  --muted: hsl(222 30% 15%);
+  --muted-foreground: hsl(215 15% 65%);
+  --border: hsl(222 25% 20%);
+  --input: hsl(222 25% 20%);
+  --ring: var(--primary);
+
+  --success: hsl(152 45% 48%);
+  --success-foreground: hsl(222 47% 9%);
+  --warning: hsl(38 92% 55%);
+  --warning-foreground: hsl(39, 54%, 54%);
+  --destructive: hsl(4 70% 62%);
+  --destructive-foreground: hsl(222 47% 9%);
+  --info: hsl(205 70% 60%);
+  --info-foreground: hsl(222 47% 9%);
+
+  /* Chart palette — brighter/more saturated than light mode on purpose;
+     muted tones recede too far against a dark background to stay legible. */
+  --chart-1: hsl(4 82% 65%);
+  --chart-2: hsl(29 92% 60%);
+  --chart-3: hsl(38 95% 62%);
+  --chart-4: hsl(142 60% 55%);
+  --chart-5: hsl(199 90% 62%);
+  --chart-6: hsl(262 70% 70%);
+  --chart-7: hsl(199 35% 65%);
+
+  --brand-gradient: radial-gradient(120% 120% at 100% 0%, color-mix(in oklch, var(--brand-blue) 22%, transparent) 0%, transparent 55%),
+    radial-gradient(120% 120% at 0% 100%, color-mix(in oklch, var(--brand-green) 16%, transparent) 0%, transparent 55%);
+
+  --shadow-color: hsl(222 60% 2%);
+}
+
+/* --------------------------------------------------------------------------
+   2. THEME MAPPING
+   @theme inline registers these as Tailwind utilities (bg-primary,
+   text-foreground, font-display, rounded-lg, p-md, stroke-chart-1, ...)
+   while keeping them pointed at the live custom properties above, so dark
+   mode swaps at runtime instead of being baked in at build time.
+   -------------------------------------------------------------------------- */
+
+@theme inline {
+  /* Colors */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-green: var(--brand-green);
+
+  /* Chart colors — generates bg-chart-1, stroke-chart-1, fill-chart-1, etc. */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+
+  /* Typography — generates font-display / font-body / font-mono */
+  --font-display: 'Fraunces', ui-serif, Georgia, serif;
+  --font-body: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* Radius — generates rounded-sm / rounded-md / rounded-lg */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+
+  /* Semantic spacing — generates p-xs, gap-md, py-xl, etc. alongside
+     Tailwind's default numeric scale (they coexist) */
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 0.75rem;
+  --spacing-md: 1.25rem;
+  --spacing-lg: 2rem;
+  --spacing-xl: 3.5rem;
+  --spacing-2xl: 5rem;
+
+  --container-max: 84rem;
+}
+
+/* --------------------------------------------------------------------------
+   3. BASE TYPOGRAPHY & GLOBAL ELEMENT STYLES
+   -------------------------------------------------------------------------- */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: var(--font-body);
+    background-color: var(--color-background);
+    background-image: var(--brand-gradient);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    color: var(--color-foreground);
+    line-height: 1.6;
+    font-size: 1rem;
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    color: var(--color-foreground);
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+  }
+
+  h5, h6 {
+    font-family: var(--font-body);
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--color-foreground);
+  }
+
+  /* Fluid type scale — comfortable on a 360px phone through a 1920px monitor */
+  h1 { font-size: clamp(1.75rem, 1.4rem + 1.6vw, 2.75rem); line-height: 1.15; }
+  h2 { font-size: clamp(1.5rem, 1.25rem + 1.1vw, 2.125rem); line-height: 1.2; }
+  h3 { font-size: clamp(1.25rem, 1.1rem + 0.7vw, 1.625rem); line-height: 1.25; }
+  h4 { font-size: clamp(1.125rem, 1.03rem + 0.4vw, 1.3rem); line-height: 1.3; }
+  h5 { font-size: 1.0625rem; }
+  h6 { font-size: 0.9375rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-muted-foreground); }
+
+  p {
+    line-height: 1.65;
+  }
+
+  small, .text-caption {
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--color-muted-foreground);
+  }
+
+  /* Tabular data — grades, IDs, screening dates — always mono, always aligned */
+  code, .tabular-data {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  a {
+    color: var(--color-primary);
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+  a:hover {
+    color: var(--color-brand-blue);
+  }
+
+  ::selection {
+    background: color-mix(in oklch, var(--color-accent) 30%, transparent);
+    color: var(--color-foreground);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-muted);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklch, var(--color-muted-foreground) 40%, transparent);
+  }
+
+  img, video {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  input, textarea, select, button {
+    font-family: inherit;
+    font-size: 1rem;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  * {
+    border-color: var(--color-border);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* --------------------------------------------------------------------------
+   4. COMPONENT CLASSES
+   -------------------------------------------------------------------------- */
+
+@layer components {
+  .container-page {
+    width: 100%;
+    max-width: var(--container-max);
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+  @media (min-width: 640px) {
+    .container-page { padding-inline: 1.5rem; }
+  }
+  @media (min-width: 1024px) {
+    .container-page { padding-inline: 2rem; }
+  }
+
+  .section {
+    padding-block: var(--spacing-lg);
+  }
+  @media (min-width: 1024px) {
+    .section { padding-block: var(--spacing-xl); }
+  }
+
+  .card {
+    background-color: var(--color-card);
+    color: var(--color-card-foreground);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    box-shadow: 0 1px 2px color-mix(in oklch, var(--shadow-color) 6%, transparent),
+                0 1px 1px color-mix(in oklch, var(--shadow-color) 4%, transparent);
+  }
+
+  /* Signature mark: a small green underline for active/selected states —
+     doubles as a "wellness check" cue, echoing the logo's green cross. */
+  .signature-underline {
+    position: relative;
+    display: inline-block;
+  }
+  .signature-underline::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -0.2em;
+    height: 2px;
+    background: var(--color-accent);
+    border-radius: 2px;
+    transform: scaleX(0.9);
+  }
+
+  /* Ledger-style row striping for tables (screenings, referrals, claims) */
+  .table-ledger tbody tr:nth-child(even) {
+    background-color: color-mix(in oklch, var(--color-muted) 50%, transparent);
+  }
+  .table-ledger tbody tr:hover {
+    background-color: color-mix(in oklch, var(--color-primary) 6%, transparent);
+  }
+  .table-ledger th {
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-muted-foreground);
+    border-bottom: 1px solid var(--color-border);
+    padding: 0.75rem 1rem;
+    text-align: left;
+  }
+  .table-ledger td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid color-mix(in oklch, var(--color-border) 60%, transparent);
+    font-size: 0.9375rem;
+  }
+}
+
+@layer utilities {
+  .bg-brand-gradient {
+    background-image: var(--brand-gradient);
+    background-repeat: no-repeat;
+    background-size: cover;
+  }
+}
