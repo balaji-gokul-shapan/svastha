@@ -15,7 +15,6 @@ export async function GET(request) {
       }
     }
 
-    const headers = {};
     const authHeader = request.headers.get("authorization");
     if (authHeader) {
       headers["Authorization"] = authHeader;
