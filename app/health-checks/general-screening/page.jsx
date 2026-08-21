@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   ChevronDown,
@@ -23,11 +23,11 @@ import {
   immunizationOptions,
   locationOptions,
   studentOptions,
+  bmiCategory,
 } from "./general-screening-data";
 import { BmiGauge } from "./bmiCategory";
 import { BmiSvgGauge } from "./BmiSvgGauge";
-import { bmiCategory } from "./general-screening-data";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { getCamp } from "@/lib/features/getCampSlice";
 import { getFilterStudent } from "@/lib/features/getFilterStudent";
@@ -132,8 +132,8 @@ function getAgeInYearsFromDob(dobValue) {
 }
 
 function evaluateGrowthStandard(metric, value, ageYears) {
-  console.log(value,"fffff");
-  
+  console.log(value, "fffff");
+
   if (!Number.isFinite(value) || value <= 0) {
     return {
       standard: "Not entered",
@@ -206,6 +206,7 @@ function parseMetricValue(rawValue) {
 
 export default function GeneralScreeningPage() {
   const dispatch = useAppDispatch();
+  const queryClient = useQueryClient();
   const { studentData = [], loading: studentsLoading, error: studentsError } = useAppSelector(
     (state) => state.getInitialScreening,
   );
@@ -222,8 +223,8 @@ export default function GeneralScreeningPage() {
   const [examiner, setExaminer] = useState(examinerOptions[0]);
   const [assistant, setAssistant] = useState(assistantOptions[0]);
 
-  const [height, setHeight] = useState("142");
-  const [weight, setWeight] = useState("36");
+  const [height, setHeight] = useState("0");
+  const [weight, setWeight] = useState("0");
 
   const [bloodGroup, setBloodGroup] = useState(bloodGroupOptions[0]);
   const [allergy, setAllergy] = useState(allergyOptions[0]);
@@ -233,22 +234,6 @@ export default function GeneralScreeningPage() {
   const [immunization, setImmunization] = useState("up_to_date");
   const [notes, setNotes] = useState("");
 
- 
-  useQuery({
-    queryKey: ["initial-screening", "all", "", "all", "name", "asc"],
-    queryFn: () =>
-      dispatch(
-        getInitialScreening({
-          all: true,
-          search: "",
-          status: "all",
-          sortBy: "name",
-          sortOrder: "asc",
-        }),
-      ).unwrap(),
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-  });
 
   // const {
   //   data: campsData = [],
@@ -274,9 +259,9 @@ export default function GeneralScreeningPage() {
   // });
 
   const getData = useStudentData(selectedCampId);
-  console.log(getData,"getData");
-  
-  
+  console.log(getData, "getData");
+
+
 
   // const studentCampRows = useMemo(() => {
   //   if (Array.isArray(studentCampData)) {
@@ -294,7 +279,7 @@ export default function GeneralScreeningPage() {
   //   return [];
   // }, [studentCampData]);
   // console.log(studentCampRows,"studentCampRows");
-  
+
 
   // const filteredCampRows = useMemo(() => {
   //   if (!selectedCampId || !studentCampRows.length) {
@@ -365,8 +350,7 @@ export default function GeneralScreeningPage() {
     queryFn: () =>
       dispatch(
         getFilterStudent({
-          page: 1,
-          limit: 500,
+          all: true,
           status: "all",
           schoolName,
           academicYear,
@@ -379,7 +363,23 @@ export default function GeneralScreeningPage() {
     refetchOnWindowFocus: true,
   });
 
-  console.log(studentFilter,"studentFilter---------------------------");
+  useQuery({
+    queryKey: ["initial-screening", schoolName, academicYear, classFilter, sectionFilter, studentFilter],
+    queryFn: () =>
+      dispatch(
+        getInitialScreening({
+          all: true,
+          search: "",
+          status: "all",
+          sortBy: "name",
+          sortOrder: "asc",
+        }),
+      ).unwrap(),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+
+  console.log(filterPayload, "filterPayload---------------------------");
   //-------------------------------------------
 
   const campStudents = useMemo(() => {
@@ -483,7 +483,7 @@ export default function GeneralScreeningPage() {
     return Array.from(sectionSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   }, [activeAcademicYear, campStudents, selectedClassFilter]);
 
-    
+
 
   const students = useMemo(() => (Array.isArray(studentData) ? studentData : []), [studentData]);
   const camps = useMemo(() => (Array.isArray(getData.campsData) ? getData.campsData : []), [getData.campsData]);
@@ -545,7 +545,7 @@ export default function GeneralScreeningPage() {
     return Array.from(uniqueStudents.values());
   }, [campStudents]);
 
-  
+
   const filteredStudents = useMemo(() => {
     if (!selectedCampId) {
       return [];
@@ -593,9 +593,9 @@ export default function GeneralScreeningPage() {
       return key && key === String(studentFilter).trim();
     });
   }, [filteredStudents, studentFilter]);
-  console.log(filteredStudents,"filteredStudents");
-  console.log(effectiveFilteredStudents,"effectiveFilteredStudents");
-  
+  console.log(filteredStudents, "filteredStudents");
+  console.log(effectiveFilteredStudents, "effectiveFilteredStudents");
+
 
   const getStudentKeys = (student) =>
     new Set(
@@ -629,33 +629,57 @@ export default function GeneralScreeningPage() {
   );
 
   const applyScreeningRecordToForm = (screeningRecord) => {
-    setHeight(String(screeningRecord?.height ?? "142"));
-    setWeight(String(screeningRecord?.weight ?? "36"));
+    const getMetricValue = (value) => {
+      const normalizedValue = String(value ?? "").trim();
+      return normalizedValue || "0";
+    };
+
+    setHeight(getMetricValue(screeningRecord?.height));
+    setWeight(getMetricValue(screeningRecord?.weight));
     setNotes(
       String(
         screeningRecord?.notes ??
-          screeningRecord?.remark ??
-          screeningRecord?.remarks ??
-          "",
+        screeningRecord?.remark ??
+        screeningRecord?.remarks ??
+        "",
       ),
     );
   };
 
+  const selectedStudentFromFilter = useMemo(() => {
+    const activeId = studentFilter !== "all" ? studentFilter : studentId;
+    if (activeId && Array.isArray(filterPayload?.items)) {
+      return (
+        filterPayload.items.find(
+          (student) =>
+            String(student?.id ?? student?.studentId ?? student?.cus_id) === String(activeId),
+        ) ?? null
+      );
+    }
+    return null;
+  }, [filterPayload?.items, studentFilter, studentId]);
+
   const selectedStudent = useMemo(() => {
-    if (!effectiveFilteredStudents.length) {
-      return null;
+    if (selectedStudentFromFilter) {
+      return selectedStudentFromFilter;
     }
 
-    const explicitSelection = effectiveFilteredStudents.find(
-      (student) => String(student.id ?? student.studentId) === String(studentId),
-    );
+    if (effectiveFilteredStudents.length) {
+      const explicitSelection = effectiveFilteredStudents.find(
+        (student) => String(student.id ?? student.studentId ?? student.cus_id) === String(studentId),
+      );
+      if (explicitSelection) return explicitSelection;
+    }
 
-    return explicitSelection ?? null;
-  }, [effectiveFilteredStudents, studentId]);
-  // const initialScreeningData = selectedStudent
-  //   ? findScreeningRecordByKeys(getStudentKeys(selectedStudent)) ?? null
-  //   : null;
-  
+    if (studentId && Array.isArray(filterPayload?.items)) {
+      const match = filterPayload.items.find(
+        (student) => String(student.id ?? student.studentId ?? student.cus_id) === String(studentId),
+      );
+      if (match) return match;
+    }
+
+    return null;
+  }, [effectiveFilteredStudents, filterPayload?.items, selectedStudentFromFilter, studentId]);
 
   const classOptions = useMemo(() => {
     if (!selectedCampId) {
@@ -673,22 +697,20 @@ export default function GeneralScreeningPage() {
     return ["all", ...getSection];
   }, [getSection, selectedCampId]);
 
-  const selectedStudentKey = String(selectedStudent?.id ?? selectedStudent?.studentId ?? "");
-  const studentSelectValue = effectiveFilteredStudents.some(
-    (student) => String(student.id ?? student.studentId) === selectedStudentKey,
-  )
-    ? selectedStudentKey
-    : "";
+  const selectedStudentKey = String(selectedStudent?.id ?? selectedStudent?.studentId ?? selectedStudent?.cus_id ?? "");
+  const studentSelectValue = selectedStudentKey;
+  const hasSelectedStudent = Boolean(selectedStudent || selectedStudentKey || (studentFilter && studentFilter !== "all") || studentId);
+
   const assessmentStudentOptions = useMemo(
     () =>
       effectiveFilteredStudents.map((student) => {
-        const value = String(student.id ?? student.studentId ?? "");
+        const value = String(student.id ?? student.studentId ?? student.cus_id ?? "");
         const studentCode =
           student.studentId ?? student.student_id ?? student.school_registration_number ?? student.admission_number;
 
         return {
           value,
-          label: `${student.name || "Unknown"}${studentCode ? ` (${studentCode})` : ""}`,
+          label: `${student.name || student.student_name || "Unknown"}${studentCode ? ` (${studentCode})` : ""}`,
         };
       }),
     [effectiveFilteredStudents],
@@ -699,11 +721,11 @@ export default function GeneralScreeningPage() {
     }
 
     return new Set(
-      [studentSelectValue, studentId]
+      [studentSelectValue, studentId, studentFilter]
         .map((value) => String(value ?? "").trim())
-        .filter(Boolean),
+        .filter((val) => val && val !== "all"),
     );
-  }, [selectedStudent, studentId, studentSelectValue]);
+  }, [selectedStudent, studentFilter, studentId, studentSelectValue]);
 
   const getSelectedStudentScreeningData = useMemo(() => {
     if (!selectedStudentKeys.size || !students.length) {
@@ -712,6 +734,16 @@ export default function GeneralScreeningPage() {
 
     return findScreeningRecordByKeys(selectedStudentKeys) ?? null;
   }, [findScreeningRecordByKeys, selectedStudentKeys, students]);
+
+  useEffect(() => {
+    if (getSelectedStudentScreeningData) {
+      applyScreeningRecordToForm(getSelectedStudentScreeningData);
+      return;
+    }
+
+    setHeight("0");
+    setWeight("0");
+  }, [getSelectedStudentScreeningData]);
 
   const studentDob = useMemo(
     () =>
@@ -740,9 +772,9 @@ export default function GeneralScreeningPage() {
     [studentAgeYears, weight],
   );
 
-   const bmi = useMemo(() => calcBmi(height, weight), [height, weight]);
+  const bmi = useMemo(() => calcBmi(height, weight), [height, weight]);
   const category = useMemo(() => bmiCategory(getSelectedStudentScreeningData?.bmi ?? bmi), [getSelectedStudentScreeningData?.bmi, bmi]);
-  console.log(getSelectedStudentScreeningData,"getSelectedStudentScreeningData"); 
+  console.log(getSelectedStudentScreeningData, "getSelectedStudentScreeningData");
   const assessmentForm = useMemo(
     () => ({
       height,
@@ -754,7 +786,7 @@ export default function GeneralScreeningPage() {
     [bmi, getSelectedStudentScreeningData?.bmi, height, notes, weight, bloodGroup],
   );
 
-      
+
 
 
   const handleAssessmentChange = (field, value) => {
@@ -778,32 +810,57 @@ export default function GeneralScreeningPage() {
 
 
   const handleSaveAssessment = () => {
-    const selectedStudentCode =
-      selectedStudent?.studentId ??
-      selectedStudent?.student_id ??
-      selectedStudent?.school_registration_number ??
-      selectedStudent?.admission_number ??
+    const rawStudentId =
       selectedStudent?.id ??
+      selectedStudent?.cus_id ??
+      selectedStudent?.student_id ??
+      selectedStudent?.studentId ??
       studentId;
 
-    const payload = {
-      studentId: selectedStudentCode,
-      assessmentDate,
-      location,
-      examiner,
-      assistant,
-      height,
-      weight,
-      heightStandard: heightStandardResult.standard,
-      weightStandard: weightStandardResult.standard,
-      bloodGroup,
-      allergy,
-      chronicDisease,
-      immunization,
-      notes,
-      bmi,
-      bmiCategory: category.label,
+    const numericStudentId = Number(rawStudentId) || 0;
+    const numericCampId = Number(selectedCampId) || Number(selectedStudent?.camp_id) || 1;
+
+    const bloodGroupIndex = bloodGroupOptions.indexOf(bloodGroup);
+    const bloodGroupId = bloodGroupIndex !== -1 ? bloodGroupIndex + 1 : 0;
+
+    const allergyIndex = allergyOptions.indexOf(allergy);
+    const allergyId = allergyIndex !== -1 ? allergyIndex : null;
+
+    const chronicDiseaseIndex = chronicDiseaseOptions.indexOf(chronicDisease);
+    const chronicDiseaseId = chronicDiseaseIndex !== -1 ? chronicDiseaseIndex : null;
+
+    const immunizationMap = { up_to_date: 1, partial: 2, overdue: 3 };
+    const immunizationId = immunizationMap[immunization] || 1;
+
+    const standardMap = { "Below Average": 1, "Average": 2, "Above Average": 3 };
+    const heightStandardId = standardMap[heightStandardResult?.standard] || 2;
+    const weightStandardId = standardMap[weightStandardResult?.standard] || 2;
+
+    const numHeight = Number(height) || 0;
+    const numWeight = Number(weight) || 0;
+    const bmiCategoryMap = {
+      "Underweight": 1,
+      "Normal": 2,
+      "Overweight": 3,
+      "Obese": 4,
     };
+    const bmiCategoryId = bmiCategoryMap[category?.label] || 2;
+
+    const payload = {
+      student_id: numericStudentId,
+      camp_id: numericCampId,
+      blood_group_id: bloodGroupId,
+      allergy_id: allergyId === 0 ? null : allergyId,
+      chronic_disease_id: chronicDiseaseId === 0 ? null : chronicDiseaseId,
+      immunization_id: immunizationId,
+      height: numHeight,
+      weight: numWeight,
+      height_standard_id: heightStandardId,
+      weight_standard_id: weightStandardId,
+      bmi_category_id: bmiCategoryId,
+    };
+    console.log(payload,"payload");
+    
 
     const existingRecordId =
       getSelectedStudentScreeningData?.id ??
@@ -844,25 +901,25 @@ export default function GeneralScreeningPage() {
 
   return (
     <section className="space-y-4 ">
-        <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-4 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
-          <div>
-            <div className="flex items-center gap-2 py-3">
-              <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary aspect-square">
-                <Cross className="size-6" />
-              </div>
+      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-4 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
+        <div>
+          <div className="flex items-center gap-2 py-3">
+            <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary aspect-square">
+              <Cross className="size-6" />
+            </div>
 
-              <div>
-                <h1 className="text-2xl font-semibold tracking-tight">
-                  General Screening
-                </h1>
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight">
+                General Screening
+              </h1>
 
-                <p className="text-sm text-muted-foreground">
-                  General health screening and assessment
-                </p>
+              <p className="text-sm text-muted-foreground">
+                General health screening and assessment
+              </p>
 
-                
 
-                {/* <p className="text-xs text-muted-foreground">
+
+              {/* <p className="text-xs text-muted-foreground">
                   {studentsLoading
                     ? "Loading students..."
                     : studentsError
@@ -871,84 +928,84 @@ export default function GeneralScreeningPage() {
                         ? `Student: ${selectedStudent.name}`
                         : ""}
                 </p> */}
-              </div>
             </div>
           </div>
-
-          <div className="flex flex-wrap gap-2 md:flex-nowrap">
-            <CampStudentSelectorDrawer
-              open={isCaDrawerOpen}
-              onOpenChange={setIsCaDrawerOpen}
-              studentsLoading={studentsLoading}
-              studentsError={studentsError}
-              campsLoading={getData.campsLoading}
-              campsQueryError={getData.campsQueryError}
-              studentCampLoading={getData.studentCampLoading}
-              studentCampQueryError={getData.studentCampQueryError}
-              selectedCampId={selectedCampId}
-              onCampChange={(value) => {
-                setSelectedCampId(value);
-                setAcademicYear("");
-                setSelectedClassFilter("all");
-                setSelectedSectionFilter("all");
-                setStudentId("");
-              }}
-              campOptions={campOptions}
-              academicYears={academicYears}
-              activeAcademicYear={activeAcademicYear}
-              onAcademicYearChange={(value) => {
-                setAcademicYear(value);
-                setSelectedClassFilter("all");
-                setSelectedSectionFilter("all");
-                setStudentId("");
-              }}
-              classOptions={classOptions}
-              selectedClassFilter={selectedClassFilter}
-              onClassChange={(value) => {
-                setSelectedClassFilter(value);
-                setSelectedSectionFilter("all");
-                setStudentId("");
-              }}
-              sectionOptions={sectionOptions}
-              selectedSectionFilter={selectedSectionFilter}
-              onSectionChange={(value) => {
-                setSelectedSectionFilter(value);
-                setStudentId("");
-              }}
-              studentSelectValue={studentSelectValue}
-              onStudentChange={(value) => {
-                const selectedFromList = filteredStudents.find(
-                  (student) => String(student.id ?? student.studentId) === String(value),
-                );
-
-                if (selectedFromList) {
-                  const selectedKeys = getStudentKeys(selectedFromList);
-                  const screeningRecord = findScreeningRecordByKeys(selectedKeys);
-                  applyScreeningRecordToForm(screeningRecord);
-                }
-
-                setStudentId(value);
-                setIsCaDrawerOpen(false);
-              }}
-              filteredStudents={filteredStudents}
-              normalizedCampStudents={normalizedCampStudents}
-            />
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCancelAssessment}
-            >
-              Save & Exit
-            </Button>
-
-            <Button type="button" onClick={handleSaveAssessment}>
-              <Save className="size-4" />
-              Save & Next
-            </Button>
-          </div>
         </div>
-        <>
+
+        <div className="flex flex-wrap gap-2 md:flex-nowrap">
+          <CampStudentSelectorDrawer
+            open={isCaDrawerOpen}
+            onOpenChange={setIsCaDrawerOpen}
+            studentsLoading={studentsLoading}
+            studentsError={studentsError}
+            campsLoading={getData.campsLoading}
+            campsQueryError={getData.campsQueryError}
+            studentCampLoading={getData.studentCampLoading}
+            studentCampQueryError={getData.studentCampQueryError}
+            selectedCampId={selectedCampId}
+            onCampChange={(value) => {
+              setSelectedCampId(value);
+              setAcademicYear("");
+              setSelectedClassFilter("all");
+              setSelectedSectionFilter("all");
+              setStudentId("");
+            }}
+            campOptions={campOptions}
+            academicYears={academicYears}
+            activeAcademicYear={activeAcademicYear}
+            onAcademicYearChange={(value) => {
+              setAcademicYear(value);
+              setSelectedClassFilter("all");
+              setSelectedSectionFilter("all");
+              setStudentId("");
+            }}
+            classOptions={classOptions}
+            selectedClassFilter={selectedClassFilter}
+            onClassChange={(value) => {
+              setSelectedClassFilter(value);
+              setSelectedSectionFilter("all");
+              setStudentId("");
+            }}
+            sectionOptions={sectionOptions}
+            selectedSectionFilter={selectedSectionFilter}
+            onSectionChange={(value) => {
+              setSelectedSectionFilter(value);
+              setStudentId("");
+            }}
+            studentSelectValue={studentSelectValue}
+            onStudentChange={(value) => {
+              const selectedFromList = filteredStudents.find(
+                (student) => String(student.id ?? student.studentId) === String(value),
+              );
+
+              if (selectedFromList) {
+                const selectedKeys = getStudentKeys(selectedFromList);
+                const screeningRecord = findScreeningRecordByKeys(selectedKeys);
+                applyScreeningRecordToForm(screeningRecord);
+              }
+
+              setStudentId(value);
+              setIsCaDrawerOpen(false);
+            }}
+            filteredStudents={filteredStudents}
+            normalizedCampStudents={normalizedCampStudents}
+          />
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleCancelAssessment}
+          >
+            Save & Exit
+          </Button>
+
+          <Button type="button" onClick={handleSaveAssessment}>
+            <Save className="size-4" />
+            Save & Next
+          </Button>
+        </div>
+      </div>
+      <>
         <StudentFilter
           filterPayload={filterPayload}
           isLoading={isLoading}
@@ -987,13 +1044,13 @@ export default function GeneralScreeningPage() {
             setStudentId(value === "all" ? "" : value);
           }}
         />
-        {studentSelectValue?.length > 0 ? (
+        {hasSelectedStudent ? (
           <>
             <StudentProfileCard student={selectedStudent} />
-          <div className="grid gap-4 grid-cols-1 xl:grid-cols-[300px_1fr_320px] ">
+            <div className="grid gap-4 grid-cols-1 xl:grid-cols-[300px_1fr_320px] ">
 
-        {/* ---------------- Left column ---------------- */}
-        {/* <div className="space-y-4">
+              {/* ---------------- Left column ---------------- */}
+              {/* <div className="space-y-4">
           <article className="rounded-xl border border-border bg-card p-4">
             <h3 className="text-sm font-semibold text-foreground">Assessment Details</h3>
 
@@ -1049,273 +1106,273 @@ export default function GeneralScreeningPage() {
             </button>
           </div>
         </div> */}
-        <AssessmentCard
-          onChange={handleAssessmentChange}
-          form={assessmentForm}
-          data={getSelectedStudentScreeningData}
-          studentOptions={assessmentStudentOptions}
-          studentValue={studentSelectValue}
-          isScreeningLoading={studentsLoading || getData.studentCampLoading}
-          isScreeningError={studentsError || getData.studentCampQueryError}
-          isScreening={true}
-          onStudentChange={(value) => {
-            const selectedFromList = filteredStudents.find(
-              (student) => String(student.id ?? student.studentId) === String(value),
-            );
+              <AssessmentCard
+                onChange={handleAssessmentChange}
+                form={assessmentForm}
+                data={getSelectedStudentScreeningData}
+                studentOptions={assessmentStudentOptions}
+                studentValue={studentSelectValue}
+                isScreeningLoading={studentsLoading || getData.studentCampLoading}
+                isScreeningError={studentsError || getData.studentCampQueryError}
+                isScreening={true}
+                onStudentChange={(value) => {
+                  const selectedFromList = filteredStudents.find(
+                    (student) => String(student.id ?? student.studentId) === String(value),
+                  );
 
-            if (selectedFromList) {
-              const selectedKeys = getStudentKeys(selectedFromList);
-              const screeningRecord = findScreeningRecordByKeys(selectedKeys);
-              applyScreeningRecordToForm(screeningRecord);
-            }
+                  if (selectedFromList) {
+                    const selectedKeys = getStudentKeys(selectedFromList);
+                    const screeningRecord = findScreeningRecordByKeys(selectedKeys);
+                    applyScreeningRecordToForm(screeningRecord);
+                  }
 
-            setStudentId(value);
-          }}
-          onSave={handleSaveAssessment}
-          onCancel={handleCancelAssessment}
-        />
-        {/* ---------------- Middle column: growth & vitals ---------------- */}
-        <article className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-          {/* Header */}
-          <div className="flex flex-col md:flex-row items-start justify-between gap-2">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary aspect-square">
-                  <Activity className="size-4" />
-                </span>
+                  setStudentId(value);
+                }}
+                onSave={handleSaveAssessment}
+                onCancel={handleCancelAssessment}
+              />
+              {/* ---------------- Middle column: growth & vitals ---------------- */}
+              <article className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+                {/* Header */}
+                <div className="flex flex-col md:flex-row items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary aspect-square">
+                        <Activity className="size-4" />
+                      </span>
 
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground">
-                    Growth & Vitals
-                  </h3>
+                      <div>
+                        <h3 className="text-sm font-semibold text-foreground">
+                          Growth & Vitals
+                        </h3>
 
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Physical measurements and growth assessment
-                  </p>
-                </div>
-              </div>
-            </div>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Physical measurements and growth assessment
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
-            <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
-              Assessment
-            </span>
-          </div>
-
-          {/* Height & Weight */}
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            {/* Height */}
-            <div className="rounded-xl border border-border/70 bg-background p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex size-9 items-center justify-center rounded-lg bg-info/10">
-                  <Ruler className="size-4 text-info" />
+                  <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
+                    Assessment
+                  </span>
                 </div>
 
-                <span className="text-[11px] text-muted-foreground">cm</span>
-              </div>
+                {/* Height & Weight */}
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  {/* Height */}
+                  <div className="rounded-xl border border-border/70 bg-background p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex size-9 items-center justify-center rounded-lg bg-info/10">
+                        <Ruler className="size-4 text-info" />
+                      </div>
 
-              <p className="mt-4 text-xs text-muted-foreground">Height</p>
+                      <span className="text-[11px] text-muted-foreground">cm</span>
+                    </div>
 
-              <div className="mt-1 flex items-end gap-1">
-                <span className="text-2xl font-semibold tracking-tight">
-                  {height || "0 cm"}
-                </span>
+                    <p className="mt-4 text-xs text-muted-foreground">Height</p>
 
-                {/* <span className="mb-1 text-xs text-muted-foreground">cm</span> */}
-              </div>
-            </div>
+                    <div className="mt-1 flex items-end gap-1">
+                      <span className="text-2xl font-semibold tracking-tight">
+                        {height || "0 cm"}
+                      </span>
 
-            {/* Weight */}
-            <div className="rounded-xl border border-border/70 bg-background p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex size-9 items-center justify-center rounded-lg bg-success/10">
-                  <Weight className="size-4 text-success" />
+                      {/* <span className="mb-1 text-xs text-muted-foreground">cm</span> */}
+                    </div>
+                  </div>
+
+                  {/* Weight */}
+                  <div className="rounded-xl border border-border/70 bg-background p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex size-9 items-center justify-center rounded-lg bg-success/10">
+                        <Weight className="size-4 text-success" />
+                      </div>
+
+                      <span className="text-[11px] text-muted-foreground">kg</span>
+                    </div>
+
+                    <p className="mt-4 text-xs text-muted-foreground">Weight</p>
+
+                    <div className="mt-1 flex items-end gap-1">
+                      <span className="text-2xl font-semibold tracking-tight">
+                        {weight || "0 kg"}
+                      </span>
+
+                      {/* <span className="mb-1 text-xs text-muted-foreground">kg</span> */}
+                    </div>
+                  </div>
                 </div>
 
-                <span className="text-[11px] text-muted-foreground">kg</span>
-              </div>
+                {/* Input fields */}
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <NumberField
+                    label="Height"
+                    value={height}
+                    onChange={setHeight}
+                    unit="cm"
+                  />
 
-              <p className="mt-4 text-xs text-muted-foreground">Weight</p>
+                  <NumberField
+                    label="Weight"
+                    value={weight}
+                    onChange={setWeight}
+                    unit="kg"
+                  />
+                </div>
 
-              <div className="mt-1 flex items-end gap-1">
-                <span className="text-2xl font-semibold tracking-tight">
-                  {weight || "0 kg"}
-                </span>
+                {/* Standards */}
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <StandardStatus
+                    label="Height Standard"
+                    value={height || heightStandardResult.standard}
+                    status={heightStandardResult.status}
+                    tone={heightStandardResult.tone}
+                  />
 
-                {/* <span className="mb-1 text-xs text-muted-foreground">kg</span> */}
-              </div>
-            </div>
-          </div>
+                  <StandardStatus
+                    label="Weight Standard"
+                    value={weight || weightStandardResult.standard}
+                    status={weightStandardResult.status}
+                    tone={weightStandardResult.tone}
+                  />
+                </div>
 
-          {/* Input fields */}
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <NumberField
-              label="Height"
-              value={height}
-              onChange={setHeight}
-              unit="cm"
-            />
+                {/* BMI CARD */}
+                <div className="mt-5 overflow-hidden rounded-2xl border border-border/70 bg-background">
+                  {/* BMI Header */}
+                  <div className="flex flex-col md:flex-row items-center justify-between border-b border-border/70 px-4 py-3">
+                    <div>
+                      <h3 className="text-sm font-semibold">Body Mass Index</h3>
 
-            <NumberField
-              label="Weight"
-              value={weight}
-              onChange={setWeight}
-              unit="kg"
-            />
-          </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Calculated from height and weight
+                      </p>
+                    </div>
 
-          {/* Standards */}
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <StandardStatus
-              label="Height Standard"
-              value={height || heightStandardResult.standard}
-              status={heightStandardResult.status}
-              tone={heightStandardResult.tone}
-            />
+                    <div
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${category.tone === "success"
+                        ? "bg-success/10 text-success"
+                        : category.tone === "warning"
+                          ? "bg-warning/10 text-warning"
+                          : category.tone === "destructive"
+                            ? "bg-destructive/10 text-destructive"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                    >
+                      {category.label}
+                    </div>
+                  </div>
 
-            <StandardStatus
-              label="Weight Standard"
-              value={weight || weightStandardResult.standard}
-              status={weightStandardResult.status}
-              tone={weightStandardResult.tone}
-            />
-          </div>
-
-          {/* BMI CARD */}
-          <div className="mt-5 overflow-hidden rounded-2xl border border-border/70 bg-background">
-            {/* BMI Header */}
-            <div className="flex flex-col md:flex-row items-center justify-between border-b border-border/70 px-4 py-3">
-              <div>
-                <h3 className="text-sm font-semibold">Body Mass Index</h3>
-
-                <p className="text-[11px] text-muted-foreground">
-                  Calculated from height and weight
-                </p>
-              </div>
-
-              <div
-                className={`rounded-full px-3 py-1 text-xs font-medium ${
-                  category.tone === "success"
-                    ? "bg-success/10 text-success"
-                    : category.tone === "warning"
-                      ? "bg-warning/10 text-warning"
-                      : category.tone === "destructive"
-                        ? "bg-destructive/10 text-destructive"
-                        : "bg-muted text-muted-foreground"
-                }`}
-              >
-                {category.label}
-              </div>
-            </div>
-
-            {/* BMI Visualization */}
-            {/* <div className="relative px-4 py-5">
+                  {/* BMI Visualization */}
+                  {/* <div className="relative px-4 py-5">
               <BmiGauge  bmi={initialScreeningData?.bmi} category={category} />
             </div> */}
-             {/* BMI Visualization */}
-            <div className="relative px-4 py-5">
-              <BmiGauge bmi={ bmi || getSelectedStudentScreeningData?.bmi}  />
-            </div>
+                  {/* BMI Visualization */}
+                  <div className="relative px-4 py-5">
+                    <BmiGauge bmi={bmi || getSelectedStudentScreeningData?.bmi} />
+                  </div>
 
-            {/* BMI Details */}
-            <div className="grid grid-cols-3 divide-x divide-border/70 border-t border-border/70">
-              <div className="p-4 text-center">
-                <p className="text-[11px] text-muted-foreground">BMI</p>
+                  {/* BMI Details */}
+                  <div className="grid grid-cols-3 divide-x divide-border/70 border-t border-border/70">
+                    <div className="p-4 text-center">
+                      <p className="text-[11px] text-muted-foreground">BMI</p>
 
-                <p className="mt-1 text-lg font-semibold">
-                  {Number.isFinite(Number(getSelectedStudentScreeningData?.bmi))
-                    ? Number(getSelectedStudentScreeningData?.bmi).toFixed(1)
-                    : "0.0"}
-                </p>
+                      <p className="mt-1 text-lg font-semibold">
+                        {bmi || getSelectedStudentScreeningData?.bmi || 0.0}
+                        {/* {Number.isFinite(Number(getSelectedStudentScreeningData?.bmi))
+                          ? Number(getSelectedStudentScreeningData?.bmi).toFixed(1)
+                          : "0.0"} */}
+                      </p>
+                    </div>
+
+                    <div className="p-4 text-center">
+                      <p className="text-[11px] text-muted-foreground">Height</p>
+
+                      <p className="mt-1 text-sm font-semibold">
+                        {getSelectedStudentScreeningData?.height ? `${getSelectedStudentScreeningData.height} ` : "0 cm"}
+                      </p>
+                    </div>
+
+                    <div className="p-4 text-center">
+                      <p className="text-[11px] text-muted-foreground">Weight</p>
+
+                      <p className="mt-1 text-sm font-semibold">
+                        {getSelectedStudentScreeningData?.weight ? `${getSelectedStudentScreeningData.weight}` : "0 kg"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Clinical interpretation */}
+                <div className="mt-4 flex items-start gap-3 rounded-xl border border-success/20 bg-success/5 p-3">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-success/10">
+                    <Activity className="size-4 text-success" />
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">
+                      Growth assessment
+                    </p>
+
+                    <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                      Height, weight and BMI are currently within the expected range
+                      for this assessment.
+                    </p>
+                  </div>
+                </div>
+              </article>
+
+              {/* ---------------- Right column: health profile ---------------- */}
+              <div className="space-y-4">
+                <article className="space-y-4 rounded-xl border border-border bg-card p-4">
+                  <ToggleGroup
+                    label="Blood Group"
+                    options={bloodGroupToggleOptions}
+                    value={bloodGroup}
+                    onChange={setBloodGroup}
+                    columns={8}
+                  />
+                  <ToggleGroup
+                    label="Immunization Status"
+                    options={immunizationOptions}
+                    value={immunization}
+                    onChange={setImmunization}
+                    columns={3}
+                  />
+                </article>
+
+                <article className="rounded-xl border border-border bg-card p-4">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Health History
+                  </h3>
+                  <div className="mt-3 space-y-3">
+                    <SelectField
+                      label="Allergy"
+                      options={allergyOptions}
+                      value={allergy}
+                      onChange={setAllergy}
+                    />
+                    <SelectField
+                      label="Chronic Disease"
+                      options={chronicDiseaseOptions}
+                      value={chronicDisease}
+                      onChange={setChronicDisease}
+                    />
+                  </div>
+                </article>
+
+                <article className="rounded-xl border border-border bg-card p-4">
+                  <h3 className="text-sm font-semibold text-foreground">Notes</h3>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={4}
+                    placeholder="Enter notes"
+                    className="mt-3 w-full resize-none rounded-md border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  />
+                </article>
               </div>
-
-              <div className="p-4 text-center">
-                <p className="text-[11px] text-muted-foreground">Height</p>
-
-                <p className="mt-1 text-sm font-semibold">
-                  {getSelectedStudentScreeningData?.height ? `${getSelectedStudentScreeningData.height} ` : "0 cm"}
-                </p>
-              </div>
-
-              <div className="p-4 text-center">
-                <p className="text-[11px] text-muted-foreground">Weight</p>
-
-                <p className="mt-1 text-sm font-semibold">
-                  {getSelectedStudentScreeningData?.weight ? `${getSelectedStudentScreeningData.weight}` : "0 kg"}
-                </p>
-              </div>
             </div>
-          </div>
-
-          {/* Clinical interpretation */}
-          <div className="mt-4 flex items-start gap-3 rounded-xl border border-success/20 bg-success/5 p-3">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-success/10">
-              <Activity className="size-4 text-success" />
-            </div>
-
-            <div>
-              <p className="text-xs font-semibold text-foreground">
-                Growth assessment
-              </p>
-
-              <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-                Height, weight and BMI are currently within the expected range
-                for this assessment.
-              </p>
-            </div>
-          </div>
-        </article>
-
-        {/* ---------------- Right column: health profile ---------------- */}
-        <div className="space-y-4">
-          <article className="space-y-4 rounded-xl border border-border bg-card p-4">
-            <ToggleGroup
-              label="Blood Group"
-              options={bloodGroupToggleOptions}
-              value={bloodGroup}
-              onChange={setBloodGroup}
-              columns={8}
-            />
-            <ToggleGroup
-              label="Immunization Status"
-              options={immunizationOptions}
-              value={immunization}
-              onChange={setImmunization}
-              columns={3}
-            />
-          </article>
-
-          <article className="rounded-xl border border-border bg-card p-4">
-            <h3 className="text-sm font-semibold text-foreground">
-              Health History
-            </h3>
-            <div className="mt-3 space-y-3">
-              <SelectField
-                label="Allergy"
-                options={allergyOptions}
-                value={allergy}
-                onChange={setAllergy}
-              />
-              <SelectField
-                label="Chronic Disease"
-                options={chronicDiseaseOptions}
-                value={chronicDisease}
-                onChange={setChronicDisease}
-              />
-            </div>
-          </article>
-
-          <article className="rounded-xl border border-border bg-card p-4">
-            <h3 className="text-sm font-semibold text-foreground">Notes</h3>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={4}
-              placeholder="Enter notes"
-              className="mt-3 w-full resize-none rounded-md border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
-            />
-          </article>
-        </div>
-      </div>
           </>
         ) : (
           <div className="rounded-xl border border-dashed border-border bg-card p-6">
@@ -1328,15 +1385,15 @@ export default function GeneralScreeningPage() {
                   variant="outline"
                   onClick={() => setIsCaDrawerOpen(true)}
                 >
-                  <Search  className="size-4" />
+                  <Search className="size-4" />
                   Select Student
                 </Button>
               )}
             />
           </div>
         )}
-        </>
-      
+      </>
+
     </section>
   );
 }

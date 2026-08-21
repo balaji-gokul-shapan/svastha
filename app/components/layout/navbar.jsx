@@ -12,6 +12,8 @@ export function Navbar({ title = "Dashboard" }) {
   const router = useRouter();
   const dispatch = useDispatch();
   const authUser = useSelector((state) => state.auth?.user);
+  console.log(authUser,"authUser");
+  
 
   const displayName = authUser?.label || authUser?.username || "Guest";
   const userInitials = displayName

@@ -78,7 +78,9 @@ export function StudentsCards({ data = [] }) {
                 </span>
                 <div>
                   <p className="font-medium text-foreground">{student.name || "Unknown"}</p>
-                  <p className="text-xs text-muted-foreground">{student.studentId || "No ID"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {student.cus_id ?? student.id ?? student.studentId ?? "No ID"}
+                  </p>
                 </div>
               </div>
               <StatusPill status={student.status} />

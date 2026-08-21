@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -20,6 +20,7 @@ import {
 
 import { useAppDispatch } from "@/lib/hooks";
 import { getDentalScreening } from "@/lib/features/getDentalScreening";
+import { createDentalScreening } from "@/lib/features/registerDentalScreening";
 import CampStudentSelectorDrawer from "@/components/health-checks/camp-student-selector-drawer";
 import { ToggleGroup } from "./toggleGroup";
 import { ToothChartSvg, ToothDetailGraphic } from "./tooth-chart-svg";
@@ -49,7 +50,10 @@ import { ScoreMeter } from "./scoreMeter";
 import { EmptyState } from "@/components/ui/empty-state";
 import ToothIcon from "./toothIcon";
 import StudentProfileCard from "@/app/students/studentProfileCard";
-import { cn } from "../../lib/util"; "../../lib/util";
+import { cn } from "../../lib/util";
+import StudentFilter from "../utilities/studentFilter";
+import { getFilterStudent } from "@/lib/features/getFilterStudent";
+("../../lib/util");
 
 function FieldLabel({ children }) {
   return (
@@ -98,10 +102,10 @@ function formatDate(iso) {
   return Number.isNaN(parsed.getTime())
     ? "--"
     : parsed.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
 }
 
 const TOOTH_STATUS_SET = new Set([
@@ -112,6 +116,7 @@ const TOOTH_STATUS_SET = new Set([
   "sealant",
   "other",
 ]);
+const DEFAULT_ACADEMIC_YEAR = "2026-2027";
 
 function normalizeToothStatus(value) {
   const status = String(value ?? "")
@@ -252,17 +257,6 @@ function buildChartFromCounts(record) {
 export default function DentalAssessmentPage() {
   const dispatch = useAppDispatch();
 
-  const {
-    data: dentalScreeningData = [],
-    isLoading: dentalScreeningLoading,
-    error: dentalScreeningQueryError,
-  } = useQuery({
-    queryKey: ["dental-screening"],
-    queryFn: () => dispatch(getDentalScreening()).unwrap(),
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-  });
-
   const [assessmentDate, setAssessmentDate] = useState("2025-08-05");
   const [location, setLocation] = useState(locationOptions[0]);
   const [examiner, setExaminer] = useState(examinerOptions[0]);
@@ -277,18 +271,57 @@ export default function DentalAssessmentPage() {
   const [otherFindings, setOtherFindings] = useState({ malocclusion: true });
   const [notes, setNotes] = useState("Mild crowding in lower anterior region.");
   const [isCaDrawerOpen, setIsCaDrawerOpen] = useState(false);
-  const [selectedCampId, setSelectedCampId] = useState("");
+  const [selectedCampId, setSelectedCampId] = useState("1");
   const [studentId, setStudentId] = useState("");
-  const [academicYear, setAcademicYear] = useState("");
+  const [academicYear, setAcademicYear] = useState(DEFAULT_ACADEMIC_YEAR);
   const [selectedClassFilter, setSelectedClassFilter] = useState("all");
   const [selectedSectionFilter, setSelectedSectionFilter] = useState("all");
+  const [schoolName, setSchoolName] = useState("all");
+  const [classFilter, setClassFilter] = useState("all");
+  const [sectionFilter, setSectionFilter] = useState("all");
+  const [studentFilter, setStudentFilter] = useState("all");
+
+  const { data: filterPayload, isLoading } = useQuery({
+    queryKey: [
+      "filter-student",
+      schoolName,
+      academicYear,
+      "options",
+    ],
+    queryFn: () =>
+      dispatch(
+        getFilterStudent({
+          all: true,
+          status: "all",
+          schoolName,
+          academicYear,
+          sortBy: "name",
+          sortOrder: "asc",
+          search: "",
+        }),
+      ).unwrap(),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+
+  const {
+    data: dentalScreeningData = [],
+    isLoading: dentalScreeningLoading,
+    error: dentalScreeningQueryError,
+  } = useQuery({
+    queryKey: ["dental-screening", studentId],
+    queryFn: () => dispatch(getDentalScreening({ studentId })).unwrap(),
+    enabled: Boolean(String(studentId).trim()),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
 
   const currentTooth = useMemo(
     () => chart.find((t) => t.number === selectedTooth),
     [chart, selectedTooth],
   );
 
-  const hasDentalRecords = dentalScreeningData.length > 0;
+  // const hasDentalRecords = dentalScreeningData.length > 0;
 
   const getData = useStudentData(selectedCampId);
 
@@ -563,7 +596,7 @@ export default function DentalAssessmentPage() {
     [dentalScreeningData],
   );
 
-  const applyScreeningRecordToForm = (screeningRecord) => {
+  const applyScreeningRecordToForm = useCallback((screeningRecord) => {
     const record = screeningRecord ?? {};
 
     setAssessmentDate(
@@ -578,13 +611,13 @@ export default function DentalAssessmentPage() {
     setGingivalHealth(
       String(
         record?.gingival_health ??
-          gingivalHealthOptions[0]?.value ??
-          "gingivitis",
+        gingivalHealthOptions[0]?.value ??
+        "gingivitis",
       ),
     );
     setPlaque(String(record?.plaque ?? plaqueOptions[0]?.value ?? "mild"));
     setNotes(String(record?.notes ?? record?.remark ?? record?.remarks ?? ""));
-  };
+  }, []);
 
   const syncChartForStudentRecord = useCallback((screeningRecord) => {
     console.log(screeningRecord, "screeningRecord");
@@ -617,6 +650,19 @@ export default function DentalAssessmentPage() {
   }, []);
 
   const selectedStudent = useMemo(() => {
+    const activeStudentId = studentFilter !== "all" ? studentFilter : studentId;
+    const selectedFromFilter = Array.isArray(filterPayload?.items)
+      ? filterPayload.items.find(
+        (student) =>
+          String(student?.id ?? student?.studentId ?? student?.cus_id) ===
+          String(activeStudentId),
+      )
+      : null;
+
+    if (selectedFromFilter) {
+      return selectedFromFilter;
+    }
+
     if (!filteredStudents.length) {
       return null;
     }
@@ -627,13 +673,9 @@ export default function DentalAssessmentPage() {
     );
 
     return explicitSelection ?? filteredStudents[0];
-  }, [filteredStudents, studentId]);
+  }, [filterPayload?.items, filteredStudents, studentFilter, studentId]);
 
-  const studentSelectValue = filteredStudents.some(
-    (student) => String(student.id ?? student.studentId) === String(studentId),
-  )
-    ? String(studentId)
-    : "";
+  const studentSelectValue = selectedStudent && studentId ? String(studentId) : "";
 
   const selectedStudentKeys = useMemo(() => {
     if (selectedStudent) {
@@ -648,16 +690,28 @@ export default function DentalAssessmentPage() {
   }, [selectedStudent, studentId, studentSelectValue]);
 
   const getSelectedStudentScreeningData = useMemo(() => {
-    if (
-      !selectedStudentKeys.size ||
-      !Array.isArray(dentalScreeningData) ||
-      !dentalScreeningData.length
-    ) {
+    if (!studentId || !Array.isArray(dentalScreeningData)) {
       return null;
     }
 
-    return findScreeningRecordByKeys(selectedStudentKeys) ?? null;
-  }, [dentalScreeningData, findScreeningRecordByKeys, selectedStudentKeys]);
+    // The API endpoint is already scoped to /dental-test/student/{studentId}.
+    return dentalScreeningData[0] ?? null;
+  }, [dentalScreeningData, studentId]);
+
+  useEffect(() => {
+    if (!studentId || dentalScreeningLoading) {
+      return;
+    }
+
+    applyScreeningRecordToForm(getSelectedStudentScreeningData);
+    syncChartForStudentRecord(getSelectedStudentScreeningData);
+  }, [
+    dentalScreeningLoading,
+    getSelectedStudentScreeningData,
+    studentId,
+    applyScreeningRecordToForm,
+    syncChartForStudentRecord,
+  ]);
 
   const referralAction =
     getSelectedStudentScreeningData?.referral_action ??
@@ -778,9 +832,9 @@ export default function DentalAssessmentPage() {
       prev.map((tooth) =>
         tooth.number === selectedTooth
           ? {
-              ...tooth,
-              otherNote: value,
-            }
+            ...tooth,
+            otherNote: value,
+          }
           : tooth,
       ),
     );
@@ -804,21 +858,59 @@ export default function DentalAssessmentPage() {
   );
 
   const handleSaveAssessment = () => {
+    const rawStudentId =
+      selectedStudent?.id ??
+      selectedStudent?.cus_id ??
+      selectedStudent?.student_id ??
+      selectedStudent?.studentId ??
+      studentId;
+
+    if (!String(rawStudentId ?? "").trim()) {
+      console.error("Select a student before saving the dental screening.");
+      return;
+    }
+
     const payload = {
-      assessmentDate,
-      location,
-      examiner,
-      assistant,
-      selectedTooth,
-      oralHygiene,
-      gingivalHealth,
+      student_id: Number(rawStudentId) || 0,
+      camp_id:
+        Number(selectedCampId) ||
+        Number(selectedStudent?.camp_id ?? selectedStudent?.campId) ||
+        0,
+      caries_count: quickFindings.caries,
+      other_issues_count: quickFindings.other,
+      healthy_count: quickFindings.healthy,
+      missing_count: quickFindings.missing,
+      oral_hygiene: oralHygiene,
+      gingival_health: gingivalHealth,
       plaque,
-      otherFindings,
+      dental_fluorosis: otherFindings.fluorosis ? "present" : "absent",
+      malocclusion: otherFindings.malocclusion ? "present" : "absent",
+      tooth_wear: otherFindings.toothWear ? "present" : "absent",
+      oral_ulcer: otherFindings.oralUlcer ? "present" : "absent",
+      trauma: otherFindings.trauma ? "present" : "absent",
+      other_findings: otherFindingsOptions
+        .filter(({ id }) => otherFindings[id])
+        .map(({ label }) => label)
+        .join(", "),
       notes,
-      summary,
+      preventive_cleaning: "",
+      preventive_fluoride: "",
+      preventive_education: "",
+      tooth_chart: chart.map((tooth) => ({
+        tooth_number: String(tooth.number),
+        status: String(tooth.status ?? "healthy"),
+        surface: String(tooth.surface ?? ""),
+        severity: String(tooth.severity ?? ""),
+        treatment: String(tooth.treatment ?? ""),
+      })),
     };
 
-    console.log("Save dental assessment:", payload);
+    dispatch(createDentalScreening(payload))
+      .unwrap()
+      .then(() => dispatch(getDentalScreening({ studentId: rawStudentId })))
+      .catch((error) => {
+        console.error("Unable to save dental screening:", error);
+      });
   };
 
   const handleCancelAssessment = () => {
@@ -878,7 +970,7 @@ export default function DentalAssessmentPage() {
             selectedCampId={selectedCampId}
             onCampChange={(value) => {
               setSelectedCampId(value);
-              setAcademicYear("");
+              setAcademicYear(DEFAULT_ACADEMIC_YEAR);
               setSelectedClassFilter("all");
               setSelectedSectionFilter("all");
               setStudentId("");
@@ -942,10 +1034,55 @@ export default function DentalAssessmentPage() {
           </Button>
         </div>
       </div>
+      <StudentFilter
+        filterPayload={filterPayload}
+        isLoading={isLoading}
+        schoolName={schoolName}
+        academicYear={academicYear}
+        classFilter={classFilter}
+        sectionFilter={sectionFilter}
+        studentFilter={studentFilter}
+        onSchoolNameChange={(value) => {
+          setSchoolName(value);
+          setClassFilter("all");
+          setSectionFilter("all");
+          setStudentFilter("all");
+          setStudentId("");
+        }}
+        onAcademicYearChange={(value) => {
+          setAcademicYear(value);
+          setClassFilter("all");
+          setSectionFilter("all");
+          setStudentFilter("all");
+          setStudentId("");
+        }}
+        onClassFilterChange={(value) => {
+          setClassFilter(value);
+          setSectionFilter("all");
+          setStudentFilter("all");
+          setStudentId("");
+        }}
+        onSectionFilterChange={(value) => {
+          setSectionFilter(value);
+          setStudentFilter("all");
+          setStudentId("");
+        }}
+        onStudentFilterChange={(value) => {
+          setStudentFilter(value);
+          setStudentId(value === "all" ? "" : value);
+        }}
+      />
+      {dentalScreeningQueryError ? (
+        <p className="text-sm text-destructive">
+          Unable to load dental screening: {String(
+            dentalScreeningQueryError?.message ?? dentalScreeningQueryError,
+          )}
+        </p>
+      ) : null}
       {studentSelectValue?.length > 0 ? (
         <>
           <StudentProfileCard student={selectedStudent} />
- 
+
           <div className="grid gap-4 grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)_320px]">
             {/* ---------------- Left column ---------------- */}
             {/* <div className="space-y-4">
@@ -1114,209 +1251,211 @@ export default function DentalAssessmentPage() {
             </div>
             {/* ---------------- Middle column: tooth chart ---------------- */}
             <div className="min-w-0 md:min-w-125 space-y-4 rounded-xl border border-border bg-card p-4">
-            <h3 className="text-sm font-semibold text-foreground">
-              Tooth Chart (FDI Notation)
-            </h3>
+              <h3 className="text-sm font-semibold text-foreground">
+                Tooth Chart (FDI Notation)
+              </h3>
 
-            <div className="mt-4">
-              <ToothChartSvg
-                chart={chart}
-                selectedTooth={selectedTooth}
-                quickFindings={quickFindings}
-                onSelectTooth={setSelectedTooth}
-              />
-            </div>
+              <div className="mt-4">
+                <ToothChartSvg
+                  chart={chart}
+                  selectedTooth={selectedTooth}
+                  quickFindings={quickFindings}
+                  onSelectTooth={setSelectedTooth}
+                />
+              </div>
 
-            {currentTooth && (
-              <div className="mt-4 flex flex-col gap-4 rounded-lg border border-border/70 bg-background p-3 sm:flex-row sm:items-center sm:p-4">
-                <div className="flex-1">
-                  <p className="text-xs text-muted-foreground">Current Tooth</p>
-                  <p className="mt-0.5 text-sm font-semibold text-foreground">
-                    Tooth {currentTooth.number}{" "}
-                    <span className="font-normal text-muted-foreground">
-                      ({getToothName(currentTooth.number)})
-                    </span>
-                  </p>
+              {currentTooth && (
+                <div className="mt-4 flex flex-col gap-4 rounded-lg border border-border/70 bg-background p-3 sm:flex-row sm:items-center sm:p-4">
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground">
+                      Current Tooth
+                    </p>
+                    <p className="mt-0.5 text-sm font-semibold text-foreground">
+                      Tooth {currentTooth.number}{" "}
+                      <span className="font-normal text-muted-foreground">
+                        ({getToothName(currentTooth.number)})
+                      </span>
+                    </p>
 
-                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <div>
-                      <FieldLabel>Status</FieldLabel>
-                      <Select
-                        value={String(currentTooth.status ?? "healthy")}
-                        onValueChange={handleSelectedToothStatusChange}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {toothChartLegend.map((item) => (
-                            <SelectItem key={item.value} value={item.value}>
-                              {item.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      <div>
+                        <FieldLabel>Status</FieldLabel>
+                        <Select
+                          value={String(currentTooth.status ?? "healthy")}
+                          onValueChange={handleSelectedToothStatusChange}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {toothChartLegend.map((item) => (
+                              <SelectItem key={item.value} value={item.value}>
+                                {item.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                    <DetailField label="Surface" value={currentTooth.surface} />
-                    <DetailField
-                      label="Severity"
-                      value={currentTooth.severity}
-                    />
-                    <DetailField
-                      label="Treatment"
-                      value={currentTooth.treatment}
-                    />
-                  </div>
-
-                  {currentTooth.status === "other" ? (
-                    <div className="mt-3">
-                      <FieldLabel>Other Finding</FieldLabel>
-                      <input
-                        type="text"
-                        value={String(currentTooth.otherNote ?? "")}
-                        onChange={(event) =>
-                          handleSelectedToothOtherNoteChange(event.target.value)
-                        }
-                        placeholder="Describe the finding"
-                        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+                      <DetailField
+                        label="Surface"
+                        value={currentTooth.surface}
+                      />
+                      <DetailField
+                        label="Severity"
+                        value={currentTooth.severity}
+                      />
+                      <DetailField
+                        label="Treatment"
+                        value={currentTooth.treatment}
                       />
                     </div>
-                  ) : null}
-                </div>
 
-                <ToothDetailGraphic status={currentTooth.status} />
-              </div>
-            )}
-             <div className="grid grid-rows-1 gap-4 pt-4">
-                 <article className="space-y-4 rounded-xl border border-border bg-card p-4">
-                <ToggleGroup
-                  label="Oral Hygiene"
-                  options={oralHygieneOptions}
-                  value={oralHygiene}
-                  onChange={setOralHygiene}
-                />
-                <ToggleGroup
-                  label="Gingival Health"
-                  options={gingivalHealthOptions}
-                  value={gingivalHealth}
-                  onChange={setGingivalHealth}
-                />
-                <ToggleGroup
-                  label="Plaque"
-                  options={plaqueOptions}
-                  value={plaque}
-                  onChange={setPlaque}
-                />
-              </article>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                <article className="space-y-3 rounded-xl border border-border bg-card p-4">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <BookOpen className="size-4 text-primary" />
-                    Care Instructions &amp; Notes
-                  </h3>
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Care Instructions
-                    </p>
-                    <p className="text-sm text-foreground">
-                      {careInstructions}
-                    </p>
+                    {currentTooth.status === "other" ? (
+                      <div className="mt-3">
+                        <FieldLabel>Other Finding</FieldLabel>
+                        <input
+                          type="text"
+                          value={String(currentTooth.otherNote ?? "")}
+                          onChange={(event) =>
+                            handleSelectedToothOtherNoteChange(
+                              event.target.value,
+                            )
+                          }
+                          placeholder="Describe the finding"
+                          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+                        />
+                      </div>
+                    ) : null}
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Notes</p>
-                    <p className="text-sm text-foreground">{sidebarNotes}</p>
-                  </div>
-                  <p className="pt-1 text-xs text-muted-foreground">
-                    Last updated {formatDate(updatedAtValue)}
-                  </p>
+
+                  <ToothDetailGraphic status={currentTooth.status} />
+                </div>
+              )}
+              <div className="grid grid-rows-1 gap-4 pt-4">
+                <article className="space-y-4 rounded-xl border border-border bg-card p-4">
+                  <ToggleGroup
+                    label="Oral Hygiene"
+                    options={oralHygieneOptions}
+                    value={oralHygiene}
+                    onChange={setOralHygiene}
+                  />
+                  <ToggleGroup
+                    label="Gingival Health"
+                    options={gingivalHealthOptions}
+                    value={gingivalHealth}
+                    onChange={setGingivalHealth}
+                  />
+                  <ToggleGroup
+                    label="Plaque"
+                    options={plaqueOptions}
+                    value={plaque}
+                    onChange={setPlaque}
+                  />
                 </article>
-                 <article className="space-y-3 rounded-xl border border-warning/40 bg-warning/5 p-4">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <ShieldAlert className="size-4 text-warning" />
-                    Referral
-                  </h3>
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Recommended Action
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                  <article className="space-y-3 rounded-xl border border-border bg-card p-4">
+                    <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <BookOpen className="size-4 text-primary" />
+                      Care Instructions &amp; Notes
+                    </h3>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Care Instructions
+                      </p>
+                      <p className="text-sm text-foreground">
+                        {careInstructions}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Notes</p>
+                      <p className="text-sm text-foreground">{sidebarNotes}</p>
+                    </div>
+                    <p className="pt-1 text-xs text-muted-foreground">
+                      Last updated {formatDate(updatedAtValue)}
                     </p>
-                    <p className="text-sm font-medium text-foreground">
-                      {referralAction}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Reason</p>
-                    <p className="text-sm font-medium text-foreground">
-                      {referralReason}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Follow-up</p>
-                    <p className="text-sm font-medium text-foreground">
-                      {followUpValue}
-                    </p>
-                  </div>
-                </article>
+                  </article>
+                  <article className="space-y-3 rounded-xl border border-warning/40 bg-warning/5 p-4">
+                    <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <ShieldAlert className="size-4 text-warning" />
+                      Referral
+                    </h3>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Recommended Action
+                      </p>
+                      <p className="text-sm font-medium text-foreground">
+                        {referralAction}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Reason</p>
+                      <p className="text-sm font-medium text-foreground">
+                        {referralReason}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Follow-up</p>
+                      <p className="text-sm font-medium text-foreground">
+                        {followUpValue}
+                      </p>
+                    </div>
+                  </article>
+                </div>
               </div>
-              
-              </div>
-          </div>
-           
+            </div>
 
             {/* ---------------- Right column ---------------- */}
             <div className="space-y-4">
-               <article className="space-y-4 rounded-xl border border-border bg-card p-4">
+              <article className="space-y-4 rounded-xl border border-border bg-card p-4">
                 <h3 className="text-sm font-semibold text-foreground">
                   Risk &amp; Severity
                 </h3>
                 <ScoreMeter label="Risk Score" score={riskScoreValue} />
                 <ScoreMeter label="Severity Score" score={severityScoreValue} />
               </article>
-               <article className="space-y-3 rounded-xl border border-border bg-card p-4">
-                  <h3 className="text-sm font-semibold text-foreground">
-                    Other Findings
-                  </h3>
-                  <div className="mt-3 space-y-2.5">
-                    {otherFindingsOptions.map((opt) => (
-                      <label
-                        key={opt.id}
-                        className="flex items-center gap-2.5 text-sm text-foreground"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={!!otherFindings[opt.id]}
-                          onChange={() => toggleFinding(opt.id)}
-                          className="size-4 accent-primary"
-                        />
-                        {opt.label}
-                      </label>
-                    ))}
-
-                    <div className="pt-1">
-                      <FieldLabel>Others</FieldLabel>
+              <article className="space-y-3 rounded-xl border border-border bg-card p-4">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Other Findings
+                </h3>
+                <div className="mt-3 space-y-2.5">
+                  {otherFindingsOptions.map((opt) => (
+                    <label
+                      key={opt.id}
+                      className="flex items-center gap-2.5 text-sm text-foreground"
+                    >
                       <input
-                        type="text"
-                        placeholder="Enter notes"
-                        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+                        type="checkbox"
+                        checked={!!otherFindings[opt.id]}
+                        onChange={() => toggleFinding(opt.id)}
+                        className="size-4 accent-primary"
                       />
-                    </div>
+                      {opt.label}
+                    </label>
+                  ))}
+
+                  <div className="pt-1">
+                    <FieldLabel>Others</FieldLabel>
+                    <input
+                      type="text"
+                      placeholder="Enter notes"
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+                    />
                   </div>
-                </article>
-            
+                </div>
+              </article>
+
               <article className="rounded-xl border border-border bg-card p-4">
-                  <h3 className="text-sm font-semibold text-foreground">
-                    Notes
-                  </h3>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={4}
-                    className="mt-3 w-full resize-none rounded-md border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
-                  />
-                </article>
+                <h3 className="text-sm font-semibold text-foreground">Notes</h3>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={4}
+                  className="mt-3 w-full resize-none rounded-md border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+                />
+              </article>
             </div>
           </div>
-         
         </>
       ) : (
         <div className="rounded-xl border border-dashed border-border bg-card p-6">

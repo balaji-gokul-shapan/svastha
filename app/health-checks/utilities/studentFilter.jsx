@@ -3,6 +3,25 @@
 import ReusableSelect from "@/components/ui/reusable-select";
 import React, { useMemo } from "react";
 
+const getStudentClass = (student) => {
+  const classValue = student?.Class ?? student?.class;
+
+  if (classValue !== null && classValue !== undefined && String(classValue).trim()) {
+    return String(classValue).trim();
+  }
+
+  return String(student?.grade ?? "").split("-")[0].trim();
+};
+
+const getStudentSection = (student) => {
+  const explicitSection = String(student?.sec ?? student?.section ?? "").trim();
+  if (explicitSection) return explicitSection;
+
+  return String(student?.grade ?? "")
+    .split("-")[1]
+    ?.trim() || "";
+};
+
 const StudentFilter = ({
   isDoctor = true,
   filterPayload,
@@ -88,16 +107,7 @@ const StudentFilter = ({
     const unique = new Set();
 
     studentsBySchoolAndYear.forEach((student) => {
-      const year = String(
-        student?.academic_year ?? student?.academicYear ?? "",
-      ).trim();
-      if (academicYear !== "all" && year && year !== academicYear) {
-        return;
-      }
-
-      const value = String(student?.Class ?? student?.class ?? student?.grade ?? "")
-        .split("-")[0]
-        .trim();
+      const value = getStudentClass(student);
 
       if (value) {
         unique.add(value);
@@ -110,32 +120,17 @@ const StudentFilter = ({
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
         .map((value) => ({ label: value, value })),
     ];
-  }, [academicYear, studentsBySchoolAndYear]);
-
+  }, [studentsBySchoolAndYear]);
   const sectionOptions = useMemo(() => {
     const unique = new Set();
 
     studentsBySchoolAndYear.forEach((student) => {
-      const year = String(
-        student?.academic_year ?? student?.academicYear ?? "",
-      ).trim();
-      if (academicYear !== "all" && year && year !== academicYear) {
-        return;
-      }
-
-      const classValue = String(
-        student?.Class ?? student?.class ?? student?.grade ?? "",
-      )
-        .split("-")[0]
-        .trim();
+      const classValue = getStudentClass(student);
       if (classFilter !== "all" && classValue !== classFilter) {
         return;
       }
 
-      const value =
-        String(student?.sec ?? student?.section ?? student?.grade ?? "")
-          .split("-")[1]
-          ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
+      const value = getStudentSection(student);
 
       if (value) {
         unique.add(value);
@@ -148,32 +143,37 @@ const StudentFilter = ({
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
         .map((value) => ({ label: value, value })),
     ];
-  }, [academicYear, classFilter, studentsBySchoolAndYear]);
+  }, [classFilter, studentsBySchoolAndYear]);
+ const studentOptions = useMemo(() => {
+  const filtered = studentsBySchoolAndYear.filter((student) => {
+    const studentClass = getStudentClass(student);
+    const studentSection = getStudentSection(student);
 
-  const studentOptions = useMemo(() => {
-    const filtered = studentsBySchoolAndYear.filter((student) => {
-      const classValue = String(
-        student?.Class ?? student?.class ?? student?.grade ?? "",
-      )
-        .split("-")[0]
-        .trim();
+    const classMatch =
+      classFilter === "all" ||
+      studentClass === classFilter;
 
-      const sectionValue =
-        String(student?.sec ?? student?.section ?? student?.grade ?? "")
-          .split("-")[1]
-          ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
+    const sectionMatch =
+      sectionFilter === "all" ||
+      studentSection === sectionFilter;
 
-      const classMatch = classFilter === "all" || classValue === classFilter;
-      const sectionMatch =
-        sectionFilter === "all" || sectionValue === sectionFilter;
+    return classMatch && sectionMatch;
+  });
 
-      return classMatch && sectionMatch;
-    });
+  return [
+    {
+      label: "All Students",
+      value: "all",
+    },
 
-    return [
-      { label: "All Students", value: "all" },
-      ...filtered.map((student) => {
-        const value = String(student?.id ?? student?.studentId ?? "").trim();
+    ...filtered
+      .map((student) => {
+        const value = String(
+          student?.id ??
+          student?.studentId ??
+          ""
+        ).trim();
+
         const code =
           student?.studentId ??
           student?.student_id ??
@@ -182,24 +182,30 @@ const StudentFilter = ({
 
         return {
           value,
-          label: `${student?.name || "Unknown"}${code ? ` (${code})` : ""}`,
+          label: `${student?.student_name ?? student?.name ?? "Unknown"}${
+            code ? ` (${code})` : ""
+          }`,
         };
-      }).filter((item) => item.value),
-    ];
-  }, [classFilter, sectionFilter, studentsBySchoolAndYear]);
-
+      })
+      .filter((item) => item.value),
+  ];
+}, [
+  studentsBySchoolAndYear,
+  classFilter,
+  sectionFilter,
+]);
   return (
     <div className={`grid gap-3 sm:grid-cols-2 ${isDoctor ? "xl:grid-cols-5" : "xl:grid-cols-4"}`}>
-      {isDoctor  && (
+      {isDoctor && (
         <ReusableSelect
-        label="School Name"
-        options={schoolOptions}
-        value={schoolName}
-        onChange={onSchoolNameChange}
-        placeholder="Select school"
-        searchPlaceholder="Search school"
-        disabled={isLoading}
-      />
+          label="School Name"
+          options={schoolOptions}
+          value={schoolName}
+          onChange={onSchoolNameChange}
+          placeholder="Select school"
+          searchPlaceholder="Search school"
+          disabled={isLoading}
+        />
       )}
       <ReusableSelect
         label="Academic Year"

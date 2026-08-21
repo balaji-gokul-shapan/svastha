@@ -90,7 +90,11 @@ const columns = [
     accessorKey: "studentId",
     header: "Student ID",
     cell: ({ row }) => {
-      const studentId = row.original.studentId ?? "";
+      const studentId =
+        row.original.cus_id ??
+        row.original.studentId ??
+        row.original.id ??
+        "";
 
       return <TruncatedWithTooltip value={studentId} />;
     },

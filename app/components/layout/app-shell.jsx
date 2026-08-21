@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useSelector } from "react-redux";
 
 import { AppBreadcrumb } from "./app-breadcrumb";
 import { Navbar } from "./navbar";
@@ -11,10 +12,33 @@ const CHROMELESS_ROUTES = ["/login"];
 
 export function AppShell({ children }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const isAuthenticated = useSelector(
+    (state) => state.auth?.isAuthenticated === true,
+  );
+  const [authChecked, setAuthChecked] = React.useState(false);
   const hideChrome = CHROMELESS_ROUTES.some((route) => pathname?.startsWith(route));
+
+  React.useEffect(() => {
+    if (hideChrome) {
+      setAuthChecked(true);
+      return;
+    }
+
+    if (!isAuthenticated) {
+      router.replace("/login");
+      return;
+    }
+
+    setAuthChecked(true);
+  }, [hideChrome, isAuthenticated, router]);
 
   if (hideChrome) {
     return <main className="min-h-screen">{children}</main>;
+  }
+
+  if (!authChecked) {
+    return <main className="min-h-screen" />;
   }
 
   return (

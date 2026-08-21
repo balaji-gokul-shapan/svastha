@@ -7,13 +7,13 @@ import { useSelector } from "react-redux";
 
 const useStudentData = (selectedCampId = "") => {
   const dispatch = useAppDispatch();
- const authUser = useSelector((state) => state.auth?.user);
- console.log(authUser, "authUser in useStudentData");
- const checkDoctor = authUser?.account_type === "doctor" || authUser?.account_type === "admin";
- const checkSchool = authUser?.account_type === "school";
-console.log({checkDoctor, checkSchool});
+  const authUser = useSelector((state) => state.auth?.user);
+  console.log(authUser, "authUser in useStudentData");
+  const checkDoctor = authUser?.account_type === "doctor" || authUser?.account_type === "admin";
+  const checkSchool = authUser?.account_type === "school";
+  console.log({ checkDoctor, checkSchool });
 
- 
+
   const {
     data: campsData = [],
     isLoading: campsLoading,
@@ -37,31 +37,31 @@ console.log({checkDoctor, checkSchool});
     refetchOnWindowFocus: true,
   });
 
-   const studentCampRows = useMemo(() => {
-      if (Array.isArray(studentCampData)) {
-        return studentCampData;
-      }
-  
-      if (Array.isArray(studentCampData?.data)) {
-        return studentCampData.data;
-      }
-  
-      if (studentCampData && typeof studentCampData === "object") {
-        return [studentCampData];
-      }
-  
-      return [];
-    }, [studentCampData]);
+  const studentCampRows = useMemo(() => {
+    if (Array.isArray(studentCampData)) {
+      return studentCampData;
+    }
 
-    const filteredCampRows = useMemo(() => {
+    if (Array.isArray(studentCampData?.data)) {
+      return studentCampData.data;
+    }
+
+    if (studentCampData && typeof studentCampData === "object") {
+      return [studentCampData];
+    }
+
+    return [];
+  }, [studentCampData]);
+
+  const filteredCampRows = useMemo(() => {
     if (!selectedCampId || !studentCampRows.length) {
       return [];
     }
 
     const selectedCampMeta = Array.isArray(campsData)
       ? campsData.find(
-          (camp) => String(camp?.id ?? camp?.campId ?? camp?.camp_id ?? "") === String(selectedCampId),
-        )
+        (camp) => String(camp?.id ?? camp?.campId ?? camp?.camp_id ?? "") === String(selectedCampId),
+      )
       : null;
 
     const selectedSchoolId = String(

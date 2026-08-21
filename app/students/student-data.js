@@ -72,7 +72,7 @@ function slugify(value) {
 }
 
 function getStudentIdentifier(student) {
-  return student?.studentId ?? student?.id ?? null;
+  return student?.cus_id ?? student?.id ?? student?.studentId ?? null;
 }
 
 export function getStudentSlug(student) {

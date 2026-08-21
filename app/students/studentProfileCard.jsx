@@ -92,8 +92,8 @@ const StudentProfileCard = ({ student }) => {
 
   const name = student?.name ?? student?.student_name ?? "Student";
   const studentCode =
-    student?.studentId ??
-    student?.student_id ??
+    student?.cus_id ??
+    student?.id ??
     student?.school_registration_number ??
     student?.admission_number ??
     student?.id ??

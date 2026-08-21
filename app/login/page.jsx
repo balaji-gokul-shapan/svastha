@@ -45,7 +45,16 @@ export default function LoginPage() {
           role: result.role,
           account_type: result.account_type,
           username: result.username,
-          user: result,
+          user: {
+            ...result.user,
+            role: result.role,
+            account_type: result.account_type,
+            username: result.username,
+            label: result.label,
+          },
+          token: result.token,
+          token_type: result.token_type,
+          expires_in: result.expires_in,
           loginAt: result.loginAt,
         }),
       );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -38,10 +38,13 @@ import { Button } from "@/components/ui/button";
 import CampStudentSelectorDrawer from "@/components/health-checks/camp-student-selector-drawer";
 import { useAppDispatch } from "@/lib/hooks";
 import { getVisionScreening } from "@/lib/features/getVisionScreening";
+import { createVisionScreening } from "@/lib/features/registerVisionScreening";
 import useStudentData from "@/components/health-checks/getStudentData";
 import AssessmentCard from "@/app/ui/AssessmentCard";
 import { EmptyState } from "@/components/ui/empty-state";
 import StudentProfileCard from "@/app/students/studentProfileCard";
+import { getFilterStudent } from "@/lib/features/getFilterStudent";
+import StudentFilter from "../utilities/studentFilter";
 
 function FieldLabel({ children }) {
   return (
@@ -193,10 +196,32 @@ export default function VisionScreeningPage() {
   const [lensType, setLensType] = useState(lensTypeOptions[0]);
   const [lensPower, setLensPower] = useState("");
   const [lensRemarks, setLensRemarks] = useState("");
-  const [selectedCampId, setSelectedCampId] = useState("");
+  const [selectedCampId, setSelectedCampId] = useState("1");
   const [academicYear, setAcademicYear] = useState(academicYearOptions[0]);
   const [selectedClassFilter, setSelectedClassFilter] = useState("all");
   const [selectedSectionFilter, setSelectedSectionFilter] = useState("all");
+  const [schoolName, setSchoolName] = useState("all");
+  const [classFilter, setClassFilter] = useState("all");
+  const [sectionFilter, setSectionFilter] = useState("all");
+  const [studentFilter, setStudentFilter] = useState("all");
+
+  const { data: filterPayload, isLoading } = useQuery({
+    queryKey: ["filter-student", schoolName, academicYear, "options"],
+    queryFn: () =>
+      dispatch(
+ getFilterStudent({
+          all: true,
+          status: "all",
+          schoolName,
+          academicYear,
+          sortBy: "name",
+          sortOrder: "asc",
+          search: "",
+        }),
+      ).unwrap(),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
 
   const [referral, setReferral] = useState("no");
   const [adviceSuggestions, setAdviceSuggestions] = useState("");
@@ -207,8 +232,9 @@ export default function VisionScreeningPage() {
     isLoading: visionScreeningLoading,
     error: visionScreeningQueryError,
   } = useQuery({
-    queryKey: ["vision-screening"],
-    queryFn: () => dispatch(getVisionScreening()).unwrap(),
+    queryKey: ["vision-screening", studentId],
+    queryFn: () => dispatch(getVisionScreening({ studentId })).unwrap(),
+    enabled: Boolean(String(studentId).trim()),
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
@@ -348,7 +374,7 @@ export default function VisionScreeningPage() {
   const campOptions = useMemo(() => {
     return camps
       .map((item) => {
-        const value = String(item.id ?? item.campId ?? item.camp_id ?? "");
+        const value = String(item.id ?? item.campId ?? item.camp_id ?? "1");
         const label =
           item.name ??
           item.camp_name ??
@@ -480,7 +506,7 @@ export default function VisionScreeningPage() {
     [visionScreeningData],
   );
 
-  const applyScreeningRecordToForm = (screeningRecord) => {
+  const applyScreeningRecordToForm = useCallback((screeningRecord) => {
     const record = screeningRecord ?? {};
 
     setOd({
@@ -516,7 +542,9 @@ export default function VisionScreeningPage() {
     setColorVisionRemarks(String(record?.color_vision_remarks ?? ""));
 
     setCoverTest(String(record?.cover_test ?? coverTestOptions[0]));
-    setStrabismus(String(record?.strabismus ?? "no"));
+    setStrabismus(
+      record?.strabismus === true || record?.strabismus === "true" ? "yes" : "no",
+    );
     setMuscleBalanceRemarks(String(record?.muscle_balance_remarks ?? ""));
 
     setLids(String(record?.lids ?? lidsOptions[0]));
@@ -530,17 +558,39 @@ export default function VisionScreeningPage() {
     );
     setRefractiveErrorRemarks(String(record?.refractive_error_remarks ?? ""));
 
-    setUsesGlasses(String(record?.uses_glasses_or_lens ?? "no"));
+    setUsesGlasses(
+      record?.uses_glasses_or_lens === true || record?.uses_glasses_or_lens === "true"
+        ? "yes"
+        : "no",
+    );
     setLensType(String(record?.lens_type ?? lensTypeOptions[0]));
     setLensPower(String(record?.lens_power ?? ""));
     setLensRemarks(String(record?.lens_remarks ?? ""));
 
-    setReferral(String(record?.referral ?? "no"));
+    setReferral(
+      record?.referral_to_specialist === true ||
+        record?.referral_to_specialist === "true"
+        ? "yes"
+        : "no",
+    );
     setAdviceSuggestions(String(record?.advice_suggestions ?? ""));
     setFollowUp(String(record?.follow_up ?? followUpOptions[0]));
-  };
+  }, []);
 
   const selectedStudent = useMemo(() => {
+    const activeStudentId = studentFilter !== "all" ? studentFilter : studentId;
+    const selectedFromFilter = Array.isArray(filterPayload?.items)
+      ? filterPayload.items.find(
+          (student) =>
+            String(student?.id ?? student?.studentId ?? student?.cus_id) ===
+            String(activeStudentId),
+        )
+      : null;
+
+    if (selectedFromFilter) {
+      return selectedFromFilter;
+    }
+
     if (!filteredStudents.length) {
       return null;
     }
@@ -551,7 +601,7 @@ export default function VisionScreeningPage() {
     );
 
     return explicitSelection ?? null;
-  }, [filteredStudents, studentId]);
+  }, [filterPayload?.items, filteredStudents, studentFilter, studentId]);
 
   const classOptions = useMemo(() => {
     if (!selectedCampId) {
@@ -572,11 +622,7 @@ export default function VisionScreeningPage() {
   const selectedStudentKey = String(
     selectedStudent?.id ?? selectedStudent?.studentId ?? "",
   );
-  const studentSelectValue = filteredStudents.some(
-    (student) => String(student.id ?? student.studentId) === selectedStudentKey,
-  )
-    ? selectedStudentKey
-    : "";
+  const studentSelectValue = selectedStudentKey || "";
 
   const assessmentStudentOptions = useMemo(
     () =>
@@ -616,60 +662,91 @@ export default function VisionScreeningPage() {
   }, [selectedStudent, studentId, studentSelectValue]);
 
   const getSelectedStudentScreeningData = useMemo(() => {
-    if (
-      !selectedStudentKeys.size ||
-      !Array.isArray(visionScreeningData) ||
-      !visionScreeningData.length
-    ) {
+    if (!studentId || !Array.isArray(visionScreeningData)) {
       return null;
     }
 
-    return findScreeningRecordByKeys(selectedStudentKeys) ?? null;
-  }, [findScreeningRecordByKeys, selectedStudentKeys, visionScreeningData]);
+    // The endpoint is already scoped to /vision-test/student/{studentId}.
+    return visionScreeningData[0] ?? null;
+  }, [studentId, visionScreeningData]);
+
+  useEffect(() => {
+    if (!studentId || visionScreeningLoading) {
+      return;
+    }
+
+    applyScreeningRecordToForm(getSelectedStudentScreeningData);
+  }, [
+    getSelectedStudentScreeningData,
+    studentId,
+    visionScreeningLoading,
+    applyScreeningRecordToForm,
+  ]);
   console.log(
     getSelectedStudentScreeningData,
     "getSelectedStudentScreeningData",
   );
 
   const handleSaveAssessment = () => {
+    const rawStudentId =
+      selectedStudent?.id ??
+      selectedStudent?.cus_id ??
+      selectedStudent?.student_id ??
+      selectedStudent?.studentId ??
+      studentId;
+
+    if (!String(rawStudentId ?? "").trim()) {
+      console.error("Select a student before saving the vision screening.");
+      return;
+    }
+
     const payload = {
-      studentId:
-        selectedStudent?.studentId ??
-        selectedStudent?.student_id ??
-        selectedStudent?.school_registration_number ??
-        selectedStudent?.admission_number ??
-        selectedStudent?.id ??
-        studentId,
-      assessmentDate,
-      location,
-      examiner,
-      assistant,
-      od,
-      os,
-      ou,
-      colorVisionStatus,
-      colorVisionTestType,
-      colorVisionRemarks,
-      coverTest,
-      strabismus,
-      muscleBalanceRemarks,
+      student_id: Number(rawStudentId) || 0,
+      camp_id:
+        Number(selectedCampId) ||
+        Number(selectedStudent?.camp_id ?? selectedStudent?.campId) ||
+        0,
+      od_distance_without: od.distanceWithout,
+      od_near_without: od.nearWithout,
+      od_distance_with: od.distanceWith,
+      od_near_with: od.nearWith,
+      od_remarks: od.remarks,
+      os_distance_without: os.distanceWithout,
+      os_near_without: os.nearWithout,
+      os_distance_with: os.distanceWith,
+      os_near_with: os.nearWith,
+      os_remarks: os.remarks,
+      ou_distance_without: ou.distanceWithout,
+      ou_near_without: ou.nearWithout,
+      ou_distance_with: ou.distanceWith,
+      ou_near_with: ou.nearWith,
+      ou_remarks: ou.remarks,
+      color_vision_status: colorVisionStatus,
+      color_vision_test_type: colorVisionTestType,
+      color_vision_remarks: colorVisionRemarks,
+      cover_test: coverTest,
+      strabismus: strabismus === "yes",
+      muscle_balance_remarks: muscleBalanceRemarks,
       lids,
       conjunctiva,
       cornea,
       pupil,
-      externalOtherFindings,
-      refractiveError,
-      refractiveErrorRemarks,
-      usesGlasses,
-      lensType,
-      lensPower,
-      lensRemarks,
-      referral,
-      adviceSuggestions,
-      followUp,
+      external_other_findings: externalOtherFindings,
+      refractive_error: refractiveError,
+      refractive_error_remarks: refractiveErrorRemarks,
+      uses_glasses_or_lens: usesGlasses === "yes",
+      lens_type: lensType,
+      lens_power: lensPower,
+      lens_remarks: lensRemarks,
+      referral_to_specialist: referral === "yes",
+      advice_suggestions: adviceSuggestions,
+      follow_up: followUp,
     };
 
-    console.log("Save vision assessment:", payload);
+    dispatch(createVisionScreening(payload))
+      .unwrap()
+      .then(() => dispatch(getVisionScreening({ studentId: rawStudentId })))
+      .catch((error) => console.error("Unable to save vision screening:", error));
   };
 
   const handleCancelAssessment = () => {
@@ -810,8 +887,47 @@ export default function VisionScreeningPage() {
           </Button>
         </div>
       </div>
+      <StudentFilter
+          filterPayload={filterPayload}
+          isLoading={isLoading}
+          schoolName={schoolName}
+          academicYear={academicYear}
+          classFilter={classFilter}
+          sectionFilter={sectionFilter}
+          studentFilter={studentFilter}
+          onSchoolNameChange={(value) => {
+            setSchoolName(value);
+            setClassFilter("all");
+            setSectionFilter("all");
+            setStudentFilter("all");
+            setStudentId("");
+          }}
+          onAcademicYearChange={(value) => {
+            setAcademicYear(value);
+            setClassFilter("all");
+            setSectionFilter("all");
+            setStudentFilter("all");
+            setStudentId("");
+          }}
+          onClassFilterChange={(value) => {
+            setClassFilter(value);
+            setSectionFilter("all");
+            setStudentFilter("all");
+            setStudentId("");
+          }}
+          onSectionFilterChange={(value) => {
+            setSectionFilter(value);
+            setStudentFilter("all");
+            setStudentId("");
+          }}
+          onStudentFilterChange={(value) => {
+            setStudentFilter(value);
+            setStudentId(value === "all" ? "" : value);
+          }}
+        />
       {studentSelectValue?.length > 0 ? (
         <>
+          
         <StudentProfileCard student={selectedStudent} />
         <div className="grid gap-4 xl:grid-cols-[300px_1fr_320px]">
           {/* ---------------- Left column ---------------- */}

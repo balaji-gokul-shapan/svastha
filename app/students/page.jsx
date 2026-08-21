@@ -12,7 +12,9 @@ import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { getAllStudent } from "@/lib/features/getAllStudentSlice";
+import { getFilterStudent } from "@/lib/features/getFilterStudent";
 import FileUploadModal from "@/components/students/fileUploadModal";
+import StudentFilter from "../health-checks/utilities/studentFilter";
 
 export default function StudentsPage() {
   const dispatch = useAppDispatch();
@@ -23,6 +25,10 @@ export default function StudentsPage() {
   const [status, setStatus] = React.useState("all");
   const [classFilter, setClassFilter] = React.useState("all");
   const [sectionFilter, setSectionFilter] = React.useState("all");
+  const [schoolName, setSchoolName] = React.useState("all");
+  const [academicYear, setAcademicYear] = React.useState("2026-2027");
+  const [studentId, setStudentId] = React.useState("");
+  const [studentFilter, setStudentFilter] = React.useState("all");
   const [sortBy, setSortBy] = React.useState("name");
   const [sortOrder, setSortOrder] = React.useState("asc");
   const [viewMode, setViewMode] = React.useState("card");
@@ -33,7 +39,6 @@ export default function StudentsPage() {
     const timeoutId = setTimeout(() => {
       setSearch(searchInput.trim());
     }, 400);
-
     return () => {
       clearTimeout(timeoutId);
     };
@@ -66,9 +71,34 @@ export default function StudentsPage() {
   };
 
   const { isFetching } = useQuery({
-    queryKey: ["students", page, limit, search, status, classFilter, sectionFilter, sortBy, sortOrder],
+    queryKey: [
+      "students",
+      page,
+      limit,
+      search,
+      status,
+      schoolName,
+      academicYear,
+      classFilter,
+      sectionFilter,
+      sortBy,
+      sortOrder,
+    ],
     queryFn: () =>
-      dispatch(getAllStudent({ page, limit, search, status, classFilter, sectionFilter, sortBy, sortOrder })).unwrap(),
+      dispatch(
+        getAllStudent({
+          page,
+          limit,
+          search,
+          status,
+          schoolName,
+          academicYear,
+          classFilter,
+          sectionFilter,
+          sortBy,
+          sortOrder,
+        }),
+      ).unwrap(),
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
@@ -79,7 +109,23 @@ export default function StudentsPage() {
   const totalPages = Math.max(1, Math.ceil((total || 0) / limit));
 
   const classOptions = React.useMemo(() => {
-    const classSet = new Set();
+    const classSet = new Set([
+      "Pre-KG",
+      "LKG",
+      "UKG",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+      "11",
+      "12",
+    ]);
 
     rows.forEach((student) => {
       const classValue = String(student?.Class ?? student?.class ?? student?.grade ?? "").trim();
@@ -92,7 +138,7 @@ export default function StudentsPage() {
   }, [rows]);
 
   const sectionOptions = React.useMemo(() => {
-    const sectionSet = new Set();
+    const sectionSet = new Set(["A", "B", "C", "D", "E", "F"]);
 
     rows.forEach((student) => {
       const classValue = String(student?.Class ?? student?.class ?? student?.grade ?? "").trim();
@@ -109,6 +155,25 @@ export default function StudentsPage() {
     return ["all", ...Array.from(sectionSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))];
   }, [classFilter, rows]);
 
+  const { data: filterPayload, isLoading } = useQuery({
+    queryKey: ["filter-student", schoolName, academicYear, "options"],
+    queryFn: () =>
+      dispatch(
+        getFilterStudent({
+          all: true,
+          status: "all",
+          schoolName,
+          academicYear,
+          sortBy: "name",
+          sortOrder: "asc",
+          search: "",
+        }),
+      ).unwrap(),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+
+
   return (
     <section className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -119,7 +184,7 @@ export default function StudentsPage() {
           </p>
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
-          <FileUploadModal/>
+          <FileUploadModal />
           <div className="inline-flex items-center rounded-md border border-border p-1">
             <Button
               type="button"
@@ -194,7 +259,7 @@ export default function StudentsPage() {
           </SelectContent>
         </Select>
       </div> */}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3 rounded-xl border border-border bg-card p-3">
+      {/* <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3 rounded-xl border border-border bg-card p-3">
         <Input
           value={searchInput}
           onChange={(event) => {
@@ -241,8 +306,45 @@ export default function StudentsPage() {
           </SelectContent>
         </Select>
         
-      </div>
-
+      </div> */}
+      <StudentFilter
+        filterPayload={filterPayload}
+        isLoading={isLoading}
+        schoolName={schoolName}
+        academicYear={academicYear}
+        classFilter={classFilter}
+        sectionFilter={sectionFilter}
+        studentFilter={studentFilter}
+        onSchoolNameChange={(value) => {
+          setSchoolName(value);
+          setClassFilter("all");
+          setSectionFilter("all");
+          setStudentFilter("all");
+          setStudentId("");
+        }}
+        onAcademicYearChange={(value) => {
+          setAcademicYear(value);
+          setClassFilter("all");
+          setSectionFilter("all");
+          setStudentFilter("all");
+          setStudentId("");
+        }}
+        onClassFilterChange={(value) => {
+          setClassFilter(value);
+          setSectionFilter("all");
+          setStudentFilter("all");
+          setStudentId("");
+        }}
+        onSectionFilterChange={(value) => {
+          setSectionFilter(value);
+          setStudentFilter("all");
+          setStudentId("");
+        }}
+        onStudentFilterChange={(value) => {
+          setStudentFilter(value);
+          setStudentId(value === "all" ? "" : value);
+        }}
+      />
       {/* <div className="grid gap-2 bg-"></div> */}
 
       {/* <div className="min-h-5 d-none">
@@ -275,7 +377,7 @@ export default function StudentsPage() {
             disabled={page === 1 || isInitialLoading}
           >
             <CircleArrowLeft className="size-4" />
-             Previous
+            Previous
           </Button>
           <Button
             variant="outline"
