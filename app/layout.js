@@ -17,6 +17,22 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "Svastha",
   description: "School Management Program",
+  icons: {
+    icon: [
+      {
+        url: "/logo.svg",
+        type: "image/svg+xml",
+        sizes: "any",
+      },
+      {
+        url: "/logo.svg",
+        type: "image/svg",
+        sizes: "any",
+      },
+    ],
+    shortcut: "/logo.svg",
+    apple: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({ children }) {
