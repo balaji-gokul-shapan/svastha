@@ -9,6 +9,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getStudentSlug } from "./student-data";
+import { getNormaliseName } from "./students-cards";
 
 const statusStyles = {
   Active: "bg-success/15 text-success",
@@ -113,6 +114,15 @@ const columns = [
           <TruncatedWithTooltip value={name} className="font-medium" />
         </div>
       );
+    },
+  },
+  {
+    accessorKey: "gender",
+    header: "Gender",
+    cell: ({ row }) => {
+       const genderValue = getNormaliseName(row.original.gender ?? row.original.Gender ?? "");
+
+      return <TruncatedWithTooltip value={genderValue || "--"} />;
     },
   },
   {

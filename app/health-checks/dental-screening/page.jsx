@@ -1,7 +1,9 @@
 "use client";
+import * as React from "react";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   AlertTriangle,
   BookOpen,
@@ -102,10 +104,10 @@ function formatDate(iso) {
   return Number.isNaN(parsed.getTime())
     ? "--"
     : parsed.toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
 }
 
 const TOOTH_STATUS_SET = new Set([
@@ -176,11 +178,7 @@ function buildChartFromRecord(record) {
     initialToothChart.map((tooth) => [tooth.number, { ...tooth }]),
   );
 
-  console.log(chartSource, "chartSource");
-
   chartSource.forEach((item) => {
-    console.log(item, "item");
-
     const number = Number(
       item?.number ?? item?.toothNumber ?? item?.tooth_number ?? item?.id,
     );
@@ -282,12 +280,7 @@ export default function DentalAssessmentPage() {
   const [studentFilter, setStudentFilter] = useState("all");
 
   const { data: filterPayload, isLoading } = useQuery({
-    queryKey: [
-      "filter-student",
-      schoolName,
-      academicYear,
-      "options",
-    ],
+    queryKey: ["filter-student", schoolName, academicYear, "options"],
     queryFn: () =>
       dispatch(
         getFilterStudent({
@@ -323,260 +316,260 @@ export default function DentalAssessmentPage() {
 
   // const hasDentalRecords = dentalScreeningData.length > 0;
 
-  const getData = useStudentData(selectedCampId);
+  // const getData = useStudentData(selectedCampId);
 
-  const camps = useMemo(
-    () => (Array.isArray(getData.campsData) ? getData.campsData : []),
-    [getData.campsData],
-  );
+  // const camps = useMemo(
+  //   () => (Array.isArray(getData.campsData) ? getData.campsData : []),
+  //   [getData.campsData],
+  // );
 
-  const campOptions = useMemo(() => {
-    return camps
-      .map((item) => {
-        const value = String(item.id ?? item.campId ?? item.camp_id ?? "");
-        const label =
-          item.name ??
-          item.camp_name ??
-          item.title ??
-          item.doctor_name ??
-          (value ? `Camp ${value}` : "");
+  // const campOptions = useMemo(() => {
+  //   return camps
+  //     .map((item) => {
+  //       const value = String(item.id ?? item.campId ?? item.camp_id ?? "");
+  //       const label =
+  //         item.name ??
+  //         item.camp_name ??
+  //         item.title ??
+  //         item.doctor_name ??
+  //         (value ? `Camp ${value}` : "");
 
-        return { value, label: String(label) };
-      })
-      .filter((item) => item.value && item.label);
-  }, [camps]);
+  //       return { value, label: String(label) };
+  //     })
+  //     .filter((item) => item.value && item.label);
+  // }, [camps]);
 
-  const campStudents = useMemo(() => {
-    if (!getData.filteredCampRows.length) {
-      return [];
-    }
+  // const campStudents = useMemo(() => {
+  //   if (!getData.filteredCampRows.length) {
+  //     return [];
+  //   }
 
-    return getData.filteredCampRows.flatMap((row) => {
-      if (Array.isArray(row?.students)) {
-        return row.students;
-      }
+  //   return getData.filteredCampRows.flatMap((row) => {
+  //     if (Array.isArray(row?.students)) {
+  //       return row.students;
+  //     }
 
-      if (Array.isArray(row?.student)) {
-        return row.student;
-      }
+  //     if (Array.isArray(row?.student)) {
+  //       return row.student;
+  //     }
 
-      if (row?.student && typeof row.student === "object") {
-        return [row.student];
-      }
+  //     if (row?.student && typeof row.student === "object") {
+  //       return [row.student];
+  //     }
 
-      if (
-        row &&
-        typeof row === "object" &&
-        (row.student_id || row.studentId || row.school_registration_number)
-      ) {
-        return [row];
-      }
+  //     if (
+  //       row &&
+  //       typeof row === "object" &&
+  //       (row.student_id || row.studentId || row.school_registration_number)
+  //     ) {
+  //       return [row];
+  //     }
 
-      return [];
-    });
-  }, [getData.filteredCampRows]);
+  //     return [];
+  //   });
+  // }, [getData.filteredCampRows]);
 
-  const academicYears = useMemo(() => {
-    const yearSet = new Set();
+  // const academicYears = useMemo(() => {
+  //   const yearSet = new Set();
 
-    campStudents.forEach((student) => {
-      const year = student?.academic_year ?? student?.academicYear ?? "";
-      if (String(year).trim()) {
-        yearSet.add(String(year).trim());
-      }
-    });
+  //   campStudents.forEach((student) => {
+  //     const year = student?.academic_year ?? student?.academicYear ?? "";
+  //     if (String(year).trim()) {
+  //       yearSet.add(String(year).trim());
+  //     }
+  //   });
 
-    return Array.from(yearSet).sort((a, b) =>
-      a.localeCompare(b, undefined, { numeric: true }),
-    );
-  }, [campStudents]);
+  //   return Array.from(yearSet).sort((a, b) =>
+  //     a.localeCompare(b, undefined, { numeric: true }),
+  //   );
+  // }, [campStudents]);
 
-  const activeAcademicYear = useMemo(() => {
-    if (!selectedCampId) {
-      return "";
-    }
+  // const activeAcademicYear = useMemo(() => {
+  //   if (!selectedCampId) {
+  //     return "";
+  //   }
 
-    if (academicYears.includes(academicYear)) {
-      return academicYear;
-    }
+  //   if (academicYears.includes(academicYear)) {
+  //     return academicYear;
+  //   }
 
-    return academicYears[0] ?? "";
-  }, [academicYear, academicYears, selectedCampId]);
+  //   return academicYears[0] ?? "";
+  // }, [academicYear, academicYears, selectedCampId]);
 
-  const classOptions = useMemo(() => {
-    if (!selectedCampId) {
-      return ["all"];
-    }
+  // const classOptions = useMemo(() => {
+  //   if (!selectedCampId) {
+  //     return ["all"];
+  //   }
 
-    const classSet = new Set();
+  //   const classSet = new Set();
 
-    campStudents.forEach((student) => {
-      const year = String(
-        student?.academic_year ?? student?.academicYear ?? "",
-      ).trim();
-      if (activeAcademicYear && year && year !== activeAcademicYear) {
-        return;
-      }
+  //   campStudents.forEach((student) => {
+  //     const year = String(
+  //       student?.academic_year ?? student?.academicYear ?? "",
+  //     ).trim();
+  //     if (activeAcademicYear && year && year !== activeAcademicYear) {
+  //       return;
+  //     }
 
-      const classValue = String(
-        student?.Class ?? student?.class ?? student?.grade ?? "",
-      )
-        .split("-")[0]
-        .trim();
+  //     const classValue = String(
+  //       student?.Class ?? student?.class ?? student?.grade ?? "",
+  //     )
+  //       .split("-")[0]
+  //       .trim();
 
-      if (classValue) {
-        classSet.add(classValue);
-      }
-    });
+  //     if (classValue) {
+  //       classSet.add(classValue);
+  //     }
+  //   });
 
-    return [
-      "all",
-      ...Array.from(classSet).sort((a, b) =>
-        a.localeCompare(b, undefined, { numeric: true }),
-      ),
-    ];
-  }, [activeAcademicYear, campStudents, selectedCampId]);
+  //   return [
+  //     "all",
+  //     ...Array.from(classSet).sort((a, b) =>
+  //       a.localeCompare(b, undefined, { numeric: true }),
+  //     ),
+  //   ];
+  // }, [activeAcademicYear, campStudents, selectedCampId]);
 
-  const sectionOptions = useMemo(() => {
-    if (!selectedCampId) {
-      return ["all"];
-    }
+  // const sectionOptions = useMemo(() => {
+  //   if (!selectedCampId) {
+  //     return ["all"];
+  //   }
 
-    const sectionSet = new Set();
+  //   const sectionSet = new Set();
 
-    campStudents.forEach((student) => {
-      const year = String(
-        student?.academic_year ?? student?.academicYear ?? "",
-      ).trim();
-      if (activeAcademicYear && year && year !== activeAcademicYear) {
-        return;
-      }
+  //   campStudents.forEach((student) => {
+  //     const year = String(
+  //       student?.academic_year ?? student?.academicYear ?? "",
+  //     ).trim();
+  //     if (activeAcademicYear && year && year !== activeAcademicYear) {
+  //       return;
+  //     }
 
-      const classValue = String(
-        student?.Class ?? student?.class ?? student?.grade ?? "",
-      )
-        .split("-")[0]
-        .trim();
-      if (selectedClassFilter !== "all" && classValue !== selectedClassFilter) {
-        return;
-      }
+  //     const classValue = String(
+  //       student?.Class ?? student?.class ?? student?.grade ?? "",
+  //     )
+  //       .split("-")[0]
+  //       .trim();
+  //     if (selectedClassFilter !== "all" && classValue !== selectedClassFilter) {
+  //       return;
+  //     }
 
-      const sectionValue =
-        String(student?.sec ?? student?.section ?? student?.grade ?? "")
-          .split("-")[1]
-          ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
+  //     const sectionValue =
+  //       String(student?.sec ?? student?.section ?? student?.grade ?? "")
+  //         .split("-")[1]
+  //         ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
 
-      if (sectionValue) {
-        sectionSet.add(sectionValue);
-      }
-    });
+  //     if (sectionValue) {
+  //       sectionSet.add(sectionValue);
+  //     }
+  //   });
 
-    return [
-      "all",
-      ...Array.from(sectionSet).sort((a, b) =>
-        a.localeCompare(b, undefined, { numeric: true }),
-      ),
-    ];
-  }, [activeAcademicYear, campStudents, selectedCampId, selectedClassFilter]);
+  //   return [
+  //     "all",
+  //     ...Array.from(sectionSet).sort((a, b) =>
+  //       a.localeCompare(b, undefined, { numeric: true }),
+  //     ),
+  //   ];
+  // }, [activeAcademicYear, campStudents, selectedCampId, selectedClassFilter]);
 
-  const normalizedCampStudents = useMemo(() => {
-    const uniqueStudents = new Map();
+  // const normalizedCampStudents = useMemo(() => {
+  //   const uniqueStudents = new Map();
 
-    campStudents.forEach((student) => {
-      const rawId =
-        student?.id ??
-        student?.studentId ??
-        student?.student_id ??
-        student?.school_registration_number ??
-        student?.admission_number;
+  //   campStudents.forEach((student) => {
+  //     const rawId =
+  //       student?.id ??
+  //       student?.studentId ??
+  //       student?.student_id ??
+  //       student?.school_registration_number ??
+  //       student?.admission_number;
 
-      if (
-        rawId === undefined ||
-        rawId === null ||
-        String(rawId).trim() === ""
-      ) {
-        return;
-      }
+  //     if (
+  //       rawId === undefined ||
+  //       rawId === null ||
+  //       String(rawId).trim() === ""
+  //     ) {
+  //       return;
+  //     }
 
-      const id = String(rawId).trim();
-      const classValue = String(
-        student?.Class ?? student?.class ?? student?.grade ?? "",
-      )
-        .split("-")[0]
-        .trim();
-      const sectionValue =
-        String(student?.sec ?? student?.section ?? student?.grade ?? "")
-          .split("-")[1]
-          ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
+  //     const id = String(rawId).trim();
+  //     const classValue = String(
+  //       student?.Class ?? student?.class ?? student?.grade ?? "",
+  //     )
+  //       .split("-")[0]
+  //       .trim();
+  //     const sectionValue =
+  //       String(student?.sec ?? student?.section ?? student?.grade ?? "")
+  //         .split("-")[1]
+  //         ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
 
-      uniqueStudents.set(id, {
-        ...student,
-        id,
-        studentId:
-          student?.studentId ??
-          student?.student_id ??
-          student?.school_registration_number ??
-          student?.admission_number ??
-          id,
-        name:
-          student?.name ?? student?.student_name ?? student?.studentName ?? "",
-        Class: classValue,
-        sec: sectionValue,
-      });
-    });
+  //     uniqueStudents.set(id, {
+  //       ...student,
+  //       id,
+  //       studentId:
+  //         student?.studentId ??
+  //         student?.student_id ??
+  //         student?.school_registration_number ??
+  //         student?.admission_number ??
+  //         id,
+  //       name:
+  //         student?.name ?? student?.student_name ?? student?.studentName ?? "",
+  //       Class: classValue,
+  //       sec: sectionValue,
+  //     });
+  //   });
 
-    return Array.from(uniqueStudents.values());
-  }, [campStudents]);
+  //   return Array.from(uniqueStudents.values());
+  // }, [campStudents]);
 
-  const filteredStudents = useMemo(() => {
-    if (!selectedCampId) {
-      return [];
-    }
+  // const filteredStudents = useMemo(() => {
+  //   if (!selectedCampId) {
+  //     return [];
+  //   }
 
-    return normalizedCampStudents.filter((student) => {
-      const year = String(
-        student?.academic_year ?? student?.academicYear ?? "",
-      ).trim();
-      const classValue = String(
-        student?.Class ?? student?.class ?? student?.grade ?? "",
-      )
-        .split("-")[0]
-        .trim();
-      const sectionValue =
-        String(student?.sec ?? student?.section ?? student?.grade ?? "")
-          .split("-")[1]
-          ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
+  //   return normalizedCampStudents.filter((student) => {
+  //     const year = String(
+  //       student?.academic_year ?? student?.academicYear ?? "",
+  //     ).trim();
+  //     const classValue = String(
+  //       student?.Class ?? student?.class ?? student?.grade ?? "",
+  //     )
+  //       .split("-")[0]
+  //       .trim();
+  //     const sectionValue =
+  //       String(student?.sec ?? student?.section ?? student?.grade ?? "")
+  //         .split("-")[1]
+  //         ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
 
-      const yearMatch =
-        !activeAcademicYear || !year || year === activeAcademicYear;
-      const classMatch =
-        selectedClassFilter === "all" || classValue === selectedClassFilter;
-      const sectionMatch =
-        selectedSectionFilter === "all" ||
-        sectionValue === selectedSectionFilter;
+  //     const yearMatch =
+  //       !activeAcademicYear || !year || year === activeAcademicYear;
+  //     const classMatch =
+  //       selectedClassFilter === "all" || classValue === selectedClassFilter;
+  //     const sectionMatch =
+  //       selectedSectionFilter === "all" ||
+  //       sectionValue === selectedSectionFilter;
 
-      return yearMatch && classMatch && sectionMatch;
-    });
-  }, [
-    activeAcademicYear,
-    normalizedCampStudents,
-    selectedCampId,
-    selectedClassFilter,
-    selectedSectionFilter,
-  ]);
+  //     return yearMatch && classMatch && sectionMatch;
+  //   });
+  // }, [
+  //   activeAcademicYear,
+  //   normalizedCampStudents,
+  //   selectedCampId,
+  //   selectedClassFilter,
+  //   selectedSectionFilter,
+  // ]);
 
-  const getStudentKeys = (student) =>
-    new Set(
-      [
-        student?.id,
-        student?.studentId,
-        student?.student_id,
-        student?.school_registration_number,
-        student?.admission_number,
-      ]
-        .map((value) => String(value ?? "").trim())
-        .filter(Boolean),
-    );
+  // const getStudentKeys = (student) =>
+  //   new Set(
+  //     [
+  //       student?.id,
+  //       student?.studentId,
+  //       student?.student_id,
+  //       student?.school_registration_number,
+  //       student?.admission_number,
+  //     ]
+  //       .map((value) => String(value ?? "").trim())
+  //       .filter(Boolean),
+  //   );
 
   const findScreeningRecordByKeys = useCallback(
     (keys) =>
@@ -611,8 +604,8 @@ export default function DentalAssessmentPage() {
     setGingivalHealth(
       String(
         record?.gingival_health ??
-        gingivalHealthOptions[0]?.value ??
-        "gingivitis",
+          gingivalHealthOptions[0]?.value ??
+          "gingivitis",
       ),
     );
     setPlaque(String(record?.plaque ?? plaqueOptions[0]?.value ?? "mild"));
@@ -620,8 +613,6 @@ export default function DentalAssessmentPage() {
   }, []);
 
   const syncChartForStudentRecord = useCallback((screeningRecord) => {
-    console.log(screeningRecord, "screeningRecord");
-
     const recordChart = buildChartFromRecord(screeningRecord);
     if (recordChart) {
       setChart(recordChart);
@@ -646,41 +637,81 @@ export default function DentalAssessmentPage() {
 
     setChart(initialToothChart.map((tooth) => ({ ...tooth })));
     setSelectedTooth(16);
-    console.log(countChart, "countChart");
   }, []);
 
+  // const selectedStudent = useMemo(() => {
+  //   const activeStudentId = studentFilter !== "all" ? studentFilter : studentId;
+  //   const selectedFromFilter = Array.isArray(filterPayload?.items)
+  //     ? filterPayload.items.find(
+  //       (student) =>
+  //         String(student?.id ?? student?.studentId ?? student?.cus_id) ===
+  //         String(activeStudentId),
+  //     )
+  //     : null;
+
+  //   if (selectedFromFilter) {
+  //     return selectedFromFilter;
+  //   }
+
+  //   if (!filteredStudents.length) {
+  //     return null;
+  //   }
+
+  //   const explicitSelection = filteredStudents.find(
+  //     (student) =>
+  //       String(student.id ?? student.studentId) === String(studentId),
+  //   );
+
+  //   return explicitSelection ?? filteredStudents[0];
+  // }, [filterPayload?.items, filteredStudents, studentFilter, studentId]);
+  const selectedStudentFromFilter = useMemo(() => {
+    const activeId = studentFilter !== "all" ? studentFilter : studentId;
+    if (activeId && Array.isArray(filterPayload?.items)) {
+      return (
+        filterPayload.items.find(
+          (student) =>
+            String(student?.id ?? student?.studentId ?? student?.cus_id) ===
+            String(activeId),
+        ) ?? null
+      );
+    }
+    return null;
+  }, [filterPayload?.items, studentFilter, studentId]);
+
   const selectedStudent = useMemo(() => {
-    const activeStudentId = studentFilter !== "all" ? studentFilter : studentId;
-    const selectedFromFilter = Array.isArray(filterPayload?.items)
-      ? filterPayload.items.find(
+    if (selectedStudentFromFilter) {
+      return selectedStudentFromFilter;
+    }
+
+    if (studentId && Array.isArray(filterPayload?.items)) {
+      const match = filterPayload.items.find(
         (student) =>
-          String(student?.id ?? student?.studentId ?? student?.cus_id) ===
-          String(activeStudentId),
-      )
-      : null;
-
-    if (selectedFromFilter) {
-      return selectedFromFilter;
+          String(student.id ?? student.studentId ?? student.cus_id) ===
+          String(studentId),
+      );
+      if (match) return match;
     }
 
-    if (!filteredStudents.length) {
-      return null;
-    }
+    return null;
+  }, [filterPayload?.items, selectedStudentFromFilter, studentId]);
 
-    const explicitSelection = filteredStudents.find(
-      (student) =>
-        String(student.id ?? student.studentId) === String(studentId),
-    );
-
-    return explicitSelection ?? filteredStudents[0];
-  }, [filterPayload?.items, filteredStudents, studentFilter, studentId]);
-
-  const studentSelectValue = selectedStudent && studentId ? String(studentId) : "";
+  const selectedStudentKey = String(
+    selectedStudent?.id ?? selectedStudent?.studentId ?? "",
+  );
+  const studentSelectValue = selectedStudentKey || "";
 
   const selectedStudentKeys = useMemo(() => {
-    if (selectedStudent) {
-      return getStudentKeys(selectedStudent);
-    }
+    return new Set(
+      [
+        selectedStudent?.id,
+        selectedStudent?.studentId,
+        selectedStudent?.student_id,
+        selectedStudent?.school_registration_number,
+        selectedStudent?.admission_number,
+      ]
+        .map((value) => String(value ?? "").trim())
+        .filter(Boolean),
+    );
 
     return new Set(
       [studentSelectValue, studentId]
@@ -739,11 +770,6 @@ export default function DentalAssessmentPage() {
     getSelectedStudentScreeningData?.updated_at ??
     getSelectedStudentScreeningData?.updatedAt;
 
-  console.log(
-    getSelectedStudentScreeningData,
-    "getSelectedStudentScreeningData",
-  );
-
   const summary = useMemo(() => {
     const counts = { caries: 0, other: 0, healthy: 0, missing: 0 };
     chart.forEach((t) => {
@@ -795,7 +821,6 @@ export default function DentalAssessmentPage() {
     if (weighted <= 12) return 4;
     return 5;
   }, [quickFindings]);
-  console.log(quickFindings, "quickFindings");
 
   const riskScoreValue = useMemo(() => {
     const value = Number(getSelectedStudentScreeningData?.risk_score);
@@ -832,9 +857,9 @@ export default function DentalAssessmentPage() {
       prev.map((tooth) =>
         tooth.number === selectedTooth
           ? {
-            ...tooth,
-            otherNote: value,
-          }
+              ...tooth,
+              otherNote: value,
+            }
           : tooth,
       ),
     );
@@ -842,19 +867,22 @@ export default function DentalAssessmentPage() {
 
   const assessmentStudentOptions = useMemo(
     () =>
-      filteredStudents.map((student) => {
-        const value = String(student.id ?? student.studentId ?? "");
+      (filterPayload?.items ?? []).map((student) => {
+        const value = String(
+          student.id ?? student.studentId ?? student.cus_id ?? "",
+        );
         const studentCode =
           student.studentId ??
           student.student_id ??
           student.school_registration_number ??
           student.admission_number;
+
         return {
           value,
-          label: `${student.name || "Unknown"}${studentCode ? ` (${studentCode})` : ""}`,
+          label: `${student.name || student.student_name || "Unknown"}${studentCode ? ` (${studentCode})` : ""}`,
         };
       }),
-    [filteredStudents],
+    [filterPayload?.items],
   );
 
   const handleSaveAssessment = () => {
@@ -866,9 +894,10 @@ export default function DentalAssessmentPage() {
       studentId;
 
     if (!String(rawStudentId ?? "").trim()) {
-      console.error("Select a student before saving the dental screening.");
+      toast.error("Select a student before saving the dental screening.");
       return;
     }
+    
 
     const payload = {
       student_id: Number(rawStudentId) || 0,
@@ -907,9 +936,22 @@ export default function DentalAssessmentPage() {
 
     dispatch(createDentalScreening(payload))
       .unwrap()
-      .then(() => dispatch(getDentalScreening({ studentId: rawStudentId })))
+      .then(() => {
+        dispatch(getDentalScreening({ studentId: rawStudentId }));
+
+        toast.success("Dental screening saved successfully", {
+          description: selectedStudent?.name
+            ? `Record saved for ${selectedStudent.name}`
+            : undefined,
+        });
+      })
       .catch((error) => {
         console.error("Unable to save dental screening:", error);
+
+        toast.error("Failed to save dental screening", {
+          description:
+            error?.message ?? "Something went wrong. Please try again.",
+        });
       });
   };
 
@@ -926,9 +968,54 @@ export default function DentalAssessmentPage() {
     setNotes("Mild crowding in lower anterior region.");
   };
 
+  const handleAssessmentStudentChange = React.useCallback((value) => {
+    setStudentId(value);
+  }, []);
+
+  const resetDependentFilters = React.useCallback(() => {
+    setClassFilter("all");
+    setSectionFilter("all");
+    setStudentFilter("all");
+    setStudentId("");
+  }, []);
+
+  const handleSchoolFilterChange = React.useCallback(
+    (value) => {
+      setSchoolName(value);
+      resetDependentFilters();
+    },
+    [resetDependentFilters],
+  );
+
+  const handleAcademicYearFilterChange = React.useCallback(
+    (value) => {
+      setAcademicYear(value);
+      resetDependentFilters();
+    },
+    [resetDependentFilters],
+  );
+
+  const handleClassFilterChange = React.useCallback((value) => {
+    setClassFilter(value);
+    setSectionFilter("all");
+    setStudentFilter("all");
+    setStudentId("");
+  }, []);
+
+  const handleSectionFilterChange = React.useCallback((value) => {
+    setSectionFilter(value);
+    setStudentFilter("all");
+    setStudentId("");
+  }, []);
+
+  const handleStudentFilterChange = React.useCallback((value) => {
+    setStudentFilter(value);
+    setStudentId(value === "all" ? "" : value);
+  }, []);
+
   return (
     <section className="space-y-4">
-      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-4 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
+      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="flex items-center gap-2 py-2">
             <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary aspect-square">
@@ -958,7 +1045,7 @@ export default function DentalAssessmentPage() {
         </div>
 
         <div className="flex flex-wrap gap-2 md:flex-nowrap">
-          <CampStudentSelectorDrawer
+          {/* <CampStudentSelectorDrawer
             open={isCaDrawerOpen}
             onOpenChange={setIsCaDrawerOpen}
             studentsLoading={getData.studentCampLoading}
@@ -1018,7 +1105,7 @@ export default function DentalAssessmentPage() {
             }}
             filteredStudents={filteredStudents}
             normalizedCampStudents={normalizedCampStudents}
-          />
+          /> */}
 
           <Button
             type="button"
@@ -1042,39 +1129,16 @@ export default function DentalAssessmentPage() {
         classFilter={classFilter}
         sectionFilter={sectionFilter}
         studentFilter={studentFilter}
-        onSchoolNameChange={(value) => {
-          setSchoolName(value);
-          setClassFilter("all");
-          setSectionFilter("all");
-          setStudentFilter("all");
-          setStudentId("");
-        }}
-        onAcademicYearChange={(value) => {
-          setAcademicYear(value);
-          setClassFilter("all");
-          setSectionFilter("all");
-          setStudentFilter("all");
-          setStudentId("");
-        }}
-        onClassFilterChange={(value) => {
-          setClassFilter(value);
-          setSectionFilter("all");
-          setStudentFilter("all");
-          setStudentId("");
-        }}
-        onSectionFilterChange={(value) => {
-          setSectionFilter(value);
-          setStudentFilter("all");
-          setStudentId("");
-        }}
-        onStudentFilterChange={(value) => {
-          setStudentFilter(value);
-          setStudentId(value === "all" ? "" : value);
-        }}
+        onSchoolNameChange={handleSchoolFilterChange}
+        onAcademicYearChange={handleAcademicYearFilterChange}
+        onClassFilterChange={handleClassFilterChange}
+        onSectionFilterChange={handleSectionFilterChange}
+        onStudentFilterChange={handleStudentFilterChange}
       />
       {dentalScreeningQueryError ? (
         <p className="text-sm text-destructive">
-          Unable to load dental screening: {String(
+          Unable to load dental screening:{" "}
+          {String(
             dentalScreeningQueryError?.message ?? dentalScreeningQueryError,
           )}
         </p>
@@ -1158,27 +1222,10 @@ export default function DentalAssessmentPage() {
                 data={getSelectedStudentScreeningData}
                 studentOptions={assessmentStudentOptions}
                 studentValue={studentSelectValue}
-                isScreeningLoading={getData.studentCampLoading}
-                isScreeningError={getData.studentCampQueryError}
+                // isScreeningLoading={getData.studentCampLoading}
+                // isScreeningError={getData.studentCampQueryError}
                 // isScreening={true}
-                onStudentChange={(value) => {
-                  const selectedFromList = filteredStudents.find(
-                    (student) =>
-                      String(student.id ?? student.studentId) === String(value),
-                  );
-
-                  if (selectedFromList) {
-                    const selectedKeys = getStudentKeys(selectedFromList);
-                    const screeningRecord =
-                      findScreeningRecordByKeys(selectedKeys);
-                    applyScreeningRecordToForm(screeningRecord);
-                    syncChartForStudentRecord(screeningRecord);
-                  } else {
-                    syncChartForStudentRecord(null);
-                  }
-
-                  setStudentId(value);
-                }}
+                onStudentChange={handleAssessmentStudentChange}
                 onSave={handleSaveAssessment}
                 onCancel={handleCancelAssessment}
               />
@@ -1499,12 +1546,7 @@ function SummaryRow({ icon, label, value }) {
   );
 }
 
-function DetailField({ label, value, capitalize, currentTooth }) {
-  console.log(label, value, capitalize, currentTooth, "DetailField");
-  console.log(toothChartLegend, "toothChartLegend");
-
-  // console.log(chart,"chart");
-
+function DetailField({ label, value, capitalize }) {
   return (
     <div>
       <p className="text-[11px] text-muted-foreground">{label}</p>

@@ -6,7 +6,8 @@ import { LoadingOverlay, TableSkeleton } from "@/components/ui/loading-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StudentsDataTable } from "./students-data-table";
 import { StudentsCards } from "./students-cards";
-import { CircleArrowLeft, CircleArrowRight, LayoutGrid, List, PlusCircle } from "lucide-react";
+import { Pagination } from "@/components/ui/pagination";
+import { LayoutGrid, List, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -19,7 +20,6 @@ import StudentFilter from "../health-checks/utilities/studentFilter";
 export default function StudentsPage() {
   const dispatch = useAppDispatch();
   const [page, setPage] = React.useState(1);
-  const limit = 10;
   const [searchInput, setSearchInput] = React.useState("");
   const [search, setSearch] = React.useState("");
   const [status, setStatus] = React.useState("all");
@@ -32,6 +32,7 @@ export default function StudentsPage() {
   const [sortBy, setSortBy] = React.useState("name");
   const [sortOrder, setSortOrder] = React.useState("asc");
   const [viewMode, setViewMode] = React.useState("card");
+  const limit = viewMode === "card" ? 9 : 10
 
   const { studentData, total, loading, error } = useAppSelector((state) => state.getAllStudent);
 
@@ -70,7 +71,7 @@ export default function StudentsPage() {
     setPage(1);
   };
 
-  const { isFetching } = useQuery({
+  const { isFetching, refetch: refetchStudents } = useQuery({
     queryKey: [
       "students",
       page,
@@ -178,13 +179,13 @@ export default function StudentsPage() {
     <section className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="">
-          <h2 className="font-display text-2xl font-semibold text-foreground">Students</h2>
+          <h2 className="font-sf text-2xl font-bold text-foreground">Students</h2>
           <p className="text-sm text-muted-foreground">
             View student records, grade section, and follow-up status.
           </p>
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
-          <FileUploadModal />
+          <FileUploadModal onSuccess={() => refetchStudents()} />
           <div className="inline-flex items-center rounded-md border border-border p-1">
             <Button
               type="button"
@@ -365,31 +366,12 @@ export default function StudentsPage() {
         {isRefreshing ? <LoadingOverlay label="Updating..." /> : null}
       </div>
 
-      <div className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">
-          Page {page} of {totalPages}
-        </p>
-        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-            disabled={page === 1 || isInitialLoading}
-          >
-            <CircleArrowLeft className="size-4" />
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-            disabled={page >= totalPages || isInitialLoading}
-          >
-            <CircleArrowRight className="size-4" />
-            Next
-          </Button>
-        </div>
-      </div>
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        onChange={setPage}
+        disabled={isInitialLoading}
+      />
     </section>
   );
 }

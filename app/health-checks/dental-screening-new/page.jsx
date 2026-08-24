@@ -93,7 +93,7 @@ export default function DentalAssessmentReportPage({ report = sampleReport }) {
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 sm:p-5">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="font-display text-xl font-semibold text-foreground">Dental Assessment Report</h2>
+            <h2 className="font-sf text-xl font-bold text-foreground">Dental Assessment Report</h2>
             <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${TONE_BADGE_CLASS[overallTone]}`}>
               {overallLabel}
             </span>

@@ -51,19 +51,26 @@ function formatSegment(segment) {
 
 export function AppBreadcrumb() {
   const pathname = usePathname();
-  const segments = pathname.split("/").filter(Boolean);
+  const segments = pathname.split("/").filter(Boolean);  
 
   return (
     <Breadcrumb className="px-4 py-3 sm:px-6">
       <BreadcrumbList>
         <BreadcrumbItem>
-          {segments.length === 0 ? (
-            <BreadcrumbPage>Dashboard</BreadcrumbPage>
+        {segments.length !== 0 && (
+           <Link href="/" className="text-muted-foreground hover:text-foreground transition-colors">
+              Dashboard
+            </Link>
+            
+          )} 
+
+          {/* {segments.length === 0 ? (
+            <BreadcrumbPage>""</BreadcrumbPage>
           ) : (
             <Link href="/" className="text-muted-foreground hover:text-foreground transition-colors">
               Dashboard
             </Link>
-          )}
+          )} */}
         </BreadcrumbItem>
 
         {segments.map((segment, index) => {

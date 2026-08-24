@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 const TONE_ACTIVE_CLASS = {
   good: "border-success bg-success/10 text-success",
   warn: "border-warning bg-warning/10 text-warning-foreground",
@@ -13,7 +15,7 @@ const COLUMN_CLASS = {
   8: "grid-cols-2 sm:grid-cols-4 lg:grid-cols-auto",
 };
 
-export function ToggleGroup({ label, options, value, onChange, columns = 3 }) {
+function ToggleGroupComponent({ label, options, value, onChange, columns = 3 }) {
   return (
     <div>
       <p className="mb-2 text-sm font-semibold text-foreground">{label}</p>
@@ -40,3 +42,6 @@ export function ToggleGroup({ label, options, value, onChange, columns = 3 }) {
     </div>
   );
 }
+
+// Memoized: avoids re-rendering all toggle buttons on unrelated parent updates.
+export const ToggleGroup = memo(ToggleGroupComponent);

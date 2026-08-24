@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 import { cn } from "../../../lib/utils";
 
 const TONE_ACTIVE_CLASS = {
@@ -8,7 +10,7 @@ const TONE_ACTIVE_CLASS = {
   bad: "border-destructive bg-destructive/10 text-destructive",
 };
 
-export function ToggleGroup({ label, options, value, onChange }) {
+function ToggleGroupComponent({ label, options, value, onChange }) {
   return (
     <div>
       <p className="mb-2 text-sm font-semibold text-foreground">{label}</p>
@@ -36,3 +38,6 @@ export function ToggleGroup({ label, options, value, onChange }) {
     </div>
   );
 }
+
+// Memoized: avoids re-rendering all toggle buttons on unrelated parent updates.
+export const ToggleGroup = memo(ToggleGroupComponent);

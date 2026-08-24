@@ -85,7 +85,7 @@ function useMediaQuery(query) {
   return React.useSyncExternalStore(
     (onChange) => {
       if (typeof window === "undefined") {
-        return () => {};
+        return () => { };
       }
 
       const mediaQuery = window.matchMedia(query);
@@ -158,7 +158,7 @@ export function Sidebar() {
             </span>
             <span
               className={cn(
-                "truncate font-display text-xl font-semibold text-[#00A4E3] transition-all tracking-wide  duration-200",
+                "truncate font-sf text-xl font-bold text-[#00A4E3] transition-all tracking-wide  duration-200",
                 isCollapsed ? "max-w-0 opacity-0" : "max-w-32 opacity-100"
               )}
             >
@@ -170,7 +170,7 @@ export function Sidebar() {
         {/* Primary nav */}
         <nav className="flex-1 space-y-1 overflow-y-auto p-2 ">
           {navItems.map((item) => (
-            
+
             <SidebarLink
               key={item.href}
               item={item}

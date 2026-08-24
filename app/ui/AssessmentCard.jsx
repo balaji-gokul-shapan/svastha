@@ -11,6 +11,31 @@ import { Button } from '@/components/ui/button';
 import { DatePicker } from "@/components/ui/date-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileText } from 'lucide-react';
+
+// Memoized so the (potentially large) student options list is only re-rendered
+// when the options or the selected value actually change — not on every
+// keystroke in the screening form.
+const StudentSelectField = React.memo(function StudentSelectField({
+  options,
+  value,
+  onChange,
+}) {
+  return (
+    <Select value={value || undefined} onValueChange={onChange}>
+      <SelectTrigger>
+        <SelectValue placeholder="Select student" />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((item) => (
+          <SelectItem key={item.value} value={String(item.value)}>
+            {item.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+});
+
 const AssessmentCard = ({
   form,
   onChange: handleChange,
@@ -25,8 +50,6 @@ const AssessmentCard = ({
   isScreening = false,
 }) => {
   const [assessmentDate, setAssessmentDate] = React.useState("2026-08-17");
-  console.log(form,"form");
-  
 
   const studentName =
     studentOptions.find((item) => String(item.value) === String(studentValue))?.label ??
@@ -79,18 +102,11 @@ const AssessmentCard = ({
 
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground">Student</label>
-              <Select value={studentValue || undefined} onValueChange={(value) => onStudentChange?.(value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select student" />
-                </SelectTrigger>
-                <SelectContent>
-                  {studentOptions.map((item) => (
-                    <SelectItem key={item.value} value={String(item.value)}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <StudentSelectField
+                options={studentOptions}
+                value={studentValue}
+                onChange={onStudentChange}
+              />
               {/* {!studentValue ? (
                 <p className="text-[11px] text-muted-foreground">{studentName}</p>
               ) : null} */}
@@ -175,7 +191,7 @@ const AssessmentCard = ({
   );
 }
 
-export default AssessmentCard
+export default React.memo(AssessmentCard);
 
 function SummaryItem({ label, value, unit, status }) {
   return (

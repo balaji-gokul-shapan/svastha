@@ -248,4 +248,6 @@ const StudentFilter = ({
   );
 };
 
-export default StudentFilter;
+// Memoized: prevents re-rendering all five selects (and their option lists)
+// on every keystroke in the parent screening form.
+export default React.memo(StudentFilter);

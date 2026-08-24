@@ -20,19 +20,24 @@
 
 :root {
   /* Surfaces */
-  --background: hsl(210 24% 97%);        /* cool paper, not cream */
-  --foreground: hsl(222 47% 11%);        /* ink */
+  --background: hsl(210 24% 97%);
+  /* cool paper, not cream */
+  --foreground: hsl(222 47% 11%);
+  /* ink */
   --card: hsl(0 0% 100%);
   --card-foreground: hsl(222 47% 11%);
   --popover: hsl(0 0% 100%);
   --popover-foreground: hsl(222 47% 11%);
 
   /* Brand */
-  --primary: hsl(217 58% 26%);           /* deep ink-navy */
+  --primary: hsl(217 58% 26%);
+  /* deep ink-navy */
   --primary-foreground: hsl(210 30% 98%);
-  --secondary: hsl(210 22% 93%);         /* light slate panel */
+  --secondary: hsl(210 22% 93%);
+  /* light slate panel */
   --secondary-foreground: hsl(222 47% 15%);
-  --accent: hsl(41 89% 47%);             /* graduation gold — use sparingly */
+  --accent: hsl(41 89% 47%);
+  /* graduation gold — use sparingly */
   --accent-foreground: hsl(222 47% 11%);
 
   /* Muted / supporting */
@@ -58,14 +63,16 @@
 }
 
 .dark {
-  --background: hsl(222 47% 7%);         /* near-navy ink */
+  --background: hsl(222 47% 7%);
+  /* near-navy ink */
   --foreground: hsl(210 24% 92%);
   --card: hsl(222 40% 10%);
   --card-foreground: hsl(210 24% 92%);
   --popover: hsl(222 40% 10%);
   --popover-foreground: hsl(210 24% 92%);
 
-  --primary: hsl(213 62% 64%);           /* lighter blue for contrast on dark */
+  --primary: hsl(213 62% 64%);
+  /* lighter blue for contrast on dark */
   --primary-foreground: hsl(222 47% 9%);
   --secondary: hsl(222 30% 15%);
   --secondary-foreground: hsl(210 24% 92%);
@@ -127,6 +134,8 @@
   --color-info-foreground: var(--info-foreground);
 
   /* Typography — generates font-display / font-body / font-mono */
+
+  --font-sf: 'SF Pro Display', -apple-system, BlinkMacSystemFont, ui-sans-serif, sans-serif;
   --font-display: 'Fraunces', ui-serif, Georgia, serif;
   --font-body: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
@@ -138,14 +147,21 @@
 
   /* Semantic spacing — generates p-xs, gap-md, py-xl, etc. alongside
      Tailwind's default numeric scale (they coexist) */
-  --spacing-xs: 0.5rem;    /* 8px  — tight inline gaps */
-  --spacing-sm: 0.75rem;   /* 12px — form field gaps */
-  --spacing-md: 1.25rem;   /* 20px — card padding */
-  --spacing-lg: 2rem;      /* 32px — section padding, mobile */
-  --spacing-xl: 3.5rem;    /* 56px — section padding, desktop */
-  --spacing-2xl: 5rem;     /* 80px — hero / page-level breathing room */
+  --spacing-xs: 0.5rem;
+  /* 8px  — tight inline gaps */
+  --spacing-sm: 0.75rem;
+  /* 12px — form field gaps */
+  --spacing-md: 1.25rem;
+  /* 20px — card padding */
+  --spacing-lg: 2rem;
+  /* 32px — section padding, mobile */
+  --spacing-xl: 3.5rem;
+  /* 56px — section padding, desktop */
+  --spacing-2xl: 5rem;
+  /* 80px — hero / page-level breathing room */
 
-  --container-max: 84rem;  /* 1344px */
+  --container-max: 84rem;
+  /* 1344px */
 }
 
 /* --------------------------------------------------------------------------
@@ -170,15 +186,19 @@
     transition: background-color 0.2s ease, color 0.2s ease;
   }
 
-  h1, h2, h3, h4 {
-    font-family: var(--font-display);
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-sf);
     color: var(--color-foreground);
     font-weight: 600;
     line-height: 1.2;
     letter-spacing: -0.01em;
   }
 
-  h5, h6 {
+  h5,
+  h6 {
     font-family: var(--font-body);
     font-weight: 600;
     line-height: 1.35;
@@ -186,25 +206,51 @@
   }
 
   /* Fluid type scale — comfortable on a 360px phone through a 1920px monitor */
-  h1 { font-size: clamp(1.75rem, 1.4rem + 1.6vw, 2.75rem); line-height: 1.15; }
-  h2 { font-size: clamp(1.5rem, 1.25rem + 1.1vw, 2.125rem); line-height: 1.2; }
-  h3 { font-size: clamp(1.25rem, 1.1rem + 0.7vw, 1.625rem); line-height: 1.25; }
-  h4 { font-size: clamp(1.125rem, 1.03rem + 0.4vw, 1.3rem); line-height: 1.3; }
-  h5 { font-size: 1.0625rem; }
-  h6 { font-size: 0.9375rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-muted-foreground); }
+  h1 {
+    font-size: clamp(1.75rem, 1.4rem + 1.6vw, 2.75rem);
+    line-height: 1.15;
+  }
+
+  h2 {
+    font-size: clamp(1.5rem, 1.25rem + 1.1vw, 2.125rem);
+    line-height: 1.2;
+  }
+
+  h3 {
+    font-size: clamp(1.25rem, 1.1rem + 0.7vw, 1.625rem);
+    line-height: 1.25;
+  }
+
+  h4 {
+    font-size: clamp(1.125rem, 1.03rem + 0.4vw, 1.3rem);
+    line-height: 1.3;
+  }
+
+  h5 {
+    font-size: 1.0625rem;
+  }
+
+  h6 {
+    font-size: 0.9375rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-muted-foreground);
+  }
 
   p {
     line-height: 1.65;
   }
 
-  small, .text-caption {
+  small,
+  .text-caption {
     font-size: 0.8125rem;
     line-height: 1.5;
     color: var(--color-muted-foreground);
   }
 
   /* Tabular data — grades, IDs, attendance % — always mono, always aligned */
-  code, .tabular-data {
+  code,
+  .tabular-data {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
@@ -215,6 +261,7 @@
     text-decoration: none;
     transition: color 0.15s ease;
   }
+
   a:hover {
     color: var(--color-accent);
   }
@@ -234,24 +281,31 @@
     width: 10px;
     height: 10px;
   }
+
   ::-webkit-scrollbar-track {
     background: var(--color-muted);
   }
+
   ::-webkit-scrollbar-thumb {
     background: var(--color-border);
     border-radius: 999px;
   }
+
   ::-webkit-scrollbar-thumb:hover {
     background: color-mix(in oklch, var(--color-muted-foreground) 40%, transparent);
   }
 
-  img, video {
+  img,
+  video {
     max-width: 100%;
     height: auto;
     display: block;
   }
 
-  input, textarea, select, button {
+  input,
+  textarea,
+  select,
+  button {
     font-family: inherit;
     font-size: 1rem;
   }
@@ -266,7 +320,10 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
+
+    *,
+    *::before,
+    *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
@@ -286,18 +343,27 @@
     margin-inline: auto;
     padding-inline: 1rem;
   }
+
   @media (min-width: 640px) {
-    .container-page { padding-inline: 1.5rem; }
+    .container-page {
+      padding-inline: 1.5rem;
+    }
   }
+
   @media (min-width: 1024px) {
-    .container-page { padding-inline: 2rem; }
+    .container-page {
+      padding-inline: 2rem;
+    }
   }
 
   .section {
     padding-block: var(--spacing-lg);
   }
+
   @media (min-width: 1024px) {
-    .section { padding-block: var(--spacing-xl); }
+    .section {
+      padding-block: var(--spacing-xl);
+    }
   }
 
   .card {
@@ -307,7 +373,7 @@
     border-radius: var(--radius-md);
     padding: var(--spacing-md);
     box-shadow: 0 1px 2px color-mix(in oklch, var(--shadow-color) 6%, transparent),
-                0 1px 1px color-mix(in oklch, var(--shadow-color) 4%, transparent);
+      0 1px 1px color-mix(in oklch, var(--shadow-color) 4%, transparent);
   }
 
   /* Signature mark: a teacher's-pen underline for active/selected states */
@@ -315,6 +381,7 @@
     position: relative;
     display: inline-block;
   }
+
   .signature-underline::after {
     content: '';
     position: absolute;
@@ -331,9 +398,11 @@
   .table-ledger tbody tr:nth-child(even) {
     background-color: color-mix(in oklch, var(--color-muted) 50%, transparent);
   }
+
   .table-ledger tbody tr:hover {
     background-color: color-mix(in oklch, var(--color-accent) 8%, transparent);
   }
+
   .table-ledger th {
     font-family: var(--font-body);
     font-size: 0.75rem;
@@ -344,6 +413,7 @@
     padding: 0.75rem 1rem;
     text-align: left;
   }
+
   .table-ledger td {
     padding: 0.75rem 1rem;
     border-bottom: 1px solid color-mix(in oklch, var(--color-border) 60%, transparent);

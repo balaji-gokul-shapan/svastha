@@ -30,7 +30,7 @@ const Settings = () => {
   return (
     <section className="space-y-5">
       <div>
-        <h2 className="font-display text-2xl font-semibold text-foreground">
+        <h2 className="font-sf text-2xl font-bold text-foreground">
           Settings
         </h2>
         <p className="text-sm text-muted-foreground">

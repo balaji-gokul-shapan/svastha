@@ -148,13 +148,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 /* ============================================================
    DASHBOARD DATA
@@ -472,79 +466,69 @@ const quickLinks = [
   },
 ];
 
-
 /* ============================================================
    MAIN DASHBOARD
 ============================================================ */
 
-export default function StudentOverviewCharts() {
-  return (
-    <main className="min-h-screen bg-muted/20">
-      <div className="mx-auto max-w-[1600px] space-y-5 p-4 md:p-6">
+export default function StudentOverviewCharts({ user }) {
+  console.log(user, "authUser");
 
+  return (
+    <main className="min-h-screen ">
+      <div className=" space-y-5 p-4 md:p-6">
         {/* HEADER */}
-        <DashboardHeader />
+        <DashboardHeader user={user} />
 
         {/* KPI CARDS */}
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {stats.map((item) => (
-            <StatCard
-              key={item.title}
-              {...item}
-            />
+            <StatCard key={item.title} {...item} />
           ))}
         </section>
 
         {/* ROW 1 */}
         <section className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-
           <ScreeningSummary />
 
           <ReferralsByType />
 
           <ReferralsByGrade />
-
         </section>
 
         {/* ROW 2 */}
         <section className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-
           <ReferralTrend />
 
           <TopHealthIssues />
 
           <InsuranceOverview />
-
         </section>
 
         {/* ROW 3 */}
         <section className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-
           <UpcomingFollowUps />
 
           <Alerts />
 
           <QuickLinks />
-
         </section>
-
       </div>
     </main>
   );
 }
 
-
 /* ============================================================
    HEADER
 ============================================================ */
 
-function DashboardHeader() {
+function DashboardHeader({ user }) {
+  const NormaliseName =
+    user.emp_name.charAt(0).toUpperCase() + user.emp_name.slice(1);
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-
       <div>
         <h1 className="text-xl font-bold tracking-tight md:text-2xl">
-          Welcome back, Dr. Ananya Sharma
+          Welcome back, {NormaliseName}
         </h1>
 
         <p className="text-sm text-muted-foreground">
@@ -553,11 +537,7 @@ function DashboardHeader() {
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row">
-
-        <Button
-          variant="outline"
-          className="justify-center gap-2"
-        >
+        <Button variant="outline" className="justify-center gap-2">
           <CalendarDays className="size-4" />
           Today, 20 May 2024
         </Button>
@@ -566,25 +546,16 @@ function DashboardHeader() {
           <FileBarChart className="size-4" />
           Export Report
         </Button>
-
       </div>
     </div>
   );
 }
 
-
 /* ============================================================
    STAT CARD
 ============================================================ */
 
-function StatCard({
-  title,
-  value,
-  subtitle,
-  icon: Icon,
-  trend,
-  tone,
-}) {
+function StatCard({ title, value, subtitle, icon: Icon, trend, tone }) {
   const styles = {
     blue: "bg-blue-500/10 text-blue-600",
     green: "bg-green-500/10 text-green-600",
@@ -597,73 +568,51 @@ function StatCard({
   return (
     <Card className="overflow-hidden transition-shadow hover:shadow-md">
       <CardContent className="p-4">
-
         <div className="flex items-start justify-between gap-3">
-
           <div
             className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${styles[tone]}`}
           >
             <Icon className="size-5" />
           </div>
 
-          <Badge
-            variant="secondary"
-            className="text-[10px]"
-          >
+          <Badge variant="secondary" className="text-[10px]">
             {trend}
           </Badge>
-
         </div>
 
         <div className="mt-4">
+          <p className="text-xs font-medium text-muted-foreground">{title}</p>
 
-          <p className="text-xs font-medium text-muted-foreground">
-            {title}
-          </p>
-
-          <p className="mt-1 text-2xl font-bold tracking-tight">
-            {value}
-          </p>
+          <p className="mt-1 text-2xl font-bold tracking-tight">{value}</p>
 
           <button className="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline">
             {subtitle}
             <ArrowRight className="size-3" />
           </button>
-
         </div>
       </CardContent>
     </Card>
   );
 }
 
-
 /* ============================================================
    SCREENING SUMMARY
 ============================================================ */
 
 function ScreeningSummary() {
-  const total = screeningData.reduce(
-    (sum, item) => sum + item.value,
-    0
-  );
+  const total = screeningData.reduce((sum, item) => sum + item.value, 0);
 
   return (
     <Card className="xl:col-span-1">
       <CardHeader>
-        <CardTitle className="text-sm">
-          Health Screening Summary
-        </CardTitle>
+        <CardTitle className="text-sm">Health Screening Summary</CardTitle>
       </CardHeader>
 
       <CardContent>
-
         <div className="flex flex-col items-center gap-5 sm:flex-row xl:flex-col">
-
           <div className="relative size-44 shrink-0">
-
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-
                 <Pie
                   data={screeningData}
                   dataKey="value"
@@ -674,42 +623,37 @@ function ScreeningSummary() {
                   {screeningData.map((_, index) => (
                     <Cell
                       key={index}
-                      fill={[
-                        "#22c55e",
-                        "#3b82f6",
-                        "#f59e0b",
-                        "#ef4444",
-                        "#8b5cf6",
-                        "#06b6d4",
-                      ][index]}
+                      fill={
+                        [
+                          "#22c55e",
+                          "#3b82f6",
+                          "#f59e0b",
+                          "#ef4444",
+                          "#8b5cf6",
+                          "#06b6d4",
+                        ][index]
+                      }
                     />
                   ))}
                 </Pie>
-
               </PieChart>
             </ResponsiveContainer>
 
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-xl font-bold">
-                11,750
-              </span>
+              <span className="text-xl font-bold">11,750</span>
               <span className="text-[10px] text-muted-foreground">
                 Completed
               </span>
             </div>
-
           </div>
 
           <div className="w-full space-y-2">
-
             {screeningData.map((item, index) => (
               <div
                 key={item.name}
                 className="flex items-center justify-between gap-2 text-xs"
               >
-
                 <div className="flex min-w-0 items-center gap-2">
-
                   <span
                     className="size-2.5 shrink-0 rounded-full"
                     style={{
@@ -724,35 +668,25 @@ function ScreeningSummary() {
                     }}
                   />
 
-                  <span className="truncate">
-                    {item.name}
-                  </span>
-
+                  <span className="truncate">{item.name}</span>
                 </div>
 
                 <span className="shrink-0 text-muted-foreground">
                   {item.percentage}
                 </span>
-
               </div>
             ))}
-
           </div>
-
         </div>
 
         <div className="mt-4 text-xs text-muted-foreground">
           Total Students:{" "}
-          <span className="font-semibold text-foreground">
-            12,540
-          </span>
+          <span className="font-semibold text-foreground">12,540</span>
         </div>
-
       </CardContent>
     </Card>
   );
 }
-
 
 /* ============================================================
    REFERRALS BY TYPE
@@ -762,18 +696,13 @@ function ReferralsByType() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">
-          Referrals by Type
-        </CardTitle>
+        <CardTitle className="text-sm">Referrals by Type</CardTitle>
       </CardHeader>
 
       <CardContent>
-
         <div className="relative mx-auto size-48">
-
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-
               <Pie
                 data={referralData}
                 dataKey="value"
@@ -784,34 +713,29 @@ function ReferralsByType() {
                 {referralData.map((_, index) => (
                   <Cell
                     key={index}
-                    fill={[
-                      "#2563eb",
-                      "#f97316",
-                      "#22c55e",
-                      "#8b5cf6",
-                      "#ef4444",
-                      "#06b6d4",
-                    ][index]}
+                    fill={
+                      [
+                        "#2563eb",
+                        "#f97316",
+                        "#22c55e",
+                        "#8b5cf6",
+                        "#ef4444",
+                        "#06b6d4",
+                      ][index]
+                    }
                   />
                 ))}
               </Pie>
-
             </PieChart>
           </ResponsiveContainer>
 
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-2xl font-bold">
-              486
-            </span>
-            <span className="text-xs text-muted-foreground">
-              Total
-            </span>
+            <span className="text-2xl font-bold">486</span>
+            <span className="text-xs text-muted-foreground">Total</span>
           </div>
-
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2">
-
           {referralData.map((item, index) => (
             <div
               key={item.name}
@@ -834,21 +758,16 @@ function ReferralsByType() {
                 {item.name}
               </div>
 
-              <span className="text-muted-foreground">
-                {item.value}
-              </span>
+              <span className="text-muted-foreground">{item.value}</span>
             </div>
           ))}
-
         </div>
 
         <ViewLink text="View all referrals" />
-
       </CardContent>
     </Card>
   );
 }
-
 
 /* ============================================================
    REFERRALS BY GRADE
@@ -858,25 +777,17 @@ function ReferralsByGrade() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">
-          Referrals by Grade
-        </CardTitle>
+        <CardTitle className="text-sm">Referrals by Grade</CardTitle>
       </CardHeader>
 
       <CardContent>
-
         <div className="grid grid-cols-2 gap-3">
-
           {gradeData.map((item) => {
-
             const tone = {
               red: "border-red-500/20 bg-red-500/5 text-red-600",
-              orange:
-                "border-orange-500/20 bg-orange-500/5 text-orange-600",
-              yellow:
-                "border-yellow-500/20 bg-yellow-500/5 text-yellow-600",
-              green:
-                "border-green-500/20 bg-green-500/5 text-green-600",
+              orange: "border-orange-500/20 bg-orange-500/5 text-orange-600",
+              yellow: "border-yellow-500/20 bg-yellow-500/5 text-yellow-600",
+              green: "border-green-500/20 bg-green-500/5 text-green-600",
             };
 
             return (
@@ -884,34 +795,23 @@ function ReferralsByGrade() {
                 key={item.grade}
                 className={`rounded-xl border p-4 text-center ${tone[item.tone]}`}
               >
-                <p className="text-xs font-semibold">
-                  {item.grade}
-                </p>
+                <p className="text-xs font-semibold">{item.grade}</p>
 
-                <p className="mt-1 text-[10px] opacity-80">
-                  {item.level}
-                </p>
+                <p className="mt-1 text-[10px] opacity-80">{item.level}</p>
 
-                <p className="mt-2 text-2xl font-bold">
-                  {item.value}
-                </p>
+                <p className="mt-2 text-2xl font-bold">{item.value}</p>
 
-                <p className="mt-1 text-[10px] opacity-80">
-                  {item.percentage}
-                </p>
+                <p className="mt-1 text-[10px] opacity-80">{item.percentage}</p>
               </div>
             );
           })}
-
         </div>
 
         <ViewLink text="View grade details" />
-
       </CardContent>
     </Card>
   );
 }
-
 
 /* ============================================================
    REFERRAL TREND
@@ -921,20 +821,15 @@ function ReferralTrend() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-sm">
-          Referrals Trend
-        </CardTitle>
+        <CardTitle className="text-sm">Referrals Trend</CardTitle>
 
         <ViewLink text="View report" />
       </CardHeader>
 
       <CardContent>
-
         <div className="h-[240px] w-full">
-
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={referralTrend}>
-
               <defs>
                 <linearGradient
                   id="referralGradient"
@@ -943,17 +838,9 @@ function ReferralTrend() {
                   x2="0"
                   y2="1"
                 >
-                  <stop
-                    offset="0%"
-                    stopColor="#2563eb"
-                    stopOpacity={0.25}
-                  />
+                  <stop offset="0%" stopColor="#2563eb" stopOpacity={0.25} />
 
-                  <stop
-                    offset="100%"
-                    stopColor="#2563eb"
-                    stopOpacity={0}
-                  />
+                  <stop offset="100%" stopColor="#2563eb" stopOpacity={0} />
                 </linearGradient>
               </defs>
 
@@ -985,17 +872,13 @@ function ReferralTrend() {
                 fill="url(#referralGradient)"
                 strokeWidth={2}
               />
-
             </AreaChart>
           </ResponsiveContainer>
-
         </div>
-
       </CardContent>
     </Card>
   );
 }
-
 
 /* ============================================================
    TOP HEALTH ISSUES
@@ -1005,56 +888,38 @@ function TopHealthIssues() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-sm">
-          Top Health Issues
-        </CardTitle>
+        <CardTitle className="text-sm">Top Health Issues</CardTitle>
 
         <ViewLink text="View report" />
       </CardHeader>
 
       <CardContent>
-
         <div className="space-y-4">
-
           {healthIssues.map((item) => (
             <div key={item.name}>
-
               <div className="mb-1 flex items-center justify-between gap-3 text-xs">
-
-                <span className="truncate">
-                  {item.name}
-                </span>
+                <span className="truncate">{item.name}</span>
 
                 <span className="shrink-0 text-muted-foreground">
                   {item.value} ({item.percentage})
                 </span>
-
               </div>
 
               <div className="h-2 overflow-hidden rounded-full bg-muted">
-
                 <div
                   className="h-full rounded-full bg-primary transition-all"
                   style={{
-                    width: `${Math.min(
-                      item.value / 1.7,
-                      100
-                    )}%`,
+                    width: `${Math.min(item.value / 1.7, 100)}%`,
                   }}
                 />
-
               </div>
-
             </div>
           ))}
-
         </div>
-
       </CardContent>
     </Card>
   );
 }
-
 
 /* ============================================================
    INSURANCE
@@ -1064,23 +929,17 @@ function InsuranceOverview() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">
-          Insurance & Claims Overview
-        </CardTitle>
+        <CardTitle className="text-sm">Insurance & Claims Overview</CardTitle>
       </CardHeader>
 
       <CardContent>
-
         <div className="grid grid-cols-2 gap-3">
-
           {insuranceData.map((item) => (
             <div
               key={item.title}
               className="rounded-xl border border-border/70 bg-muted/20 p-3"
             >
-
               <div className="flex items-center gap-2">
-
                 <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <item.icon className="size-4" />
                 </div>
@@ -1090,29 +949,22 @@ function InsuranceOverview() {
                     {item.title}
                   </p>
 
-                  <p className="text-lg font-bold">
-                    {item.value}
-                  </p>
+                  <p className="text-lg font-bold">{item.value}</p>
                 </div>
-
               </div>
 
               <p className="mt-2 text-[10px] text-muted-foreground">
                 {item.percentage}
               </p>
-
             </div>
           ))}
-
         </div>
 
         <ViewLink text="View claims" />
-
       </CardContent>
     </Card>
   );
 }
-
 
 /* ============================================================
    FOLLOW UPS
@@ -1121,91 +973,52 @@ function InsuranceOverview() {
 function UpcomingFollowUps() {
   return (
     <Card className="overflow-hidden">
-
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-sm">
-          Upcoming Follow-ups
-        </CardTitle>
+        <CardTitle className="text-sm">Upcoming Follow-ups</CardTitle>
 
         <ViewLink text="View all" />
       </CardHeader>
 
       <CardContent className="p-0">
-
         <div className="overflow-x-auto">
-
           <table className="w-full min-w-[600px] text-xs">
-
             <thead className="bg-muted/40">
-
               <tr className="text-left text-muted-foreground">
+                <th className="px-4 py-3 font-medium">Student Name</th>
 
-                <th className="px-4 py-3 font-medium">
-                  Student Name
-                </th>
+                <th className="px-4 py-3 font-medium">Referral Type</th>
 
-                <th className="px-4 py-3 font-medium">
-                  Referral Type
-                </th>
+                <th className="px-4 py-3 font-medium">Grade</th>
 
-                <th className="px-4 py-3 font-medium">
-                  Grade
-                </th>
+                <th className="px-4 py-3 font-medium">Follow-up Date</th>
 
-                <th className="px-4 py-3 font-medium">
-                  Follow-up Date
-                </th>
-
-                <th className="px-4 py-3 font-medium">
-                  Status
-                </th>
-
+                <th className="px-4 py-3 font-medium">Status</th>
               </tr>
-
             </thead>
 
             <tbody>
-
               {followUps.map((item) => (
-                <tr
-                  key={item.student}
-                  className="border-t border-border/60"
-                >
+                <tr key={item.student} className="border-t border-border/60">
+                  <td className="px-4 py-3 font-medium">{item.student}</td>
 
-                  <td className="px-4 py-3 font-medium">
-                    {item.student}
-                  </td>
+                  <td className="px-4 py-3">{item.type}</td>
 
-                  <td className="px-4 py-3">
-                    {item.type}
-                  </td>
+                  <td className="px-4 py-3">{item.grade}</td>
 
-                  <td className="px-4 py-3">
-                    {item.grade}
-                  </td>
-
-                  <td className="px-4 py-3">
-                    {item.date}
-                  </td>
+                  <td className="px-4 py-3">{item.date}</td>
 
                   <td className="px-4 py-3">
                     <StatusBadge status={item.status} />
                   </td>
-
                 </tr>
               ))}
-
             </tbody>
-
           </table>
-
         </div>
-
       </CardContent>
     </Card>
   );
 }
-
 
 /* ============================================================
    ALERTS
@@ -1217,15 +1030,11 @@ function Alerts() {
       <CardHeader className="flex flex-row items-center gap-2">
         <Bell className="size-4" />
 
-        <CardTitle className="text-sm">
-          Alerts & Notifications
-        </CardTitle>
+        <CardTitle className="text-sm">Alerts & Notifications</CardTitle>
       </CardHeader>
 
       <CardContent className="space-y-4">
-
         {alerts.map((item, index) => {
-
           const icons = {
             danger: XCircle,
             warning: AlertTriangle,
@@ -1241,11 +1050,7 @@ function Alerts() {
           const Icon = icons[item.type];
 
           return (
-            <div
-              key={index}
-              className="flex gap-3"
-            >
-
+            <div key={index} className="flex gap-3">
               <div
                 className={`flex size-8 shrink-0 items-center justify-center rounded-full ${colors[item.type]}`}
               >
@@ -1253,32 +1058,25 @@ function Alerts() {
               </div>
 
               <div className="min-w-0 flex-1">
-
-                <p className="text-xs font-semibold">
-                  {item.title}
-                </p>
+                <p className="text-xs font-semibold">{item.title}</p>
 
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   {item.description}
                 </p>
-
               </div>
 
               <span className="shrink-0 text-[9px] text-muted-foreground">
                 {item.time}
               </span>
-
             </div>
           );
         })}
 
         <ViewLink text="View all alerts" />
-
       </CardContent>
     </Card>
   );
 }
-
 
 /* ============================================================
    QUICK LINKS
@@ -1288,17 +1086,12 @@ function QuickLinks() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">
-          Quick Links
-        </CardTitle>
+        <CardTitle className="text-sm">Quick Links</CardTitle>
       </CardHeader>
 
       <CardContent>
-
         <div className="grid grid-cols-2 gap-3">
-
           {quickLinks.map((item) => {
-
             const Icon = item.icon;
 
             return (
@@ -1306,7 +1099,6 @@ function QuickLinks() {
                 key={item.title}
                 className="group flex min-h-[80px] flex-col items-center justify-center gap-2 rounded-xl border border-border/70 bg-muted/10 p-3 transition hover:border-primary/30 hover:bg-primary/5"
               >
-
                 <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary transition group-hover:scale-105">
                   <Icon className="size-4" />
                 </div>
@@ -1314,18 +1106,14 @@ function QuickLinks() {
                 <span className="text-center text-[10px] font-medium">
                   {item.title}
                 </span>
-
               </button>
             );
           })}
-
         </div>
-
       </CardContent>
     </Card>
   );
 }
-
 
 /* ============================================================
    STATUS BADGE
@@ -1333,26 +1121,21 @@ function QuickLinks() {
 
 function StatusBadge({ status }) {
   const styles = {
-    "Due Soon":
-      "bg-orange-500/10 text-orange-600",
-    Overdue:
-      "bg-red-500/10 text-red-600",
-    Scheduled:
-      "bg-blue-500/10 text-blue-600",
+    "Due Soon": "bg-orange-500/10 text-orange-600",
+    Overdue: "bg-red-500/10 text-red-600",
+    Scheduled: "bg-blue-500/10 text-blue-600",
   };
 
   return (
     <span
       className={`rounded-full px-2 py-1 text-[10px] font-medium ${
-        styles[status] ||
-        "bg-muted text-muted-foreground"
+        styles[status] || "bg-muted text-muted-foreground"
       }`}
     >
       {status}
     </span>
   );
 }
-
 
 /* ============================================================
    VIEW LINK

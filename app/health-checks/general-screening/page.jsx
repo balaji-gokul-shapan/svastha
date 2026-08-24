@@ -28,6 +28,7 @@ import {
 import { BmiGauge } from "./bmiCategory";
 import { BmiSvgGauge } from "./BmiSvgGauge";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { getCamp } from "@/lib/features/getCampSlice";
 import { getFilterStudent } from "@/lib/features/getFilterStudent";
@@ -98,13 +99,62 @@ function NumberField({ label, value, onChange, unit }) {
 }
 
 const GROWTH_STANDARD_BANDS = [
-  { minAge: 5, maxAge: 6, heightMin: 105, heightMax: 124, weightMin: 15, weightMax: 25 },
-  { minAge: 7, maxAge: 8, heightMin: 115, heightMax: 136, weightMin: 19, weightMax: 32 },
-  { minAge: 9, maxAge: 10, heightMin: 126, heightMax: 148, weightMin: 24, weightMax: 40 },
-  { minAge: 11, maxAge: 12, heightMin: 136, heightMax: 162, weightMin: 30, weightMax: 51 },
-  { minAge: 13, maxAge: 14, heightMin: 148, heightMax: 174, weightMin: 38, weightMax: 64 },
-  { minAge: 15, maxAge: 16, heightMin: 154, heightMax: 182, weightMin: 45, weightMax: 72 },
-  { minAge: 17, maxAge: 18, heightMin: 158, heightMax: 186, weightMin: 50, weightMax: 80 },
+  {
+    minAge: 5,
+    maxAge: 6,
+    heightMin: 105,
+    heightMax: 124,
+    weightMin: 15,
+    weightMax: 25,
+  },
+  {
+    minAge: 7,
+    maxAge: 8,
+    heightMin: 115,
+    heightMax: 136,
+    weightMin: 19,
+    weightMax: 32,
+  },
+  {
+    minAge: 9,
+    maxAge: 10,
+    heightMin: 126,
+    heightMax: 148,
+    weightMin: 24,
+    weightMax: 40,
+  },
+  {
+    minAge: 11,
+    maxAge: 12,
+    heightMin: 136,
+    heightMax: 162,
+    weightMin: 30,
+    weightMax: 51,
+  },
+  {
+    minAge: 13,
+    maxAge: 14,
+    heightMin: 148,
+    heightMax: 174,
+    weightMin: 38,
+    weightMax: 64,
+  },
+  {
+    minAge: 15,
+    maxAge: 16,
+    heightMin: 154,
+    heightMax: 182,
+    weightMin: 45,
+    weightMax: 72,
+  },
+  {
+    minAge: 17,
+    maxAge: 18,
+    heightMin: 158,
+    heightMax: 186,
+    weightMin: 50,
+    weightMax: 80,
+  },
 ];
 
 function getAgeInYearsFromDob(dobValue) {
@@ -132,8 +182,6 @@ function getAgeInYearsFromDob(dobValue) {
 }
 
 function evaluateGrowthStandard(metric, value, ageYears) {
-  console.log(value, "fffff");
-
   if (!Number.isFinite(value) || value <= 0) {
     return {
       standard: "Not entered",
@@ -207,9 +255,11 @@ function parseMetricValue(rawValue) {
 export default function GeneralScreeningPage() {
   const dispatch = useAppDispatch();
   const queryClient = useQueryClient();
-  const { studentData = [], loading: studentsLoading, error: studentsError } = useAppSelector(
-    (state) => state.getInitialScreening,
-  );
+  const {
+    studentData = [],
+    loading: studentsLoading,
+    error: studentsError,
+  } = useAppSelector((state) => state.getInitialScreening);
   const academicYearOptions = ["2026-2027", "2025-2026", "2024-2025"];
 
   const [isCaDrawerOpen, setIsCaDrawerOpen] = useState(false);
@@ -234,119 +284,13 @@ export default function GeneralScreeningPage() {
   const [immunization, setImmunization] = useState("up_to_date");
   const [notes, setNotes] = useState("");
 
-
-  // const {
-  //   data: campsData = [],
-  //   isLoading: campsLoading,
-  //   error: campsQueryError,
-  // } = useQuery({
-  //   queryKey: ["doctor-camps"],
-  //   queryFn: () => dispatch(getCamp()).unwrap(),
-  //   staleTime: 0,
-  //   refetchOnWindowFocus: true,
-  // });
-
-  // const {
-  //   data: studentCampData = [],
-  //   isLoading: studentCampLoading,
-  //   error: studentCampQueryError,
-  // } = useQuery({
-  //   queryKey: ["student-healthcamp", selectedCampId],
-  //   enabled: Boolean(selectedCampId),
-  //   queryFn: () => dispatch(getStudentByCamp({ campId: selectedCampId })).unwrap(),
-  //   staleTime: 0,
-  //   refetchOnWindowFocus: true,
-  // });
-
-  const getData = useStudentData(selectedCampId);
-  console.log(getData, "getData");
-
-
-
-  // const studentCampRows = useMemo(() => {
-  //   if (Array.isArray(studentCampData)) {
-  //     return studentCampData;
-  //   }
-
-  //   if (Array.isArray(studentCampData?.data)) {
-  //     return studentCampData.data;
-  //   }
-
-  //   if (studentCampData && typeof studentCampData === "object") {
-  //     return [studentCampData];
-  //   }
-
-  //   return [];
-  // }, [studentCampData]);
-  // console.log(studentCampRows,"studentCampRows");
-
-
-  // const filteredCampRows = useMemo(() => {
-  //   if (!selectedCampId || !studentCampRows.length) {
-  //     return [];
-  //   }
-
-  //   const selectedCampMeta = Array.isArray(campsData)
-  //     ? campsData.find(
-  //         (camp) => String(camp?.id ?? camp?.campId ?? camp?.camp_id ?? "") === String(selectedCampId),
-  //       )
-  //     : null;
-
-  //   const selectedSchoolId = String(
-  //     selectedCampMeta?.school_id ?? selectedCampMeta?.schoolId ?? selectedCampMeta?.school ?? "",
-  //   ).trim();
-  //   const selectedDoctorId = String(
-  //     selectedCampMeta?.doctor_id ?? selectedCampMeta?.doctorId ?? selectedCampMeta?.doctor ?? "",
-  //   ).trim();
-  //   const selectedCampDate = String(
-  //     selectedCampMeta?.camp_date ?? selectedCampMeta?.campDate ?? "",
-  //   ).trim();
-
-  //   return studentCampRows.filter((row) => {
-  //     const rowCamp = row?.camp && typeof row.camp === "object" ? row.camp : row;
-  //     const rowCampId = String(rowCamp?.id ?? rowCamp?.camp_id ?? rowCamp?.campId ?? row?.id ?? "").trim();
-  //     const rowSchoolId = String(rowCamp?.school_id ?? rowCamp?.schoolId ?? rowCamp?.school ?? "").trim();
-  //     const rowDoctorId = String(rowCamp?.doctor_id ?? rowCamp?.doctorId ?? rowCamp?.doctor ?? "").trim();
-  //     const rowCampDate = String(rowCamp?.camp_date ?? rowCamp?.campDate ?? "").trim();
-
-  //     const idMatch = rowCampId && rowCampId === String(selectedCampId).trim();
-  //     if (idMatch) {
-  //       return true;
-  //     }
-
-  //     const schoolDoctorMatch =
-  //       selectedSchoolId &&
-  //       selectedDoctorId &&
-  //       rowSchoolId === selectedSchoolId &&
-  //       rowDoctorId === selectedDoctorId;
-  //     const dateMatch = !selectedCampDate || !rowCampDate || rowCampDate === selectedCampDate;
-
-  //     if (schoolDoctorMatch && dateMatch) {
-  //       return true;
-  //     }
-
-  //     // Keep row when API already pre-filters by camp and metadata is missing at row level.
-  //     if (!rowCampId && !rowSchoolId && !rowDoctorId) {
-  //       return true;
-  //     }
-
-  //     return false;
-  //   });
-  // }, [campsData, selectedCampId, studentCampRows]);
-
-  //-----------------new code----------------
   const [schoolName, setSchoolName] = useState("all");
   const [classFilter, setClassFilter] = useState("all");
   const [sectionFilter, setSectionFilter] = useState("all");
   const [studentFilter, setStudentFilter] = useState("all");
 
   const { data: filterPayload, isLoading } = useQuery({
-    queryKey: [
-      "filter-student",
-      schoolName,
-      academicYear,
-      "options",
-    ],
+    queryKey: ["filter-student", schoolName, academicYear, "options"],
     queryFn: () =>
       dispatch(
         getFilterStudent({
@@ -364,7 +308,14 @@ export default function GeneralScreeningPage() {
   });
 
   useQuery({
-    queryKey: ["initial-screening", schoolName, academicYear, classFilter, sectionFilter, studentFilter],
+    queryKey: [
+      "initial-screening",
+      schoolName,
+      academicYear,
+      classFilter,
+      sectionFilter,
+      studentFilter,
+    ],
     queryFn: () =>
       dispatch(
         getInitialScreening({
@@ -379,254 +330,7 @@ export default function GeneralScreeningPage() {
     refetchOnWindowFocus: true,
   });
 
-  console.log(filterPayload, "filterPayload---------------------------");
   //-------------------------------------------
-
-  const campStudents = useMemo(() => {
-    if (!getData.filteredCampRows.length) {
-      return [];
-    }
-
-    return getData.filteredCampRows.flatMap((row) => {
-      if (Array.isArray(row?.students)) {
-        return row.students;
-      }
-
-      if (Array.isArray(row?.student)) {
-        return row.student;
-      }
-
-      if (row?.student && typeof row.student === "object") {
-        return [row.student];
-      }
-
-      // Fallback for flattened student row shape.
-      if (row && typeof row === "object" && (row.student_id || row.studentId || row.school_registration_number)) {
-        return [row];
-      }
-
-      return [];
-    });
-  }, [getData.filteredCampRows]);
-
-  const academicYears = useMemo(() => {
-    const yearSet = new Set();
-
-    campStudents.forEach((student) => {
-      const year = student?.academic_year ?? student?.academicYear ?? "";
-      if (String(year).trim()) {
-        yearSet.add(String(year).trim());
-      }
-    });
-
-    return Array.from(yearSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  }, [campStudents]);
-
-  const activeAcademicYear = useMemo(() => {
-    if (!selectedCampId) {
-      return "";
-    }
-
-    if (academicYears.includes(academicYear)) {
-      return academicYear;
-    }
-
-    return academicYears[0] ?? "";
-  }, [academicYear, academicYears, selectedCampId]);
-
-  const getClass = useMemo(() => {
-    const classSet = new Set();
-
-    campStudents.forEach((student) => {
-      const year = String(student?.academic_year ?? student?.academicYear ?? "").trim();
-      if (activeAcademicYear && year && year !== activeAcademicYear) {
-        return;
-      }
-
-      const classValue = String(student?.Class ?? student?.class ?? student?.grade ?? "")
-        .split("-")[0]
-        .trim();
-
-      if (classValue) {
-        classSet.add(classValue);
-      }
-    });
-
-    return Array.from(classSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  }, [activeAcademicYear, campStudents]);
-
-  const getSection = useMemo(() => {
-    const sectionSet = new Set();
-
-    campStudents.forEach((student) => {
-      const year = String(student?.academic_year ?? student?.academicYear ?? "").trim();
-      if (activeAcademicYear && year && year !== activeAcademicYear) {
-        return;
-      }
-
-      const classValue = String(student?.Class ?? student?.class ?? student?.grade ?? "")
-        .split("-")[0]
-        .trim();
-      if (selectedClassFilter !== "all" && classValue !== selectedClassFilter) {
-        return;
-      }
-
-      const sectionValue = String(student?.sec ?? student?.section ?? student?.grade ?? "")
-        .split("-")[1]
-        ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
-
-      if (sectionValue) {
-        sectionSet.add(sectionValue);
-      }
-    });
-
-    return Array.from(sectionSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  }, [activeAcademicYear, campStudents, selectedClassFilter]);
-
-
-
-  const students = useMemo(() => (Array.isArray(studentData) ? studentData : []), [studentData]);
-  const camps = useMemo(() => (Array.isArray(getData.campsData) ? getData.campsData : []), [getData.campsData]);
-
-  const campOptions = useMemo(() => {
-    return camps
-      .map((item) => {
-        const value = String(item.id ?? item.campId ?? item.camp_id ?? "");
-        const label =
-          item.name ??
-          item.camp_name ??
-          item.title ??
-          item.doctor_name ??
-          (value ? `Camp ${value}` : "");
-
-        return { value, label: String(label) };
-      })
-      .filter((item) => item.value && item.label);
-  }, [camps]);
-
-  const normalizedCampStudents = useMemo(() => {
-    const uniqueStudents = new Map();
-
-    campStudents.forEach((student) => {
-      const rawId =
-        student?.id ??
-        student?.studentId ??
-        student?.student_id ??
-        student?.school_registration_number ??
-        student?.admission_number;
-
-      if (rawId === undefined || rawId === null || String(rawId).trim() === "") {
-        return;
-      }
-
-      const id = String(rawId).trim();
-      const classValue = String(student?.Class ?? student?.class ?? student?.grade ?? "")
-        .split("-")[0]
-        .trim();
-      const sectionValue =
-        String(student?.sec ?? student?.section ?? student?.grade ?? "").split("-")[1]?.trim() ||
-        String(student?.sec ?? student?.section ?? "").trim();
-
-      uniqueStudents.set(id, {
-        ...student,
-        id,
-        studentId:
-          student?.studentId ??
-          student?.student_id ??
-          student?.school_registration_number ??
-          student?.admission_number ??
-          id,
-        name: student?.name ?? student?.student_name ?? student?.studentName ?? "",
-        Class: classValue,
-        sec: sectionValue,
-      });
-    });
-
-    return Array.from(uniqueStudents.values());
-  }, [campStudents]);
-
-
-  const filteredStudents = useMemo(() => {
-    if (!selectedCampId) {
-      return [];
-    }
-
-    return normalizedCampStudents.filter((student) => {
-      const year = String(
-        student?.academic_year ?? student?.academicYear ?? "",
-      ).trim();
-      const classValue = String(
-        student?.Class ?? student?.class ?? student?.grade ?? "",
-      )
-        .split("-")[0]
-        .trim();
-      const sectionValue =
-        String(student?.sec ?? student?.section ?? student?.grade ?? "")
-          .split("-")[1]
-          ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
-
-      const yearMatch =
-        !activeAcademicYear || !year || year === activeAcademicYear;
-      const classMatch =
-        selectedClassFilter === "all" || classValue === selectedClassFilter;
-      const sectionMatch =
-        selectedSectionFilter === "all" ||
-        sectionValue === selectedSectionFilter;
-
-      return yearMatch && classMatch && sectionMatch;
-    });
-  }, [
-    activeAcademicYear,
-    normalizedCampStudents,
-    selectedCampId,
-    selectedClassFilter,
-    selectedSectionFilter,
-  ]);
-
-  const effectiveFilteredStudents = useMemo(() => {
-    if (studentFilter === "all") {
-      return filteredStudents;
-    }
-
-    return filteredStudents.filter((student) => {
-      const key = String(student?.id ?? student?.studentId ?? "").trim();
-      return key && key === String(studentFilter).trim();
-    });
-  }, [filteredStudents, studentFilter]);
-  console.log(filteredStudents, "filteredStudents");
-  console.log(effectiveFilteredStudents, "effectiveFilteredStudents");
-
-
-  const getStudentKeys = (student) =>
-    new Set(
-      [
-        student?.id,
-        student?.studentId,
-        student?.student_id,
-        student?.school_registration_number,
-        student?.admission_number,
-      ]
-        .map((value) => String(value ?? "").trim())
-        .filter(Boolean),
-    );
-
-  const findScreeningRecordByKeys = useCallback(
-    (keys) =>
-      students.find((data) => {
-        const dataKeys = [
-          data?.id,
-          data?.studentId,
-          data?.student_id,
-          data?.school_registration_number,
-          data?.admission_number,
-        ]
-          .map((value) => String(value ?? "").trim())
-          .filter(Boolean);
-
-        return dataKeys.some((key) => keys.has(key));
-      }),
-    [students],
-  );
 
   const applyScreeningRecordToForm = (screeningRecord) => {
     const getMetricValue = (value) => {
@@ -639,9 +343,9 @@ export default function GeneralScreeningPage() {
     setNotes(
       String(
         screeningRecord?.notes ??
-        screeningRecord?.remark ??
-        screeningRecord?.remarks ??
-        "",
+          screeningRecord?.remark ??
+          screeningRecord?.remarks ??
+          "",
       ),
     );
   };
@@ -652,7 +356,8 @@ export default function GeneralScreeningPage() {
       return (
         filterPayload.items.find(
           (student) =>
-            String(student?.id ?? student?.studentId ?? student?.cus_id) === String(activeId),
+            String(student?.id ?? student?.studentId ?? student?.cus_id) ===
+            String(activeId),
         ) ?? null
       );
     }
@@ -664,60 +369,104 @@ export default function GeneralScreeningPage() {
       return selectedStudentFromFilter;
     }
 
-    if (effectiveFilteredStudents.length) {
-      const explicitSelection = effectiveFilteredStudents.find(
-        (student) => String(student.id ?? student.studentId ?? student.cus_id) === String(studentId),
-      );
-      if (explicitSelection) return explicitSelection;
-    }
-
     if (studentId && Array.isArray(filterPayload?.items)) {
       const match = filterPayload.items.find(
-        (student) => String(student.id ?? student.studentId ?? student.cus_id) === String(studentId),
+        (student) =>
+          String(student.id ?? student.studentId ?? student.cus_id) ===
+          String(studentId),
       );
       if (match) return match;
     }
 
     return null;
-  }, [effectiveFilteredStudents, filterPayload?.items, selectedStudentFromFilter, studentId]);
+  }, [filterPayload?.items, selectedStudentFromFilter, studentId]);
 
   const classOptions = useMemo(() => {
-    if (!selectedCampId) {
-      return ["all"];
-    }
-
-    return ["all", ...getClass];
-  }, [getClass, selectedCampId]);
+    if (!Array.isArray(filterPayload?.items)) return ["all"];
+    const classSet = new Set();
+    filterPayload.items.forEach((student) => {
+      const cls = String(
+        student?.Class ?? student?.class ?? student?.grade ?? "",
+      )
+        .split("-")[0]
+        .trim();
+      if (cls) classSet.add(cls);
+    });
+    return [
+      "all",
+      ...Array.from(classSet).sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true }),
+      ),
+    ];
+  }, [filterPayload?.items]);
 
   const sectionOptions = useMemo(() => {
-    if (!selectedCampId) {
-      return ["all"];
-    }
+    if (!Array.isArray(filterPayload?.items)) return ["all"];
+    const sectionSet = new Set();
+    filterPayload.items.forEach((student) => {
+      const cls = String(
+        student?.Class ?? student?.class ?? student?.grade ?? "",
+      )
+        .split("-")[0]
+        .trim();
+      if (selectedClassFilter !== "all" && cls !== selectedClassFilter) return;
+      const sec = String(student?.sec ?? student?.section ?? "").trim();
+      if (sec) sectionSet.add(sec);
+    });
+    return [
+      "all",
+      ...Array.from(sectionSet).sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true }),
+      ),
+    ];
+  }, [filterPayload?.items, selectedClassFilter]);
 
-    return ["all", ...getSection];
-  }, [getSection, selectedCampId]);
-
-  const selectedStudentKey = String(selectedStudent?.id ?? selectedStudent?.studentId ?? selectedStudent?.cus_id ?? "");
+  const selectedStudentKey = String(
+    selectedStudent?.id ??
+      selectedStudent?.studentId ??
+      selectedStudent?.cus_id ??
+      "",
+  );
   const studentSelectValue = selectedStudentKey;
-  const hasSelectedStudent = Boolean(selectedStudent || selectedStudentKey || (studentFilter && studentFilter !== "all") || studentId);
+  const hasSelectedStudent = Boolean(
+    selectedStudent ||
+    selectedStudentKey ||
+    (studentFilter && studentFilter !== "all") ||
+    studentId,
+  );
 
   const assessmentStudentOptions = useMemo(
     () =>
-      effectiveFilteredStudents.map((student) => {
-        const value = String(student.id ?? student.studentId ?? student.cus_id ?? "");
+      (filterPayload?.items ?? []).map((student) => {
+        const value = String(
+          student.id ?? student.studentId ?? student.cus_id ?? "",
+        );
         const studentCode =
-          student.studentId ?? student.student_id ?? student.school_registration_number ?? student.admission_number;
+          student.studentId ??
+          student.student_id ??
+          student.school_registration_number ??
+          student.admission_number;
 
         return {
           value,
           label: `${student.name || student.student_name || "Unknown"}${studentCode ? ` (${studentCode})` : ""}`,
         };
       }),
-    [effectiveFilteredStudents],
+    [filterPayload?.items],
   );
   const selectedStudentKeys = useMemo(() => {
     if (selectedStudent) {
-      return getStudentKeys(selectedStudent);
+      return new Set(
+        [
+          selectedStudent?.id,
+          selectedStudent?.studentId,
+          selectedStudent?.student_id,
+          selectedStudent?.school_registration_number,
+          selectedStudent?.admission_number,
+        ]
+          .map((value) => String(value ?? "").trim())
+          .filter(Boolean),
+      );
     }
 
     return new Set(
@@ -727,13 +476,32 @@ export default function GeneralScreeningPage() {
     );
   }, [selectedStudent, studentFilter, studentId, studentSelectValue]);
 
+  const students = useMemo(
+    () => (Array.isArray(studentData) ? studentData : []),
+    [studentData],
+  );
+
   const getSelectedStudentScreeningData = useMemo(() => {
     if (!selectedStudentKeys.size || !students.length) {
       return null;
     }
 
-    return findScreeningRecordByKeys(selectedStudentKeys) ?? null;
-  }, [findScreeningRecordByKeys, selectedStudentKeys, students]);
+    return (
+      students.find((data) => {
+        const dataKeys = [
+          data?.id,
+          data?.studentId,
+          data?.student_id,
+          data?.school_registration_number,
+          data?.admission_number,
+        ]
+          .map((value) => String(value ?? "").trim())
+          .filter(Boolean);
+
+        return dataKeys.some((key) => selectedStudentKeys.has(key));
+      }) ?? null
+    );
+  }, [selectedStudentKeys, students]);
 
   useEffect(() => {
     if (getSelectedStudentScreeningData) {
@@ -763,18 +531,30 @@ export default function GeneralScreeningPage() {
   );
 
   const heightStandardResult = useMemo(
-    () => evaluateGrowthStandard("height", parseMetricValue(height), studentAgeYears),
+    () =>
+      evaluateGrowthStandard(
+        "height",
+        parseMetricValue(height),
+        studentAgeYears,
+      ),
     [height, studentAgeYears],
   );
 
   const weightStandardResult = useMemo(
-    () => evaluateGrowthStandard("weight", parseMetricValue(weight), studentAgeYears),
+    () =>
+      evaluateGrowthStandard(
+        "weight",
+        parseMetricValue(weight),
+        studentAgeYears,
+      ),
     [studentAgeYears, weight],
   );
 
   const bmi = useMemo(() => calcBmi(height, weight), [height, weight]);
-  const category = useMemo(() => bmiCategory(getSelectedStudentScreeningData?.bmi ?? bmi), [getSelectedStudentScreeningData?.bmi, bmi]);
-  console.log(getSelectedStudentScreeningData, "getSelectedStudentScreeningData");
+  const category = useMemo(
+    () => bmiCategory(getSelectedStudentScreeningData?.bmi ?? bmi),
+    [getSelectedStudentScreeningData?.bmi, bmi],
+  );
   const assessmentForm = useMemo(
     () => ({
       height,
@@ -783,13 +563,17 @@ export default function GeneralScreeningPage() {
       notes,
       bloodGroup,
     }),
-    [bmi, getSelectedStudentScreeningData?.bmi, height, notes, weight, bloodGroup],
+    [
+      bmi,
+      getSelectedStudentScreeningData?.bmi,
+      height,
+      notes,
+      weight,
+      bloodGroup,
+    ],
   );
 
-
-
-
-  const handleAssessmentChange = (field, value) => {
+  const handleAssessmentChange = useCallback((field, value) => {
     if (field === "height") {
       setHeight(value);
       return;
@@ -806,19 +590,23 @@ export default function GeneralScreeningPage() {
     if (field === "bloodGroup") {
       setBloodGroup(value);
     }
-  };
+  }, []);
 
-
-  const handleSaveAssessment = () => {
+  const handleSaveAssessment = useCallback(() => {
     const rawStudentId =
       selectedStudent?.id ??
       selectedStudent?.cus_id ??
       selectedStudent?.student_id ??
       selectedStudent?.studentId ??
       studentId;
+    if (!String(rawStudentId ?? "").trim()) {
+      toast.error("Select a student before saving the General screening");
+      return;
+    }
 
     const numericStudentId = Number(rawStudentId) || 0;
-    const numericCampId = Number(selectedCampId) || Number(selectedStudent?.camp_id) || 1;
+    const numericCampId =
+      Number(selectedCampId) || Number(selectedStudent?.camp_id) || 1;
 
     const bloodGroupIndex = bloodGroupOptions.indexOf(bloodGroup);
     const bloodGroupId = bloodGroupIndex !== -1 ? bloodGroupIndex + 1 : 0;
@@ -827,22 +615,23 @@ export default function GeneralScreeningPage() {
     const allergyId = allergyIndex !== -1 ? allergyIndex : null;
 
     const chronicDiseaseIndex = chronicDiseaseOptions.indexOf(chronicDisease);
-    const chronicDiseaseId = chronicDiseaseIndex !== -1 ? chronicDiseaseIndex : null;
+    const chronicDiseaseId =
+      chronicDiseaseIndex !== -1 ? chronicDiseaseIndex : null;
 
     const immunizationMap = { up_to_date: 1, partial: 2, overdue: 3 };
     const immunizationId = immunizationMap[immunization] || 1;
 
-    const standardMap = { "Below Average": 1, "Average": 2, "Above Average": 3 };
+    const standardMap = { "Below Average": 1, Average: 2, "Above Average": 3 };
     const heightStandardId = standardMap[heightStandardResult?.standard] || 2;
     const weightStandardId = standardMap[weightStandardResult?.standard] || 2;
 
     const numHeight = Number(height) || 0;
     const numWeight = Number(weight) || 0;
     const bmiCategoryMap = {
-      "Underweight": 1,
-      "Normal": 2,
-      "Overweight": 3,
-      "Obese": 4,
+      Underweight: 1,
+      Normal: 2,
+      Overweight: 3,
+      Obese: 4,
     };
     const bmiCategoryId = bmiCategoryMap[category?.label] || 2;
 
@@ -859,16 +648,38 @@ export default function GeneralScreeningPage() {
       weight_standard_id: weightStandardId,
       bmi_category_id: bmiCategoryId,
     };
-    console.log(payload,"payload");
-    
-
     const existingRecordId =
       getSelectedStudentScreeningData?.id ??
       getSelectedStudentScreeningData?.screening_id ??
       getSelectedStudentScreeningData?.screeningId;
 
-    const saveAction = existingRecordId
-      ? updateInitialScreening({ id: existingRecordId, payload })
+    // Update only when this student's screening already has saved
+    // measurements (height/weight); otherwise create a fresh record.
+    const hasSavedMeasurements = (() => {
+      const record = getSelectedStudentScreeningData;
+      if (!record) {
+        return false;
+      }
+
+      const parseMetric = (value) => {
+        const parsed = Number.parseFloat(
+          String(value ?? "").replace(/[^0-9.-]/g, ""),
+        );
+        return Number.isFinite(parsed) && parsed > 0;
+      };
+
+      return parseMetric(record.height) || parseMetric(record.weight);
+    })();
+    // const saveAction = existingRecordId
+    //   ? updateInitialScreening({ id: existingRecordId, payload })
+    //   : createInitialScreening(payload);
+
+    const saveAction = hasSavedMeasurements
+      ? updateInitialScreening({
+          id: existingRecordId,
+          studentId: numericStudentId,
+          payload,
+        })
       : createInitialScreening(payload);
 
     dispatch(saveAction)
@@ -883,25 +694,103 @@ export default function GeneralScreeningPage() {
             sortOrder: "asc",
           }),
         );
+
+        toast.success(
+          hasSavedMeasurements
+            ? "Initial screening updated successfully"
+            : "Initial screening saved successfully",
+          {
+            description: selectedStudent?.name
+              ? `Record saved for ${selectedStudent.name}`
+              : undefined,
+          },
+        );
       })
       .catch((error) => {
         console.error("Unable to save general screening:", error);
+
+        toast.error("Failed to save initial screening", {
+          description:
+            error?.message ?? "Something went wrong. Please try again.",
+        });
       });
-  };
+  }, [
+    bloodGroup,
+    category?.label,
+    chronicDisease,
+    getSelectedStudentScreeningData,
+    height,
+    heightStandardResult?.standard,
+    immunization,
+    selectedCampId,
+    selectedStudent,
+    studentId,
+    weight,
+    weightStandardResult?.standard,
+  ]);
 
-  const handleCancelAssessment = () => {
+  const handleCancelAssessment = useCallback(() => {
     applyScreeningRecordToForm(getSelectedStudentScreeningData);
-  };
+  }, [getSelectedStudentScreeningData]);
 
-  const bloodGroupToggleOptions = bloodGroupOptions.map((g) => ({
-    value: g,
-    label: g,
-    tone: "neutral",
-  }));
+  const handleAssessmentStudentChange = useCallback((value) => {
+    setStudentId(value);
+  }, []);
+
+  const resetDependentFilters = useCallback(() => {
+    setClassFilter("all");
+    setSectionFilter("all");
+    setStudentFilter("all");
+    setStudentId("");
+  }, []);
+
+  const handleSchoolFilterChange = useCallback(
+    (value) => {
+      setSchoolName(value);
+      resetDependentFilters();
+    },
+    [resetDependentFilters],
+  );
+
+  const handleAcademicYearFilterChange = useCallback(
+    (value) => {
+      setAcademicYear(value);
+      resetDependentFilters();
+    },
+    [resetDependentFilters],
+  );
+
+  const handleClassFilterChange = useCallback((value) => {
+    setClassFilter(value);
+    setSectionFilter("all");
+    setStudentFilter("all");
+    setStudentId("");
+  }, []);
+
+  const handleSectionFilterChange = useCallback((value) => {
+    setSectionFilter(value);
+    setStudentFilter("all");
+    setStudentId("");
+  }, []);
+
+  const handleStudentFilterChange = useCallback((value) => {
+    setStudentFilter(value);
+    setStudentId(value === "all" ? "" : value);
+  }, []);
+
+  const bloodGroupToggleOptions = useMemo(
+    () =>
+      bloodGroupOptions.map((g) => ({
+        value: g,
+        label: g,
+        tone: "neutral",
+      })),
+    [],
+  );
 
   return (
     <section className="space-y-4 ">
-      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-4 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
+      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="flex items-center gap-2 py-3">
             <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary aspect-square">
@@ -917,8 +806,6 @@ export default function GeneralScreeningPage() {
                 General health screening and assessment
               </p>
 
-
-
               {/* <p className="text-xs text-muted-foreground">
                   {studentsLoading
                     ? "Loading students..."
@@ -933,7 +820,7 @@ export default function GeneralScreeningPage() {
         </div>
 
         <div className="flex flex-wrap gap-2 md:flex-nowrap">
-          <CampStudentSelectorDrawer
+          {/* <CampStudentSelectorDrawer
             open={isCaDrawerOpen}
             onOpenChange={setIsCaDrawerOpen}
             studentsLoading={studentsLoading}
@@ -989,7 +876,7 @@ export default function GeneralScreeningPage() {
             }}
             filteredStudents={filteredStudents}
             normalizedCampStudents={normalizedCampStudents}
-          />
+          /> */}
 
           <Button
             type="button"
@@ -1014,41 +901,16 @@ export default function GeneralScreeningPage() {
           classFilter={classFilter}
           sectionFilter={sectionFilter}
           studentFilter={studentFilter}
-          onSchoolNameChange={(value) => {
-            setSchoolName(value);
-            setClassFilter("all");
-            setSectionFilter("all");
-            setStudentFilter("all");
-            setStudentId("");
-          }}
-          onAcademicYearChange={(value) => {
-            setAcademicYear(value);
-            setClassFilter("all");
-            setSectionFilter("all");
-            setStudentFilter("all");
-            setStudentId("");
-          }}
-          onClassFilterChange={(value) => {
-            setClassFilter(value);
-            setSectionFilter("all");
-            setStudentFilter("all");
-            setStudentId("");
-          }}
-          onSectionFilterChange={(value) => {
-            setSectionFilter(value);
-            setStudentFilter("all");
-            setStudentId("");
-          }}
-          onStudentFilterChange={(value) => {
-            setStudentFilter(value);
-            setStudentId(value === "all" ? "" : value);
-          }}
+          onSchoolNameChange={handleSchoolFilterChange}
+          onAcademicYearChange={handleAcademicYearFilterChange}
+          onClassFilterChange={handleClassFilterChange}
+          onSectionFilterChange={handleSectionFilterChange}
+          onStudentFilterChange={handleStudentFilterChange}
         />
         {hasSelectedStudent ? (
           <>
             <StudentProfileCard student={selectedStudent} />
             <div className="grid gap-4 grid-cols-1 xl:grid-cols-[300px_1fr_320px] ">
-
               {/* ---------------- Left column ---------------- */}
               {/* <div className="space-y-4">
           <article className="rounded-xl border border-border bg-card p-4">
@@ -1112,22 +974,10 @@ export default function GeneralScreeningPage() {
                 data={getSelectedStudentScreeningData}
                 studentOptions={assessmentStudentOptions}
                 studentValue={studentSelectValue}
-                isScreeningLoading={studentsLoading || getData.studentCampLoading}
-                isScreeningError={studentsError || getData.studentCampQueryError}
+                isScreeningLoading={studentsLoading}
+                isScreeningError={studentsError}
                 isScreening={true}
-                onStudentChange={(value) => {
-                  const selectedFromList = filteredStudents.find(
-                    (student) => String(student.id ?? student.studentId) === String(value),
-                  );
-
-                  if (selectedFromList) {
-                    const selectedKeys = getStudentKeys(selectedFromList);
-                    const screeningRecord = findScreeningRecordByKeys(selectedKeys);
-                    applyScreeningRecordToForm(screeningRecord);
-                  }
-
-                  setStudentId(value);
-                }}
+                onStudentChange={handleAssessmentStudentChange}
                 onSave={handleSaveAssessment}
                 onCancel={handleCancelAssessment}
               />
@@ -1167,7 +1017,9 @@ export default function GeneralScreeningPage() {
                         <Ruler className="size-4 text-info" />
                       </div>
 
-                      <span className="text-[11px] text-muted-foreground">cm</span>
+                      <span className="text-[11px] text-muted-foreground">
+                        cm
+                      </span>
                     </div>
 
                     <p className="mt-4 text-xs text-muted-foreground">Height</p>
@@ -1188,7 +1040,9 @@ export default function GeneralScreeningPage() {
                         <Weight className="size-4 text-success" />
                       </div>
 
-                      <span className="text-[11px] text-muted-foreground">kg</span>
+                      <span className="text-[11px] text-muted-foreground">
+                        kg
+                      </span>
                     </div>
 
                     <p className="mt-4 text-xs text-muted-foreground">Weight</p>
@@ -1250,14 +1104,15 @@ export default function GeneralScreeningPage() {
                     </div>
 
                     <div
-                      className={`rounded-full px-3 py-1 text-xs font-medium ${category.tone === "success"
-                        ? "bg-success/10 text-success"
-                        : category.tone === "warning"
-                          ? "bg-warning/10 text-warning"
-                          : category.tone === "destructive"
-                            ? "bg-destructive/10 text-destructive"
-                            : "bg-muted text-muted-foreground"
-                        }`}
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${
+                        category.tone === "success"
+                          ? "bg-success/10 text-success"
+                          : category.tone === "warning"
+                            ? "bg-warning/10 text-warning"
+                            : category.tone === "destructive"
+                              ? "bg-destructive/10 text-destructive"
+                              : "bg-muted text-muted-foreground"
+                      }`}
                     >
                       {category.label}
                     </div>
@@ -1269,7 +1124,9 @@ export default function GeneralScreeningPage() {
             </div> */}
                   {/* BMI Visualization */}
                   <div className="relative px-4 py-5">
-                    <BmiGauge bmi={bmi || getSelectedStudentScreeningData?.bmi} />
+                    <BmiGauge
+                      bmi={bmi || getSelectedStudentScreeningData?.bmi}
+                    />
                   </div>
 
                   {/* BMI Details */}
@@ -1286,18 +1143,26 @@ export default function GeneralScreeningPage() {
                     </div>
 
                     <div className="p-4 text-center">
-                      <p className="text-[11px] text-muted-foreground">Height</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Height
+                      </p>
 
                       <p className="mt-1 text-sm font-semibold">
-                        {getSelectedStudentScreeningData?.height ? `${getSelectedStudentScreeningData.height} ` : "0 cm"}
+                        {getSelectedStudentScreeningData?.height
+                          ? `${getSelectedStudentScreeningData.height} `
+                          : "0 cm"}
                       </p>
                     </div>
 
                     <div className="p-4 text-center">
-                      <p className="text-[11px] text-muted-foreground">Weight</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Weight
+                      </p>
 
                       <p className="mt-1 text-sm font-semibold">
-                        {getSelectedStudentScreeningData?.weight ? `${getSelectedStudentScreeningData.weight}` : "0 kg"}
+                        {getSelectedStudentScreeningData?.weight
+                          ? `${getSelectedStudentScreeningData.weight}`
+                          : "0 kg"}
                       </p>
                     </div>
                   </div>
@@ -1315,8 +1180,8 @@ export default function GeneralScreeningPage() {
                     </p>
 
                     <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-                      Height, weight and BMI are currently within the expected range
-                      for this assessment.
+                      Height, weight and BMI are currently within the expected
+                      range for this assessment.
                     </p>
                   </div>
                 </div>
@@ -1362,7 +1227,9 @@ export default function GeneralScreeningPage() {
                 </article>
 
                 <article className="rounded-xl border border-border bg-card p-4">
-                  <h3 className="text-sm font-semibold text-foreground">Notes</h3>
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Notes
+                  </h3>
                   <textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
@@ -1379,7 +1246,7 @@ export default function GeneralScreeningPage() {
             <EmptyState
               title="No Student Data"
               description="Select a camp and student to view and edit general screening details."
-              action={(
+              action={
                 <Button
                   type="button"
                   variant="outline"
@@ -1388,12 +1255,11 @@ export default function GeneralScreeningPage() {
                   <Search className="size-4" />
                   Select Student
                 </Button>
-              )}
+              }
             />
           </div>
         )}
       </>
-
     </section>
   );
 }

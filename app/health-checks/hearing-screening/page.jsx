@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   Activity,
   Ear,
@@ -124,7 +125,7 @@ export default function HearingScreening({ screening = {} }) {
       studentId;
 
     if (!String(rawStudentId ?? "").trim()) {
-      console.error("Select a student before saving the vision screening.");
+      toast.error("Select a student before saving the hearing screening.");
       return;
     }
 
@@ -141,13 +142,26 @@ export default function HearingScreening({ screening = {} }) {
       ...form,
 
     }
-    console.log("Hearing Screening Payload:", {
-    });
 
     dispatch(createHearingScreening(data))
       .unwrap()
-      .then(() => dispatch(getHearingScreening({ studentId: rawStudentId })))
-      .catch((error) => console.error("Unable to save hearing screening:", error));
+      .then(() => {
+        dispatch(getHearingScreening({ studentId: rawStudentId }));
+
+        toast.success("Hearing screening saved successfully", {
+          description: selectedStudent?.name
+            ? `Record saved for ${selectedStudent.name}`
+            : undefined,
+        });
+      })
+      .catch((error) => {
+        console.error("Unable to save hearing screening:", error);
+
+        toast.error("Failed to save hearing screening", {
+          description:
+            error?.message ?? "Something went wrong. Please try again.",
+        });
+      });
   };
 
   const [isCaDrawerOpen, setIsCaDrawerOpen] = React.useState(false);
@@ -193,281 +207,280 @@ export default function HearingScreening({ screening = {} }) {
     refetchOnWindowFocus: true,
   });
 
-  console.log(hearingScreeningData, "hearingScreeningData");
-  const getData = useStudentData(selectedCampId);
+  // const getData = useStudentData(selectedCampId);
 
-  const camps = React.useMemo(
-    () => (Array.isArray(getData.campsData) ? getData.campsData : []),
-    [getData.campsData],
-  );
+  // const camps = React.useMemo(
+  //   () => (Array.isArray(getData.campsData) ? getData.campsData : []),
+  //   [getData.campsData],
+  // );
 
-  const campOptions = React.useMemo(() => {
-    return camps
-      .map((item) => {
-        const value = String(item.id ?? item.campId ?? item.camp_id ?? "");
-        const label =
-          item.name ??
-          item.camp_name ??
-          item.title ??
-          item.doctor_name ??
-          (value ? `Camp ${value}` : "");
+  // const campOptions = React.useMemo(() => {
+  //   return camps
+  //     .map((item) => {
+  //       const value = String(item.id ?? item.campId ?? item.camp_id ?? "");
+  //       const label =
+  //         item.name ??
+  //         item.camp_name ??
+  //         item.title ??
+  //         item.doctor_name ??
+  //         (value ? `Camp ${value}` : "");
 
-        return { value, label: String(label) };
-      })
-      .filter((item) => item.value && item.label);
-  }, [camps]);
-  console.log(campOptions, "campOptions");
+  //       return { value, label: String(label) };
+  //     })
+  //     .filter((item) => item.value && item.label);
+  // }, [camps]);
+  // console.log(campOptions, "campOptions");
 
-  const campStudents = React.useMemo(() => {
-    if (!getData.filteredCampRows.length) {
-      return [];
-    }
+  // const campStudents = React.useMemo(() => {
+  //   if (!getData.filteredCampRows.length) {
+  //     return [];
+  //   }
 
-    return getData.filteredCampRows.flatMap((row) => {
-      if (Array.isArray(row?.students)) {
-        return row.students;
-      }
+  //   return getData.filteredCampRows.flatMap((row) => {
+  //     if (Array.isArray(row?.students)) {
+  //       return row.students;
+  //     }
 
-      if (Array.isArray(row?.student)) {
-        return row.student;
-      }
+  //     if (Array.isArray(row?.student)) {
+  //       return row.student;
+  //     }
 
-      if (row?.student && typeof row.student === "object") {
-        return [row.student];
-      }
+  //     if (row?.student && typeof row.student === "object") {
+  //       return [row.student];
+  //     }
 
-      if (
-        row &&
-        typeof row === "object" &&
-        (row.student_id || row.studentId || row.school_registration_number)
-      ) {
-        return [row];
-      }
+  //     if (
+  //       row &&
+  //       typeof row === "object" &&
+  //       (row.student_id || row.studentId || row.school_registration_number)
+  //     ) {
+  //       return [row];
+  //     }
 
-      return [];
-    });
-  }, [getData.filteredCampRows]);
-  console.log(campStudents, "campStudents");
+  //     return [];
+  //   });
+  // }, [getData.filteredCampRows]);
+  // console.log(campStudents, "campStudents");
 
-  const academicYears = React.useMemo(() => {
-    const yearSet = new Set();
+  // const academicYears = React.useMemo(() => {
+  //   const yearSet = new Set();
 
-    campStudents.forEach((student) => {
-      const year = student?.academic_year ?? student?.academicYear ?? "";
-      if (String(year).trim()) {
-        yearSet.add(String(year).trim());
-      }
-    });
+  //   campStudents.forEach((student) => {
+  //     const year = student?.academic_year ?? student?.academicYear ?? "";
+  //     if (String(year).trim()) {
+  //       yearSet.add(String(year).trim());
+  //     }
+  //   });
 
-    return Array.from(yearSet).sort((a, b) =>
-      a.localeCompare(b, undefined, { numeric: true }),
-    );
-  }, [campStudents]);
+  //   return Array.from(yearSet).sort((a, b) =>
+  //     a.localeCompare(b, undefined, { numeric: true }),
+  //   );
+  // }, [campStudents]);
 
-  const activeAcademicYear = React.useMemo(() => {
-    if (!selectedCampId) {
-      return "";
-    }
+  // const activeAcademicYear = React.useMemo(() => {
+  //   if (!selectedCampId) {
+  //     return "";
+  //   }
 
-    if (academicYears.includes(academicYear)) {
-      return academicYear;
-    }
+  //   if (academicYears.includes(academicYear)) {
+  //     return academicYear;
+  //   }
 
-    return academicYears[0] ?? "";
-  }, [academicYear, academicYears, selectedCampId]);
+  //   return academicYears[0] ?? "";
+  // }, [academicYear, academicYears, selectedCampId]);
 
-  const classOptions = React.useMemo(() => {
-    if (!selectedCampId) {
-      return ["all"];
-    }
+  // const classOptions = React.useMemo(() => {
+  //   if (!selectedCampId) {
+  //     return ["all"];
+  //   }
 
-    const classSet = new Set();
+  //   const classSet = new Set();
 
-    campStudents.forEach((student) => {
-      const year = String(
-        student?.academic_year ?? student?.academicYear ?? "",
-      ).trim();
-      if (activeAcademicYear && year && year !== activeAcademicYear) {
-        return;
-      }
+  //   campStudents.forEach((student) => {
+  //     const year = String(
+  //       student?.academic_year ?? student?.academicYear ?? "",
+  //     ).trim();
+  //     if (activeAcademicYear && year && year !== activeAcademicYear) {
+  //       return;
+  //     }
 
-      const classValue = String(
-        student?.Class ?? student?.class ?? student?.grade ?? "",
-      )
-        .split("-")[0]
-        .trim();
+  //     const classValue = String(
+  //       student?.Class ?? student?.class ?? student?.grade ?? "",
+  //     )
+  //       .split("-")[0]
+  //       .trim();
 
-      if (classValue) {
-        classSet.add(classValue);
-      }
-    });
+  //     if (classValue) {
+  //       classSet.add(classValue);
+  //     }
+  //   });
 
-    return [
-      "all",
-      ...Array.from(classSet).sort((a, b) =>
-        a.localeCompare(b, undefined, { numeric: true }),
-      ),
-    ];
-  }, [activeAcademicYear, campStudents, selectedCampId]);
+  //   return [
+  //     "all",
+  //     ...Array.from(classSet).sort((a, b) =>
+  //       a.localeCompare(b, undefined, { numeric: true }),
+  //     ),
+  //   ];
+  // }, [activeAcademicYear, campStudents, selectedCampId]);
 
-  const sectionOptions = React.useMemo(() => {
-    if (!selectedCampId) {
-      return ["all"];
-    }
+  // const sectionOptions = React.useMemo(() => {
+  //   if (!selectedCampId) {
+  //     return ["all"];
+  //   }
 
-    const sectionSet = new Set();
+  //   const sectionSet = new Set();
 
-    campStudents.forEach((student) => {
-      const year = String(
-        student?.academic_year ?? student?.academicYear ?? "",
-      ).trim();
-      if (activeAcademicYear && year && year !== activeAcademicYear) {
-        return;
-      }
+  //   campStudents.forEach((student) => {
+  //     const year = String(
+  //       student?.academic_year ?? student?.academicYear ?? "",
+  //     ).trim();
+  //     if (activeAcademicYear && year && year !== activeAcademicYear) {
+  //       return;
+  //     }
 
-      const classValue = String(
-        student?.Class ?? student?.class ?? student?.grade ?? "",
-      )
-        .split("-")[0]
-        .trim();
-      if (selectedClassFilter !== "all" && classValue !== selectedClassFilter) {
-        return;
-      }
+  //     const classValue = String(
+  //       student?.Class ?? student?.class ?? student?.grade ?? "",
+  //     )
+  //       .split("-")[0]
+  //       .trim();
+  //     if (selectedClassFilter !== "all" && classValue !== selectedClassFilter) {
+  //       return;
+  //     }
 
-      const sectionValue =
-        String(student?.sec ?? student?.section ?? student?.grade ?? "")
-          .split("-")[1]
-          ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
+  //     const sectionValue =
+  //       String(student?.sec ?? student?.section ?? student?.grade ?? "")
+  //         .split("-")[1]
+  //         ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
 
-      if (sectionValue) {
-        sectionSet.add(sectionValue);
-      }
-    });
+  //     if (sectionValue) {
+  //       sectionSet.add(sectionValue);
+  //     }
+  //   });
 
-    return [
-      "all",
-      ...Array.from(sectionSet).sort((a, b) =>
-        a.localeCompare(b, undefined, { numeric: true }),
-      ),
-    ];
-  }, [activeAcademicYear, campStudents, selectedCampId, selectedClassFilter]);
+  //   return [
+  //     "all",
+  //     ...Array.from(sectionSet).sort((a, b) =>
+  //       a.localeCompare(b, undefined, { numeric: true }),
+  //     ),
+  //   ];
+  // }, [activeAcademicYear, campStudents, selectedCampId, selectedClassFilter]);
 
-  const normalizedCampStudents = React.useMemo(() => {
-    const uniqueStudents = new Map();
+  // const normalizedCampStudents = React.useMemo(() => {
+  //   const uniqueStudents = new Map();
 
-    campStudents.forEach((student) => {
-      const rawId =
-        student?.id ??
-        student?.studentId ??
-        student?.student_id ??
-        student?.school_registration_number ??
-        student?.admission_number;
+  //   campStudents.forEach((student) => {
+  //     const rawId =
+  //       student?.id ??
+  //       student?.studentId ??
+  //       student?.student_id ??
+  //       student?.school_registration_number ??
+  //       student?.admission_number;
 
-      if (
-        rawId === undefined ||
-        rawId === null ||
-        String(rawId).trim() === ""
-      ) {
-        return;
-      }
+  //     if (
+  //       rawId === undefined ||
+  //       rawId === null ||
+  //       String(rawId).trim() === ""
+  //     ) {
+  //       return;
+  //     }
 
-      const id = String(rawId).trim();
-      const classValue = String(
-        student?.Class ?? student?.class ?? student?.grade ?? "",
-      )
-        .split("-")[0]
-        .trim();
-      const sectionValue =
-        String(student?.sec ?? student?.section ?? student?.grade ?? "")
-          .split("-")[1]
-          ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
+  //     const id = String(rawId).trim();
+  //     const classValue = String(
+  //       student?.Class ?? student?.class ?? student?.grade ?? "",
+  //     )
+  //       .split("-")[0]
+  //       .trim();
+  //     const sectionValue =
+  //       String(student?.sec ?? student?.section ?? student?.grade ?? "")
+  //         .split("-")[1]
+  //         ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
 
-      uniqueStudents.set(id, {
-        ...student,
-        id,
-        studentId:
-          student?.studentId ??
-          student?.student_id ??
-          student?.school_registration_number ??
-          student?.admission_number ??
-          id,
-        name:
-          student?.name ?? student?.student_name ?? student?.studentName ?? "",
-        Class: classValue,
-        sec: sectionValue,
-      });
-    });
+  //     uniqueStudents.set(id, {
+  //       ...student,
+  //       id,
+  //       studentId:
+  //         student?.studentId ??
+  //         student?.student_id ??
+  //         student?.school_registration_number ??
+  //         student?.admission_number ??
+  //         id,
+  //       name:
+  //         student?.name ?? student?.student_name ?? student?.studentName ?? "",
+  //       Class: classValue,
+  //       sec: sectionValue,
+  //     });
+  //   });
 
-    return Array.from(uniqueStudents.values());
-  }, [campStudents]);
+  //   return Array.from(uniqueStudents.values());
+  // }, [campStudents]);
 
-  const filteredStudents = React.useMemo(() => {
-    if (!selectedCampId) {
-      return [];
-    }
+  // const filteredStudents = React.useMemo(() => {
+  //   if (!selectedCampId) {
+  //     return [];
+  //   }
 
-    return normalizedCampStudents.filter((student) => {
-      const year = String(
-        student?.academic_year ?? student?.academicYear ?? "",
-      ).trim();
-      const classValue = String(
-        student?.Class ?? student?.class ?? student?.grade ?? "",
-      )
-        .split("-")[0]
-        .trim();
-      const sectionValue =
-        String(student?.sec ?? student?.section ?? student?.grade ?? "")
-          .split("-")[1]
-          ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
+  //   return normalizedCampStudents.filter((student) => {
+  //     const year = String(
+  //       student?.academic_year ?? student?.academicYear ?? "",
+  //     ).trim();
+  //     const classValue = String(
+  //       student?.Class ?? student?.class ?? student?.grade ?? "",
+  //     )
+  //       .split("-")[0]
+  //       .trim();
+  //     const sectionValue =
+  //       String(student?.sec ?? student?.section ?? student?.grade ?? "")
+  //         .split("-")[1]
+  //         ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
 
-      const yearMatch =
-        !activeAcademicYear || !year || year === activeAcademicYear;
-      const classMatch =
-        selectedClassFilter === "all" || classValue === selectedClassFilter;
-      const sectionMatch =
-        selectedSectionFilter === "all" ||
-        sectionValue === selectedSectionFilter;
+  //     const yearMatch =
+  //       !activeAcademicYear || !year || year === activeAcademicYear;
+  //     const classMatch =
+  //       selectedClassFilter === "all" || classValue === selectedClassFilter;
+  //     const sectionMatch =
+  //       selectedSectionFilter === "all" ||
+  //       sectionValue === selectedSectionFilter;
 
-      return yearMatch && classMatch && sectionMatch;
-    });
-  }, [
-    activeAcademicYear,
-    normalizedCampStudents,
-    selectedCampId,
-    selectedClassFilter,
-    selectedSectionFilter,
-  ]);
+  //     return yearMatch && classMatch && sectionMatch;
+  //   });
+  // }, [
+  //   activeAcademicYear,
+  //   normalizedCampStudents,
+  //   selectedCampId,
+  //   selectedClassFilter,
+  //   selectedSectionFilter,
+  // ]);
 
-  const getStudentKeys = (student) =>
-    new Set(
-      [
-        student?.id,
-        student?.studentId,
-        student?.student_id,
-        student?.school_registration_number,
-        student?.admission_number,
-      ]
-        .map((value) => String(value ?? "").trim())
-        .filter(Boolean),
-    );
+  // const getStudentKeys = (student) =>
+  //   new Set(
+  //     [
+  //       student?.id,
+  //       student?.studentId,
+  //       student?.student_id,
+  //       student?.school_registration_number,
+  //       student?.admission_number,
+  //     ]
+  //       .map((value) => String(value ?? "").trim())
+  //       .filter(Boolean),
+  //   );
 
-  const findScreeningRecordByKeys = React.useCallback(
-    (keys) =>
-      hearingScreeningData.find((record) => {
-        const recordKeys = [
-          record?.id,
-          record?.studentId,
-          record?.student_id,
-          record?.school_registration_number,
-          record?.admission_number,
-        ]
-          .map((value) => String(value ?? "").trim())
-          .filter(Boolean);
+  // const findScreeningRecordByKeys = React.useCallback(
+  //   (keys) =>
+  //     hearingScreeningData.find((record) => {
+  //       const recordKeys = [
+  //         record?.id,
+  //         record?.studentId,
+  //         record?.student_id,
+  //         record?.school_registration_number,
+  //         record?.admission_number,
+  //       ]
+  //         .map((value) => String(value ?? "").trim())
+  //         .filter(Boolean);
 
-        return recordKeys.some((key) => keys.has(key));
-      }),
-    [hearingScreeningData],
-  );
+  //       return recordKeys.some((key) => keys.has(key));
+  //     }),
+  //   [hearingScreeningData],
+  // );
 
   const applyScreeningRecordToForm = (screeningRecord) => {
     const record = screeningRecord ?? {};
@@ -519,49 +532,83 @@ export default function HearingScreening({ screening = {} }) {
     });
   };
 
-  console.log("Filtered Students:", filteredStudents);
-  const selectedStudent = React.useMemo(() => {
-    const activeStudentId = studentFilter !== "all" ? studentFilter : studentId;
-    const selectedFromFilter = Array.isArray(filterPayload?.items)
-      ? filterPayload.items.find(
-        (student) =>
-          String(student?.id ?? student?.studentId ?? student?.cus_id) ===
-          String(activeStudentId),
-      )
-      : null;
-
-    if (selectedFromFilter) {
-      return selectedFromFilter;
-    }
-
-    if (!filteredStudents.length) {
+  
+     const selectedStudentFromFilter = React.useMemo(() => {
+      const activeId = studentFilter !== "all" ? studentFilter : studentId;
+      if (activeId && Array.isArray(filterPayload?.items)) {
+        return (
+          filterPayload.items.find(
+            (student) =>
+              String(student?.id ?? student?.studentId ?? student?.cus_id) === String(activeId),
+          ) ?? null
+        );
+      }
       return null;
-    }
+    }, [filterPayload?.items, studentFilter, studentId]);
 
-    const explicitSelection = filteredStudents.find(
-      (student) =>
-        String(student.id ?? student.studentId) === String(studentId),
-    );
+  const selectedStudent = React.useMemo(() => {
+      if (selectedStudentFromFilter) {
+        return selectedStudentFromFilter;
+      }
+  
+      if (studentId && Array.isArray(filterPayload?.items)) {
+        const match = filterPayload.items.find(
+          (student) => String(student.id ?? student.studentId ?? student.cus_id) === String(studentId),
+        );
+        if (match) return match;
+      }
+  
+      return null;
+    }, [filterPayload?.items, selectedStudentFromFilter, studentId]);
+  
 
-    return explicitSelection ?? filteredStudents[0];
-  }, [filterPayload?.items, filteredStudents, studentFilter, studentId]);
-
-  const studentSelectValue = String(
+const selectedStudentKey = String(
     selectedStudent?.id ?? selectedStudent?.studentId ?? "",
   );
-  console.log(studentSelectValue, "studentSelectValue");
+  const studentSelectValue = selectedStudentKey || "";
+  // console.log("Filtered Students:", filteredStudents);
+  // const selectedStudent = React.useMemo(() => {
+  //   const activeStudentId = studentFilter !== "all" ? studentFilter : studentId;
+  //   const selectedFromFilter = Array.isArray(filterPayload?.items)
+  //     ? filterPayload.items.find(
+  //       (student) =>
+  //         String(student?.id ?? student?.studentId ?? student?.cus_id) ===
+  //         String(activeStudentId),
+  //     )
+  //     : null;
 
-  const selectedStudentKeys = React.useMemo(() => {
-    if (selectedStudent) {
-      return getStudentKeys(selectedStudent);
-    }
+  //   if (selectedFromFilter) {
+  //     return selectedFromFilter;
+  //   }
 
-    return new Set(
-      [studentSelectValue, studentId]
-        .map((value) => String(value ?? "").trim())
-        .filter(Boolean),
-    );
-  }, [selectedStudent, studentId, studentSelectValue]);
+  //   if (!filteredStudents.length) {
+  //     return null;
+  //   }
+
+  //   const explicitSelection = filteredStudents.find(
+  //     (student) =>
+  //       String(student.id ?? student.studentId) === String(studentId),
+  //   );
+
+  //   return explicitSelection ?? filteredStudents[0];
+  // }, [filterPayload?.items, filteredStudents, studentFilter, studentId]);
+
+  // const studentSelectValue = String(
+  //   selectedStudent?.id ?? selectedStudent?.studentId ?? "",
+  // );
+  // console.log(studentSelectValue, "studentSelectValue");
+
+  // const selectedStudentKeys = React.useMemo(() => {
+  //   if (selectedStudent) {
+  //     return getStudentKeys(selectedStudent);
+  //   }
+
+  //   return new Set(
+  //     [studentSelectValue, studentId]
+  //       .map((value) => String(value ?? "").trim())
+  //       .filter(Boolean),
+  //   );
+  // }, [selectedStudent, studentId, studentSelectValue]);
 
   const getSelectedStudentScreeningData = React.useMemo(() => {
     if (!studentId || !Array.isArray(hearingScreeningData)) {
@@ -579,27 +626,66 @@ export default function HearingScreening({ screening = {} }) {
 
     applyScreeningRecordToForm(getSelectedStudentScreeningData);
   }, [getSelectedStudentScreeningData, hearingScreeningLoading, studentId]);
-  console.log(
-    getSelectedStudentScreeningData,
-    "getSelectedStudentScreeningData",
-  );
 
   const assessmentStudentOptions = React.useMemo(
-    () =>
-      filteredStudents.map((student) => {
-        const value = String(student.id ?? student.studentId ?? "");
-        const studentCode =
-          student.studentId ??
-          student.student_id ??
-          student.school_registration_number ??
-          student.admission_number;
-        return {
-          value,
-          label: `${student.name || "Unknown"}${studentCode ? ` (${studentCode})` : ""}`,
-        };
-      }),
-    [filteredStudents],
+      () =>
+        (filterPayload?.items ?? []).map((student) => {
+          const value = String(student.id ?? student.studentId ?? student.cus_id ?? "");
+          const studentCode =
+            student.studentId ?? student.student_id ?? student.school_registration_number ?? student.admission_number;
+  
+          return {
+            value,
+            label: `${student.name || student.student_name || "Unknown"}${studentCode ? ` (${studentCode})` : ""}`,
+          };
+        }),
+      [filterPayload?.items],
+    );
+
+  const handleAssessmentStudentChange = React.useCallback((value) => {
+    setStudentId(value);
+  }, []);
+
+  const resetDependentFilters = React.useCallback(() => {
+    setClassFilter("all");
+    setSectionFilter("all");
+    setStudentFilter("all");
+    setStudentId("");
+  }, []);
+
+  const handleSchoolFilterChange = React.useCallback(
+    (value) => {
+      setSchoolName(value);
+      resetDependentFilters();
+    },
+    [resetDependentFilters],
   );
+
+  const handleAcademicYearFilterChange = React.useCallback(
+    (value) => {
+      setAcademicYear(value);
+      resetDependentFilters();
+    },
+    [resetDependentFilters],
+  );
+
+  const handleClassFilterChange = React.useCallback((value) => {
+    setClassFilter(value);
+    setSectionFilter("all");
+    setStudentFilter("all");
+    setStudentId("");
+  }, []);
+
+  const handleSectionFilterChange = React.useCallback((value) => {
+    setSectionFilter(value);
+    setStudentFilter("all");
+    setStudentId("");
+  }, []);
+
+  const handleStudentFilterChange = React.useCallback((value) => {
+    setStudentFilter(value);
+    setStudentId(value === "all" ? "" : value);
+  }, []);
 
   return (
     <section className="min-h-screen space-y-5 bg-background">
@@ -607,7 +693,7 @@ export default function HearingScreening({ screening = {} }) {
           HEADER
       ===================================================== */}
 
-      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-4 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
+      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="flex items-center gap-2 py-2">
             <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary aspect-square">
@@ -637,7 +723,7 @@ export default function HearingScreening({ screening = {} }) {
         </div>
 
         <div className="flex flex-wrap gap-2 md:flex-nowrap">
-          <CampStudentSelectorDrawer
+          {/* <CampStudentSelectorDrawer
             open={isCaDrawerOpen}
             onOpenChange={setIsCaDrawerOpen}
             studentsLoading={getData.studentCampLoading}
@@ -683,7 +769,7 @@ export default function HearingScreening({ screening = {} }) {
             }}
             filteredStudents={filteredStudents}
             normalizedCampStudents={normalizedCampStudents}
-          />
+          /> */}
 
           <Button variant="outline">Save & Exit</Button>
 
@@ -701,35 +787,11 @@ export default function HearingScreening({ screening = {} }) {
         classFilter={classFilter}
         sectionFilter={sectionFilter}
         studentFilter={studentFilter}
-        onSchoolNameChange={(value) => {
-          setSchoolName(value);
-          setClassFilter("all");
-          setSectionFilter("all");
-          setStudentFilter("all");
-          setStudentId("");
-        }}
-        onAcademicYearChange={(value) => {
-          setAcademicYear(value);
-          setClassFilter("all");
-          setSectionFilter("all");
-          setStudentFilter("all");
-          setStudentId("");
-        }}
-        onClassFilterChange={(value) => {
-          setClassFilter(value);
-          setSectionFilter("all");
-          setStudentFilter("all");
-          setStudentId("");
-        }}
-        onSectionFilterChange={(value) => {
-          setSectionFilter(value);
-          setStudentFilter("all");
-          setStudentId("");
-        }}
-        onStudentFilterChange={(value) => {
-          setStudentFilter(value);
-          setStudentId(value === "all" ? "" : value);
-        }}
+        onSchoolNameChange={handleSchoolFilterChange}
+        onAcademicYearChange={handleAcademicYearFilterChange}
+        onClassFilterChange={handleClassFilterChange}
+        onSectionFilterChange={handleSectionFilterChange}
+        onStudentFilterChange={handleStudentFilterChange}
       />
       {/* =====================================================
           MAIN GRID
@@ -765,21 +827,7 @@ export default function HearingScreening({ screening = {} }) {
                 data={getSelectedStudentScreeningData}
                 studentOptions={assessmentStudentOptions}
                 studentValue={studentSelectValue}
-                onStudentChange={(value) => {
-                  const selectedFromList = filteredStudents.find(
-                    (student) =>
-                      String(student.id ?? student.studentId) === String(value),
-                  );
-
-                  if (selectedFromList) {
-                    const selectedKeys = getStudentKeys(selectedFromList);
-                    const screeningRecord =
-                      findScreeningRecordByKeys(selectedKeys);
-                    applyScreeningRecordToForm(screeningRecord);
-                  }
-
-                  setStudentId(value);
-                }}
+                onStudentChange={handleAssessmentStudentChange}
               // onSave={handleSaveAssessment}
               // onCancel={handleCancelAssessment}
               />
@@ -1710,8 +1758,8 @@ function EarResult({ label, status, ear }) {
         <div className="flex items-center gap-3">
           <div
             className={`flex size-10 items-center justify-center rounded-xl ${isNormal
-                ? "bg-success/10 text-success"
-                : "bg-muted text-muted-foreground"
+              ? "bg-success/10 text-success"
+              : "bg-muted text-muted-foreground"
               }`}
           >
             {isNormal ? (
@@ -1730,8 +1778,8 @@ function EarResult({ label, status, ear }) {
 
         <span
           className={`rounded-full px-2.5 py-1 text-[10px] font-medium ${isNormal
-              ? "bg-success/10 text-success"
-              : "bg-muted text-muted-foreground"
+            ? "bg-success/10 text-success"
+            : "bg-muted text-muted-foreground"
             }`}
         >
           {status || "Not assessed"}

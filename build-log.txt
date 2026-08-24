@@ -1,0 +1,57 @@
+﻿
+> svastha@0.1.0 build
+> next build
+
+Γû▓ Next.js 16.3.1 (Turbopack)
+- Environments: .env.local
+Γ£ô Running next.config.mjs took 16ms
+
+npm.cmd : ΓÜá The "middleware" file convention is deprecated. Please use "proxy" instead.
+At line:1 char:1
++ npm.cmd run build 2>&1 | Out-File -FilePath build-log.txt -Encoding u ...
++ ~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (ΓÜá The "middle...proxy" instead.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+  To migrate automatically, run:
+  npx @next/codemod@canary middleware-to-proxy .
+
+  Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 1605ms
+  Running TypeScript ...
+  Finished TypeScript in 4ms ...
+  Collecting page data using 11 workers ...
+  Generating static pages using 11 workers (0/17) ...
+  Generating static pages using 11 workers (4/17) 
+  Generating static pages using 11 workers (8/17) 
+  Generating static pages using 11 workers (12/17) 
+Γ£ô Generating static pages using 11 workers (17/17) in 501ms
+  Finalizing page optimization ...
+
+Route (app)
+Γöî Γùï /
+Γö£ Γùï /_not-found
+Γö£ ╞Æ /api/[...path]
+Γö£ Γùï /components/dashboard
+Γö£ Γùï /health-checks
+Γö£ Γùï /health-checks/dental-screening
+Γö£ Γùï /health-checks/dental-screening-new
+Γö£ Γùï /health-checks/ent-screening
+Γö£ Γùï /health-checks/general-screening
+Γö£ Γùï /health-checks/hearing-screening
+Γö£ Γùï /health-checks/overview-screening
+Γö£ Γùï /health-checks/vision-screening
+Γö£ Γùï /login
+Γö£ Γùï /settings
+Γö£ Γùï /students
+Γö£ ╞Æ /students/[student]
+Γöö Γùï /students/add
+
+
+╞Æ Proxy (Middleware)
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+

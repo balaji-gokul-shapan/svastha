@@ -148,4 +148,5 @@ const StudentProfileCard = ({ student }) => {
   );
 };
 
-export default StudentProfileCard;
+// Memoized: the profile card is static while typing in the screening form.
+export default React.memo(StudentProfileCard);

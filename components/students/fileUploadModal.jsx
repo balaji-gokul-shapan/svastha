@@ -1,6 +1,9 @@
 "use client";
 
+import { useDispatch } from "react-redux";
+import { toast } from "sonner";
 import { useRef, useState } from "react";
+import { importStudents } from "@/lib/features/importStudentsSlice";
 import {
   AlertCircle,
   CheckCircle2,
@@ -41,7 +44,8 @@ const formatFileSize = (size = 0) => {
   return `${(kb / 1024).toFixed(2)} MB`;
 };
 
-export default function FileUploadModal({ onUpload, onDownloadTemplate }) {
+export default function FileUploadModal({ onUpload, onDownloadTemplate, onSuccess }) {
+  const dispatch = useDispatch();
   const [open, setOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -100,12 +104,33 @@ export default function FileUploadModal({ onUpload, onDownloadTemplate }) {
 
     try {
       setIsUploading(true);
+
+      // Custom handler (if provided) takes precedence; otherwise use the
+      // students import API via Redux.
       if (typeof onUpload === "function") {
         await onUpload(selectedFile);
+      } else {
+        const result = await dispatch(
+          importStudents({ file: selectedFile }),
+        ).unwrap();
+
+        toast.success("Students imported successfully", {
+          description:
+            result?.message ??
+            result?.detail ??
+            `${selectedFile.name} uploaded`,
+        });
+        if (typeof onSuccess === "function") {
+          onSuccess();
+        }
       }
+
       handleClose();
     } catch (error) {
-      setErrorMessage(error?.message || "Upload failed. Please try again.");
+      const message =
+        error?.message || "Upload failed. Please try again.";
+      setErrorMessage(message);
+      toast.error("Failed to import students", { description: message });
       setIsUploading(false);
     }
   };

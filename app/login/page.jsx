@@ -77,15 +77,15 @@ export default function LoginPage() {
         <CardHeader className="space-y-1">
           <div className="flex flex-row items-center gap-2">
             <Image
-            src="/logo.svg"
-            alt="Svastha Logo"
-            width={50}
-            height={50}
-            className=""
-          />
-          <span className="truncate font-display text-xl font-semibold text-[#00A4E3] transition-all tracking-wide duration-200">
-            Svas<span className="text-[#00D55F]">t</span>ha
-          </span>
+              src="/logo.svg"
+              alt="Svastha Logo"
+              width={50}
+              height={50}
+              className=""
+            />
+            <span className="truncate font-sf text-2xl font-semibold text-[#00A4E3] transition-all tracking-wide duration-200">
+              Svas<span className="text-[#00D55F]">t</span>ha
+            </span>
           </div>
           <CardTitle className="text-2xl">Login</CardTitle>
           <CardDescription>
@@ -143,12 +143,10 @@ export default function LoginPage() {
               Sign In
             </Button>
 
-            <div className="rounded-md border border-border/70 bg-muted/50 p-3 text-xs text-muted-foreground">
+            {/* <div className="rounded-md border border-border/70 bg-muted/50 p-3 text-xs text-muted-foreground">
               <p className="font-medium text-foreground">Demo credentials</p>
-              <p>User: user / user123</p>
-              <p>Admin: admin / admin123</p>
-              <p>Super Admin: superadmin / super123</p>
-            </div>
+              
+            </div> */}
           </form>
         </CardContent>
       </Card>

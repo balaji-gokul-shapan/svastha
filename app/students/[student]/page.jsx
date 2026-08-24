@@ -23,6 +23,12 @@ import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import HealthCheckModal from "@/components/students/health-check-modal";
 import { getStudentSlug } from "../student-data";
 import { getInitials } from "../students-data-table";
+import { getNormaliseName } from "../students-cards";
+import {
+  FemaleStudentIcon,
+  MaleStudentIcon,
+} from "@/components/assets/image/icon";
+import { Badge } from "@/components/ui/badge";
 
 function statusToneClass(status) {
   const s = (status ?? "").toLowerCase();
@@ -93,7 +99,14 @@ function getStudentIdentifier(student) {
   return String(candidate ?? "").trim();
 }
 
-function Field({ id, label, name, defaultValue, type = "text", disabled = false }) {
+function Field({
+  id,
+  label,
+  name,
+  defaultValue,
+  type = "text",
+  disabled = false,
+}) {
   return (
     <div className="space-y-1.5">
       <label htmlFor={id} className="text-sm font-medium text-foreground">
@@ -150,10 +163,12 @@ export default function StudentDetailPage() {
     () => students.find((item) => getStudentSlug(item) === studentSlug) ?? null,
     [students, studentSlug],
   );
-  console.log(student,"stud");
-  
+
   const [dobOverride, setDobOverride] = React.useState(null);
-  const profileImageUrl = React.useMemo(() => getProfileImageUrl(student), [student]);
+  const profileImageUrl = React.useMemo(
+    () => getProfileImageUrl(student),
+    [student],
+  );
   const [erroredImageUrl, setErroredImageUrl] = React.useState("");
   const [uploadedImageFile, setUploadedImageFile] = React.useState(null);
   const [uploadError, setUploadError] = React.useState("");
@@ -253,7 +268,6 @@ export default function StudentDetailPage() {
       studentData: formData,
     });
   };
-   
 
   if (loading && !student) {
     return (
@@ -272,7 +286,7 @@ export default function StudentDetailPage() {
       <section className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-display text-2xl font-semibold text-foreground">
+            <h2 className="font-sf text-2xl font-bold text-foreground">
               Student Not Found
             </h2>
             <p className="text-sm text-muted-foreground">
@@ -289,13 +303,15 @@ export default function StudentDetailPage() {
 
   const dobValue = dobOverride ?? student.dob ?? "";
   const ageValue = calculateAgeFromDob(dobValue);
+  const genderValue = getNormaliseName(student.gender || student.Gender);
+  const isMale = genderValue === "Male";
 
   return (
     <section className="space-y-5">
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-display text-2xl font-semibold text-foreground">
+          <h2 className="font-sf text-2xl font-bold text-foreground">
             Student Profile
           </h2>
           <p className="text-sm text-muted-foreground">
@@ -343,11 +359,24 @@ export default function StudentDetailPage() {
           </Button>
         </div>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 space-y-2">
           <p className="truncate text-lg font-semibold text-foreground">
             {student.name}
           </p>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm flex items-center gap-2 text-muted-foreground">
+            <Badge
+              variant={"outline"}
+              className="flex items-center w-fit gap-1.5 text-xs text-foreground tracking-wider capitalize"
+            >
+              {isMale ? (
+                <MaleStudentIcon className="h-[18px] w-[18px] text-info" />
+              ) : (
+                <FemaleStudentIcon className="h-[18px] w-[18px] text-pink-600" />
+              )}
+
+              <p className="">{genderValue}</p>
+            </Badge>
+            {/* {student.gender || student.Gender} */}
             {(student.class ?? student.Class)
               ? `Class ${student.class ?? student.Class}`
               : "—"}
@@ -419,7 +448,11 @@ export default function StudentDetailPage() {
 
             <div className="mt-4 flex items-center justify-end gap-2">
               {uploadedImageFile ? (
-                <Button type="button" variant="outline" onClick={clearUploadedImage}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={clearUploadedImage}
+                >
                   Remove Image
                 </Button>
               ) : null}
@@ -480,9 +513,12 @@ export default function StudentDetailPage() {
             defaultValue={student.sec}
             disabled
           />
-          
+
           <div className="space-y-1.5">
-            <label htmlFor="dob" className="text-sm font-medium text-foreground">
+            <label
+              htmlFor="dob"
+              className="text-sm font-medium text-foreground"
+            >
               Date of Birth
             </label>
             <DatePicker
@@ -495,7 +531,10 @@ export default function StudentDetailPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <label htmlFor="age" className="text-sm font-medium text-foreground">
+            <label
+              htmlFor="age"
+              className="text-sm font-medium text-foreground"
+            >
               Age
             </label>
             <Input id="age" name="age" value={ageValue} readOnly />
@@ -576,11 +615,16 @@ export default function StudentDetailPage() {
         <div className="sticky bottom-2 z-10 flex items-center justify-end gap-2 rounded-lg border border-border bg-background/95 px-3 py-2 backdrop-blur supports-backdrop-filter:bg-background/80 sm:px-4">
           {updateStudentMutation.error ? (
             <p className="mr-auto text-xs text-destructive">
-              {String(updateStudentMutation.error?.message || "Unable to update student")}
+              {String(
+                updateStudentMutation.error?.message ||
+                  "Unable to update student",
+              )}
             </p>
           ) : null}
           {updateStudentMutation.isSuccess ? (
-            <p className="mr-auto text-xs text-success">Student updated successfully.</p>
+            <p className="mr-auto text-xs text-success">
+              Student updated successfully.
+            </p>
           ) : null}
           <Link href="/students">
             <Button type="button" variant="outline">

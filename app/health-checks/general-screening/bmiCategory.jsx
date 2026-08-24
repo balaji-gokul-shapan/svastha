@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 import { bmiCategory } from "./general-screening-data";
 
 // Gauge maps BMI 10 → 40 across a 180° semicircle (0° = left/low, 180° = right/high).
@@ -48,7 +50,7 @@ const CY = 108;
 const R = 88;
 const STROKE = 16;
 
-export function BmiGauge({ bmi }) {
+function BmiGaugeComponent({ bmi }) {
   const normalizedBmi = Number(bmi);
   const hasValue = Number.isFinite(normalizedBmi);
   const category = bmiCategory(hasValue ? normalizedBmi : null);
@@ -110,3 +112,7 @@ export function BmiGauge({ bmi }) {
     </div>
   );
 }
+
+// Memoized: only re-renders when the bmi value changes, not on every
+// keystroke elsewhere in the screening form.
+export const BmiGauge = memo(BmiGaugeComponent);

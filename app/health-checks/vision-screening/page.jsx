@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   AlertTriangle,
   Calendar,
@@ -209,7 +210,7 @@ export default function VisionScreeningPage() {
     queryKey: ["filter-student", schoolName, academicYear, "options"],
     queryFn: () =>
       dispatch(
- getFilterStudent({
+        getFilterStudent({
           all: true,
           status: "all",
           schoolName,
@@ -238,242 +239,265 @@ export default function VisionScreeningPage() {
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
-  const {
-    campsData = [],
-    campsLoading,
-    campsQueryError,
-    studentCampLoading,
-    studentCampQueryError,
-    filteredCampRows,
-  } = useStudentData(selectedCampId);
+  // const {
+  //   campsData = [],
+  //   campsLoading,
+  //   campsQueryError,
+  //   studentCampLoading,
+  //   studentCampQueryError,
+  //   filteredCampRows,
+  // } = useStudentData(selectedCampId);
 
-  const campStudents = useMemo(() => {
-    if (!filteredCampRows.length) {
-      return [];
-    }
+  // const campStudents = useMemo(() => {
+  //   if (!filteredCampRows.length) {
+  //     return [];
+  //   }
 
-    return filteredCampRows.flatMap((row) => {
-      if (Array.isArray(row?.students)) {
-        return row.students;
-      }
+  //   return filteredCampRows.flatMap((row) => {
+  //     if (Array.isArray(row?.students)) {
+  //       return row.students;
+  //     }
 
-      if (Array.isArray(row?.student)) {
-        return row.student;
-      }
+  //     if (Array.isArray(row?.student)) {
+  //       return row.student;
+  //     }
 
-      if (row?.student && typeof row.student === "object") {
-        return [row.student];
-      }
+  //     if (row?.student && typeof row.student === "object") {
+  //       return [row.student];
+  //     }
 
-      if (
-        row &&
-        typeof row === "object" &&
-        (row.student_id || row.studentId || row.school_registration_number)
-      ) {
-        return [row];
-      }
+  //     if (
+  //       row &&
+  //       typeof row === "object" &&
+  //       (row.student_id || row.studentId || row.school_registration_number)
+  //     ) {
+  //       return [row];
+  //     }
 
-      return [];
-    });
-  }, [filteredCampRows]);
+  //     return [];
+  //   });
+  // }, [filteredCampRows]);
 
-  const academicYears = useMemo(() => {
-    const yearSet = new Set();
+  // const academicYears = useMemo(() => {
+  //   const yearSet = new Set();
 
-    campStudents.forEach((student) => {
-      const year = student?.academic_year ?? student?.academicYear ?? "";
-      if (String(year).trim()) {
-        yearSet.add(String(year).trim());
-      }
-    });
+  //   campStudents.forEach((student) => {
+  //     const year = student?.academic_year ?? student?.academicYear ?? "";
+  //     if (String(year).trim()) {
+  //       yearSet.add(String(year).trim());
+  //     }
+  //   });
 
-    return Array.from(yearSet).sort((a, b) =>
-      a.localeCompare(b, undefined, { numeric: true }),
-    );
-  }, [campStudents]);
+  //   return Array.from(yearSet).sort((a, b) =>
+  //     a.localeCompare(b, undefined, { numeric: true }),
+  //   );
+  // }, [campStudents]);
 
-  const activeAcademicYear = useMemo(() => {
-    if (!selectedCampId) {
-      return "";
-    }
+  // const activeAcademicYear = useMemo(() => {
+  //   if (!selectedCampId) {
+  //     return "";
+  //   }
 
-    if (academicYears.includes(academicYear)) {
-      return academicYear;
-    }
+  //   if (academicYears.includes(academicYear)) {
+  //     return academicYear;
+  //   }
 
-    return academicYears[0] ?? "";
-  }, [academicYear, academicYears, selectedCampId]);
+  //   return academicYears[0] ?? "";
+  // }, [academicYear, academicYears, selectedCampId]);
 
-  const getClass = useMemo(() => {
+  // const getClass = useMemo(() => {
+  //   const classSet = new Set();
+
+  //   campStudents.forEach((student) => {
+  //     const year = String(
+  //       student?.academic_year ?? student?.academicYear ?? "",
+  //     ).trim();
+  //     if (activeAcademicYear && year && year !== activeAcademicYear) {
+  //       return;
+  //     }
+
+  //     const classValue = String(
+  //       student?.Class ?? student?.class ?? student?.grade ?? "",
+  //     )
+  //       .split("-")[0]
+  //       .trim();
+
+  //     if (classValue) {
+  //       classSet.add(classValue);
+  //     }
+  //   });
+
+  //   return Array.from(classSet).sort((a, b) =>
+  //     a.localeCompare(b, undefined, { numeric: true }),
+  //   );
+  // }, [activeAcademicYear, campStudents]);
+
+  // const getSection = useMemo(() => {
+  //   const sectionSet = new Set();
+
+  //   campStudents.forEach((student) => {
+  //     const year = String(
+  //       student?.academic_year ?? student?.academicYear ?? "",
+  //     ).trim();
+  //     if (activeAcademicYear && year && year !== activeAcademicYear) {
+  //       return;
+  //     }
+
+  //     const classValue = String(
+  //       student?.Class ?? student?.class ?? student?.grade ?? "",
+  //     )
+  //       .split("-")[0]
+  //       .trim();
+  //     if (selectedClassFilter !== "all" && classValue !== selectedClassFilter) {
+  //       return;
+  //     }
+
+  //     const sectionValue =
+  //       String(student?.sec ?? student?.section ?? student?.grade ?? "")
+  //         .split("-")[1]
+  //         ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
+
+  //     if (sectionValue) {
+  //       sectionSet.add(sectionValue);
+  //     }
+  //   });
+
+  //   return Array.from(sectionSet).sort((a, b) =>
+  //     a.localeCompare(b, undefined, { numeric: true }),
+  //   );
+  // }, [activeAcademicYear, campStudents, selectedClassFilter]);
+
+  // const camps = useMemo(
+  //   () => (Array.isArray(campsData) ? campsData : []),
+  //   [campsData],
+  // );
+
+  // const campOptions = useMemo(() => {
+  //   return camps
+  //     .map((item) => {
+  //       const value = String(item.id ?? item.campId ?? item.camp_id ?? "1");
+  //       const label =
+  //         item.name ??
+  //         item.camp_name ??
+  //         item.title ??
+  //         item.doctor_name ??
+  //         (value ? `Camp ${value}` : "");
+
+  //       return { value, label: String(label) };
+  //     })
+  //     .filter((item) => item.value && item.label);
+  // }, [camps]);
+
+  // const normalizedCampStudents = useMemo(() => {
+  //   const uniqueStudents = new Map();
+
+  //   campStudents.forEach((student) => {
+  //     const rawId =
+  //       student?.id ??
+  //       student?.studentId ??
+  //       student?.student_id ??
+  //       student?.school_registration_number ??
+  //       student?.admission_number;
+
+  //     if (
+  //       rawId === undefined ||
+  //       rawId === null ||
+  //       String(rawId).trim() === ""
+  //     ) {
+  //       return;
+  //     }
+
+  //     const id = String(rawId).trim();
+  //     const classValue = String(
+  //       student?.Class ?? student?.class ?? student?.grade ?? "",
+  //     )
+  //       .split("-")[0]
+  //       .trim();
+  //     const sectionValue =
+  //       String(student?.sec ?? student?.section ?? student?.grade ?? "")
+  //         .split("-")[1]
+  //         ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
+
+  //     uniqueStudents.set(id, {
+  //       ...student,
+  //       id,
+  //       studentId:
+  //         student?.studentId ??
+  //         student?.student_id ??
+  //         student?.school_registration_number ??
+  //         student?.admission_number ??
+  //         id,
+  //       name:
+  //         student?.name ?? student?.student_name ?? student?.studentName ?? "",
+  //       Class: classValue,
+  //       sec: sectionValue,
+  //     });
+  //   });
+
+  //   return Array.from(uniqueStudents.values());
+  // }, [campStudents]);
+
+   const classOptions = useMemo(() => {
+    if (!Array.isArray(filterPayload?.items)) return ["all"];
     const classSet = new Set();
-
-    campStudents.forEach((student) => {
-      const year = String(
-        student?.academic_year ?? student?.academicYear ?? "",
-      ).trim();
-      if (activeAcademicYear && year && year !== activeAcademicYear) {
-        return;
-      }
-
-      const classValue = String(
-        student?.Class ?? student?.class ?? student?.grade ?? "",
-      )
-        .split("-")[0]
-        .trim();
-
-      if (classValue) {
-        classSet.add(classValue);
-      }
+    filterPayload.items.forEach((student) => {
+      const cls = String(student?.Class ?? student?.class ?? student?.grade ?? "").split("-")[0].trim();
+      if (cls) classSet.add(cls);
     });
+    return ["all", ...Array.from(classSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))];
+  }, [filterPayload?.items]);
 
-    return Array.from(classSet).sort((a, b) =>
-      a.localeCompare(b, undefined, { numeric: true }),
-    );
-  }, [activeAcademicYear, campStudents]);
-
-  const getSection = useMemo(() => {
+  const sectionOptions = useMemo(() => {
+    if (!Array.isArray(filterPayload?.items)) return ["all"];
     const sectionSet = new Set();
-
-    campStudents.forEach((student) => {
-      const year = String(
-        student?.academic_year ?? student?.academicYear ?? "",
-      ).trim();
-      if (activeAcademicYear && year && year !== activeAcademicYear) {
-        return;
-      }
-
-      const classValue = String(
-        student?.Class ?? student?.class ?? student?.grade ?? "",
-      )
-        .split("-")[0]
-        .trim();
-      if (selectedClassFilter !== "all" && classValue !== selectedClassFilter) {
-        return;
-      }
-
-      const sectionValue =
-        String(student?.sec ?? student?.section ?? student?.grade ?? "")
-          .split("-")[1]
-          ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
-
-      if (sectionValue) {
-        sectionSet.add(sectionValue);
-      }
+    filterPayload.items.forEach((student) => {
+      const cls = String(student?.Class ?? student?.class ?? student?.grade ?? "").split("-")[0].trim();
+      if (selectedClassFilter !== "all" && cls !== selectedClassFilter) return;
+      const sec = String(student?.sec ?? student?.section ?? "").trim();
+      if (sec) sectionSet.add(sec);
     });
+    return ["all", ...Array.from(sectionSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))];
+  }, [filterPayload?.items, selectedClassFilter]);
 
-    return Array.from(sectionSet).sort((a, b) =>
-      a.localeCompare(b, undefined, { numeric: true }),
-    );
-  }, [activeAcademicYear, campStudents, selectedClassFilter]);
 
-  const camps = useMemo(
-    () => (Array.isArray(campsData) ? campsData : []),
-    [campsData],
-  );
+  // const filteredCampStudents = useMemo(() => {
+  //   if (!selectedCampId) {
+  //     return [];
+  //   }
 
-  const campOptions = useMemo(() => {
-    return camps
-      .map((item) => {
-        const value = String(item.id ?? item.campId ?? item.camp_id ?? "1");
-        const label =
-          item.name ??
-          item.camp_name ??
-          item.title ??
-          item.doctor_name ??
-          (value ? `Camp ${value}` : "");
+  //   return normalizedCampStudents.filter((student) => {
+  //     const year = String(
+  //       student?.academic_year ?? student?.academicYear ?? "",
+  //     ).trim();
+  //     const classValue = String(
+  //       student?.Class ?? student?.class ?? student?.grade ?? "",
+  //     )
+  //       .split("-")[0]
+  //       .trim();
+  //     const sectionValue =
+  //       String(student?.sec ?? student?.section ?? student?.grade ?? "")
+  //         .split("-")[1]
+  //         ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
 
-        return { value, label: String(label) };
-      })
-      .filter((item) => item.value && item.label);
-  }, [camps]);
+  //     const yearMatch =
+  //       !activeAcademicYear || !year || year === activeAcademicYear;
+  //     const classMatch =
+  //       selectedClassFilter === "all" || classValue === selectedClassFilter;
+  //     const sectionMatch =
+  //       selectedSectionFilter === "all" ||
+  //       sectionValue === selectedSectionFilter;
 
-  const normalizedCampStudents = useMemo(() => {
-    const uniqueStudents = new Map();
+  //     return yearMatch && classMatch && sectionMatch;
+  //   });
+  // }, [
+  //   // activeAcademicYear,
+  //   normalizedCampStudents,
+  //   selectedCampId,
+  //   selectedClassFilter,
+  //   selectedSectionFilter,
+  // ]);
 
-    campStudents.forEach((student) => {
-      const rawId =
-        student?.id ??
-        student?.studentId ??
-        student?.student_id ??
-        student?.school_registration_number ??
-        student?.admission_number;
-
-      if (
-        rawId === undefined ||
-        rawId === null ||
-        String(rawId).trim() === ""
-      ) {
-        return;
-      }
-
-      const id = String(rawId).trim();
-      const classValue = String(
-        student?.Class ?? student?.class ?? student?.grade ?? "",
-      )
-        .split("-")[0]
-        .trim();
-      const sectionValue =
-        String(student?.sec ?? student?.section ?? student?.grade ?? "")
-          .split("-")[1]
-          ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
-
-      uniqueStudents.set(id, {
-        ...student,
-        id,
-        studentId:
-          student?.studentId ??
-          student?.student_id ??
-          student?.school_registration_number ??
-          student?.admission_number ??
-          id,
-        name:
-          student?.name ?? student?.student_name ?? student?.studentName ?? "",
-        Class: classValue,
-        sec: sectionValue,
-      });
-    });
-
-    return Array.from(uniqueStudents.values());
-  }, [campStudents]);
-
-  const filteredCampStudents = useMemo(() => {
-    if (!selectedCampId) {
-      return [];
-    }
-
-    return normalizedCampStudents.filter((student) => {
-      const year = String(
-        student?.academic_year ?? student?.academicYear ?? "",
-      ).trim();
-      const classValue = String(
-        student?.Class ?? student?.class ?? student?.grade ?? "",
-      )
-        .split("-")[0]
-        .trim();
-      const sectionValue =
-        String(student?.sec ?? student?.section ?? student?.grade ?? "")
-          .split("-")[1]
-          ?.trim() || String(student?.sec ?? student?.section ?? "").trim();
-
-      const yearMatch =
-        !activeAcademicYear || !year || year === activeAcademicYear;
-      const classMatch =
-        selectedClassFilter === "all" || classValue === selectedClassFilter;
-      const sectionMatch =
-        selectedSectionFilter === "all" ||
-        sectionValue === selectedSectionFilter;
-
-      return yearMatch && classMatch && sectionMatch;
-    });
-  }, [
-    activeAcademicYear,
-    normalizedCampStudents,
-    selectedCampId,
-    selectedClassFilter,
-    selectedSectionFilter,
-  ]);
-
-  const filteredStudents = filteredCampStudents;
+  // const filteredStudents = filteredCampStudents;
 
   const getStudentKeys = (student) =>
     new Set(
@@ -543,7 +567,9 @@ export default function VisionScreeningPage() {
 
     setCoverTest(String(record?.cover_test ?? coverTestOptions[0]));
     setStrabismus(
-      record?.strabismus === true || record?.strabismus === "true" ? "yes" : "no",
+      record?.strabismus === true || record?.strabismus === "true"
+        ? "yes"
+        : "no",
     );
     setMuscleBalanceRemarks(String(record?.muscle_balance_remarks ?? ""));
 
@@ -559,7 +585,8 @@ export default function VisionScreeningPage() {
     setRefractiveErrorRemarks(String(record?.refractive_error_remarks ?? ""));
 
     setUsesGlasses(
-      record?.uses_glasses_or_lens === true || record?.uses_glasses_or_lens === "true"
+      record?.uses_glasses_or_lens === true ||
+        record?.uses_glasses_or_lens === "true"
         ? "yes"
         : "no",
     );
@@ -577,68 +604,94 @@ export default function VisionScreeningPage() {
     setFollowUp(String(record?.follow_up ?? followUpOptions[0]));
   }, []);
 
-  const selectedStudent = useMemo(() => {
-    const activeStudentId = studentFilter !== "all" ? studentFilter : studentId;
-    const selectedFromFilter = Array.isArray(filterPayload?.items)
-      ? filterPayload.items.find(
+  // const selectedStudent = useMemo(() => {
+  //   const activeStudentId = studentFilter !== "all" ? studentFilter : studentId;
+  //   const selectedFromFilter = Array.isArray(filterPayload?.items)
+  //     ? filterPayload.items.find(
+  //         (student) =>
+  //           String(student?.id ?? student?.studentId ?? student?.cus_id) ===
+  //           String(activeStudentId),
+  //       )
+  //     : null;
+
+  //   if (selectedFromFilter) {
+  //     return selectedFromFilter;
+  //   }
+
+  //   if (!filteredStudents.length) {
+  //     return null;
+  //   }
+
+  //   const explicitSelection = filteredStudents.find(
+  //     (student) =>
+  //       String(student.id ?? student.studentId) === String(studentId),
+  //   );
+
+  //   return explicitSelection ?? null;
+  // }, [filterPayload?.items, filteredStudents, studentFilter, studentId]);
+
+  // const classOptions = useMemo(() => {
+  //   if (!selectedCampId) {
+  //     return ["all"];
+  //   }
+
+  //   return ["all", ...getClass];
+  // }, [getClass, selectedCampId]);
+
+  // const sectionOptions = useMemo(() => {
+  //   if (!selectedCampId) {
+  //     return ["all"];
+  //   }
+
+  //   return ["all", ...getSection];
+  // }, [getSection, selectedCampId]);
+
+   const selectedStudentFromFilter = useMemo(() => {
+    const activeId = studentFilter !== "all" ? studentFilter : studentId;
+    if (activeId && Array.isArray(filterPayload?.items)) {
+      return (
+        filterPayload.items.find(
           (student) =>
-            String(student?.id ?? student?.studentId ?? student?.cus_id) ===
-            String(activeStudentId),
-        )
-      : null;
-
-    if (selectedFromFilter) {
-      return selectedFromFilter;
+            String(student?.id ?? student?.studentId ?? student?.cus_id) === String(activeId),
+        ) ?? null
+      );
+    }
+    return null;
+  }, [filterPayload?.items, studentFilter, studentId]);
+  
+ const selectedStudent = useMemo(() => {
+    if (selectedStudentFromFilter) {
+      return selectedStudentFromFilter;
     }
 
-    if (!filteredStudents.length) {
-      return null;
+    if (studentId && Array.isArray(filterPayload?.items)) {
+      const match = filterPayload.items.find(
+        (student) => String(student.id ?? student.studentId ?? student.cus_id) === String(studentId),
+      );
+      if (match) return match;
     }
 
-    const explicitSelection = filteredStudents.find(
-      (student) =>
-        String(student.id ?? student.studentId) === String(studentId),
-    );
-
-    return explicitSelection ?? null;
-  }, [filterPayload?.items, filteredStudents, studentFilter, studentId]);
-
-  const classOptions = useMemo(() => {
-    if (!selectedCampId) {
-      return ["all"];
-    }
-
-    return ["all", ...getClass];
-  }, [getClass, selectedCampId]);
-
-  const sectionOptions = useMemo(() => {
-    if (!selectedCampId) {
-      return ["all"];
-    }
-
-    return ["all", ...getSection];
-  }, [getSection, selectedCampId]);
+    return null;
+  }, [filterPayload?.items, selectedStudentFromFilter, studentId]);
 
   const selectedStudentKey = String(
     selectedStudent?.id ?? selectedStudent?.studentId ?? "",
   );
   const studentSelectValue = selectedStudentKey || "";
 
-  const assessmentStudentOptions = useMemo(
+ const assessmentStudentOptions = useMemo(
     () =>
-      filteredStudents.map((student) => {
-        const value = String(student.id ?? student.studentId ?? "");
+      (filterPayload?.items ?? []).map((student) => {
+        const value = String(student.id ?? student.studentId ?? student.cus_id ?? "");
         const studentCode =
-          student.studentId ??
-          student.student_id ??
-          student.school_registration_number ??
-          student.admission_number;
+          student.studentId ?? student.student_id ?? student.school_registration_number ?? student.admission_number;
+
         return {
           value,
-          label: `${student.name || "Unknown"}${studentCode ? ` (${studentCode})` : ""}`,
+          label: `${student.name || student.student_name || "Unknown"}${studentCode ? ` (${studentCode})` : ""}`,
         };
       }),
-    [filteredStudents],
+    [filterPayload?.items],
   );
 
   const odStatus = useMemo(
@@ -650,9 +703,17 @@ export default function VisionScreeningPage() {
     [os],
   );
   const selectedStudentKeys = useMemo(() => {
-    if (selectedStudent) {
-      return getStudentKeys(selectedStudent);
-    }
+    return new Set(
+        [
+          selectedStudent?.id,
+          selectedStudent?.studentId,
+          selectedStudent?.student_id,
+          selectedStudent?.school_registration_number,
+          selectedStudent?.admission_number,
+        ]
+          .map((value) => String(value ?? "").trim())
+          .filter(Boolean),
+      );
 
     return new Set(
       [studentSelectValue, studentId]
@@ -661,14 +722,32 @@ export default function VisionScreeningPage() {
     );
   }, [selectedStudent, studentId, studentSelectValue]);
 
+  const students = useMemo(() => (Array.isArray(visionScreeningData) ? visionScreeningData : []), [visionScreeningData]);
+
   const getSelectedStudentScreeningData = useMemo(() => {
-    if (!studentId || !Array.isArray(visionScreeningData)) {
+    if (!selectedStudentKeys.size || !students.length) {
       return null;
     }
 
-    // The endpoint is already scoped to /vision-test/student/{studentId}.
-    return visionScreeningData[0] ?? null;
-  }, [studentId, visionScreeningData]);
+    return students.find((data) => {
+      const dataKeys = [
+        data?.id,
+        data?.studentId,
+        data?.student_id,
+        data?.school_registration_number,
+        data?.admission_number,
+      ]
+        .map((value) => String(value ?? "").trim())
+        .filter(Boolean);
+
+      return dataKeys.some((key) => selectedStudentKeys.has(key));
+    }) ?? null;
+  }, [selectedStudentKeys, students]);
+
+
+  //   // The endpoint is already scoped to /vision-test/student/{studentId}.
+  //   return visionScreeningData[0] ?? null;
+  // }, [studentId, visionScreeningData]);
 
   useEffect(() => {
     if (!studentId || visionScreeningLoading) {
@@ -682,12 +761,8 @@ export default function VisionScreeningPage() {
     visionScreeningLoading,
     applyScreeningRecordToForm,
   ]);
-  console.log(
-    getSelectedStudentScreeningData,
-    "getSelectedStudentScreeningData",
-  );
 
-  const handleSaveAssessment = () => {
+  const handleSaveAssessment = useCallback(() => {
     const rawStudentId =
       selectedStudent?.id ??
       selectedStudent?.cus_id ??
@@ -696,7 +771,7 @@ export default function VisionScreeningPage() {
       studentId;
 
     if (!String(rawStudentId ?? "").trim()) {
-      console.error("Select a student before saving the vision screening.");
+      toast.error("Select a student before saving the vision screening.");
       return;
     }
 
@@ -745,11 +820,53 @@ export default function VisionScreeningPage() {
 
     dispatch(createVisionScreening(payload))
       .unwrap()
-      .then(() => dispatch(getVisionScreening({ studentId: rawStudentId })))
-      .catch((error) => console.error("Unable to save vision screening:", error));
-  };
+      .then(() => {
+        dispatch(getVisionScreening({ studentId: rawStudentId }));
 
-  const handleCancelAssessment = () => {
+        toast.success("Vision screening saved successfully", {
+          description: selectedStudent?.name
+            ? `Record saved for ${selectedStudent.name}`
+            : undefined,
+        });
+      })
+      .catch((error) => {
+        console.error("Unable to save vision screening:", error);
+
+        toast.error("Failed to save vision screening", {
+          description:
+            error?.message ?? "Something went wrong. Please try again.",
+        });
+      });
+  }, [
+    adviceSuggestions,
+    colorVisionRemarks,
+    colorVisionStatus,
+    colorVisionTestType,
+    conjunctiva,
+    cornea,
+    coverTest,
+    externalOtherFindings,
+    followUp,
+    lensPower,
+    lensRemarks,
+    lensType,
+    lids,
+    muscleBalanceRemarks,
+    od,
+    os,
+    ou,
+    pupil,
+    referral,
+    refractiveError,
+    refractiveErrorRemarks,
+    selectedCampId,
+    selectedStudent,
+    strabismus,
+    studentId,
+    usesGlasses,
+  ]);
+
+  const handleCancelAssessment = useCallback(() => {
     setOd({ ...emptyEye, distanceWith: "6/6" });
     setOs({ ...emptyEye, distanceWith: "6/9" });
     setOu(emptyEye);
@@ -779,19 +896,64 @@ export default function VisionScreeningPage() {
     setReferral("no");
     setAdviceSuggestions("");
     setFollowUp(followUpOptions[0]);
-  };
+  }, []);
+
+  const handleAssessmentStudentChange = useCallback((value) => {
+    setStudentId(value);
+  }, []);
+
+  const resetDependentFilters = useCallback(() => {
+    setClassFilter("all");
+    setSectionFilter("all");
+    setStudentFilter("all");
+    setStudentId("");
+  }, []);
+
+  const handleSchoolFilterChange = useCallback(
+    (value) => {
+      setSchoolName(value);
+      resetDependentFilters();
+    },
+    [resetDependentFilters],
+  );
+
+  const handleAcademicYearFilterChange = useCallback(
+    (value) => {
+      setAcademicYear(value);
+      resetDependentFilters();
+    },
+    [resetDependentFilters],
+  );
+
+  const handleClassFilterChange = useCallback((value) => {
+    setClassFilter(value);
+    setSectionFilter("all");
+    setStudentFilter("all");
+    setStudentId("");
+  }, []);
+
+  const handleSectionFilterChange = useCallback((value) => {
+    setSectionFilter(value);
+    setStudentFilter("all");
+    setStudentId("");
+  }, []);
+
+  const handleStudentFilterChange = useCallback((value) => {
+    setStudentFilter(value);
+    setStudentId(value === "all" ? "" : value);
+  }, []);
 
   return (
     <section className="space-y-4">
-      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-4 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
+      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="flex items-center gap-2 py-2">
             {/* <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <Eye className="size-5" />
             </div> */}
             <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary aspect-square">
-                <Eye className="size-6" />
-              </div>
+              <Eye className="size-6" />
+            </div>
 
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">
@@ -801,7 +963,7 @@ export default function VisionScreeningPage() {
               <p className="text-sm text-muted-foreground">
                 Vision health screening and assessment
               </p>
-               {/* <p className="text-xs text-muted-foreground">
+              {/* <p className="text-xs text-muted-foreground">
                   {studentCampLoading
                     ? "Loading students..."
                     : studentCampQueryError
@@ -815,7 +977,7 @@ export default function VisionScreeningPage() {
         </div>
 
         <div className="flex flex-wrap gap-2 md:flex-nowrap">
-          <CampStudentSelectorDrawer
+          {/* <CampStudentSelectorDrawer
             open={isCaDrawerOpen}
             onOpenChange={setIsCaDrawerOpen}
             studentsLoading={studentCampLoading}
@@ -872,7 +1034,7 @@ export default function VisionScreeningPage() {
             }}
             filteredStudents={filteredStudents}
             normalizedCampStudents={normalizedCampStudents}
-          />
+          /> */}
           <Button
             type="button"
             variant="outline"
@@ -888,51 +1050,26 @@ export default function VisionScreeningPage() {
         </div>
       </div>
       <StudentFilter
-          filterPayload={filterPayload}
-          isLoading={isLoading}
-          schoolName={schoolName}
-          academicYear={academicYear}
-          classFilter={classFilter}
-          sectionFilter={sectionFilter}
-          studentFilter={studentFilter}
-          onSchoolNameChange={(value) => {
-            setSchoolName(value);
-            setClassFilter("all");
-            setSectionFilter("all");
-            setStudentFilter("all");
-            setStudentId("");
-          }}
-          onAcademicYearChange={(value) => {
-            setAcademicYear(value);
-            setClassFilter("all");
-            setSectionFilter("all");
-            setStudentFilter("all");
-            setStudentId("");
-          }}
-          onClassFilterChange={(value) => {
-            setClassFilter(value);
-            setSectionFilter("all");
-            setStudentFilter("all");
-            setStudentId("");
-          }}
-          onSectionFilterChange={(value) => {
-            setSectionFilter(value);
-            setStudentFilter("all");
-            setStudentId("");
-          }}
-          onStudentFilterChange={(value) => {
-            setStudentFilter(value);
-            setStudentId(value === "all" ? "" : value);
-          }}
-        />
+        filterPayload={filterPayload}
+        isLoading={isLoading}
+        schoolName={schoolName}
+        academicYear={academicYear}
+        classFilter={classFilter}
+        sectionFilter={sectionFilter}
+        studentFilter={studentFilter}
+        onSchoolNameChange={handleSchoolFilterChange}
+        onAcademicYearChange={handleAcademicYearFilterChange}
+        onClassFilterChange={handleClassFilterChange}
+        onSectionFilterChange={handleSectionFilterChange}
+        onStudentFilterChange={handleStudentFilterChange}
+      />
       {studentSelectValue?.length > 0 ? (
         <>
-          
-        <StudentProfileCard student={selectedStudent} />
-        <div className="grid gap-4 xl:grid-cols-[300px_1fr_320px]">
-          {/* ---------------- Left column ---------------- */}
-          <div className="space-y-4">
-            {/* <article className="rounded-xl border border-border bg-card p-4">
+          <StudentProfileCard student={selectedStudent} />
+          <div className="grid gap-4 xl:grid-cols-[300px_1fr_320px]">
+            {/* ---------------- Left column ---------------- */}
+            <div className="space-y-4">
+              {/* <article className="rounded-xl border border-border bg-card p-4">
             <h3 className="text-sm font-semibold text-foreground">
               Assessment Details
             </h3>
@@ -984,304 +1121,290 @@ export default function VisionScreeningPage() {
               />
             </div>
           </article> */}
-            <AssessmentCard
-              // onChange={handleAssessmentChange}
-              // form={assessmentForm}
-              data={getSelectedStudentScreeningData}
-              studentOptions={assessmentStudentOptions}
-              studentValue={studentSelectValue}
-              onStudentChange={(value) => {
-                const selectedFromList = filteredStudents.find(
-                  (student) =>
-                    String(student.id ?? student.studentId) === String(value),
-                );
+              <AssessmentCard
+                // onChange={handleAssessmentChange}
+                // form={assessmentForm}
+                data={getSelectedStudentScreeningData}
+                studentOptions={assessmentStudentOptions}
+                studentValue={studentSelectValue}
+                onStudentChange={handleAssessmentStudentChange}
+                onSave={handleSaveAssessment}
+                onCancel={handleCancelAssessment}
+              />
 
-                if (selectedFromList) {
-                  const selectedKeys = getStudentKeys(selectedFromList);
-                  const screeningRecord =
-                    findScreeningRecordByKeys(selectedKeys);
-                  applyScreeningRecordToForm(screeningRecord);
-                }
-
-                setStudentId(value);
-              }}
-              onSave={handleSaveAssessment}
-              onCancel={handleCancelAssessment}
-            />
-
-            <article className="rounded-xl border border-border bg-card p-4">
-              <h3 className="text-sm font-semibold text-foreground">
-                Quick Findings Summary
-              </h3>
-              <div className="mt-3 space-y-2">
-                <SummaryRow
-                  icon={Eye}
-                  label="OD Acuity"
-                  value={odStatus.label}
-                  tone={odStatus.tone}
-                />
-                <SummaryRow
-                  icon={Eye}
-                  label="OS Acuity"
-                  value={osStatus.label}
-                  tone={osStatus.tone}
-                />
-                <SummaryRow
-                  icon={AlertTriangle}
-                  label="Strabismus"
-                  value={strabismus === "yes" ? "Present" : "Absent"}
-                  tone={strabismus === "yes" ? "warning" : "success"}
-                />
-                <SummaryRow
-                  icon={Glasses}
-                  label="Uses Correction"
-                  value={usesGlasses === "yes" ? "Yes" : "No"}
-                  tone="muted"
-                />
-                <SummaryRow
-                  icon={Send}
-                  label="Referral"
-                  value={referral === "yes" ? "Required" : "Not Required"}
-                  tone={referral === "yes" ? "warning" : "success"}
-                />
-              </div>
-            </article>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleCancelAssessment}
-                className="h-10 flex-1 rounded-md bg-primary text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-              >
-                Save Assessment
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveAssessment}
-                className="h-10 flex-1 rounded-md border border-border bg-background text-sm font-medium text-foreground transition-colors hover:bg-muted"
-              >
-                Save &amp; Next
-              </button>
-            </div>
-          </div>
-
-          {/* ---------------- Middle column: acuity + external exam ---------------- */}
-          <div className="space-y-4">
-            <article className="rounded-xl border border-border bg-card p-4 sm:p-5">
-              <h3 className="text-sm font-semibold text-foreground">
-                Visual Acuity Snapshot
-              </h3>
-              <div className="mt-4">
-                <VisionSnapshot
-                  odDistanceWith={od.distanceWith}
-                  odDistanceWithout={od.distanceWithout}
-                  osDistanceWith={os.distanceWith}
-                  osDistanceWithout={os.distanceWithout}
-                />
-              </div>
-
-              <div className="mt-5 space-y-3">
-                <AcuityRow
-                  label="Right Eye (OD)"
-                  eye={
-                    getSelectedStudentScreeningData?.od_distance_without || od
-                  }
-                  onChange={setOd}
-                />
-                <AcuityRow
-                  label="Left Eye (OS)"
-                  eye={
-                    getSelectedStudentScreeningData?.os_distance_without || os
-                  }
-                  onChange={setOs}
-                />
-                <AcuityRow
-                  label="Both Eyes (OU)"
-                  eye={
-                    getSelectedStudentScreeningData?.ou_distance_without || ou
-                  }
-                  onChange={setOu}
-                />
-              </div>
-            </article>
-
-            <article className="rounded-xl border border-border bg-card p-4 sm:p-5">
-              <h3 className="text-sm font-semibold text-foreground">
-                Color Vision &amp; Muscle Balance
-              </h3>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <SelectField
-                  label="Color Vision Status"
-                  options={colorVisionStatusOptions}
-                  value={colorVisionStatus}
-                  onChange={setColorVisionStatus}
-                />
-                <SelectField
-                  label="Test Type"
-                  options={colorVisionTestTypeOptions}
-                  value={colorVisionTestType}
-                  onChange={setColorVisionTestType}
-                />
-                <TextField
-                  label="Color Vision Remarks"
-                  value={colorVisionRemarks}
-                  onChange={setColorVisionRemarks}
-                  placeholder="Optional"
-                />
-                <SelectField
-                  label="Cover Test"
-                  options={coverTestOptions}
-                  value={coverTest}
-                  onChange={setCoverTest}
-                />
-                <div>
-                  <ToggleGroup
+              <article className="rounded-xl border border-border bg-card p-4">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Quick Findings Summary
+                </h3>
+                <div className="mt-3 space-y-2">
+                  <SummaryRow
+                    icon={Eye}
+                    label="OD Acuity"
+                    value={odStatus.label}
+                    tone={odStatus.tone}
+                  />
+                  <SummaryRow
+                    icon={Eye}
+                    label="OS Acuity"
+                    value={osStatus.label}
+                    tone={osStatus.tone}
+                  />
+                  <SummaryRow
+                    icon={AlertTriangle}
                     label="Strabismus"
-                    options={yesNoOptions("no")}
-                    value={strabismus}
-                    onChange={setStrabismus}
+                    value={strabismus === "yes" ? "Present" : "Absent"}
+                    tone={strabismus === "yes" ? "warning" : "success"}
+                  />
+                  <SummaryRow
+                    icon={Glasses}
+                    label="Uses Correction"
+                    value={usesGlasses === "yes" ? "Yes" : "No"}
+                    tone="muted"
+                  />
+                  <SummaryRow
+                    icon={Send}
+                    label="Referral"
+                    value={referral === "yes" ? "Required" : "Not Required"}
+                    tone={referral === "yes" ? "warning" : "success"}
                   />
                 </div>
-                <TextField
-                  label="Muscle Balance Remarks"
-                  value={muscleBalanceRemarks}
-                  onChange={setMuscleBalanceRemarks}
-                  placeholder="Optional"
-                />
-              </div>
-            </article>
+              </article>
 
-            <article className="rounded-xl border border-border bg-card p-4 sm:p-5">
-              <h3 className="text-sm font-semibold text-foreground">
-                External Examination
-              </h3>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <SelectField
-                  label="Lids"
-                  options={lidsOptions}
-                  value={lids}
-                  onChange={setLids}
-                />
-                <SelectField
-                  label="Conjunctiva"
-                  options={conjunctivaOptions}
-                  value={conjunctiva}
-                  onChange={setConjunctiva}
-                />
-                <SelectField
-                  label="Cornea"
-                  options={corneaOptions}
-                  value={cornea}
-                  onChange={setCornea}
-                />
-                <SelectField
-                  label="Pupil"
-                  options={pupilOptions}
-                  value={pupil}
-                  onChange={setPupil}
-                />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleCancelAssessment}
+                  className="h-10 flex-1 rounded-md bg-primary text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  Save Assessment
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveAssessment}
+                  className="h-10 flex-1 rounded-md border border-border bg-background text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  Save &amp; Next
+                </button>
               </div>
-              <div className="mt-3">
-                <FieldLabel>Other Findings</FieldLabel>
-                <textarea
-                  value={externalOtherFindings}
-                  onChange={(e) => setExternalOtherFindings(e.target.value)}
-                  rows={3}
-                  placeholder="Enter notes"
-                  className="w-full resize-none rounded-md border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
-                />
-              </div>
-            </article>
-          </div>
+            </div>
 
-          {/* ---------------- Right column: refraction, correction, referral ---------------- */}
-          <div className="space-y-4">
-            <article className="rounded-xl border border-border bg-card p-4">
-              <h3 className="text-sm font-semibold text-foreground">
-                Refractive Error
-              </h3>
-              <div className="mt-3 space-y-3">
-                <SelectField
-                  label="Refractive Error"
-                  options={refractiveErrorOptions}
-                  value={refractiveError}
-                  onChange={setRefractiveError}
-                />
-                <TextField
-                  label="Remarks"
-                  value={refractiveErrorRemarks}
-                  onChange={setRefractiveErrorRemarks}
-                  placeholder="Optional"
-                />
-              </div>
-            </article>
+            {/* ---------------- Middle column: acuity + external exam ---------------- */}
+            <div className="space-y-4">
+              <article className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Visual Acuity Snapshot
+                </h3>
+                <div className="mt-4">
+                  <VisionSnapshot
+                    odDistanceWith={od.distanceWith}
+                    odDistanceWithout={od.distanceWithout}
+                    osDistanceWith={os.distanceWith}
+                    osDistanceWithout={os.distanceWithout}
+                  />
+                </div>
 
-            <article className="rounded-xl border border-border bg-card p-4">
-              <h3 className="text-sm font-semibold text-foreground">
-                Correction / Lens
-              </h3>
-              <div className="mt-3 space-y-3">
-                <ToggleGroup
-                  label="Uses Glasses or Lens"
-                  options={yesNoOptions("neutral")}
-                  value={
-                    getSelectedStudentScreeningData?.uses_glasses_or_lens ||
-                    usesGlasses
-                  }
-                  onChange={setUsesGlasses}
-                />
-                <SelectField
-                  label="Lens Type"
-                  options={lensTypeOptions}
-                  value={lensType}
-                  onChange={setLensType}
-                />
-                <TextField
-                  label="Lens Power"
-                  value={lensPower}
-                  onChange={setLensPower}
-                  placeholder="e.g. -1.50 DS"
-                />
-                <TextField
-                  label="Lens Remarks"
-                  value={lensRemarks}
-                  onChange={setLensRemarks}
-                  placeholder="Optional"
-                />
-              </div>
-            </article>
+                <div className="mt-5 space-y-3">
+                  <AcuityRow
+                    label="Right Eye (OD)"
+                    eye={
+                      getSelectedStudentScreeningData?.od_distance_without || od
+                    }
+                    onChange={setOd}
+                  />
+                  <AcuityRow
+                    label="Left Eye (OS)"
+                    eye={
+                      getSelectedStudentScreeningData?.os_distance_without || os
+                    }
+                    onChange={setOs}
+                  />
+                  <AcuityRow
+                    label="Both Eyes (OU)"
+                    eye={
+                      getSelectedStudentScreeningData?.ou_distance_without || ou
+                    }
+                    onChange={setOu}
+                  />
+                </div>
+              </article>
 
-            <article className="rounded-xl border border-border bg-card p-4">
-              <h3 className="text-sm font-semibold text-foreground">
-                Referral &amp; Follow-up
-              </h3>
-              <div className="mt-3 space-y-3">
-                <ToggleGroup
-                  label="Referral to Specialist"
-                  options={yesNoOptions("no")}
-                  value={referral}
-                  onChange={setReferral}
-                />
-                <div>
-                  <FieldLabel>Advice / Suggestions</FieldLabel>
+              <article className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Color Vision &amp; Muscle Balance
+                </h3>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <SelectField
+                    label="Color Vision Status"
+                    options={colorVisionStatusOptions}
+                    value={colorVisionStatus}
+                    onChange={setColorVisionStatus}
+                  />
+                  <SelectField
+                    label="Test Type"
+                    options={colorVisionTestTypeOptions}
+                    value={colorVisionTestType}
+                    onChange={setColorVisionTestType}
+                  />
+                  <TextField
+                    label="Color Vision Remarks"
+                    value={colorVisionRemarks}
+                    onChange={setColorVisionRemarks}
+                    placeholder="Optional"
+                  />
+                  <SelectField
+                    label="Cover Test"
+                    options={coverTestOptions}
+                    value={coverTest}
+                    onChange={setCoverTest}
+                  />
+                  <div>
+                    <ToggleGroup
+                      label="Strabismus"
+                      options={yesNoOptions("no")}
+                      value={strabismus}
+                      onChange={setStrabismus}
+                    />
+                  </div>
+                  <TextField
+                    label="Muscle Balance Remarks"
+                    value={muscleBalanceRemarks}
+                    onChange={setMuscleBalanceRemarks}
+                    placeholder="Optional"
+                  />
+                </div>
+              </article>
+
+              <article className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                <h3 className="text-sm font-semibold text-foreground">
+                  External Examination
+                </h3>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <SelectField
+                    label="Lids"
+                    options={lidsOptions}
+                    value={lids}
+                    onChange={setLids}
+                  />
+                  <SelectField
+                    label="Conjunctiva"
+                    options={conjunctivaOptions}
+                    value={conjunctiva}
+                    onChange={setConjunctiva}
+                  />
+                  <SelectField
+                    label="Cornea"
+                    options={corneaOptions}
+                    value={cornea}
+                    onChange={setCornea}
+                  />
+                  <SelectField
+                    label="Pupil"
+                    options={pupilOptions}
+                    value={pupil}
+                    onChange={setPupil}
+                  />
+                </div>
+                <div className="mt-3">
+                  <FieldLabel>Other Findings</FieldLabel>
                   <textarea
-                    value={adviceSuggestions}
-                    onChange={(e) => setAdviceSuggestions(e.target.value)}
+                    value={externalOtherFindings}
+                    onChange={(e) => setExternalOtherFindings(e.target.value)}
                     rows={3}
                     placeholder="Enter notes"
                     className="w-full resize-none rounded-md border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
                   />
                 </div>
-                <SelectField
-                  label="Follow-up"
-                  options={followUpOptions}
-                  value={followUp}
-                  onChange={setFollowUp}
-                />
-              </div>
-            </article>
+              </article>
+            </div>
+
+            {/* ---------------- Right column: refraction, correction, referral ---------------- */}
+            <div className="space-y-4">
+              <article className="rounded-xl border border-border bg-card p-4">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Refractive Error
+                </h3>
+                <div className="mt-3 space-y-3">
+                  <SelectField
+                    label="Refractive Error"
+                    options={refractiveErrorOptions}
+                    value={refractiveError}
+                    onChange={setRefractiveError}
+                  />
+                  <TextField
+                    label="Remarks"
+                    value={refractiveErrorRemarks}
+                    onChange={setRefractiveErrorRemarks}
+                    placeholder="Optional"
+                  />
+                </div>
+              </article>
+
+              <article className="rounded-xl border border-border bg-card p-4">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Correction / Lens
+                </h3>
+                <div className="mt-3 space-y-3">
+                  <ToggleGroup
+                    label="Uses Glasses or Lens"
+                    options={yesNoOptions("neutral")}
+                    value={
+                      getSelectedStudentScreeningData?.uses_glasses_or_lens ||
+                      usesGlasses
+                    }
+                    onChange={setUsesGlasses}
+                  />
+                  <SelectField
+                    label="Lens Type"
+                    options={lensTypeOptions}
+                    value={lensType}
+                    onChange={setLensType}
+                  />
+                  <TextField
+                    label="Lens Power"
+                    value={lensPower}
+                    onChange={setLensPower}
+                    placeholder="e.g. -1.50 DS"
+                  />
+                  <TextField
+                    label="Lens Remarks"
+                    value={lensRemarks}
+                    onChange={setLensRemarks}
+                    placeholder="Optional"
+                  />
+                </div>
+              </article>
+
+              <article className="rounded-xl border border-border bg-card p-4">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Referral &amp; Follow-up
+                </h3>
+                <div className="mt-3 space-y-3">
+                  <ToggleGroup
+                    label="Referral to Specialist"
+                    options={yesNoOptions("no")}
+                    value={referral}
+                    onChange={setReferral}
+                  />
+                  <div>
+                    <FieldLabel>Advice / Suggestions</FieldLabel>
+                    <textarea
+                      value={adviceSuggestions}
+                      onChange={(e) => setAdviceSuggestions(e.target.value)}
+                      rows={3}
+                      placeholder="Enter notes"
+                      className="w-full resize-none rounded-md border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+                    />
+                  </div>
+                  <SelectField
+                    label="Follow-up"
+                    options={followUpOptions}
+                    value={followUp}
+                    onChange={setFollowUp}
+                  />
+                </div>
+              </article>
+            </div>
           </div>
-        </div>
         </>
       ) : (
         <div className="rounded-xl border border-dashed border-border bg-card p-6">
@@ -1294,7 +1417,7 @@ export default function VisionScreeningPage() {
                 variant="outline"
                 onClick={() => setIsCaDrawerOpen(true)}
               >
-                <Search  className="size-4" />
+                <Search className="size-4" />
                 Select Student
               </Button>
             }

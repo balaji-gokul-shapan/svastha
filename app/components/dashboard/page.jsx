@@ -12,7 +12,7 @@ const MasterDashboard = () => {
  
   return (
     <>
-    {checkDoctor && <div>Welcome, Doctor</div>}
+    {checkDoctor && <StudentOverviewCharts user={authUser}/>  }
     {isAdmin && <StudentOverviewCharts/>}
     {!checkDoctor && !isAdmin && <div>Welcome, user</div>}
     
