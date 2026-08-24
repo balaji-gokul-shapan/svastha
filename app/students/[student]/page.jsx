@@ -359,7 +359,7 @@ export default function StudentDetailPage() {
           </Button>
         </div>
 
-        <div className="min-w-0 flex-1 space-y-2">
+        <div className="min-w-0 flex-1 space-y-1.5">
           <p className="truncate text-lg font-semibold text-foreground">
             {student.name}
           </p>
