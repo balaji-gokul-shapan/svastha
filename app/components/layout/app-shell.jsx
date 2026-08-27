@@ -8,7 +8,7 @@ import { AppBreadcrumb } from "./app-breadcrumb";
 import { Navbar } from "./navbar";
 import { Sidebar } from "./sidebar";
 
-const CHROMELESS_ROUTES = ["/login"];
+const CHROMELESS_ROUTES = ["/login", "/register"];
 
 export function AppShell({ children }) {
   const pathname = usePathname();

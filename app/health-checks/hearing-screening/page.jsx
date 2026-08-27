@@ -34,6 +34,10 @@ import StudentProfileCard from "@/app/students/studentProfileCard";
 import { getFilterStudent } from "@/lib/features/getFilterStudent";
 import StudentFilter from "../utilities/studentFilter";
 import { createHearingScreening } from "@/lib/features/registerHearingScreening";
+import { FramerCard } from "@/util/FramerCard";
+import { hearingScreeningSchema } from "./hearningSchema";
+import { getMasterData } from "@/util/masterData";
+import { getAllMasterScreening } from "@/lib/features/masterScreeningSlice";
 
 const FREQUENCIES = [250, 500, 1000, 2000, 4000, 8000];
 
@@ -108,13 +112,106 @@ export default function HearingScreening({ screening = {} }) {
 
     follow_up: screening.follow_up ?? "",
   });
+  const {
+    data: masterScreeningData = {},
+    isLoading: masterScreeningDataLoading,
+    error: masterScreeningQueryError,
+  } = useQuery({
+    queryKey: ["Ent-screening"],
+
+    queryFn: () => dispatch(getAllMasterScreening()).unwrap(),
+
+    // Master data doesn't normally need to be
+    // requested again immediately.
+    staleTime: 5 * 60 * 1000,
+
+    refetchOnWindowFocus: false,
+  });
+
+  console.log(masterScreeningData, "All Master Screening Data");
+
+  const requiredMasterData = React.useMemo(
+    () =>
+      getMasterData(masterScreeningData, [
+        "hearing-classifications",
+        "hearing-referral-reasons",
+        "ear-examinations",
+      ]),
+    [masterScreeningData],
+  );
+  console.log(requiredMasterData, "requiredMasterData");
+
+  // Hearing referral reasons → dropdown option names for the select.
+  const referralReasonOptions = (
+    requiredMasterData["hearing-referral-reasons"] ?? []
+  )
+    .map((item) => String(item?.name ?? "").trim())
+    .filter(Boolean);
+
+  const examinationOptions = (
+        requiredMasterData["ear-examinations"] ?? []
+  ).map((item)=> String(item?.name ?? "").trim()).filter(Boolean)
+
+  // Hearing classifications → used to classify the pure-tone average.
+  const hearingClassifications =
+    requiredMasterData["hearing-classifications"] ?? [];
+
+  // Pure-tone average (500 / 1000 / 2000 Hz) for one ear, from the
+  // thresholds entered in the audiogram.
+  const pureToneAverage = React.useCallback(
+    (ear) => {
+      const keys = [
+        `pta_500hz_${ear}`,
+        `pta_1000hz_${ear}`,
+        `pta_2000hz_${ear}`,
+      ];
+      const values = keys
+        .map((key) => Number.parseFloat(String(form[key] ?? "")))
+        .filter((n) => Number.isFinite(n));
+      if (!values.length) return null;
+      return values.reduce((sum, n) => sum + n, 0) / values.length;
+    },
+    [form],
+  );
+
+  // Match the PTA against the master-data [min_db, max_db] bands.
+  const classifyPta = React.useCallback(
+    (pta) => {
+      if (!Number.isFinite(pta)) return null;
+      return (
+        hearingClassifications.find(
+          (item) =>
+            pta >= Number(item.min_db ?? -Infinity) &&
+            pta <= Number(item.max_db ?? Infinity),
+        ) ?? null
+      );
+    },
+    [hearingClassifications],
+  );
+
+  const reHearingResult = React.useMemo(() => {
+    const pta = pureToneAverage("re");
+    return { pta, classification: classifyPta(pta) };
+  }, [pureToneAverage, classifyPta]);
+
+  const leHearingResult = React.useMemo(() => {
+    const pta = pureToneAverage("le");
+    return { pta, classification: classifyPta(pta) };
+  }, [pureToneAverage, classifyPta]);
 
   const updateField = (field, value) => {
     setForm((prev) => ({
       ...prev,
       [field]: value,
     }));
+    // Clear that field's error as soon as the user fixes it.
+    setFormErrors((prev) =>
+      prev && prev[field] ? { ...prev, [field]: undefined } : prev,
+    );
   };
+
+  // { fieldName: "message" } — populated when zod validation fails.
+  const [formErrors, setFormErrors] = React.useState(null);
 
   const handleSave = (e) => {
     const rawStudentId =
@@ -124,6 +221,28 @@ export default function HearingScreening({ screening = {} }) {
       selectedStudent?.studentId ??
       studentId;
 
+    const result = hearingScreeningSchema.safeParse(form);
+
+    if (!result.success) {
+      const errors = result.error.flatten().fieldErrors;
+
+      // Reduce to { fieldName: firstMessage } for inline display.
+      const firstPerField = Object.fromEntries(
+        Object.entries(errors)
+          .map(([field, messages]) => [field, messages?.[0]])
+          .filter(([, message]) => Boolean(message)),
+      );
+
+      setFormErrors(firstPerField);
+
+      // Keep the toast as a fallback summary.
+      const firstError = Object.values(firstPerField).find(Boolean);
+      toast.error(firstError || "Please fill all required fields.");
+
+      return;
+    } else {
+      setFormErrors(null);
+    }
     if (!String(rawStudentId ?? "").trim()) {
       toast.error("Select a student before saving the hearing screening.");
       return;
@@ -140,8 +259,7 @@ export default function HearingScreening({ screening = {} }) {
 
       ...screening,
       ...form,
-
-    }
+    };
 
     dispatch(createHearingScreening(data))
       .unwrap()
@@ -532,37 +650,38 @@ export default function HearingScreening({ screening = {} }) {
     });
   };
 
-  
-     const selectedStudentFromFilter = React.useMemo(() => {
-      const activeId = studentFilter !== "all" ? studentFilter : studentId;
-      if (activeId && Array.isArray(filterPayload?.items)) {
-        return (
-          filterPayload.items.find(
-            (student) =>
-              String(student?.id ?? student?.studentId ?? student?.cus_id) === String(activeId),
-          ) ?? null
-        );
-      }
-      return null;
-    }, [filterPayload?.items, studentFilter, studentId]);
+  const selectedStudentFromFilter = React.useMemo(() => {
+    const activeId = studentFilter !== "all" ? studentFilter : studentId;
+    if (activeId && Array.isArray(filterPayload?.items)) {
+      return (
+        filterPayload.items.find(
+          (student) =>
+            String(student?.id ?? student?.studentId ?? student?.cus_id) ===
+            String(activeId),
+        ) ?? null
+      );
+    }
+    return null;
+  }, [filterPayload?.items, studentFilter, studentId]);
 
   const selectedStudent = React.useMemo(() => {
-      if (selectedStudentFromFilter) {
-        return selectedStudentFromFilter;
-      }
-  
-      if (studentId && Array.isArray(filterPayload?.items)) {
-        const match = filterPayload.items.find(
-          (student) => String(student.id ?? student.studentId ?? student.cus_id) === String(studentId),
-        );
-        if (match) return match;
-      }
-  
-      return null;
-    }, [filterPayload?.items, selectedStudentFromFilter, studentId]);
-  
+    if (selectedStudentFromFilter) {
+      return selectedStudentFromFilter;
+    }
 
-const selectedStudentKey = String(
+    if (studentId && Array.isArray(filterPayload?.items)) {
+      const match = filterPayload.items.find(
+        (student) =>
+          String(student.id ?? student.studentId ?? student.cus_id) ===
+          String(studentId),
+      );
+      if (match) return match;
+    }
+
+    return null;
+  }, [filterPayload?.items, selectedStudentFromFilter, studentId]);
+
+  const selectedStudentKey = String(
     selectedStudent?.id ?? selectedStudent?.studentId ?? "",
   );
   const studentSelectValue = selectedStudentKey || "";
@@ -628,19 +747,24 @@ const selectedStudentKey = String(
   }, [getSelectedStudentScreeningData, hearingScreeningLoading, studentId]);
 
   const assessmentStudentOptions = React.useMemo(
-      () =>
-        (filterPayload?.items ?? []).map((student) => {
-          const value = String(student.id ?? student.studentId ?? student.cus_id ?? "");
-          const studentCode =
-            student.studentId ?? student.student_id ?? student.school_registration_number ?? student.admission_number;
-  
-          return {
-            value,
-            label: `${student.name || student.student_name || "Unknown"}${studentCode ? ` (${studentCode})` : ""}`,
-          };
-        }),
-      [filterPayload?.items],
-    );
+    () =>
+      (filterPayload?.items ?? []).map((student) => {
+        const value = String(
+          student.id ?? student.studentId ?? student.cus_id ?? "",
+        );
+        const studentCode =
+          student.studentId ??
+          student.student_id ??
+          student.school_registration_number ??
+          student.admission_number;
+
+        return {
+          value,
+          label: `${student.name || student.student_name || "Unknown"}${studentCode ? ` (${studentCode})` : ""}`,
+        };
+      }),
+    [filterPayload?.items],
+  );
 
   const handleAssessmentStudentChange = React.useCallback((value) => {
     setStudentId(value);
@@ -688,20 +812,20 @@ const selectedStudentKey = String(
   }, []);
 
   return (
-    <section className="min-h-screen space-y-5 bg-background">
+    <section className="space-y-5">
       {/* =====================================================
           HEADER
       ===================================================== */}
 
-      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
-        <div>
-          <div className="flex items-center gap-2 py-2">
+      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between mb-4">
+        <>
+          <div className="flex items-center gap-2 py-3">
             <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary aspect-square">
               <Ear className="size-6" />
             </div>
 
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">
+              <h1 className="text-3xl font-semibold tracking-tight">
                 Hearing Screening
               </h1>
 
@@ -720,7 +844,7 @@ const selectedStudentKey = String(
                 </p> */}
             </div>
           </div>
-        </div>
+        </>
 
         <div className="flex flex-wrap gap-2 md:flex-nowrap">
           {/* <CampStudentSelectorDrawer
@@ -773,6 +897,13 @@ const selectedStudentKey = String(
 
           <Button variant="outline">Save & Exit</Button>
 
+          {formErrors && (
+            <div className="flex items-center gap-2 rounded-lg border border-destructive/60 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+              <ShieldAlert className="size-4 shrink-0" />
+              Please fix the highlighted fields before saving.
+            </div>
+          )}
+
           <Button onClick={handleSave}>
             <Save className="size-4" />
             Save & Next
@@ -803,10 +934,10 @@ const selectedStudentKey = String(
             {/* =================================================
             LEFT COLUMN
         ================================================= */}
-
             <div className="space-y-4">
-              {/* Assessment Details */}
-              {/* <Card>
+              <FramerCard>
+                {/* Assessment Details */}
+                {/* <Card>
             <CardHeader>
               <CardTitle className="text-base">Assessment Details</CardTitle>
             </CardHeader>
@@ -821,380 +952,434 @@ const selectedStudentKey = String(
               <Field label="Assistant" placeholder="Assistant name" />
             </CardContent>
           </Card> */}
-              <AssessmentCard
-                // onChange={handleAssessmentChange}
-                // form={assessmentForm}
-                data={getSelectedStudentScreeningData}
-                studentOptions={assessmentStudentOptions}
-                studentValue={studentSelectValue}
-                onStudentChange={handleAssessmentStudentChange}
-              // onSave={handleSaveAssessment}
-              // onCancel={handleCancelAssessment}
-              />
-
+                <AssessmentCard
+                  // onChange={handleAssessmentChange}
+                  // form={assessmentForm}
+                  data={getSelectedStudentScreeningData}
+                  studentOptions={assessmentStudentOptions}
+                  studentValue={studentSelectValue}
+                  onStudentChange={handleAssessmentStudentChange}
+                  // onSave={handleSaveAssessment}
+                  // onCancel={handleCancelAssessment}
+                />
+              </FramerCard>
               {/* Hearing Summary */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Hearing Summary</CardTitle>
-                </CardHeader>
+              <FramerCard>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Hearing Summary</CardTitle>
+                  </CardHeader>
 
-                <CardContent className="space-y-2">
-                  <SummaryRow
-                    icon={Ear}
-                    label="Right Ear"
-                    value={form.overall_status_re || "Not assessed"}
-                  />
+                  <CardContent className="space-y-2">
+                    <SummaryRow
+                      icon={Ear}
+                      label="Right Ear"
+                      value={
+                        reHearingResult.classification
+                          ? `${reHearingResult.pta.toFixed(1)} dB · ${reHearingResult.classification.severity}`
+                          : form.overall_status_re || "Not assessed"
+                      }
+                    />
 
-                  <SummaryRow
-                    icon={Ear}
-                    label="Left Ear"
-                    value={form.overall_status_le || "Not assessed"}
-                  />
+                    <SummaryRow
+                      icon={Ear}
+                      label="Left Ear"
+                      value={
+                        leHearingResult.classification
+                          ? `${leHearingResult.pta.toFixed(1)} dB · ${leHearingResult.classification.severity}`
+                          : form.overall_status_le || "Not assessed"
+                      }
+                    />
 
-                  <SummaryRow
-                    icon={Activity}
-                    label="Overall Status"
-                    value={form.overall_status || "Not assessed"}
-                  />
+                    <SummaryRow
+                      icon={Activity}
+                      label="Overall Status"
+                      value={form.overall_status || "Not assessed"}
+                    />
 
-                  <SummaryRow
-                    icon={ShieldAlert}
-                    label="Referral"
-                    value={form.referral_priority || "None"}
-                  />
-                </CardContent>
-              </Card>
-
+                    <SummaryRow
+                      icon={ShieldAlert}
+                      label="Referral"
+                      value={form.referral_priority || "None"}
+                    />
+                  </CardContent>
+                </Card>
+              </FramerCard>
               {/* Quick Status */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Quick Findings</CardTitle>
-                </CardHeader>
+              <FramerCard>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Quick Findings</CardTitle>
+                  </CardHeader>
 
-                <CardContent className="space-y-2">
-                  <StatusItem
-                    label="Right Ear"
-                    value={form.overall_status_re}
-                  />
+                  <CardContent className="space-y-2">
+                    <StatusItem
+                      label="Right Ear"
+                      value={form.ear_exam_re}
+                    />
 
-                  <StatusItem label="Left Ear" value={form.overall_status_le} />
+                    <StatusItem
+                      label="Left Ear"
+                      // value={form.overall_status_le}
+                      value={form.ear_exam_le}
+                      // status={form.ear_exam_le}
 
-                  <StatusItem label="Overall" value={form.overall_status} />
-                </CardContent>
-              </Card>
+                    />
+
+                    <StatusItem label="Overall" value={form.overall_status} />
+                  </CardContent>
+                </Card>
+              </FramerCard>
             </div>
-
             {/* =================================================
             CENTER COLUMN
         ================================================= */}
 
             <div className="space-y-4">
               {/* Audiogram */}
-              <Card className="overflow-hidden">
-                <CardHeader className="border-b border-border/70">
-                  <div className="flex items-start justify-between">
-                    <div>
+              <FramerCard>
+                <Card className="overflow-hidden">
+                  <CardHeader className="border-b border-border/70">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                            <Waves className="size-4" />
+                          </div>
+
+                          <div>
+                            <CardTitle className="text-base">
+                              Pure Tone Audiometry
+                            </CardTitle>
+
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Hearing thresholds by frequency
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Badge variant="outline" className="gap-1.5">
+                          <span className="size-2 rounded-full bg-primary" />
+                          Right Ear
+                        </Badge>
+
+                        <Badge variant="outline" className="gap-1.5">
+                          <span className="size-2 rounded-full bg-warning" />
+                          Left Ear
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="p-4">
+                    <Audiogram form={form} updateField={updateField} />
+                  </CardContent>
+                </Card>
+              </FramerCard>
+              <FramerCard>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 ">
+                  {/* Whisper Test */}
+                  <Card>
+                    <CardHeader>
                       <div className="flex items-center gap-2">
-                        <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                          <Waves className="size-4" />
+                        <div className="flex size-8 items-center justify-center rounded-lg bg-info/10 text-info">
+                          <Volume2 className="size-4" />
+                        </div>
+
+                        <div>
+                          <CardTitle className="text-sm">
+                            Whisper Test
+                          </CardTitle>
+
+                          <p className="text-xs text-muted-foreground">
+                            Basic speech perception screening
+                          </p>
+                        </div>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <SelectField
+                          label="Right Ear"
+                          value={form.whisper_test_re}
+                          onChange={(value) =>
+                            updateField("whisper_test_re", value)
+                          }
+                          options={["Pass", "Fail", "Not Tested"]}
+                        />
+
+                        <SelectField
+                          label="Left Ear"
+                          value={form.whisper_test_le}
+                          onChange={(value) =>
+                            updateField("whisper_test_le", value)
+                          }
+                          options={["Pass", "Fail", "Not Tested"]}
+                        />
+
+                        <Field
+                          label="Test Distance"
+                          value={form.whisper_test_distance}
+                          onChange={(e) =>
+                            updateField("whisper_test_distance", e.target.value)
+                          }
+                          placeholder="e.g. 2 feet"
+                        />
+
+                        <Field
+                          label="Remarks"
+                          value={form.whisper_test_remarks}
+                          onChange={(e) =>
+                            updateField("whisper_test_remarks", e.target.value)
+                          }
+                          placeholder="Enter remarks"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Speech */}
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center gap-2">
+                        <div className="flex size-8 items-center justify-center rounded-lg bg-success/10 text-success">
+                          <Mic className="size-4" />
+                        </div>
+
+                        <CardTitle className="text-sm">
+                          Speech Assessment
+                        </CardTitle>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <NumberField
+                          label="Speech Recognition - Right"
+                          value={form.speech_recognition_re}
+                          onChange={(value) =>
+                            updateField("speech_recognition_re", value)
+                          }
+                          unit="%"
+                        />
+
+                        <NumberField
+                          label="Speech Recognition - Left"
+                          value={form.speech_recognition_le}
+                          onChange={(value) =>
+                            updateField("speech_recognition_le", value)
+                          }
+                          unit="%"
+                        />
+
+                        <NumberField
+                          label="SRT - Right Ear"
+                          value={form.srt_re}
+                          onChange={(value) => updateField("srt_re", value)}
+                          unit="dB"
+                        />
+
+                        <NumberField
+                          label="SRT - Left Ear"
+                          value={form.srt_le}
+                          onChange={(value) => updateField("srt_le", value)}
+                          unit="dB"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </FramerCard>
+              <FramerCard>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {/* =====================================================
+          RISK FACTORS
+      ===================================================== */}
+
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center gap-2">
+                        <div className="flex size-8 items-center justify-center rounded-lg bg-warning/10 text-warning">
+                          <ShieldAlert className="size-4" />
                         </div>
 
                         <div>
                           <CardTitle className="text-base">
-                            Pure Tone Audiometry
+                            Hearing Risk Factors
                           </CardTitle>
 
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Hearing thresholds by frequency
+                          <p className="text-xs text-muted-foreground">
+                            Relevant history and risk indicators
                           </p>
                         </div>
                       </div>
-                    </div>
+                    </CardHeader>
 
-                    <div className="flex gap-2">
-                      <Badge variant="outline" className="gap-1.5">
-                        <span className="size-2 rounded-full bg-primary" />
-                        Right Ear
-                      </Badge>
+                    <CardContent>
+                      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                        <RiskField
+                          label="Frequent Ear Infections"
+                          value={form.risk_frequent_ear_infections}
+                          onChange={(value) =>
+                            updateField("risk_frequent_ear_infections", value)
+                          }
+                        />
 
-                      <Badge variant="outline" className="gap-1.5">
-                        <span className="size-2 rounded-full bg-warning" />
-                        Left Ear
-                      </Badge>
-                    </div>
-                  </div>
-                </CardHeader>
+                        <RiskField
+                          label="Speech Delay"
+                          value={form.risk_speech_delay}
+                          onChange={(value) =>
+                            updateField("risk_speech_delay", value)
+                          }
+                        />
 
-                <CardContent className="p-4">
-                  <Audiogram form={form} updateField={updateField} />
-                </CardContent>
-              </Card>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 ">
-                {/* Whisper Test */}
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center gap-2">
-                      <div className="flex size-8 items-center justify-center rounded-lg bg-info/10 text-info">
-                        <Volume2 className="size-4" />
+                        <RiskField
+                          label="Learning Difficulty"
+                          value={form.risk_learning_difficulty}
+                          onChange={(value) =>
+                            updateField("risk_learning_difficulty", value)
+                          }
+                        />
+
+                        <RiskField
+                          label="Family History"
+                          value={form.risk_family_history_hearing_loss}
+                          onChange={(value) =>
+                            updateField(
+                              "risk_family_history_hearing_loss",
+                              value,
+                            )
+                          }
+                        />
+
+                        <RiskField
+                          label="Noise Exposure"
+                          value={form.risk_noise_exposure}
+                          onChange={(value) =>
+                            updateField("risk_noise_exposure", value)
+                          }
+                        />
+
+                        <RiskField
+                          label="Other Risks"
+                          value={form.risk_others}
+                          onChange={(value) =>
+                            updateField("risk_others", value)
+                          }
+                        />
                       </div>
+                    </CardContent>
+                  </Card>
 
-                      <div>
-                        <CardTitle className="text-sm">Whisper Test</CardTitle>
-
-                        <p className="text-xs text-muted-foreground">
-                          Basic speech perception screening
-                        </p>
-                      </div>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <SelectField
-                        label="Right Ear"
-                        value={form.whisper_test_re}
-                        onChange={(value) =>
-                          updateField("whisper_test_re", value)
-                        }
-                        options={["Pass", "Fail", "Not Tested"]}
-                      />
-
-                      <SelectField
-                        label="Left Ear"
-                        value={form.whisper_test_le}
-                        onChange={(value) =>
-                          updateField("whisper_test_le", value)
-                        }
-                        options={["Pass", "Fail", "Not Tested"]}
-                      />
-
-                      <Field
-                        label="Test Distance"
-                        value={form.whisper_test_distance}
-                        onChange={(e) =>
-                          updateField("whisper_test_distance", e.target.value)
-                        }
-                        placeholder="e.g. 2 feet"
-                      />
-
-                      <Field
-                        label="Remarks"
-                        value={form.whisper_test_remarks}
-                        onChange={(e) =>
-                          updateField("whisper_test_remarks", e.target.value)
-                        }
-                        placeholder="Enter remarks"
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Speech */}
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center gap-2">
-                      <div className="flex size-8 items-center justify-center rounded-lg bg-success/10 text-success">
-                        <Mic className="size-4" />
-                      </div>
-
-                      <CardTitle className="text-sm">
-                        Speech Assessment
-                      </CardTitle>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <NumberField
-                        label="Speech Recognition - Right"
-                        value={form.speech_recognition_re}
-                        onChange={(value) =>
-                          updateField("speech_recognition_re", value)
-                        }
-                        unit="%"
-                      />
-
-                      <NumberField
-                        label="Speech Recognition - Left"
-                        value={form.speech_recognition_le}
-                        onChange={(value) =>
-                          updateField("speech_recognition_le", value)
-                        }
-                        unit="%"
-                      />
-
-                      <NumberField
-                        label="SRT - Right Ear"
-                        value={form.srt_re}
-                        onChange={(value) => updateField("srt_re", value)}
-                        unit="dB"
-                      />
-
-                      <NumberField
-                        label="SRT - Left Ear"
-                        value={form.srt_le}
-                        onChange={(value) => updateField("srt_le", value)}
-                        unit="dB"
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {/* =====================================================
-          RISK FACTORS
-      ===================================================== */}
-
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center gap-2">
-                      <div className="flex size-8 items-center justify-center rounded-lg bg-warning/10 text-warning">
-                        <ShieldAlert className="size-4" />
-                      </div>
-
-                      <div>
-                        <CardTitle className="text-base">
-                          Hearing Risk Factors
-                        </CardTitle>
-
-                        <p className="text-xs text-muted-foreground">
-                          Relevant history and risk indicators
-                        </p>
-                      </div>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent>
-                    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                      <RiskField
-                        label="Frequent Ear Infections"
-                        value={form.risk_frequent_ear_infections}
-                        onChange={(value) =>
-                          updateField("risk_frequent_ear_infections", value)
-                        }
-                      />
-
-                      <RiskField
-                        label="Speech Delay"
-                        value={form.risk_speech_delay}
-                        onChange={(value) =>
-                          updateField("risk_speech_delay", value)
-                        }
-                      />
-
-                      <RiskField
-                        label="Learning Difficulty"
-                        value={form.risk_learning_difficulty}
-                        onChange={(value) =>
-                          updateField("risk_learning_difficulty", value)
-                        }
-                      />
-
-                      <RiskField
-                        label="Family History"
-                        value={form.risk_family_history_hearing_loss}
-                        onChange={(value) =>
-                          updateField("risk_family_history_hearing_loss", value)
-                        }
-                      />
-
-                      <RiskField
-                        label="Noise Exposure"
-                        value={form.risk_noise_exposure}
-                        onChange={(value) =>
-                          updateField("risk_noise_exposure", value)
-                        }
-                      />
-
-                      <RiskField
-                        label="Other Risks"
-                        value={form.risk_others}
-                        onChange={(value) => updateField("risk_others", value)}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* =====================================================
+                  {/* =====================================================
           REFERRAL
       ===================================================== */}
 
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center gap-2">
-                      <div className="flex size-8 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
-                        <Radio className="size-4" />
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center gap-2">
+                        <div className="flex size-8 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+                          <Radio className="size-4" />
+                        </div>
+
+                        <div>
+                          <CardTitle className="text-base">
+                            Referral & Follow-up
+                          </CardTitle>
+
+                          <p className="text-xs text-muted-foreground">
+                            Recommended action based on screening
+                          </p>
+                        </div>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      <Field
+                        label="Referral Grade"
+                        value={form.referral_grade}
+                        onChange={(e) =>
+                          updateField("referral_grade", e.target.value)
+                        }
+                      />
+
+                      <Field
+                        label="Recommendation Type"
+                        value={form.recommendation_type}
+                        onChange={(e) =>
+                          updateField("recommendation_type", e.target.value)
+                        }
+                      />
+
+                      <Field
+                        label="Recommended To"
+                        value={form.recommended_to}
+                        onChange={(e) =>
+                          updateField("recommended_to", e.target.value)
+                        }
+                      />
+
+                      <Field
+                        label="Referral Priority"
+                        value={form.referral_priority}
+                        onChange={(e) =>
+                          updateField("referral_priority", e.target.value)
+                        }
+                      />
+
+                      <div className="md:col-span-2">
+                        {/* <Textarea
+                          value={form.referral_reason}
+                          onChange={(e) =>
+                            updateField("referral_reason", e.target.value)
+                          }
+                          placeholder="Referral reason..."
+                          rows={3}
+                          className={formErrors?.referral_reason ? "border-destructive focus-visible:ring-destructive" : ""}
+                        /> */}
+                        <SelectField
+                          label="Referral Reason"
+                          value={form.referral_reason}
+                          onChange={(value) =>
+                            updateField("referral_reason", value)
+                          }
+                          options={referralReasonOptions}
+                          error={formErrors?.referral_reason}
+                        />
+                        {formErrors?.referral_reason && (
+                          <p className="mt-1.5 text-xs text-destructive">
+                            {formErrors.referral_reason}
+                          </p>
+                        )}
                       </div>
 
-                      <div>
-                        <CardTitle className="text-base">
-                          Referral & Follow-up
-                        </CardTitle>
-
-                        <p className="text-xs text-muted-foreground">
-                          Recommended action based on screening
-                        </p>
+                      <div className="lg:col-span-3">
+                        <Textarea
+                          value={form.follow_up}
+                          onChange={(e) =>
+                            updateField("follow_up", e.target.value)
+                          }
+                          placeholder="Follow-up instructions..."
+                          rows={3}
+                          className={
+                            formErrors?.follow_up
+                              ? "border-destructive focus-visible:ring-destructive"
+                              : ""
+                          }
+                        />
+                        {formErrors?.follow_up && (
+                          <p className="mt-1.5 text-xs text-destructive">
+                            {formErrors.follow_up}
+                          </p>
+                        )}
                       </div>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    <Field
-                      label="Referral Grade"
-                      value={form.referral_grade}
-                      onChange={(e) =>
-                        updateField("referral_grade", e.target.value)
-                      }
-                    />
-
-                    <Field
-                      label="Recommendation Type"
-                      value={form.recommendation_type}
-                      onChange={(e) =>
-                        updateField("recommendation_type", e.target.value)
-                      }
-                    />
-
-                    <Field
-                      label="Recommended To"
-                      value={form.recommended_to}
-                      onChange={(e) =>
-                        updateField("recommended_to", e.target.value)
-                      }
-                    />
-
-                    <Field
-                      label="Referral Priority"
-                      value={form.referral_priority}
-                      onChange={(e) =>
-                        updateField("referral_priority", e.target.value)
-                      }
-                    />
-
-                    <div className="md:col-span-2">
-                      <Textarea
-                        value={form.referral_reason}
-                        onChange={(e) =>
-                          updateField("referral_reason", e.target.value)
-                        }
-                        placeholder="Referral reason..."
-                        rows={3}
-                      />
-                    </div>
-
-                    <div className="lg:col-span-3">
-                      <Textarea
-                        value={form.follow_up}
-                        onChange={(e) =>
-                          updateField("follow_up", e.target.value)
-                        }
-                        placeholder="Follow-up instructions..."
-                        rows={3}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </FramerCard>
             </div>
 
             {/* =================================================
@@ -1203,103 +1388,131 @@ const selectedStudentKey = String(
 
             <div className="space-y-4">
               {/* Ear Health */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Ear Health</CardTitle>
-                </CardHeader>
+              <FramerCard>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Ear Health</CardTitle>
+                  </CardHeader>
 
-                <CardContent className="space-y-5">
-                  <EarResult
-                    label="Right Ear"
-                    status={form.overall_status_re}
-                    ear="RE"
-                  />
-
-                  <EarResult
-                    label="Left Ear"
-                    status={form.overall_status_le}
-                    ear="LE"
-                  />
-
-                  <div className="border-t border-border/70 pt-4">
-                    <p className="mb-2 text-xs text-muted-foreground">
-                      Overall Status
-                    </p>
-
-                    <Input
-                      value={form.overall_status}
-                      onChange={(e) =>
-                        updateField("overall_status", e.target.value)
-                      }
-                      placeholder="Overall hearing status"
+                  <CardContent className="space-y-5">
+                    <EarResult
+                      label="Right Ear"
+                      status={form.ear_exam_re}
+                      // status={form.overall_status_re}
+                      ear="RE"
                     />
-                  </div>
-                </CardContent>
-              </Card>
+
+                    <EarResult
+                      label="Left Ear"
+                      status={form.ear_exam_le}
+                      ear="LE"
+                    />
+
+                    <div className="border-t border-border/70 pt-4">
+                      <p className="mb-2 text-xs text-muted-foreground">
+                        Overall Status
+                      </p>
+
+                      <Input
+                        value={form.overall_status}
+                        onChange={(e) =>
+                          updateField("overall_status", e.target.value)
+                        }
+                        placeholder="Overall hearing status"
+                        aria-invalid={Boolean(formErrors?.overall_status)}
+                        className={
+                          formErrors?.overall_status
+                            ? "border-destructive focus-visible:ring-destructive"
+                            : ""
+                        }
+                      />
+                      {formErrors?.overall_status && (
+                        <p className="mt-1.5 text-xs text-destructive">
+                          {formErrors.overall_status}
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </FramerCard>
 
               {/* Ear Examination */}
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Stethoscope className="size-4" />
+              <FramerCard>
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Stethoscope className="size-4" />
+                      </div>
+
+                      <CardTitle className="text-sm">Ear Examination</CardTitle>
                     </div>
+                  </CardHeader>
 
-                    <CardTitle className="text-sm">Ear Examination</CardTitle>
-                  </div>
-                </CardHeader>
+                  <CardContent className="space-y-4">
+                    <SelectField
+                      label="Left Ear"
+                      value={form.ear_exam_le}
+                      onChange={(value) =>
+                        updateField("ear_exam_le", value)
+                      }
+                      options={examinationOptions}
+                      error={formErrors?.ear_exam_le}
+                    />
 
-                <CardContent className="space-y-4">
-                  <Textarea
-                    value={form.ear_exam_re}
-                    onChange={(e) => updateField("ear_exam_re", e.target.value)}
-                    placeholder="Right ear findings..."
-                    rows={3}
-                  />
-
-                  <Textarea
-                    value={form.ear_exam_le}
-                    onChange={(e) => updateField("ear_exam_le", e.target.value)}
-                    placeholder="Left ear findings..."
-                    rows={3}
-                  />
-                </CardContent>
-              </Card>
+                    <SelectField
+                      label="Right Ear"
+                      value={form.ear_exam_re}
+                      onChange={(value) =>
+                        updateField("ear_exam_re", value)
+                      }
+                      options={examinationOptions}
+                      error={formErrors?.ear_exam_re}
+                    />
+                  </CardContent>
+                </Card>
+              </FramerCard>
 
               {/* Tympanometry */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">Tympanometry</CardTitle>
-                </CardHeader>
+              <FramerCard>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Tympanometry</CardTitle>
+                  </CardHeader>
 
-                <CardContent className="grid gap-3">
-                  <SelectField
-                    label="Right Ear"
-                    value={form.tympanometry_re}
-                    onChange={(value) => updateField("tympanometry_re", value)}
-                    options={[
-                      "Normal",
-                      "Abnormal",
-                      "Type A",
-                      "Type B",
-                      "Type C",
-                    ]}
-                  />
+                  <CardContent className="grid gap-3">
+                    <SelectField
+                      label="Right Ear"
+                      value={form.tympanometry_re}
+                      onChange={(value) =>
+                        updateField("tympanometry_re", value)
+                      }
+                      options={[
+                        "Normal",
+                        "Abnormal",
+                        "Type A",
+                        "Type B",
+                        "Type C",
+                      ]}
+                    />
 
-                  <SelectField
-                    label="Left Ear"
-                    value={form.tympanometry_le}
-                    onChange={(value) => updateField("tympanometry_le", value)}
-                    options={[
-                      "Normal",
-                      "Abnormal",
-                      "Type A",
-                      "Type B",
-                      "Type C",
-                    ]}
-                  />
-                </CardContent>
-              </Card>
+                    <SelectField
+                      label="Left Ear"
+                      value={form.tympanometry_le}
+                      onChange={(value) =>
+                        updateField("tympanometry_le", value)
+                      }
+                      options={[
+                        "Normal",
+                        "Abnormal",
+                        "Type A",
+                        "Type B",
+                        "Type C",
+                      ]}
+                    />
+                  </CardContent>
+                </Card>
+              </FramerCard>
             </div>
           </div>
         </>
@@ -1335,6 +1548,18 @@ const selectedStudentKey = String(
 /* ============================================================
    AUDIOGRAM
 ============================================================ */
+
+// Hearing thresholds are valid from 0 up to 120 dB — anything outside is
+// clamped so the value always matches a hearing-classification band.
+const PTA_MIN_DB = 0;
+const PTA_MAX_DB = 120;
+
+function clampDbValue(raw) {
+  if (raw === "" || raw === null || raw === undefined) return "";
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return "";
+  return String(Math.min(Math.max(parsed, PTA_MIN_DB), PTA_MAX_DB));
+}
 
 function Audiogram({ form, updateField }) {
   const width = 760;
@@ -1603,7 +1828,9 @@ function Audiogram({ form, updateField }) {
                   <Input
                     type="number"
                     value={form[field]}
-                    onChange={(e) => updateField(field, e.target.value)}
+                    onChange={(e) => updateField(field, clampDbValue(e.target.value))}
+                    min={PTA_MIN_DB}
+                    max={PTA_MAX_DB}
                     className="h-9 text-center text-xs"
                   />
                 </div>
@@ -1627,7 +1854,9 @@ function Audiogram({ form, updateField }) {
                   <Input
                     type="number"
                     value={form[field]}
-                    onChange={(e) => updateField(field, e.target.value)}
+                    onChange={(e) => updateField(field, clampDbValue(e.target.value))}
+                    min={PTA_MIN_DB}
+                    max={PTA_MAX_DB}
                     className="h-9 text-center text-xs"
                   />
                 </div>
@@ -1644,7 +1873,7 @@ function Audiogram({ form, updateField }) {
    COMPONENTS
 ============================================================ */
 
-function Field({ label, value, onChange, placeholder, type = "text" }) {
+function Field({ label, value, onChange, placeholder, type = "text", error }) {
   return (
     <div className="space-y-1.5">
       <label className="text-xs font-medium text-muted-foreground">
@@ -1656,12 +1885,17 @@ function Field({ label, value, onChange, placeholder, type = "text" }) {
         value={value ?? ""}
         onChange={onChange}
         placeholder={placeholder}
+        aria-invalid={Boolean(error)}
+        className={
+          error ? "border-destructive focus-visible:ring-destructive" : ""
+        }
       />
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
   );
 }
 
-function NumberField({ label, value, onChange, unit }) {
+function NumberField({ label, value, onChange, unit, error }) {
   return (
     <div className="space-y-1.5">
       <label className="text-xs font-medium text-muted-foreground">
@@ -1673,18 +1907,19 @@ function NumberField({ label, value, onChange, unit }) {
           type="number"
           value={value ?? ""}
           onChange={(e) => onChange(e.target.value)}
-          className="pr-12"
+          className={`pr-12 ${error ? "border-destructive focus-visible:ring-destructive" : ""}`}
         />
 
         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
           {unit}
         </span>
       </div>
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }
 
-function SelectField({ label, value, onChange, options }) {
+function SelectField({ label, value, onChange, options, error }) {
   return (
     <div className="space-y-1.5">
       <label className="text-xs font-medium text-muted-foreground">
@@ -1694,7 +1929,7 @@ function SelectField({ label, value, onChange, options }) {
       <select
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
-        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+        className={`h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring ${error ? "border-destructive focus:ring-destructive" : ""}`}
       >
         <option value="">Select</option>
 
@@ -1704,6 +1939,7 @@ function SelectField({ label, value, onChange, options }) {
           </option>
         ))}
       </select>
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }
@@ -1733,8 +1969,9 @@ function StatusItem({ label, value }) {
 
       <div className="flex items-center gap-2">
         <span
-          className={`size-1.5 rounded-full ${value ? "bg-success" : "bg-muted-foreground"
-            }`}
+          className={`size-1.5 rounded-full ${
+            value ? "bg-success" : "bg-muted-foreground"
+          }`}
         />
 
         <span className="text-xs font-medium">{value || "Pending"}</span>
@@ -1757,10 +1994,11 @@ function EarResult({ label, status, ear }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div
-            className={`flex size-10 items-center justify-center rounded-xl ${isNormal
-              ? "bg-success/10 text-success"
-              : "bg-muted text-muted-foreground"
-              }`}
+            className={`flex size-10 items-center justify-center rounded-xl ${
+              isNormal
+                ? "bg-success/10 text-success"
+                : "bg-muted text-muted-foreground"
+            }`}
           >
             {isNormal ? (
               <Ear className="size-5" />
@@ -1777,10 +2015,11 @@ function EarResult({ label, status, ear }) {
         </div>
 
         <span
-          className={`rounded-full px-2.5 py-1 text-[10px] font-medium ${isNormal
-            ? "bg-success/10 text-success"
-            : "bg-muted text-muted-foreground"
-            }`}
+          className={`rounded-full px-2.5 py-1 text-[10px] font-medium ${
+            isNormal
+              ? "bg-success/10 text-success"
+              : "bg-muted text-muted-foreground"
+          }`}
         >
           {status || "Not assessed"}
         </span>

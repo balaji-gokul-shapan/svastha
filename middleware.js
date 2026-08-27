@@ -12,8 +12,13 @@ import { NextResponse } from "next/server";
 
 const AUTH_COOKIE_NAME = "svastha-auth";
 
-// Add any other public routes here (e.g. "/", "/about").
+// Public pages: reachable without login. Add new ones here (e.g. "/about").
 const PUBLIC_PATHS = new Set(["/login", "/register"]);
+
+// Auth pages a signed-in user gets bounced off of (back to /dashboard).
+// NOTE: deliberately narrower than PUBLIC_PATHS so internal links like the
+// sidebar's "/register" keep working while a user is logged in.
+const AUTH_PAGES = new Set(["/login"]);
 
 const LOGIN_PATH = "/login";
 const AUTHENTICATED_HOME_PATH = "/dashboard";
@@ -23,7 +28,7 @@ export function middleware(request) {
   const isAuthenticated = Boolean(request.cookies.get(AUTH_COOKIE_NAME)?.value);
 
   // Already logged in? Keep users away from the auth pages.
-  if (isAuthenticated && PUBLIC_PATHS.has(pathname)) {
+  if (isAuthenticated && AUTH_PAGES.has(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = AUTHENTICATED_HOME_PATH;
     url.search = "";

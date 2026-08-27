@@ -15,6 +15,7 @@ const labelBySegment = {
   dashboard: "Dashboard",
   students: "Students",
   add: "Add Student",
+  report: "Reports",
   reports: "Reports",
   settings: "Settings",
   help: "Help & Support",

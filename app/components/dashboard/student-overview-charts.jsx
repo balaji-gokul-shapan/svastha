@@ -149,6 +149,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import HealthWorkerFormOutlineIcon from "@iconify-react/healthicons/health-worker-form-outline";
 
 /* ============================================================
    DASHBOARD DATA
@@ -605,9 +606,13 @@ function ScreeningSummary() {
   return (
     <Card className="xl:col-span-1">
       <CardHeader>
-        <CardTitle className="text-sm">Health Screening Summary</CardTitle>
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-success/10">
+            <HealthWorkerFormOutlineIcon className="size-4 text-success" />
+          </span>
+          Health Screening Summary
+        </CardTitle>
       </CardHeader>
-
       <CardContent>
         <div className="flex flex-col items-center gap-5 sm:flex-row xl:flex-col">
           <div className="relative size-44 shrink-0">

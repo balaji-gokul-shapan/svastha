@@ -14,7 +14,7 @@ function ToggleGroupComponent({ label, options, value, onChange }) {
   return (
     <div>
       <p className="mb-2 text-sm font-semibold text-foreground">{label}</p>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-2">
         {options.map((option) => {
           const isActive = value === option.value;
           return (

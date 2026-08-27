@@ -55,6 +55,10 @@ import StudentProfileCard from "@/app/students/studentProfileCard";
 import { cn } from "../../lib/util";
 import StudentFilter from "../utilities/studentFilter";
 import { getFilterStudent } from "@/lib/features/getFilterStudent";
+import { dentalScreeningSchema } from "./dental-screening-schema";
+import { FramerCard } from "@/util/FramerCard";
+import { getMasterData } from "@/util/masterData";
+import { getAllMasterScreening } from "@/lib/features/masterScreeningSlice";
 ("../../lib/util");
 
 function FieldLabel({ children }) {
@@ -263,11 +267,140 @@ export default function DentalAssessmentPage() {
   const [chart, setChart] = useState(initialToothChart);
   const [selectedTooth, setSelectedTooth] = useState(16);
 
+  const {
+      data: masterScreeningData = {},
+      isLoading: masterScreeningDataLoading,
+      error: masterScreeningQueryError,
+    } = useQuery({
+      queryKey: ["Ent-screening"],
+  
+      queryFn: () => dispatch(getAllMasterScreening()).unwrap(),
+  
+      // Master data doesn't normally need to be
+      // requested again immediately.
+      staleTime: 5 * 60 * 1000,
+  
+      refetchOnWindowFocus: false,
+    });
+  
+    console.log(masterScreeningData, "All Master Screening Data");
+  
+    const requiredMasterData = React.useMemo(
+      () =>
+        getMasterData(masterScreeningData, [
+          "dental-conditions",
+          "dental-treatments",
+          "oral-hygiene-statuses",
+          "plaque-scores",
+        ]),
+      [masterScreeningData],
+    );
+    console.log(requiredMasterData, "requiredMasterData");
+    const OralHygieneMasterData =
+      requiredMasterData["oral-hygiene-statuses"] ?? [];
+    const PlaqueScoreMasterData = requiredMasterData["plaque-scores"] ?? [];
+    const DentalConditionsMasterData =
+      requiredMasterData["dental-conditions"] ?? [];
+    const DentalTreatmentsMasterData =
+      requiredMasterData["dental-treatments"] ?? [];
+
+    // Dental treatments master data → option names for the Treatment select.
+    const DentalTreatmentOptionData = (
+      Array.isArray(DentalTreatmentsMasterData)
+        ? DentalTreatmentsMasterData
+        : []
+    )
+      .map((item) => String(item?.name ?? "").trim())
+      .filter(Boolean);
+
+
+    // Plaque scores → plaque toggle options ({value, label, tone}); falls
+    // back to the built-in list while master data loads.
+    const plaqueToggleOptions =
+      Array.isArray(PlaqueScoreMasterData) && PlaqueScoreMasterData.length > 0
+        ? PlaqueScoreMasterData.map((item) => {
+            const label = String(item?.name ?? "").trim();
+            const value = label.toLowerCase();
+            const tone =
+              value.includes("none") ||
+              value.includes("healthy") ||
+              value.includes("good")
+                ? "good"
+                : value.includes("severe") ||
+                    value.includes("heavy") ||
+                    value.includes("bad")
+                  ? "bad"
+                  : "warn";
+            return { value, label, tone };
+          })
+        : plaqueOptions;
+
+    // Dental conditions → gingival health toggle options ({value, label,
+    // tone}) straight from master data.
+    const gingivalHealthToggleOptions = (
+      Array.isArray(DentalConditionsMasterData)
+        ? DentalConditionsMasterData
+        : []
+    )
+      .map((item) => {
+        const label = String(item?.name ?? "").trim();
+        const value = label.toLowerCase();
+        const tone =
+          value.includes("healthy")
+            ? "good"
+            : value.includes("abscess") || value.includes("caries")
+              ? "bad"
+              : "warn";
+        return { value, label, tone };
+      })
+      .filter((option) => option.value);
+
+    // Map master-data oral hygiene records to toggle options ({value, label,
+    // tone}) and append them after the built-in ones (deduped by value).
+    const oralHygieneToggleOptions = [
+      ...oralHygieneOptions,
+      ...(Array.isArray(OralHygieneMasterData) ? OralHygieneMasterData : [])
+        .map((item) => {
+          const label = String(item?.name ?? "").trim();
+          const value = label.toLowerCase();
+          const tone =
+            value.includes("good") || value.includes("excellent")
+              ? "good"
+              : value.includes("poor") || value.includes("bad")
+                ? "bad"
+                : "warn";
+          return { value, label, tone };
+        })
+        .filter(
+          (option) =>
+            option.value &&
+            !oralHygieneOptions.some(
+              (existing) => existing.value === option.value,
+            ),
+        ),
+    ];
+
   const [oralHygiene, setOralHygiene] = useState("fair");
   const [gingivalHealth, setGingivalHealth] = useState("gingivitis");
   const [plaque, setPlaque] = useState("mild");
   const [otherFindings, setOtherFindings] = useState({ malocclusion: true });
   const [notes, setNotes] = useState("Mild crowding in lower anterior region.");
+
+  
+
+
+  // { fieldName: "message" } — populated when zod validation fails.
+  const [formErrors, setFormErrors] = useState(null);
+
+  const clearFormError = (field) =>
+    setFormErrors((prev) =>
+      prev && prev[field] ? { ...prev, [field]: undefined } : prev,
+    );
+
+  const handleNotesChange = (value) => {
+    setNotes(value);
+    clearFormError("notes");
+  };
   const [isCaDrawerOpen, setIsCaDrawerOpen] = useState(false);
   const [selectedCampId, setSelectedCampId] = useState("1");
   const [studentId, setStudentId] = useState("");
@@ -602,13 +735,16 @@ export default function DentalAssessmentPage() {
       String(record?.oral_hygiene ?? oralHygieneOptions[0]?.value ?? "fair"),
     );
     setGingivalHealth(
+      String(record?.gingival_health ?? "gingivitis"),
+    );
+    setPlaque(
       String(
-        record?.gingival_health ??
-          gingivalHealthOptions[0]?.value ??
-          "gingivitis",
+        record?.plaque ??
+          plaqueToggleOptions[0]?.value ??
+          plaqueOptions[0]?.value ??
+          "mild",
       ),
     );
-    setPlaque(String(record?.plaque ?? plaqueOptions[0]?.value ?? "mild"));
     setNotes(String(record?.notes ?? record?.remark ?? record?.remarks ?? ""));
   }, []);
 
@@ -865,6 +1001,14 @@ export default function DentalAssessmentPage() {
     );
   };
 
+  const handleSelectedToothTreatmentChange = (value) => {
+    setChart((prev) =>
+      prev.map((tooth) =>
+        tooth.number === selectedTooth ? { ...tooth, treatment: value } : tooth,
+      ),
+    );
+  };
+
   const assessmentStudentOptions = useMemo(
     () =>
       (filterPayload?.items ?? []).map((student) => {
@@ -892,6 +1036,36 @@ export default function DentalAssessmentPage() {
       selectedStudent?.student_id ??
       selectedStudent?.studentId ??
       studentId;
+
+    // --- Validate editable fields with zod 
+    const formValues = {
+      notes,
+      oralHygiene,
+      gingivalHealth,
+      plaque,
+    };
+
+    const result = dentalScreeningSchema.safeParse(formValues);
+
+    if (!result.success) {
+      const errors = result.error.flatten().fieldErrors;
+
+      // Reduce to { fieldName: firstMessage } for inline display.
+      const firstPerField = Object.fromEntries(
+        Object.entries(errors)
+          .map(([field, messages]) => [field, messages?.[0]])
+          .filter(([, message]) => Boolean(message)),
+      );
+
+      setFormErrors(firstPerField);
+
+      const firstError = Object.values(firstPerField).find(Boolean);
+      toast.error(firstError || "Please fill all required fields.");
+
+      return;
+    }
+
+    setFormErrors(null);
 
     if (!String(rawStudentId ?? "").trim()) {
       toast.error("Select a student before saving the dental screening.");
@@ -1015,15 +1189,15 @@ export default function DentalAssessmentPage() {
 
   return (
     <section className="space-y-4">
-      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
+      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between mb-4">
         <div>
-          <div className="flex items-center gap-2 py-2">
+          <div className="flex items-center gap-2 py-3">
             <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary aspect-square">
               <ToothIcon className="size-6" />
             </div>
 
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">
+              <h1 className="text-3xl font-semibold tracking-tight">
                 Dental Screening
               </h1>
 
@@ -1114,6 +1288,13 @@ export default function DentalAssessmentPage() {
           >
             Save & Exit
           </Button>
+
+          {formErrors && (
+            <div className="flex items-center gap-2 rounded-lg border border-destructive/60 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+              <AlertTriangle className="size-4 shrink-0" />
+              Please fix the highlighted fields before saving.
+            </div>
+          )}
 
           <Button type="button" onClick={handleSaveAssessment}>
             <Save className="size-4" />
@@ -1216,6 +1397,7 @@ export default function DentalAssessmentPage() {
           </div>
         </div> */}
             <div className="space-y-4">
+              <FramerCard>
               <AssessmentCard
                 // onChange={handleAssessmentChange}
                 // form={assessmentForm}
@@ -1229,6 +1411,8 @@ export default function DentalAssessmentPage() {
                 onSave={handleSaveAssessment}
                 onCancel={handleCancelAssessment}
               />
+              </FramerCard>
+              <FramerCard>
               <article className="rounded-xl border p-4 shadow-sm bg-card">
                 <h3 className="mb-3 text-sm font-semibold text-foreground flex items-center gap-2">
                   <Summary size="18" className="text-primary" />
@@ -1295,8 +1479,11 @@ export default function DentalAssessmentPage() {
                   </span>
                 </div>
               </article>
+
+              </FramerCard>
             </div>
             {/* ---------------- Middle column: tooth chart ---------------- */}
+            <FramerCard>
             <div className="min-w-0 md:min-w-125 space-y-4 rounded-xl border border-border bg-card p-4">
               <h3 className="text-sm font-semibold text-foreground">
                 Tooth Chart (FDI Notation)
@@ -1324,7 +1511,7 @@ export default function DentalAssessmentPage() {
                       </span>
                     </p>
 
-                    <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                       <div>
                         <FieldLabel>Status</FieldLabel>
                         <Select
@@ -1352,9 +1539,11 @@ export default function DentalAssessmentPage() {
                         label="Severity"
                         value={currentTooth.severity}
                       />
-                      <DetailField
+                      <SelectField
                         label="Treatment"
-                        value={currentTooth.treatment}
+                        options={DentalTreatmentOptionData}
+                        value={String(currentTooth.treatment ?? "")}
+                        onChange={handleSelectedToothTreatmentChange}
                       />
                     </div>
 
@@ -1383,19 +1572,19 @@ export default function DentalAssessmentPage() {
                 <article className="space-y-4 rounded-xl border border-border bg-card p-4">
                   <ToggleGroup
                     label="Oral Hygiene"
-                    options={oralHygieneOptions}
+                    options={oralHygieneToggleOptions}
                     value={oralHygiene}
                     onChange={setOralHygiene}
                   />
                   <ToggleGroup
                     label="Gingival Health"
-                    options={gingivalHealthOptions}
+                    options={gingivalHealthToggleOptions}
                     value={gingivalHealth}
                     onChange={setGingivalHealth}
                   />
                   <ToggleGroup
                     label="Plaque"
-                    options={plaqueOptions}
+                    options={plaqueToggleOptions}
                     value={plaque}
                     onChange={setPlaque}
                   />
@@ -1451,9 +1640,12 @@ export default function DentalAssessmentPage() {
                 </div>
               </div>
             </div>
+            </FramerCard>
+
 
             {/* ---------------- Right column ---------------- */}
             <div className="space-y-4">
+            <FramerCard>
               <article className="space-y-4 rounded-xl border border-border bg-card p-4">
                 <h3 className="text-sm font-semibold text-foreground">
                   Risk &amp; Severity
@@ -1461,6 +1653,9 @@ export default function DentalAssessmentPage() {
                 <ScoreMeter label="Risk Score" score={riskScoreValue} />
                 <ScoreMeter label="Severity Score" score={severityScoreValue} />
               </article>
+            </FramerCard>
+
+            <FramerCard>
               <article className="space-y-3 rounded-xl border border-border bg-card p-4">
                 <h3 className="text-sm font-semibold text-foreground">
                   Other Findings
@@ -1491,16 +1686,26 @@ export default function DentalAssessmentPage() {
                   </div>
                 </div>
               </article>
+            </FramerCard>
+
+            <FramerCard>
 
               <article className="rounded-xl border border-border bg-card p-4">
                 <h3 className="text-sm font-semibold text-foreground">Notes</h3>
                 <textarea
                   value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
+                  onChange={(e) => handleNotesChange(e.target.value)}
                   rows={4}
-                  className="mt-3 w-full resize-none rounded-md border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  className={`mt-3 w-full resize-none rounded-md border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30 ${formErrors?.notes ? "border-destructive focus:ring-destructive/30" : ""}`}
                 />
+                {formErrors?.notes && (
+                  <p className="mt-1.5 text-xs text-destructive">
+                    {formErrors.notes}
+                  </p>
+                )}
               </article>
+            </FramerCard>
+
             </div>
           </div>
         </>

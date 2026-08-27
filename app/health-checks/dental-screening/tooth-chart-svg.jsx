@@ -56,7 +56,7 @@ function ToothRow({ teeth, chartByNumber, selectedTooth, onSelect, arc = "up" })
   const midpoint = (teeth.length - 1) / 2;
 
   return (
-    <div className="mx-auto flex items-center justify-center gap-1.5 px-1">
+    <div className="mx-auto my-2 md:my-1 flex items-center justify-center gap-1.5 px-1">
         {teeth.map((number, index) => {
           const distance = Math.abs(index - midpoint);
           const normalized = midpoint === 0 ? 0 : distance / midpoint;
@@ -84,7 +84,7 @@ function ToothRow({ teeth, chartByNumber, selectedTooth, onSelect, arc = "up" })
 
 function NumberRow({ teeth }) {
   return (
-    <div className="flex items-center justify-center  gap-0.5 px-1 my-4">
+    <div className="flex items-center justify-center gap-1.5 sm:gap:1.5 md:gap-2 lg:gap-2 px-1 my-4">
       {teeth.map((number) => (
         <span
           key={number}

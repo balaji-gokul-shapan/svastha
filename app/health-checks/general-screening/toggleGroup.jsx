@@ -1,7 +1,7 @@
 "use client";
 
 import { memo } from "react";
-
+import BloodDropOutlineIcon from "@iconify-react/healthicons/blood-drop-outline";
 const TONE_ACTIVE_CLASS = {
   good: "border-success bg-success/10 text-success",
   warn: "border-warning bg-warning/10 text-warning-foreground",
@@ -15,11 +15,36 @@ const COLUMN_CLASS = {
   8: "grid-cols-2 sm:grid-cols-4 lg:grid-cols-auto",
 };
 
-function ToggleGroupComponent({ label, options, value, onChange, columns = 3 }) {
+ const formatBloodGroup = (bloodGroup) => {
+  if (!bloodGroup) return "--";
+
+  return bloodGroup
+    .replace(/\s*Positive/i, "+")
+    .replace(/\s*Negative/i, "-");
+};
+
+function ToggleGroupComponent({
+  label,
+  options,
+  value,
+  onChange,
+  columns = 3,
+}) {
   return (
     <div>
-      <p className="mb-2 text-sm font-semibold text-foreground">{label}</p>
-      <div className={`grid gap-2 sm:gap-2.5 ${COLUMN_CLASS[columns] || COLUMN_CLASS[3]}`}>
+      <div className="flex flex-row items-center gap-2 mb-3">
+        <div className="flex size-8 items-center justify-center rounded-lg bg-destructive/10">
+          <BloodDropOutlineIcon
+            className="size-4 text-destructive"
+            height="4rem"
+          />
+        </div>
+        {/* <HematologyLaboratoryIcon className="size-6 text-success rounded-xl " height="5rem" /> */}
+        <p className="mb-2 text-sm font-semibold text-foreground">{label}</p>
+      </div>
+      <div
+        className={`grid gap-2 sm:gap-2.5 ${COLUMN_CLASS[columns] || COLUMN_CLASS[3]}`}
+      >
         {options.map((option) => {
           const isActive = value === option.value;
           return (
@@ -34,7 +59,7 @@ function ToggleGroupComponent({ label, options, value, onChange, columns = 3 }) 
                   : "border-border bg-background text-muted-foreground hover:bg-muted"
               }`}
             >
-              {option.label}
+              {formatBloodGroup(option.label)}
             </button>
           );
         })}

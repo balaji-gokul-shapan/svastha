@@ -25,6 +25,10 @@ export function Navbar({ title = "Dashboard" }) {
     router.push("/login");
   };
 
+  const handleSetting = () => {
+    router.push("/settings")
+  }
+
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-none border-border bg-background/80 px-4 backdrop-blur supports-backdrop-filter:bg-background/60 sm:px-6">
       {/* <h1 className="font-display text-lg font-semibold text-foreground sm:text-xl">
@@ -67,7 +71,7 @@ export function Navbar({ title = "Dashboard" }) {
           </PopoverTrigger>
 
           <PopoverContent align="end" className="z-70 w-56 p-2">
-            <div className="mb-2 border-b border-border px-2 pb-2">
+            <div onClick={handleSetting} className="mb-2 border-b border-border px-2 pb-2 cursor-pointer">
               <p suppressHydrationWarning className="text-sm font-semibold text-foreground">{displayName}</p>
               <p suppressHydrationWarning className="text-xs text-muted-foreground">{signedInRole} account</p>
             </div>

@@ -16,60 +16,110 @@ import { getAllStudent } from "@/lib/features/getAllStudentSlice";
 import { getFilterStudent } from "@/lib/features/getFilterStudent";
 import FileUploadModal from "@/components/students/fileUploadModal";
 import StudentFilter from "../health-checks/utilities/studentFilter";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-export default function StudentsPage() {
+// Default value for every filter — values equal to these are kept out of
+// the URL so links stay tidy.
+const FILTER_DEFAULTS = {
+  search: "",
+  status: "all",
+  class: "all",
+  section: "all",
+  school: "all",
+  academicYear: "2026-2027",
+  student: "all",
+  sortBy: "name",
+  sortOrder: "asc",
+  view: "card",
+};
+
+function StudentsList() {
   const dispatch = useAppDispatch();
-  const [page, setPage] = React.useState(1);
-  const [searchInput, setSearchInput] = React.useState("");
-  const [search, setSearch] = React.useState("");
-  const [status, setStatus] = React.useState("all");
-  const [classFilter, setClassFilter] = React.useState("all");
-  const [sectionFilter, setSectionFilter] = React.useState("all");
-  const [schoolName, setSchoolName] = React.useState("all");
-  const [academicYear, setAcademicYear] = React.useState("2026-2027");
-  const [studentId, setStudentId] = React.useState("");
-  const [studentFilter, setStudentFilter] = React.useState("all");
-  const [sortBy, setSortBy] = React.useState("name");
-  const [sortOrder, setSortOrder] = React.useState("asc");
-  const [viewMode, setViewMode] = React.useState("card");
-  const limit = viewMode === "card" ? 9 : 10
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  const { studentData, total, loading, error } = useAppSelector((state) => state.getAllStudent);
+  // All list state (filters + page) lives in the URL query string so it
+  // survives opening a student profile and coming back via
+  // "Back to Students" or the browser back button.
+  const page = Math.max(1, Number(searchParams.get("page")) || 1);
+  const search = searchParams.get("search") ?? "";
+  const status = searchParams.get("status") ?? "all";
+  const classFilter = searchParams.get("class") ?? "all";
+  const sectionFilter = searchParams.get("section") ?? "all";
+  const schoolName = searchParams.get("school") ?? "all";
+  const academicYear =
+    searchParams.get("academicYear") ?? "2026-2027";
+  const studentFilter = searchParams.get("student") ?? "all";
+  const sortBy = searchParams.get("sortBy") ?? "name";
+  const sortOrder = searchParams.get("sortOrder") ?? "asc";
+  const viewMode = searchParams.get("view") ?? "card";
+  const limit = viewMode === "card" ? 9 : 10;
+   const { studentData, total, loading, error } = useAppSelector((state) => state.getAllStudent);
+
+  // Merge a patch of filter changes into the current query string.
+  // Filters reset to their default are removed from the URL entirely.
+  const updateParams = React.useCallback(
+    (patch) => {
+      const params = new URLSearchParams(searchParams.toString());
+      Object.entries(patch).forEach(([key, value]) => {
+        if (String(value) === String(FILTER_DEFAULTS[key] ?? "")) {
+          params.delete(key);
+        } else {
+          params.set(key, String(value));
+        }
+      });
+      const queryString = params.toString();
+      router.replace(queryString ? `${pathname}?${queryString}` : pathname, {
+        scroll: false,
+      });
+    },
+    [pathname, router, searchParams],
+  );
+
+  const setPage = React.useCallback(
+    (nextPage) => updateParams({ page: Math.max(1, Number(nextPage) || 1) }),
+    [updateParams],
+  );
+
+  const setViewMode = React.useCallback(
+    (nextView) => updateParams({ view: nextView }),
+    [updateParams],
+  );
+
+  // Debounced search box — local input state committed to the URL.
+  const [searchInput, setSearchInput] = React.useState(search);
+  React.useEffect(() => {
+    setSearchInput(search);
+  }, [search]);
 
   React.useEffect(() => {
     const timeoutId = setTimeout(() => {
-      setSearch(searchInput.trim());
+      if (searchInput.trim() !== search) {
+        updateParams({ search: searchInput.trim(), page: 1 });
+      }
     }, 400);
     return () => {
       clearTimeout(timeoutId);
     };
+    // Only re-arm the debounce timer when the user types.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput]);
 
-  const handleStatusChange = (value) => {
-    setStatus(value);
-    setPage(1);
-  };
+  const handleStatusChange = (value) =>
+    updateParams({ status: value, page: 1 });
 
-  const handleSortByChange = (value) => {
-    setSortBy(value);
-    setPage(1);
-  };
+  const handleSortByChange = (value) =>
+    updateParams({ sortBy: value, page: 1 });
 
-  const handleSortOrderChange = (value) => {
-    setSortOrder(value);
-    setPage(1);
-  };
+  const handleSortOrderChange = (value) =>
+    updateParams({ sortOrder: value, page: 1 });
 
-  const handleClassChange = (value) => {
-    setClassFilter(value);
-    setSectionFilter("all");
-    setPage(1);
-  };
+  const handleClassChange = (value) =>
+    updateParams({ class: value, section: "all", page: 1 });
 
-  const handleSectionChange = (value) => {
-    setSectionFilter(value);
-    setPage(1);
-  };
+  const handleSectionChange = (value) =>
+    updateParams({ section: value, page: 1 });
 
   const { isFetching, refetch: refetchStudents } = useQuery({
     queryKey: [
@@ -104,7 +154,45 @@ export default function StudentsPage() {
     refetchOnWindowFocus: true,
   });
 
-  const rows = React.useMemo(() => (Array.isArray(studentData) ? studentData : []), [studentData]);
+  // Backend joins can return the same student more than once (e.g. the
+  // same cus_id on several rows), which breaks React keys and shows
+  // duplicate cards. Keep the first occurrence per identifier.
+  const rows = React.useMemo(() => {
+    const list = Array.isArray(studentData) ? studentData : [];
+    const seen = new Set();
+    const unique = [];
+
+    list.forEach((student) => {
+      const identity =
+        String(
+          student?.cus_id ??
+            student?.id ??
+            student?.studentId ??
+            student?.student_id ??
+            student?.school_registration_number ??
+            student?.admission_number ??
+            student?.name ??
+            "",
+        )
+          .trim()
+          .toLowerCase() || `row-${unique.length}`;
+
+      if (seen.has(identity)) {
+        return;
+      }
+
+      seen.add(identity);
+      unique.push(student);
+    });
+
+    if (process.env.NODE_ENV !== "production" && unique.length !== list.length) {
+      console.warn(
+        `[StudentsPage] Removed ${list.length - unique.length} duplicate student row(s) from the API response.`,
+      );
+    }
+
+    return unique;
+  }, [studentData]);
   const isInitialLoading = loading && rows.length === 0;
   const isRefreshing = isFetching && rows.length > 0;
   const totalPages = Math.max(1, Math.ceil((total || 0) / limit));
@@ -317,33 +405,36 @@ export default function StudentsPage() {
         sectionFilter={sectionFilter}
         studentFilter={studentFilter}
         onSchoolNameChange={(value) => {
-          setSchoolName(value);
-          setClassFilter("all");
-          setSectionFilter("all");
-          setStudentFilter("all");
-          setStudentId("");
+          updateParams({
+            school: value,
+            class: "all",
+            section: "all",
+            student: "all",
+            page: 1,
+          });
         }}
         onAcademicYearChange={(value) => {
-          setAcademicYear(value);
-          setClassFilter("all");
-          setSectionFilter("all");
-          setStudentFilter("all");
-          setStudentId("");
+          updateParams({
+            academicYear: value,
+            class: "all",
+            section: "all",
+            student: "all",
+            page: 1,
+          });
         }}
         onClassFilterChange={(value) => {
-          setClassFilter(value);
-          setSectionFilter("all");
-          setStudentFilter("all");
-          setStudentId("");
+          updateParams({
+            class: value,
+            section: "all",
+            student: "all",
+            page: 1,
+          });
         }}
         onSectionFilterChange={(value) => {
-          setSectionFilter(value);
-          setStudentFilter("all");
-          setStudentId("");
+          updateParams({ section: value, student: "all", page: 1 });
         }}
         onStudentFilterChange={(value) => {
-          setStudentFilter(value);
-          setStudentId(value === "all" ? "" : value);
+          updateParams({ student: value });
         }}
       />
       {/* <div className="grid gap-2 bg-"></div> */}
@@ -358,9 +449,17 @@ export default function StudentsPage() {
         {isInitialLoading ? (
           <TableSkeleton rows={limit} cols={8} />
         ) : viewMode === "table" ? (
-          <StudentsDataTable data={rows} />
+          <StudentsDataTable
+            data={rows}
+            backQuery={searchParams.toString()}
+            onDeleted={refetchStudents}
+          />
         ) : (
-          <StudentsCards data={rows} />
+          <StudentsCards
+            data={rows}
+            backQuery={searchParams.toString()}
+            onDeleted={refetchStudents}
+          />
         )}
 
         {isRefreshing ? <LoadingOverlay label="Updating..." /> : null}
@@ -373,5 +472,15 @@ export default function StudentsPage() {
         disabled={isInitialLoading}
       />
     </section>
+  );
+}
+
+// `useSearchParams()` requires a Suspense boundary during prerendering,
+// so the list is rendered behind one.
+export default function StudentsPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <StudentsList />
+    </React.Suspense>
   );
 }

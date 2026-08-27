@@ -5,7 +5,10 @@
 //
 // Swap the option arrays for real lookup-table data later — the shapes
 // (value/label, or plain strings) are what the form already expects.
-
+import OverweightIcon from '@iconify-react/healthicons/overweight';
+import Overweight24pxIcon from '@iconify-react/healthicons/overweight-24px';
+import UnderweightIcon from '@iconify-react/healthicons/underweight';
+import ManIcon from '@iconify-react/healthicons/man';
 export const studentOptions = [
   { id: 1, name: "Devvrat Guneta" },
   { id: 2, name: "Aarav Mehta" },
@@ -65,9 +68,9 @@ export function calcBmi(heightCm, weightKg) {
 }
 
 export function bmiCategory(bmi) {
-  if (bmi == null || Number.isNaN(bmi)) return { label: "—", tone: "muted" };
-  if (bmi < 18.5) return { label: "Underweight", tone: "info" };
-  if (bmi < 25) return { label: "Normal", tone: "success" };
-  if (bmi < 30) return { label: "Overweight", tone: "warning" };
-  return { label: "Obese", tone: "destructive" };
+  if (bmi == null || Number.isNaN(bmi)) return { label: "—", icon: ManIcon, tone: "muted" };
+  if (bmi < 18.5) return { label: "Underweight", icon:UnderweightIcon, tone: "info" };
+  if (bmi < 25) return { label: "Normal", icon:ManIcon, tone: "success" };
+  if (bmi < 30) return { label: "Overweight", icon:Overweight24pxIcon, tone: "warning" };
+  return { label: "Obese", icon:OverweightIcon, tone: "destructive" };
 }

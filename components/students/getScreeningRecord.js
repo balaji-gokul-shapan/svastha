@@ -84,6 +84,8 @@ console.log(getId,"normalizedId");
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
+  console.log(visionScreeningData,"visionScreeningData");
+  
 
   // getInitialScreening resolves to { items: [...], total, page, limit } —
   // normalize it into a plain array of records.
@@ -113,6 +115,9 @@ console.log(getId,"normalizedId");
       records.find((record) => {
         const recordKeys = [
           record?.id,
+          record?.cus_id,
+          record?.CUS_ID,
+          record?.student_cus_id,
           record?.student_id,
           record?.studentId,
           record?.school_registration_number,
@@ -130,34 +135,41 @@ console.log(getId,"normalizedId");
     );
   };
 
+  // Scoped endpoints (/<test>/student/{id}) normally return this student's
+  // records only, so matching by key is a no-op — but it keeps behaviour
+  // identical to general screening when the backend returns an unfiltered
+  // list or nests the student under a different field name. If nothing
+  // matches by key and there is exactly one record, it belongs to this
+  // student; otherwise we must not show another student's data.
+  const pickScopedRecord = (records) => {
+    const list = Array.isArray(records) ? records : [];
+    return findRecordByStudentKeys(list) ?? (list.length === 1 ? list[0] : null);
+  };
+
   const generalScreeningRecord = useMemo(
     () => findRecordByStudentKeys(generalScreeningItems),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [generalScreeningItems, studentKeys],
   );
 
-  // These endpoints are already scoped to /<test>/student/{studentId},
-  // so the first record is the one for this student.
-  const hearingScreeningRecord = useMemo(() => {
-    return Array.isArray(hearingScreeningData)
-      ? hearingScreeningData[0] ?? null
-      : null;
-  }, [hearingScreeningData]);
+  // These endpoints are already scoped to /<test>/student/{studentId}.
+  const hearingScreeningRecord = useMemo(
+    () => pickScopedRecord(hearingScreeningData),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hearingScreeningData, studentKeys],
+  );
 
-  const dentalScreeningRecord = useMemo(() => {
-    return Array.isArray(dentalScreeningData)
-      ? dentalScreeningData[0] ?? null
-      : null;
-  }, [dentalScreeningData]);
+  const dentalScreeningRecord = useMemo(
+    () => pickScopedRecord(dentalScreeningData),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dentalScreeningData, studentKeys],
+  );
 
-  const visionScreeningRecord = useMemo(() => {
-    return Array.isArray(visionScreeningData)
-      ? visionScreeningData[0] ?? null
-      : null;
-  }, [visionScreeningData]);
-
-  console.log(dentalScreeningRecord,"dentalScreeningRecord");
-  
+  const visionScreeningRecord = useMemo(
+    () => pickScopedRecord(visionScreeningData),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [visionScreeningData, studentKeys],
+  );
 
   return {
     generalScreeningRecord,

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
+  AlertCircle,
   ChevronDown,
   Cross,
   Ruler,
@@ -11,7 +12,11 @@ import {
   Search,
   Weight,
 } from "lucide-react";
-
+import HeightIcon from "@iconify-react/healthicons/height";
+import HealthDataSecurityOutlineIcon from "@iconify-react/healthicons/health-data-security-outline";
+import WeightIcon from "@iconify-react/healthicons/weight";
+import INoteActionIcon from "@iconify-react/healthicons/i-note-action";
+import HealthWorkerFormOutlineIcon from "@iconify-react/healthicons/health-worker-form-outline";
 import { ToggleGroup } from "./toggleGroup";
 import {
   allergyOptions,
@@ -44,6 +49,10 @@ import CampStudentSelectorDrawer from "@/components/health-checks/camp-student-s
 import useStudentData from "@/components/health-checks/getStudentData";
 import StudentProfileCard from "@/app/students/studentProfileCard";
 import StudentFilter from "../utilities/studentFilter";
+import { FramerCard } from "@/util/FramerCard";
+import { getAllMasterScreening } from "@/lib/features/masterScreeningSlice";
+import { getMasterData } from "@/util/masterData";
+import { generalScreeningSchema } from "./general-screening-schema";
 
 function FieldLabel({ children }) {
   return (
@@ -53,7 +62,7 @@ function FieldLabel({ children }) {
   );
 }
 
-function SelectField({ label, options, value, onChange, icon: Icon }) {
+function SelectField({ label, options, value, onChange, icon: Icon, error }) {
   return (
     <div>
       <FieldLabel>{label}</FieldLabel>
@@ -61,7 +70,7 @@ function SelectField({ label, options, value, onChange, icon: Icon }) {
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-10 w-full appearance-none rounded-md border border-input bg-background pl-3 pr-9 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+          className={`h-10 w-full appearance-none rounded-md border border-input bg-background pl-3 pr-9 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30 ${error ? "border-destructive focus:ring-destructive/30" : ""}`}
         >
           {options.map((opt) => (
             <option key={opt} value={opt}>
@@ -75,11 +84,14 @@ function SelectField({ label, options, value, onChange, icon: Icon }) {
           <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         )}
       </div>
+      {error ? (
+        <p className="mt-1.5 text-xs text-destructive">{error}</p>
+      ) : null}
     </div>
   );
 }
 
-function NumberField({ label, value, onChange, unit }) {
+function NumberField({ label, value, onChange, unit, error }) {
   return (
     <div>
       <FieldLabel>{label}</FieldLabel>
@@ -88,12 +100,15 @@ function NumberField({ label, value, onChange, unit }) {
           type="number"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-10 w-full rounded-md border border-input bg-background pl-3 pr-12 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+          className={`h-10 w-full rounded-md border border-input bg-background pl-3 pr-12 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30 ${error ? "border-destructive focus:ring-destructive/30" : ""}`}
         />
         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
           {unit}
         </span>
       </div>
+      {error ? (
+        <p className="mt-1.5 text-xs text-destructive">{error}</p>
+      ) : null}
     </div>
   );
 }
@@ -260,8 +275,65 @@ export default function GeneralScreeningPage() {
     loading: studentsLoading,
     error: studentsError,
   } = useAppSelector((state) => state.getInitialScreening);
-  const academicYearOptions = ["2026-2027", "2025-2026", "2024-2025"];
 
+  const {
+    data: masterScreeningData = {},
+    isLoading: masterScreeningDataLoading,
+    error: masterScreeningQueryError,
+  } = useQuery({
+    queryKey: ["master-screening"],
+
+    queryFn: () => dispatch(getAllMasterScreening()).unwrap(),
+
+    // Master data doesn't normally need to be
+    // requested again immediately.
+    staleTime: 5 * 60 * 1000,
+
+    refetchOnWindowFocus: false,
+  });
+
+  console.log(masterScreeningData, "All Master Screening Data");
+
+  // ---------------------------------------------------------
+  // Required master data for THIS module
+  // ---------------------------------------------------------
+
+  const requiredMasterData = useMemo(
+    () =>
+      getMasterData(masterScreeningData, [
+        "allergies",
+        "blood-groups",
+        "bmi-categories",
+        "chronic-diseases",
+        "color-vision-statuses",
+        "dental-conditions",
+        "dental-treatments",
+        "ear-examinations",
+        "hearing-classifications",
+        "hearing-referral-reasons",
+        "height-weight-standards",
+        "immunizations",
+        "oral-hygiene-statuses",
+        "plaque-scores",
+        "vision-referral-reasons",
+        "vision-results",
+        "vital-signs",
+      ]),
+    [masterScreeningData],
+  );
+  console.log(requiredMasterData, "requiredMasterData");
+
+  const allergies = requiredMasterData.allergies ?? [];
+
+  const chronicDiseasesOption = requiredMasterData["chronic-diseases"] ?? [];
+
+  const bloodGroupOption = requiredMasterData["blood-groups"] ?? [];
+  console.log(bloodGroupOption);
+  const bmiCategories = requiredMasterData["bmi-categories"] ?? [];
+  console.log(bmiCategories,"bmiCategories");
+  
+
+  const academicYearOptions = ["2026-2027", "2025-2026", "2024-2025"];
   const [isCaDrawerOpen, setIsCaDrawerOpen] = useState(false);
   const [selectedCampId, setSelectedCampId] = useState("");
   const [studentId, setStudentId] = useState("");
@@ -276,13 +348,43 @@ export default function GeneralScreeningPage() {
   const [height, setHeight] = useState("0");
   const [weight, setWeight] = useState("0");
 
-  const [bloodGroup, setBloodGroup] = useState(bloodGroupOptions[0]);
-  const [allergy, setAllergy] = useState(allergyOptions[0]);
-  const [chronicDisease, setChronicDisease] = useState(
-    chronicDiseaseOptions[0],
+  const [bloodGroup, setBloodGroup] = useState(
+    bloodGroupOption?.[0]?.name ?? "",
   );
+  const [allergy, setAllergy] = useState("None");
+  const [chronicDisease, setChronicDisease] = useState("None");
   const [immunization, setImmunization] = useState("up_to_date");
   const [notes, setNotes] = useState("");
+
+  // { fieldName: "message" } — populated when zod validation fails.
+  const [formErrors, setFormErrors] = useState(null);
+
+  const clearFormError = (field) =>
+    setFormErrors((prev) =>
+      prev && prev[field] ? { ...prev, [field]: undefined } : prev,
+    );
+
+  // Wrapped setters so a field's error clears the moment the user edits it.
+  const handleHeightChange = (value) => {
+    setHeight(value);
+    clearFormError("height");
+  };
+  const handleWeightChange = (value) => {
+    setWeight(value);
+    clearFormError("weight");
+  };
+  const handleBloodGroupChange = (value) => {
+    setBloodGroup(value);
+    clearFormError("bloodGroup");
+  };
+  const handleAllergyChange = (value) => {
+    setAllergy(value);
+    clearFormError("allergy");
+  };
+  const handleChronicDiseaseChange = (value) => {
+    setChronicDisease(value);
+    clearFormError("chronicDisease");
+  };
 
   const [schoolName, setSchoolName] = useState("all");
   const [classFilter, setClassFilter] = useState("all");
@@ -347,6 +449,25 @@ export default function GeneralScreeningPage() {
           screeningRecord?.remarks ??
           "",
       ),
+    );
+    setAllergy(
+      screeningRecord?.allergy?.name ??
+        screeningRecord?.allergy_name ??
+        allergies[0]?.name ??
+        "",
+    );
+    setChronicDisease(
+      screeningRecord?.chronic_disease?.name ??
+        screeningRecord?.chronic_disease_name ??
+        chronicDiseasesOption[0]?.name ??
+        "",
+    );
+    setBloodGroup(
+      screeningRecord?.blood_group?.name ??
+        screeningRecord?.blood_group_name ??
+        screeningRecord?.bloodGroup ??
+        bloodGroupOption[0]?.name ??
+        "",
     );
   };
 
@@ -502,6 +623,10 @@ export default function GeneralScreeningPage() {
       }) ?? null
     );
   }, [selectedStudentKeys, students]);
+  console.log(
+    getSelectedStudentScreeningData,
+    "getSelectedStudentScreeningData",
+  );
 
   useEffect(() => {
     if (getSelectedStudentScreeningData) {
@@ -592,6 +717,12 @@ export default function GeneralScreeningPage() {
     }
   }, []);
 
+  const formatBloodGroup = (bloodGroup) => {
+    if (!bloodGroup) return "--";
+
+    return bloodGroup.replace(/\s*Positive/i, "+").replace(/\s*Negative/i, "-");
+  };
+
   const handleSaveAssessment = useCallback(() => {
     const rawStudentId =
       selectedStudent?.id ??
@@ -599,6 +730,40 @@ export default function GeneralScreeningPage() {
       selectedStudent?.student_id ??
       selectedStudent?.studentId ??
       studentId;
+
+    // --- Validate editable fields with zod -------------------------
+    const formValues = {
+      height,
+      weight,
+      bloodGroup,
+      allergy,
+      chronicDisease,
+      immunization,
+      notes,
+    };
+
+    const result = generalScreeningSchema.safeParse(formValues);
+
+    if (!result.success) {
+      const errors = result.error.flatten().fieldErrors;
+
+      // Reduce to { fieldName: firstMessage } for inline display.
+      const firstPerField = Object.fromEntries(
+        Object.entries(errors)
+          .map(([field, messages]) => [field, messages?.[0]])
+          .filter(([, message]) => Boolean(message)),
+      );
+
+      setFormErrors(firstPerField);
+
+      const firstError = Object.values(firstPerField).find(Boolean);
+      toast.error(firstError || "Please fill all required fields.");
+
+      return;
+    }
+
+    setFormErrors(null);
+
     if (!String(rawStudentId ?? "").trim()) {
       toast.error("Select a student before saving the General screening");
       return;
@@ -607,16 +772,25 @@ export default function GeneralScreeningPage() {
     const numericStudentId = Number(rawStudentId) || 0;
     const numericCampId =
       Number(selectedCampId) || Number(selectedStudent?.camp_id) || 1;
+    console.log(bloodGroupOption, bloodGroup, "bloodGroupOption");
 
-    const bloodGroupIndex = bloodGroupOptions.indexOf(bloodGroup);
-    const bloodGroupId = bloodGroupIndex !== -1 ? bloodGroupIndex + 1 : 0;
+    const bloodGroupEntry = bloodGroupOption.find(
+      (item) =>
+        formatBloodGroup(item.name).trim() ===
+        formatBloodGroup(bloodGroup).trim(),
+    );
 
-    const allergyIndex = allergyOptions.indexOf(allergy);
-    const allergyId = allergyIndex !== -1 ? allergyIndex : null;
+    const bloodGroupId = bloodGroupEntry?.id ?? 0;
 
-    const chronicDiseaseIndex = chronicDiseaseOptions.indexOf(chronicDisease);
-    const chronicDiseaseId =
-      chronicDiseaseIndex !== -1 ? chronicDiseaseIndex : null;
+    const allergyEntry = allergies.find((item) => item.name === allergy);
+    console.log(allergyEntry, "allergyEntry");
+
+    const allergyId = allergyEntry?.id ?? null;
+
+    const chronicDiseaseEntry = chronicDiseasesOption.find(
+      (item) => item.name === chronicDisease,
+    );
+    const chronicDiseaseId = chronicDiseaseEntry?.id ?? null;
 
     const immunizationMap = { up_to_date: 1, partial: 2, overdue: 3 };
     const immunizationId = immunizationMap[immunization] || 1;
@@ -715,6 +889,7 @@ export default function GeneralScreeningPage() {
         });
       });
   }, [
+    allergy,
     bloodGroup,
     category?.label,
     chronicDisease,
@@ -722,6 +897,7 @@ export default function GeneralScreeningPage() {
     height,
     heightStandardResult?.standard,
     immunization,
+    notes,
     selectedCampId,
     selectedStudent,
     studentId,
@@ -780,12 +956,15 @@ export default function GeneralScreeningPage() {
 
   const bloodGroupToggleOptions = useMemo(
     () =>
-      bloodGroupOptions.map((g) => ({
-        value: g,
-        label: g,
+      (bloodGroupOption.length
+        ? bloodGroupOption
+        : bloodGroupOptions.map((g) => ({ id: undefined, name: g }))
+      ).map((g) => ({
+        value: g.name ?? g,
+        label: g.name ?? g,
         tone: "neutral",
       })),
-    [],
+    [bloodGroupOption, bloodGroupOptions],
   );
 
   return (
@@ -798,7 +977,7 @@ export default function GeneralScreeningPage() {
             </div>
 
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">
+              <h1 className="text-3xl font-semibold tracking-tight">
                 General Screening
               </h1>
 
@@ -886,6 +1065,13 @@ export default function GeneralScreeningPage() {
             Save & Exit
           </Button>
 
+          {formErrors && (
+            <div className="flex items-center gap-2 rounded-lg border border-destructive/60 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+              <AlertCircle className="size-4 shrink-0" />
+              Please fix the highlighted fields before saving.
+            </div>
+          )}
+
           <Button type="button" onClick={handleSaveAssessment}>
             <Save className="size-4" />
             Save & Next
@@ -968,276 +1154,327 @@ export default function GeneralScreeningPage() {
             </button>
           </div>
         </div> */}
-              <AssessmentCard
-                onChange={handleAssessmentChange}
-                form={assessmentForm}
-                data={getSelectedStudentScreeningData}
-                studentOptions={assessmentStudentOptions}
-                studentValue={studentSelectValue}
-                isScreeningLoading={studentsLoading}
-                isScreeningError={studentsError}
-                isScreening={true}
-                onStudentChange={handleAssessmentStudentChange}
-                onSave={handleSaveAssessment}
-                onCancel={handleCancelAssessment}
-              />
+              <FramerCard>
+                <AssessmentCard
+                  onChange={handleAssessmentChange}
+                  form={assessmentForm}
+                  data={getSelectedStudentScreeningData}
+                  studentOptions={assessmentStudentOptions}
+                  studentValue={studentSelectValue}
+                  isScreeningLoading={studentsLoading}
+                  isScreeningError={studentsError}
+                  isScreening={true}
+                  onStudentChange={handleAssessmentStudentChange}
+                  onSave={handleSaveAssessment}
+                  onCancel={handleCancelAssessment}
+                />
+              </FramerCard>
               {/* ---------------- Middle column: growth & vitals ---------------- */}
-              <article className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-                {/* Header */}
-                <div className="flex flex-col md:flex-row items-start justify-between gap-2">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary aspect-square">
-                        <Activity className="size-4" />
-                      </span>
-
-                      <div>
-                        <h3 className="text-sm font-semibold text-foreground">
-                          Growth & Vitals
-                        </h3>
-
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          Physical measurements and growth assessment
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
-                    Assessment
-                  </span>
-                </div>
-
-                {/* Height & Weight */}
-                <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  {/* Height */}
-                  <div className="rounded-xl border border-border/70 bg-background p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex size-9 items-center justify-center rounded-lg bg-info/10">
-                        <Ruler className="size-4 text-info" />
-                      </div>
-
-                      <span className="text-[11px] text-muted-foreground">
-                        cm
-                      </span>
-                    </div>
-
-                    <p className="mt-4 text-xs text-muted-foreground">Height</p>
-
-                    <div className="mt-1 flex items-end gap-1">
-                      <span className="text-2xl font-semibold tracking-tight">
-                        {height || "0 cm"}
-                      </span>
-
-                      {/* <span className="mb-1 text-xs text-muted-foreground">cm</span> */}
-                    </div>
-                  </div>
-
-                  {/* Weight */}
-                  <div className="rounded-xl border border-border/70 bg-background p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex size-9 items-center justify-center rounded-lg bg-success/10">
-                        <Weight className="size-4 text-success" />
-                      </div>
-
-                      <span className="text-[11px] text-muted-foreground">
-                        kg
-                      </span>
-                    </div>
-
-                    <p className="mt-4 text-xs text-muted-foreground">Weight</p>
-
-                    <div className="mt-1 flex items-end gap-1">
-                      <span className="text-2xl font-semibold tracking-tight">
-                        {weight || "0 kg"}
-                      </span>
-
-                      {/* <span className="mb-1 text-xs text-muted-foreground">kg</span> */}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Input fields */}
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <NumberField
-                    label="Height"
-                    value={height}
-                    onChange={setHeight}
-                    unit="cm"
-                  />
-
-                  <NumberField
-                    label="Weight"
-                    value={weight}
-                    onChange={setWeight}
-                    unit="kg"
-                  />
-                </div>
-
-                {/* Standards */}
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  <StandardStatus
-                    label="Height Standard"
-                    value={height || heightStandardResult.standard}
-                    status={heightStandardResult.status}
-                    tone={heightStandardResult.tone}
-                  />
-
-                  <StandardStatus
-                    label="Weight Standard"
-                    value={weight || weightStandardResult.standard}
-                    status={weightStandardResult.status}
-                    tone={weightStandardResult.tone}
-                  />
-                </div>
-
-                {/* BMI CARD */}
-                <div className="mt-5 overflow-hidden rounded-2xl border border-border/70 bg-background">
-                  {/* BMI Header */}
-                  <div className="flex flex-col md:flex-row items-center justify-between border-b border-border/70 px-4 py-3">
+              <FramerCard>
+                <article className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+                  {/* Header */}
+                  <div className="flex flex-col md:flex-row items-start justify-between gap-2">
                     <div>
-                      <h3 className="text-sm font-semibold">Body Mass Index</h3>
+                      <div className="flex items-center gap-2">
+                        <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary aspect-square">
+                          <Activity className="size-4" />
+                        </span>
 
-                      <p className="text-[11px] text-muted-foreground">
-                        Calculated from height and weight
-                      </p>
+                        <div>
+                          <h3 className="text-sm font-semibold text-foreground">
+                            Growth & Vitals
+                          </h3>
+
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            Physical measurements and growth assessment
+                          </p>
+                        </div>
+                      </div>
                     </div>
 
-                    <div
-                      className={`rounded-full px-3 py-1 text-xs font-medium ${
-                        category.tone === "success"
-                          ? "bg-success/10 text-success"
-                          : category.tone === "warning"
-                            ? "bg-warning/10 text-warning"
-                            : category.tone === "destructive"
-                              ? "bg-destructive/10 text-destructive"
-                              : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {category.label}
-                    </div>
+                    <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
+                      Assessment
+                    </span>
                   </div>
 
-                  {/* BMI Visualization */}
-                  {/* <div className="relative px-4 py-5">
-              <BmiGauge  bmi={initialScreeningData?.bmi} category={category} />
-            </div> */}
-                  {/* BMI Visualization */}
-                  <div className="relative px-4 py-5">
-                    <BmiGauge
-                      bmi={bmi || getSelectedStudentScreeningData?.bmi}
-                    />
-                  </div>
+                  {/* Height & Weight */}
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                    {/* Height */}
+                    <div className="rounded-xl border border-border/70 bg-background p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex size-10 items-center justify-center rounded-lg bg-info/10">
+                          {/* <Ruler className="size-4 text-info" /> */}
+                          <HeightIcon
+                            className="size-6 text-info"
+                            height="5rem"
+                          />
+                        </div>
 
-                  {/* BMI Details */}
-                  <div className="grid grid-cols-3 divide-x divide-border/70 border-t border-border/70">
-                    <div className="p-4 text-center">
-                      <p className="text-[11px] text-muted-foreground">BMI</p>
+                        <span className="text-[11px] text-muted-foreground">
+                          cm
+                        </span>
+                      </div>
 
-                      <p className="mt-1 text-lg font-semibold">
-                        {bmi || getSelectedStudentScreeningData?.bmi || 0.0}
-                        {/* {Number.isFinite(Number(getSelectedStudentScreeningData?.bmi))
-                          ? Number(getSelectedStudentScreeningData?.bmi).toFixed(1)
-                          : "0.0"} */}
-                      </p>
-                    </div>
-
-                    <div className="p-4 text-center">
-                      <p className="text-[11px] text-muted-foreground">
+                      <p className="mt-4 text-xs text-muted-foreground">
                         Height
                       </p>
 
-                      <p className="mt-1 text-sm font-semibold">
-                        {getSelectedStudentScreeningData?.height
-                          ? `${getSelectedStudentScreeningData.height} `
-                          : "0 cm"}
-                      </p>
+                      <div className="mt-1 flex items-end gap-1">
+                        <span className="text-2xl font-semibold tracking-tight">
+                          {height || "0 cm"}
+                        </span>
+
+                        {/* <span className="mb-1 text-xs text-muted-foreground">cm</span> */}
+                      </div>
                     </div>
 
-                    <div className="p-4 text-center">
-                      <p className="text-[11px] text-muted-foreground">
+                    {/* Weight */}
+                    <div className="rounded-xl border border-border/70 bg-background p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex size-10 items-center justify-center rounded-lg bg-success/10">
+                          <WeightIcon
+                            className="size-6 text-success"
+                            height="5rem"
+                          />
+                        </div>
+
+                        <span className="text-[11px] text-muted-foreground">
+                          kg
+                        </span>
+                      </div>
+
+                      <p className="mt-4 text-xs text-muted-foreground">
                         Weight
                       </p>
 
-                      <p className="mt-1 text-sm font-semibold">
-                        {getSelectedStudentScreeningData?.weight
-                          ? `${getSelectedStudentScreeningData.weight}`
-                          : "0 kg"}
+                      <div className="mt-1 flex items-end gap-1">
+                        <span className="text-2xl font-semibold tracking-tight">
+                          {weight || "0 kg"}
+                        </span>
+
+                        {/* <span className="mb-1 text-xs text-muted-foreground">kg</span> */}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Input fields */}
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <NumberField
+                      label="Height"
+                      value={height}
+                      onChange={handleHeightChange}
+                      unit="cm"
+                      error={formErrors?.height}
+                    />
+
+                    <NumberField
+                      label="Weight"
+                      value={weight}
+                      onChange={handleWeightChange}
+                      unit="kg"
+                      error={formErrors?.weight}
+                    />
+                  </div>
+
+                  {/* Standards */}
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    <StandardStatus
+                      label="Height Standard"
+                      value={height || heightStandardResult.standard}
+                      status={heightStandardResult.status}
+                      tone={heightStandardResult.tone}
+                    />
+
+                    <StandardStatus
+                      label="Weight Standard"
+                      value={weight || weightStandardResult.standard}
+                      status={weightStandardResult.status}
+                      tone={weightStandardResult.tone}
+                    />
+                  </div>
+
+                  {/* BMI CARD */}
+                  <FramerCard className="mt-5 overflow-hidden rounded-2xl border border-border/70 bg-background">
+                    {/* BMI Header */}
+                    <div className="flex flex-col md:flex-row items-center justify-between border-b border-border/70 px-4 py-3">
+                      <div>
+                        <h3 className="text-sm font-semibold">
+                          Body Mass Index
+                        </h3>
+
+                        <p className="text-[11px] text-muted-foreground">
+                          Calculated from height and weight
+                        </p>
+                      </div>
+
+                      <div
+                        className={`rounded-full px-3 py-1 text-xs font-medium ${
+                          category.tone === "success"
+                            ? "bg-success/10 text-success"
+                            : category.tone === "warning"
+                              ? "bg-warning/10 text-warning"
+                              : category.tone === "destructive"
+                                ? "bg-destructive/10 text-destructive"
+                                : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {category.label}
+                      </div>
+                    </div>
+
+                    {/* BMI Visualization */}
+                    {/* <div className="relative px-4 py-5">
+              <BmiGauge  bmi={initialScreeningData?.bmi} category={category} />
+            </div> */}
+                    {/* BMI Visualization */}
+                    <div className="relative px-4 py-5">
+                      <BmiGauge
+                        categories={bmiCategories}
+                        bmi={bmi || getSelectedStudentScreeningData?.bmi}
+                      />
+                    </div>
+
+                    {/* BMI Details */}
+                    <div className="grid grid-cols-3 divide-x divide-border/70 border-t border-border/70">
+                      <div className="p-4 text-center">
+                        <p className="text-[11px] text-muted-foreground">BMI</p>
+
+                        <p className="mt-1 text-lg font-semibold">
+                          {bmi || getSelectedStudentScreeningData?.bmi || 0.0}
+                          {/* {Number.isFinite(Number(getSelectedStudentScreeningData?.bmi))
+                          ? Number(getSelectedStudentScreeningData?.bmi).toFixed(1)
+                          : "0.0"} */}
+                        </p>
+                      </div>
+
+                      <div className="p-4 text-center">
+                        <p className="text-[11px] text-muted-foreground">
+                          Height
+                        </p>
+
+                        <p className="mt-1 text-lg font-semibold">
+                          {getSelectedStudentScreeningData?.height
+                            ? `${getSelectedStudentScreeningData.height} `
+                            : "0 cm"}
+                        </p>
+                      </div>
+
+                      <div className="p-4 text-center">
+                        <p className="text-[11px] text-muted-foreground">
+                          Weight
+                        </p>
+
+                        <p className="mt-1 text-lg font-semibold">
+                          {getSelectedStudentScreeningData?.weight
+                            ? `${getSelectedStudentScreeningData.weight}`
+                            : "0 kg"}
+                        </p>
+                      </div>
+                    </div>
+                  </FramerCard>
+
+                  {/* Clinical interpretation */}
+                  <div className="mt-4 flex items-start gap-3 rounded-xl border border-success/20 bg-success/5 p-3">
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-success/10">
+                      <Activity className="size-4 text-success" />
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold text-foreground">
+                        Growth assessment
+                      </p>
+
+                      <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                        Height, weight and BMI are currently within the expected
+                        range for this assessment.
                       </p>
                     </div>
                   </div>
-                </div>
-
-                {/* Clinical interpretation */}
-                <div className="mt-4 flex items-start gap-3 rounded-xl border border-success/20 bg-success/5 p-3">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-success/10">
-                    <Activity className="size-4 text-success" />
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-semibold text-foreground">
-                      Growth assessment
-                    </p>
-
-                    <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-                      Height, weight and BMI are currently within the expected
-                      range for this assessment.
-                    </p>
-                  </div>
-                </div>
-              </article>
+                </article>
+              </FramerCard>
 
               {/* ---------------- Right column: health profile ---------------- */}
               <div className="space-y-4">
-                <article className="space-y-4 rounded-xl border border-border bg-card p-4">
-                  <ToggleGroup
-                    label="Blood Group"
-                    options={bloodGroupToggleOptions}
-                    value={bloodGroup}
-                    onChange={setBloodGroup}
-                    columns={8}
-                  />
-                  <ToggleGroup
-                    label="Immunization Status"
-                    options={immunizationOptions}
-                    value={immunization}
-                    onChange={setImmunization}
-                    columns={3}
-                  />
-                </article>
-
-                <article className="rounded-xl border border-border bg-card p-4">
-                  <h3 className="text-sm font-semibold text-foreground">
-                    Health History
-                  </h3>
-                  <div className="mt-3 space-y-3">
-                    <SelectField
-                      label="Allergy"
-                      options={allergyOptions}
-                      value={allergy}
-                      onChange={setAllergy}
+                <FramerCard>
+                  <article className="space-y-4 rounded-xl border border-border bg-card p-4">
+                    <ToggleGroup
+                      label="Blood Group"
+                      options={bloodGroupToggleOptions}
+                      value={bloodGroup}
+                      onChange={handleBloodGroupChange}
+                      columns={8}
                     />
-                    <SelectField
-                      label="Chronic Disease"
-                      options={chronicDiseaseOptions}
-                      value={chronicDisease}
-                      onChange={setChronicDisease}
+                    {formErrors?.bloodGroup && (
+                      <p className="text-xs text-destructive">
+                        {formErrors.bloodGroup}
+                      </p>
+                    )}
+                    <ToggleGroup
+                      label="Immunization Status"
+                      options={immunizationOptions}
+                      value={immunization}
+                      onChange={setImmunization}
+                      columns={3}
                     />
-                  </div>
-                </article>
+                  </article>
+                </FramerCard>
+                <FramerCard>
+                  <article className="rounded-xl border border-border bg-card p-4">
+                    <div className="flex items-center gap-2">
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-success/10">
+                        <HealthDataSecurityOutlineIcon className="size-4 text-info" />
+                      </div>
 
-                <article className="rounded-xl border border-border bg-card p-4">
-                  <h3 className="text-sm font-semibold text-foreground">
-                    Notes
-                  </h3>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={4}
-                    placeholder="Enter notes"
-                    className="mt-3 w-full resize-none rounded-md border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
-                  />
-                </article>
+                      <h3 className="text-sm font-semibold text-foreground">
+                        Health History
+                      </h3>
+                    </div>
+                    <div className="mt-3 space-y-3">
+                      <SelectField
+                        label="Allergy"
+                        options={[
+                          "None",
+                          ...allergies.map((item) => item.name),
+                        ]}
+                        value={allergy}
+                        onChange={handleAllergyChange}
+                        error={formErrors?.allergy}
+                      />
+                      <SelectField
+                        label="Chronic Disease"
+                        options={[
+                          "None",
+                          ...chronicDiseasesOption.map((item) => item.name),
+                        ]}
+                        value={chronicDisease}
+                        onChange={handleChronicDiseaseChange}
+                        error={formErrors?.chronicDisease}
+                      />
+                    </div>
+                  </article>
+                </FramerCard>
+
+                <FramerCard>
+                  <article className="rounded-xl border border-border bg-card p-4">
+                    <div className="flex items-center gap-2">
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-success/10">
+                        <INoteActionIcon className="size-4 text-info" />
+                      </div>
+
+                      <h3 className="text-sm font-semibold text-foreground">
+                        Notes
+                      </h3>
+                    </div>
+
+                    <textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      rows={4}
+                      placeholder="Enter notes"
+                      className="mt-3 w-full resize-none rounded-md border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+                    />
+                  </article>
+                </FramerCard>
               </div>
             </div>
           </>

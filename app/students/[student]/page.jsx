@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
@@ -137,9 +137,14 @@ function SectionCard({ icon: Icon, title, children }) {
   );
 }
 
-export default function StudentDetailPage() {
+function StudentDetailPageInner() {
   const dispatch = useAppDispatch();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // Carry the entire list query string (filters + page) back to /students
+  // so "Back to Students" restores the exact view the user came from.
+  const incomingQuery = searchParams.toString();
+  const backHref = incomingQuery ? `/students?${incomingQuery}` : "/students";
   const { studentData, loading, error } = useAppSelector(
     (state) => state.getAllStudent,
   );
@@ -293,7 +298,7 @@ export default function StudentDetailPage() {
               No student record matched this URL.
             </p>
           </div>
-          <Link href="/students">
+          <Link href={backHref}>
             <Button variant="outline">Back to Students</Button>
           </Link>
         </div>
@@ -319,7 +324,7 @@ export default function StudentDetailPage() {
             {student.studentId ?? student.id}).
           </p>
         </div>
-        <Link href="/students">
+        <Link href={backHref}>
           <Button variant="outline">
             <ArrowLeft className="size-4" />
             Back to Students
@@ -374,7 +379,7 @@ export default function StudentDetailPage() {
                 <FemaleStudentIcon className="h-[18px] w-[18px] text-pink-600" />
               )}
 
-              <p className="">{genderValue}</p>
+              <span className="">{genderValue}</span>
             </Badge>
             {/* {student.gender || student.Gender} */}
             {(student.class ?? student.Class)
@@ -626,7 +631,7 @@ export default function StudentDetailPage() {
               Student updated successfully.
             </p>
           ) : null}
-          <Link href="/students">
+          <Link href={backHref}>
             <Button type="button" variant="outline">
               Cancel
             </Button>
@@ -638,5 +643,14 @@ export default function StudentDetailPage() {
         </div>
       </form>
     </section>
+  );
+}
+
+// `useSearchParams()` requires a Suspense boundary during prerendering.
+export default function StudentDetailPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <StudentDetailPageInner />
+    </React.Suspense>
   );
 }

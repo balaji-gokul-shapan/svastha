@@ -25,10 +25,16 @@ import {
   Stethoscope,
   Cross,
   SquareActivity,
+  Syringe,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import Image from "next/image";
 import { ToothChartSvg } from "@/app/health-checks/dental-screening/tooth-chart-svg";
 import ToothIcon from "@/app/health-checks/dental-screening/toothIcon";
@@ -42,26 +48,51 @@ const navItems = [
     icon: HeartPulse,
     children: [
       // { icon: SquareActivity, label: "Overview", href: "/health-checks/overview-screening" },
-      { icon: Cross, label: "General Screening", href: "/health-checks/general-screening" },
-      { icon: Eye, label: "Vision Screening", href: "/health-checks/vision-screening" },
-      { icon: Ear, label: "Hearing Screening", href: "/health-checks/hearing-screening" },
-      { icon: Stethoscope, label: "ENT Screening", href: "/health-checks/ent-screening" },
-      { icon: ToothIcon, label: "Dental Screening", href: "/health-checks/dental-screening" },
+      {
+        icon: Cross,
+        label: "General Screening",
+        href: "/health-checks/general-screening",
+      },
+      {
+        icon: Eye,
+        label: "Vision Screening",
+        href: "/health-checks/vision-screening",
+      },
+      {
+        icon: Ear,
+        label: "Hearing Screening",
+        href: "/health-checks/hearing-screening",
+      },
+      {
+        icon: Stethoscope,
+        label: "ENT Screening",
+        href: "/health-checks/ent-screening",
+      },
+      {
+        icon: ToothIcon,
+        label: "Dental Screening",
+        href: "/health-checks/dental-screening",
+      },
+      {
+        icon: Syringe,
+        label: "Immunizations",
+        href: "/health-checks/immunization",
+      },
       // { icon: GraduationCap, label: "Dental Screening (New)", href: "/health-checks/dental-screening-new" },
     ],
   },
   // { label: "Referrals", href: "/referrals", icon: BookOpen },
-  // {
-  //   label: "Insurance and Claims",
-  //   href: "/insurance-and-claims",
-  //   icon: CalendarCheck,
-  //   children: [
-  //     { label: "Overview", href: "/insurance-and-claims" },
-  //     { label: "Active Claims", href: "/insurance-and-claims/claims" },
-  //     { label: "Settlements", href: "/insurance-and-claims/settlements" },
-  //   ],
-  // },
-  // { label: "Reports", href: "/reports", icon: BarChart3 },
+  {
+    label: "Insurance and Claims",
+    href: "/insurance-and-claims",
+    icon: CalendarCheck,
+    children: [
+      { label: "Overview", href: "/insurance-and-claims" },
+      { label: "Active Claims", href: "/insurance-and-claims/claims" },
+      { label: "Settlements", href: "/insurance-and-claims/settlements" },
+    ],
+  },
+  { label: "Reports", href: "/report", icon: BarChart3 },
   // {
   //   label: "Exams & Grades",
   //   href: "/exams",
@@ -73,19 +104,19 @@ const navItems = [
   //   ],
   // },
   // { label: "Fees", href: "/fees", icon: Wallet },
-  // { label: "Timetable", href: "/timetable", icon: CalendarDays },
+  { label: "register", href: "/settingsNew", icon: CalendarDays },
 ];
 
 const bottomItems = [
   { label: "Settings", href: "/settings", icon: Settings },
-  // { label: "Help & Support", href: "/help", icon: HelpCircle },
+  { label: "Help & Support", href: "/help", icon: HelpCircle },
 ];
 
 function useMediaQuery(query) {
   return React.useSyncExternalStore(
     (onChange) => {
       if (typeof window === "undefined") {
-        return () => { };
+        return () => {};
       }
 
       const mediaQuery = window.matchMedia(query);
@@ -101,7 +132,7 @@ function useMediaQuery(query) {
 
       return window.matchMedia(query).matches;
     },
-    () => true
+    () => true,
   );
 }
 
@@ -146,12 +177,15 @@ export function Sidebar() {
       <aside
         className={cn(
           "sticky top-0 flex h-screen shrink-0 flex-col overflow-hidden border-r border-border bg-card transition-[width] duration-300 ease-in-out",
-          isCollapsed ? "w-17" : "w-64"
+          isCollapsed ? "w-17" : "w-64",
         )}
       >
         {/* Brand */}
         <div className="flex h-auto items-center border-none border-border p-4">
-          <Link href="/" className="flex w-full items-center gap-2 overflow-hidden">
+          <Link
+            href="/"
+            className="flex w-full items-center gap-2 overflow-hidden"
+          >
             <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-white text-primary-foreground">
               {/* <School className="size-4.5" strokeWidth={2.25} /> */}
               <Image src="/logo.svg" alt="Logo" width={24} height={24} />
@@ -159,7 +193,7 @@ export function Sidebar() {
             <span
               className={cn(
                 "truncate font-sf text-xl font-bold text-[#00A4E3] transition-all tracking-wide  duration-200",
-                isCollapsed ? "max-w-0 opacity-0" : "max-w-32 opacity-100"
+                isCollapsed ? "max-w-0 opacity-0" : "max-w-32 opacity-100",
               )}
             >
               Svas<span className="text-[#00D55F]">t</span>ha
@@ -170,7 +204,6 @@ export function Sidebar() {
         {/* Primary nav */}
         <nav className="flex-1 space-y-1 overflow-y-auto p-2 ">
           {navItems.map((item) => (
-
             <SidebarLink
               key={item.href}
               item={item}
@@ -179,6 +212,7 @@ export function Sidebar() {
               pathname={pathname}
               menuOpen={Boolean(openMenus[item.label])}
               onMenuToggle={handleParentMenuClick}
+              // onNavigate={() => setCollapsed(true)}
             />
           ))}
         </nav>
@@ -194,6 +228,11 @@ export function Sidebar() {
               pathname={pathname}
               menuOpen={false}
               onMenuToggle={toggleMenu}
+              onNavigate={() => {
+                if (item.label === "Settings") {
+                  setCollapsed(true);
+                }
+              }}
             />
           ))}
 
@@ -202,7 +241,7 @@ export function Sidebar() {
             onClick={() => setCollapsed((c) => !c)}
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             className={cn(
-              "hidden w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:flex"
+              "hidden w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:flex",
             )}
           >
             {isCollapsed ? (
@@ -213,7 +252,7 @@ export function Sidebar() {
             <span
               className={cn(
                 "truncate transition-all duration-200",
-                isCollapsed ? "max-w-0 opacity-0" : "max-w-24 opacity-100"
+                isCollapsed ? "max-w-0 opacity-0" : "max-w-24 opacity-100",
               )}
             >
               Collapse
@@ -229,7 +268,15 @@ function isRouteActive(pathname, href) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function SidebarLink({ item, collapsed, isSmallScreen, pathname, menuOpen, onMenuToggle }) {
+function SidebarLink({
+  item,
+  collapsed,
+  isSmallScreen,
+  pathname,
+  menuOpen,
+  onMenuToggle,
+  onNavigate,
+}) {
   const Icon = item.icon;
   const hasChildren = Array.isArray(item.children) && item.children.length > 0;
   const activeChild = hasChildren
@@ -237,13 +284,16 @@ function SidebarLink({ item, collapsed, isSmallScreen, pathname, menuOpen, onMen
     : false;
   const active = isRouteActive(pathname, item.href) || activeChild;
   const showChildren =
-    hasChildren && (isSmallScreen ? (menuOpen || activeChild) : !collapsed && (menuOpen || activeChild));
+    hasChildren &&
+    (isSmallScreen
+      ? menuOpen || activeChild
+      : !collapsed && (menuOpen || activeChild));
 
   const rowClasses = cn(
     "group relative flex w-full items-center gap-3 overflow-hidden rounded-md px-3 py-2 text-sm font-medium transition-colors",
     active
       ? "bg-primary/10 text-primary"
-      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+      : "text-muted-foreground hover:bg-muted hover:text-foreground",
   );
 
   const rowContent = (
@@ -255,7 +305,7 @@ function SidebarLink({ item, collapsed, isSmallScreen, pathname, menuOpen, onMen
       <span
         className={cn(
           "truncate transition-all duration-200",
-          collapsed ? "max-w-0 opacity-0" : "max-w-40 opacity-100"
+          collapsed ? "max-w-0 opacity-0" : "max-w-40 opacity-100",
         )}
       >
         {item.label}
@@ -265,7 +315,7 @@ function SidebarLink({ item, collapsed, isSmallScreen, pathname, menuOpen, onMen
           className={cn(
             "ml-auto size-4 shrink-0 text-muted-foreground transition-transform duration-200",
             collapsed && !isSmallScreen ? "opacity-0" : "opacity-100",
-            showChildren && "rotate-180"
+            showChildren && "rotate-180",
           )}
         />
       )}
@@ -285,11 +335,12 @@ function SidebarLink({ item, collapsed, isSmallScreen, pathname, menuOpen, onMen
   ) : (
     <Link
       href={item.href}
+      onClick={onNavigate}
       className={cn(
         "group relative flex items-center gap-3 overflow-hidden rounded-md px-3 py-2 text-sm font-medium transition-colors",
         active
           ? "bg-primary/10 text-primary"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
       {rowContent}
@@ -313,13 +364,15 @@ function SidebarLink({ item, collapsed, isSmallScreen, pathname, menuOpen, onMen
         <div
           className={cn(
             "grid overflow-hidden transition-all duration-200",
-            showChildren ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+            showChildren
+              ? "grid-rows-[1fr] opacity-100"
+              : "grid-rows-[0fr] opacity-0",
           )}
         >
           <div
             className={cn(
               "min-h-0 space-y-1 pt-1",
-              collapsed ? "flex flex-col items-center" : "pl-8"
+              collapsed ? "flex flex-col items-center" : "pl-8",
             )}
           >
             {item.children.map((child) => {
@@ -330,17 +383,19 @@ function SidebarLink({ item, collapsed, isSmallScreen, pathname, menuOpen, onMen
                   href={child.href}
                   className={cn(
                     "flex items-center rounded-md text-xs font-medium transition-colors",
-                    collapsed ? "justify-center px-2 py-2" : "gap-2 px-3 py-1.5",
+                    collapsed
+                      ? "justify-center px-2 py-2"
+                      : "gap-2 px-3 py-1.5",
                     childActive
                       ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
                   {ChildIcon ? <ChildIcon className="size-4 shrink-0" /> : null}
                   <span
                     className={cn(
                       "truncate transition-all duration-200",
-                      collapsed ? "max-w-0 opacity-0" : "max-w-36 opacity-100"
+                      collapsed ? "max-w-0 opacity-0" : "max-w-36 opacity-100",
                     )}
                   >
                     {child.label}

@@ -7,9 +7,28 @@ import * as React from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DataTable } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { getStudentSlug } from "./student-data";
 import { getNormaliseName } from "./students-cards";
+import { Button } from "@/components/ui/button";
+import { useDispatch } from "react-redux";
+import { toast } from "sonner";
+import { deleteStudent } from "@/lib/features/DeleteStudentSlice";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const statusStyles = {
   Active: "bg-success/15 text-success",
@@ -19,7 +38,11 @@ const statusStyles = {
 
 function StatusPill({ status }) {
   const Icon =
-    status === "Active" ? BadgeCheck : status === "Pending" ? Clock3 : ShieldAlert;
+    status === "Active"
+      ? BadgeCheck
+      : status === "Pending"
+        ? Clock3
+        : ShieldAlert;
 
   return (
     <span
@@ -31,7 +54,12 @@ function StatusPill({ status }) {
   );
 }
 
-function SelectCheckbox({ checked, indeterminate = false, onChange, ariaLabel }) {
+function SelectCheckbox({
+  checked,
+  indeterminate = false,
+  onChange,
+  ariaLabel,
+}) {
   return (
     <Checkbox
       checked={checked}
@@ -44,11 +72,7 @@ function SelectCheckbox({ checked, indeterminate = false, onChange, ariaLabel })
 }
 
 export function getInitials(name = "") {
-  const parts = String(name)
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2);
+  const parts = String(name).trim().split(/\s+/).filter(Boolean).slice(0, 2);
 
   if (parts.length === 0) {
     return "NA";
@@ -92,10 +116,7 @@ const columns = [
     header: "Student ID",
     cell: ({ row }) => {
       const studentId =
-        row.original.cus_id ??
-        row.original.studentId ??
-        row.original.id ??
-        "";
+        row.original.cus_id ?? row.original.studentId ?? row.original.id ?? "";
 
       return <TruncatedWithTooltip value={studentId} />;
     },
@@ -120,7 +141,9 @@ const columns = [
     accessorKey: "gender",
     header: "Gender",
     cell: ({ row }) => {
-       const genderValue = getNormaliseName(row.original.gender ?? row.original.Gender ?? "");
+      const genderValue = getNormaliseName(
+        row.original.gender ?? row.original.Gender ?? "",
+      );
 
       return <TruncatedWithTooltip value={genderValue || "--"} />;
     },
@@ -169,34 +192,81 @@ const columns = [
   },
 ];
 
-export function StudentsDataTable({ data = [] }) {
+export function StudentsDataTable({
+  data = [],
+  backQuery = "",
+  onDeleted,
+}) {
   const router = useRouter();
-  const [selectedRows, setSelectedRows] = React.useState({});
+  const dispatch = useDispatch();
+  const [selectedIds, setSelectedIds] = React.useState(() => new Set());
+  const [deleting, setDeleting] = React.useState(false);
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
+
+  const getStudentId = (student) =>
+    student.cus_id ?? student.studentId ?? student.id ?? null;
+
+  const selectedCount = selectedIds.size;
 
   const allSelected =
-    data.length > 0 && data.every((student) => Boolean(selectedRows[student.studentId]));
+    data.length > 0 &&
+    data.every((student) => {
+      const id = getStudentId(student);
+      return id !== null && selectedIds.has(id);
+    });
   const someSelected =
-    !allSelected && data.some((student) => Boolean(selectedRows[student.studentId]));
+    !allSelected &&
+    data.some((student) => {
+      const id = getStudentId(student);
+      return id !== null && selectedIds.has(id);
+    });
 
   const toggleSelectAll = () => {
     if (allSelected) {
-      setSelectedRows({});
+      setSelectedIds(new Set());
       return;
     }
 
-    const nextSelected = {};
+    const next = new Set();
     data.forEach((student) => {
-      nextSelected[student.studentId] = true;
+      const id = getStudentId(student);
+      if (id !== null) next.add(id);
     });
-    setSelectedRows(nextSelected);
+    setSelectedIds(next);
   };
 
   const toggleSingleRow = (studentId) => {
-    setSelectedRows((prev) => ({
-      ...prev,
-      [studentId]: !prev[studentId],
-    }));
+    if (studentId === null || studentId === undefined) return;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(studentId)) next.delete(studentId);
+      else next.add(studentId);
+      return next;
+    });
   };
+
+  const handleBulkDelete = async () => {
+    const ids = [...selectedIds];
+    if (!ids.length || deleting) return;
+
+    setDeleting(true);
+    const results = await Promise.allSettled(
+      ids.map((id) => dispatch(deleteStudent({ studentId: id })).unwrap()),
+    );
+    setDeleting(false);
+
+    const failed = results.filter((r) => r.status === "rejected").length;
+    setSelectedIds(new Set());
+
+    if (failed === 0) {
+      toast.success(`${ids.length} student${ids.length > 1 ? "s" : ""} deleted`);
+    } else {
+      toast.error(`${ids.length - failed} deleted · ${failed} failed`);
+    }
+
+    onDeleted?.();
+  };
+  const clearSelection = () => setSelectedIds(new Set());
 
   const columnsWithSelection = [
     {
@@ -210,14 +280,14 @@ export function StudentsDataTable({ data = [] }) {
         />
       ),
       cell: ({ row }) => {
-        const studentId = row.original.studentId;
+        const studentId = getStudentId(row.original);
 
         return (
           <div data-no-row-click="true">
             <SelectCheckbox
-              checked={Boolean(selectedRows[studentId])}
+              checked={studentId !== null && selectedIds.has(studentId)}
               onChange={() => toggleSingleRow(studentId)}
-              ariaLabel={`Select ${row.original.name}`}
+              ariaLabel={`Select ${row.original.name ?? "student"}`}
             />
           </div>
         );
@@ -228,6 +298,24 @@ export function StudentsDataTable({ data = [] }) {
 
   return (
     <TooltipProvider>
+      {selectedCount > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border bg-muted/40 p-2 px-3">
+          <span className="text-sm text-muted-foreground">
+            {selectedCount} selected
+          </span>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => setConfirmOpen(true)}
+            disabled={deleting}
+          >
+            {deleting ? "Deleting..." : "Delete Selected"}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={clearSelection}>
+            Clear
+          </Button>
+        </div>
+      )}
       <DataTable
         columns={columnsWithSelection}
         data={data}
@@ -243,9 +331,44 @@ export function StudentsDataTable({ data = [] }) {
             return;
           }
 
-          router.push(`/students/${slug}`);
+          router.push(
+            backQuery ? `/students/${slug}?${backQuery}` : `/students/${slug}`,
+          );
         }}
       />
+
+      <AlertDialog
+        open={confirmOpen}
+        onOpenChange={(open) => {
+          if (!open) setConfirmOpen(false);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete student{selectedCount === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {selectedCount} selected
+              student{selectedCount === 1 ? "" : "s"}. This action cannot
+              be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No, keep them</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                setConfirmOpen(false);
+                handleBulkDelete();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Yes, delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </TooltipProvider>
   );
 }

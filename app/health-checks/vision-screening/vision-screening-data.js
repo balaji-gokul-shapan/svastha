@@ -71,8 +71,13 @@ export function classifyAcuity(value) {
   if (!match) return { label: trimmed, tone: "muted" };
 
   const ratio = Number(match[1]) / 6;
-  if (ratio <= 1.2) return { label: "Normal", tone: "success" };
+  console.log(ratio,"ratio");
+  
+  if (ratio <= 1.5) return { label: "Normal", tone: "success" };
   if (ratio <= 2) return { label: "Mild", tone: "info" };
-  if (ratio <= 4) return { label: "Moderate", tone: "warning" };
-  return { label: "Severe", tone: "destructive" };
+  if (ratio <= 3.9) return { label: "Moderate", tone: "warning" };
+  if (ratio <= 4) return { label: "High", tone: "warning" };
+  if (ratio <= 6) return { label: "severe", tone: "destructive" };
+    if (ratio <= 10) return { label: "critical", tone: "destructive" };
+  return { label: "critical", tone: "destructive" };
 }

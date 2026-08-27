@@ -7,13 +7,19 @@ import {
   AlertTriangle,
   Calendar,
   ChevronDown,
+  ClipboardCheckIcon,
   Eye,
+  EyeDashed,
+  Focus,
   Glasses,
+  LensConvex,
   Save,
   Search,
   Send,
+  Summary,
 } from "lucide-react";
-
+import IExamMultipleChoiceOutlineIcon from '@iconify-react/healthicons/i-exam-multiple-choice-outline';
+import ReferralIcon from '@iconify-react/healthicons/referral';
 import { VisionSnapshot } from "./EyeSnapshot";
 import { ToggleGroup } from "./toggleGroup";
 import {
@@ -46,6 +52,10 @@ import { EmptyState } from "@/components/ui/empty-state";
 import StudentProfileCard from "@/app/students/studentProfileCard";
 import { getFilterStudent } from "@/lib/features/getFilterStudent";
 import StudentFilter from "../utilities/studentFilter";
+import { visionScreeningSchema } from "./vision-screening-schema";
+import { FramerCard } from "@/util/FramerCard";
+import { getMasterData } from "@/util/masterData";
+import { getAllMasterScreening } from "@/lib/features/masterScreeningSlice";
 
 function FieldLabel({ children }) {
   return (
@@ -55,7 +65,7 @@ function FieldLabel({ children }) {
   );
 }
 
-function SelectField({ label, options, value, onChange, icon: Icon }) {
+function SelectField({ label, options, value, onChange, icon: Icon, error }) {
   return (
     <div>
       {label && <FieldLabel>{label}</FieldLabel>}
@@ -63,7 +73,7 @@ function SelectField({ label, options, value, onChange, icon: Icon }) {
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-10 w-full appearance-none rounded-md border border-input bg-background pl-3 pr-9 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+          className={`h-10 w-full appearance-none rounded-md border border-input bg-background pl-3 pr-9 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30 ${error ? "border-destructive focus:ring-destructive/30" : ""}`}
         >
           {options.map((opt) => (
             <option key={opt} value={opt}>
@@ -77,6 +87,9 @@ function SelectField({ label, options, value, onChange, icon: Icon }) {
           <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         )}
       </div>
+      {error ? (
+        <p className="mt-1.5 text-xs text-destructive">{error}</p>
+      ) : null}
     </div>
   );
 }
@@ -96,7 +109,6 @@ function TextField({ label, value, onChange, placeholder }) {
   );
 }
 
-// Initial state for one eye's four acuity readings + remarks.
 const emptyEye = {
   distanceWithout: "",
   nearWithout: "",
@@ -105,47 +117,24 @@ const emptyEye = {
   remarks: "",
 };
 
-function AcuityRow({ label, eye, onChange }) {
-  return (
-    <div className="rounded-lg border border-border/70 bg-background p-3 sm:p-4">
-      <p className="mb-3 text-sm font-semibold text-foreground">{label}</p>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <SelectField
-          label="Distance (Without)"
-          options={distanceAcuityOptions}
-          value={eye.distanceWithout}
-          onChange={(v) => onChange({ ...eye, distanceWithout: v })}
-        />
-        <SelectField
-          label="Near (Without)"
-          options={nearAcuityOptions}
-          value={eye.nearWithout}
-          onChange={(v) => onChange({ ...eye, nearWithout: v })}
-        />
-        <SelectField
-          label="Distance (With)"
-          options={distanceAcuityOptions}
-          value={eye.distanceWith}
-          onChange={(v) => onChange({ ...eye, distanceWith: v })}
-        />
-        <SelectField
-          label="Near (With)"
-          options={nearAcuityOptions}
-          value={eye.nearWith}
-          onChange={(v) => onChange({ ...eye, nearWith: v })}
-        />
-      </div>
-      <div className="mt-3">
-        <TextField
-          label="Remarks"
-          value={eye.remarks}
-          onChange={(v) => onChange({ ...eye, remarks: v })}
-          placeholder="Optional notes for this eye"
-        />
-      </div>
-    </div>
-  );
+// Map a master-data severity string ("Normal"/"Mild"/"Moderate"/"High"/
+// "Severe"/"Critical") to a UI tone.
+function severityTone(severity) {
+  const s = String(severity ?? "").toLowerCase();
+  if (s.includes("critical") || s.includes("severe")) return "destructive";
+  if (s.includes("high") || s.includes("moderate")) return "warning";
+  if (s.includes("mild")) return "info";
+  if (s.includes("normal")) return "success";
+  return "muted";
 }
+
+const SEVERITY_TEXT_CLASS = {
+  success: "text-success",
+  info: "text-info",
+  warning: "text-warning",
+  destructive: "text-destructive",
+  muted: "text-muted-foreground",
+};
 
 const SUMMARY_TONE_CLASS = {
   success: "text-success bg-success/10",
@@ -157,8 +146,110 @@ const SUMMARY_TONE_CLASS = {
 
 export default function VisionScreeningPage() {
   const dispatch = useAppDispatch();
-  const academicYearOptions = ["2026-2027", "2025-2026", "2024-2025"];
+   const academicYearOptions = ["2026-2027", "2025-2026", "2024-2025"];
+ const [selectedCampId, setSelectedCampId] = useState("1");
+  const [academicYear, setAcademicYear] = useState(academicYearOptions[0]);
+  const [selectedClassFilter, setSelectedClassFilter] = useState("all");
+  const [selectedSectionFilter, setSelectedSectionFilter] = useState("all");
+  const [schoolName, setSchoolName] = useState("all");
+  const [classFilter, setClassFilter] = useState("all");
+  const [sectionFilter, setSectionFilter] = useState("all");
+  const [studentFilter, setStudentFilter] = useState("all");
 
+    const { data: filterPayload, isLoading } = useQuery({
+    queryKey: ["filter-student", schoolName, academicYear, "options"],
+    queryFn: () =>
+      dispatch(
+        getFilterStudent({
+          all: true,
+          status: "all",
+          schoolName,
+          academicYear,
+          sortBy: "name",
+          sortOrder: "asc",
+          search: "",
+        }),
+      ).unwrap(),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+
+  const {
+    data: masterScreeningData = {},
+    isLoading: masterScreeningDataLoading,
+    error: masterScreeningQueryError,
+  } = useQuery({
+    queryKey: ["Ent-screening"],
+
+    queryFn: () => dispatch(getAllMasterScreening()).unwrap(),
+
+    // Master data doesn't normally need to be
+    // requested again immediately.
+    staleTime: 5 * 60 * 1000,
+
+    refetchOnWindowFocus: false,
+  });
+
+  console.log(masterScreeningData, "All Master Screening Data"); 
+
+  const requiredMasterData = useMemo(
+      () =>
+        getMasterData(masterScreeningData, [
+          "color-vision-statuses",
+          "vision-results",
+          "vision-referral-reasons"
+        ]),
+      [masterScreeningData],
+    );
+    console.log(requiredMasterData , "requiredMasterData");
+  const colorVisionData = requiredMasterData["color-vision-statuses"];
+  const visionResultData = requiredMasterData["vision-results"];
+  const referralReasons = requiredMasterData["vision-referral-reasons"];
+
+  // Acuity master data → { "6/6": record } lookup for severity classification.
+  const acuitySeverityMap = useMemo(() => {
+    const map = {};
+    (Array.isArray(visionResultData) ? visionResultData : []).forEach((item) => {
+      if (item?.name) {
+        map[String(item.name).trim()] = item;
+      }
+    });
+    return map;
+  }, [visionResultData]);
+
+  // Distance acuity dropdown values come from master data when available.
+  const distanceAcuityNames = useMemo(() => {
+    const names = (Array.isArray(visionResultData) ? visionResultData : [])
+      .map((item) => String(item?.name ?? "").trim())
+      .filter(Boolean);
+    return names.length ? names : distanceAcuityOptions;
+  }, [visionResultData]);
+
+  // Classify using master-data severity first; falls back to the static
+  // heuristic for values not present in master data (CF/HM/PL/NPL, near).
+  const classifyWithMaster = useCallback(
+    (value) => {
+      const trimmed = String(value ?? "").trim();
+      if (!trimmed) return { label: "Not tested", tone: "muted" };
+
+      const match = acuitySeverityMap[trimmed];
+      if (match) {
+        const severity = String(match.severity ?? "").trim();
+        return {
+          label: severity || trimmed,
+          description: match.description,
+          riskScore: match.risk_score,
+          tone: severityTone(severity),
+        };
+      }
+
+      return classifyAcuity(trimmed);
+    },
+    [acuitySeverityMap],
+  );
+
+ 
+  
   const [studentId, setStudentId] = useState("");
   const [assessmentDate, setAssessmentDate] = useState("2026-08-05");
   const [location, setLocation] = useState(locationOptions[0]);
@@ -169,8 +260,78 @@ export default function VisionScreeningPage() {
   const [os, setOs] = useState({ ...emptyEye, distanceWith: "6/9" });
   const [ou, setOu] = useState(emptyEye);
 
+  // Initial state for one eye's four acuity readings + remarks.
+
+
+function AcuityRow({ label, eye, onChange }) {
+    const severityFor = (value) => {
+      const record = acuitySeverityMap[String(value ?? "").trim()];
+      return record?.severity ?? "";
+    };
+
+    const severityLine = (value) => {
+      const severity = severityFor(value);
+      if (!severity) return null;
+      return (
+        <p className={`mt-1 text-xs ${SEVERITY_TEXT_CLASS[severityTone(severity)]}`}>
+          {severity}
+        </p>
+      );
+    };
+
+    return (
+      <div className="rounded-lg border border-border/70 bg-background p-3 sm:p-4">
+        <p className="mb-3 text-sm font-semibold text-foreground">{label}</p>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div>
+            <SelectField
+              label="Distance (Without)"
+              options={visionResultData.map((item)=> item?.name)}
+              value={eye.distanceWithout}
+              onChange={(v) => onChange({ ...eye, distanceWithout: v })}
+            />
+            {/* {severityLine(eye.distanceWithout)} */}
+          </div>
+          <div>
+            <SelectField
+              label="Near (Without)"
+              options={nearAcuityOptions}
+              value={eye.nearWithout}
+              onChange={(v) => onChange({ ...eye, nearWithout: v })}
+            />
+          </div>
+          <div>
+            <SelectField
+              label="Distance (With)"
+              options={visionResultData.map((item)=> item?.name)}
+              value={eye.distanceWith}
+              onChange={(v) => onChange({ ...eye, distanceWith: v })}
+            />
+            {/* {severityLine(eye.distanceWith)} */}
+          </div>
+          <div>
+            <SelectField
+              label="Near (With)"
+              options={nearAcuityOptions}
+              value={eye.nearWith}
+              onChange={(v) => onChange({ ...eye, nearWith: v })}
+            />
+          </div>
+        </div>
+        <div className="mt-3">
+          <TextField
+            label="Remarks"
+            value={eye.remarks}
+            onChange={(v) => onChange({ ...eye, remarks: v })}
+            placeholder="Optional notes for this eye"
+          />
+        </div>
+      </div>
+    );
+  }
+
   const [colorVisionStatus, setColorVisionStatus] = useState(
-    colorVisionStatusOptions[0],
+    colorVisionData?.name,
   );
   const [colorVisionTestType, setColorVisionTestType] = useState(
     colorVisionTestTypeOptions[0],
@@ -197,36 +358,31 @@ export default function VisionScreeningPage() {
   const [lensType, setLensType] = useState(lensTypeOptions[0]);
   const [lensPower, setLensPower] = useState("");
   const [lensRemarks, setLensRemarks] = useState("");
-  const [selectedCampId, setSelectedCampId] = useState("1");
-  const [academicYear, setAcademicYear] = useState(academicYearOptions[0]);
-  const [selectedClassFilter, setSelectedClassFilter] = useState("all");
-  const [selectedSectionFilter, setSelectedSectionFilter] = useState("all");
-  const [schoolName, setSchoolName] = useState("all");
-  const [classFilter, setClassFilter] = useState("all");
-  const [sectionFilter, setSectionFilter] = useState("all");
-  const [studentFilter, setStudentFilter] = useState("all");
+ 
 
-  const { data: filterPayload, isLoading } = useQuery({
-    queryKey: ["filter-student", schoolName, academicYear, "options"],
-    queryFn: () =>
-      dispatch(
-        getFilterStudent({
-          all: true,
-          status: "all",
-          schoolName,
-          academicYear,
-          sortBy: "name",
-          sortOrder: "asc",
-          search: "",
-        }),
-      ).unwrap(),
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-  });
 
   const [referral, setReferral] = useState("no");
   const [adviceSuggestions, setAdviceSuggestions] = useState("");
   const [followUp, setFollowUp] = useState(followUpOptions[0]);
+  const [referralReason, setReferralReason] = useState("");
+
+  // { fieldName: "message" } — populated when zod validation fails.
+  const [formErrors, setFormErrors] = useState(null);
+
+  const clearFormError = (field) =>
+    setFormErrors((prev) =>
+      prev && prev[field] ? { ...prev, [field]: undefined } : prev,
+    );
+
+  const handleReferralReasonChange = (value) => {
+    setReferralReason(value);
+    clearFormError("referralReason");
+  };
+
+  const handleFollowUpChange = (value) => {
+    setFollowUp(value);
+    clearFormError("followUp");
+  };
 
   const {
     data: visionScreeningData = [],
@@ -437,28 +593,45 @@ export default function VisionScreeningPage() {
   //   return Array.from(uniqueStudents.values());
   // }, [campStudents]);
 
-   const classOptions = useMemo(() => {
+  const classOptions = useMemo(() => {
     if (!Array.isArray(filterPayload?.items)) return ["all"];
     const classSet = new Set();
     filterPayload.items.forEach((student) => {
-      const cls = String(student?.Class ?? student?.class ?? student?.grade ?? "").split("-")[0].trim();
+      const cls = String(
+        student?.Class ?? student?.class ?? student?.grade ?? "",
+      )
+        .split("-")[0]
+        .trim();
       if (cls) classSet.add(cls);
     });
-    return ["all", ...Array.from(classSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))];
+    return [
+      "all",
+      ...Array.from(classSet).sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true }),
+      ),
+    ];
   }, [filterPayload?.items]);
 
   const sectionOptions = useMemo(() => {
     if (!Array.isArray(filterPayload?.items)) return ["all"];
     const sectionSet = new Set();
     filterPayload.items.forEach((student) => {
-      const cls = String(student?.Class ?? student?.class ?? student?.grade ?? "").split("-")[0].trim();
+      const cls = String(
+        student?.Class ?? student?.class ?? student?.grade ?? "",
+      )
+        .split("-")[0]
+        .trim();
       if (selectedClassFilter !== "all" && cls !== selectedClassFilter) return;
       const sec = String(student?.sec ?? student?.section ?? "").trim();
       if (sec) sectionSet.add(sec);
     });
-    return ["all", ...Array.from(sectionSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))];
+    return [
+      "all",
+      ...Array.from(sectionSet).sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true }),
+      ),
+    ];
   }, [filterPayload?.items, selectedClassFilter]);
-
 
   // const filteredCampStudents = useMemo(() => {
   //   if (!selectedCampId) {
@@ -601,6 +774,7 @@ export default function VisionScreeningPage() {
         : "no",
     );
     setAdviceSuggestions(String(record?.advice_suggestions ?? ""));
+    setReferralReason(String(record?.referral_reason ?? ""));
     setFollowUp(String(record?.follow_up ?? followUpOptions[0]));
   }, []);
 
@@ -646,27 +820,30 @@ export default function VisionScreeningPage() {
   //   return ["all", ...getSection];
   // }, [getSection, selectedCampId]);
 
-   const selectedStudentFromFilter = useMemo(() => {
+  const selectedStudentFromFilter = useMemo(() => {
     const activeId = studentFilter !== "all" ? studentFilter : studentId;
     if (activeId && Array.isArray(filterPayload?.items)) {
       return (
         filterPayload.items.find(
           (student) =>
-            String(student?.id ?? student?.studentId ?? student?.cus_id) === String(activeId),
+            String(student?.id ?? student?.studentId ?? student?.cus_id) ===
+            String(activeId),
         ) ?? null
       );
     }
     return null;
   }, [filterPayload?.items, studentFilter, studentId]);
-  
- const selectedStudent = useMemo(() => {
+
+  const selectedStudent = useMemo(() => {
     if (selectedStudentFromFilter) {
       return selectedStudentFromFilter;
     }
 
     if (studentId && Array.isArray(filterPayload?.items)) {
       const match = filterPayload.items.find(
-        (student) => String(student.id ?? student.studentId ?? student.cus_id) === String(studentId),
+        (student) =>
+          String(student.id ?? student.studentId ?? student.cus_id) ===
+          String(studentId),
       );
       if (match) return match;
     }
@@ -679,12 +856,17 @@ export default function VisionScreeningPage() {
   );
   const studentSelectValue = selectedStudentKey || "";
 
- const assessmentStudentOptions = useMemo(
+  const assessmentStudentOptions = useMemo(
     () =>
       (filterPayload?.items ?? []).map((student) => {
-        const value = String(student.id ?? student.studentId ?? student.cus_id ?? "");
+        const value = String(
+          student.id ?? student.studentId ?? student.cus_id ?? "",
+        );
         const studentCode =
-          student.studentId ?? student.student_id ?? student.school_registration_number ?? student.admission_number;
+          student.studentId ??
+          student.student_id ??
+          student.school_registration_number ??
+          student.admission_number;
 
         return {
           value,
@@ -695,25 +877,25 @@ export default function VisionScreeningPage() {
   );
 
   const odStatus = useMemo(
-    () => classifyAcuity(od.distanceWith || od.distanceWithout),
-    [od],
+    () => classifyWithMaster(od.distanceWith || od.distanceWithout),
+    [classifyWithMaster, od],
   );
   const osStatus = useMemo(
-    () => classifyAcuity(os.distanceWith || os.distanceWithout),
-    [os],
+    () => classifyWithMaster(os.distanceWith || os.distanceWithout),
+    [classifyWithMaster, os],
   );
   const selectedStudentKeys = useMemo(() => {
     return new Set(
-        [
-          selectedStudent?.id,
-          selectedStudent?.studentId,
-          selectedStudent?.student_id,
-          selectedStudent?.school_registration_number,
-          selectedStudent?.admission_number,
-        ]
-          .map((value) => String(value ?? "").trim())
-          .filter(Boolean),
-      );
+      [
+        selectedStudent?.id,
+        selectedStudent?.studentId,
+        selectedStudent?.student_id,
+        selectedStudent?.school_registration_number,
+        selectedStudent?.admission_number,
+      ]
+        .map((value) => String(value ?? "").trim())
+        .filter(Boolean),
+    );
 
     return new Set(
       [studentSelectValue, studentId]
@@ -722,28 +904,32 @@ export default function VisionScreeningPage() {
     );
   }, [selectedStudent, studentId, studentSelectValue]);
 
-  const students = useMemo(() => (Array.isArray(visionScreeningData) ? visionScreeningData : []), [visionScreeningData]);
+  const students = useMemo(
+    () => (Array.isArray(visionScreeningData) ? visionScreeningData : []),
+    [visionScreeningData],
+  );
 
   const getSelectedStudentScreeningData = useMemo(() => {
     if (!selectedStudentKeys.size || !students.length) {
       return null;
     }
 
-    return students.find((data) => {
-      const dataKeys = [
-        data?.id,
-        data?.studentId,
-        data?.student_id,
-        data?.school_registration_number,
-        data?.admission_number,
-      ]
-        .map((value) => String(value ?? "").trim())
-        .filter(Boolean);
+    return (
+      students.find((data) => {
+        const dataKeys = [
+          data?.id,
+          data?.studentId,
+          data?.student_id,
+          data?.school_registration_number,
+          data?.admission_number,
+        ]
+          .map((value) => String(value ?? "").trim())
+          .filter(Boolean);
 
-      return dataKeys.some((key) => selectedStudentKeys.has(key));
-    }) ?? null;
+        return dataKeys.some((key) => selectedStudentKeys.has(key));
+      }) ?? null
+    );
   }, [selectedStudentKeys, students]);
-
 
   //   // The endpoint is already scoped to /vision-test/student/{studentId}.
   //   return visionScreeningData[0] ?? null;
@@ -774,6 +960,41 @@ export default function VisionScreeningPage() {
       toast.error("Select a student before saving the vision screening.");
       return;
     }
+
+    // --- Validate editable fields with zod -------------------------
+    const formValues = {
+      followUp,
+      referral,
+      referralReason,
+      od_distance_without: od.distanceWithout,
+      od_near_without: od.nearWithout,
+      os_distance_without: os.distanceWithout,
+      os_near_without: os.nearWithout,
+      ou_distance_without: ou.distanceWithout,
+      ou_near_without: ou.nearWithout,
+    };
+
+    const result = visionScreeningSchema.safeParse(formValues);
+
+    if (!result.success) {
+      const errors = result.error.flatten().fieldErrors;
+
+      // Reduce to { fieldName: firstMessage } for inline display.
+      const firstPerField = Object.fromEntries(
+        Object.entries(errors)
+          .map(([field, messages]) => [field, messages?.[0]])
+          .filter(([, message]) => Boolean(message)),
+      );
+
+      setFormErrors(firstPerField);
+
+      const firstError = Object.values(firstPerField).find(Boolean);
+      toast.error(firstError || "Please fill all required fields.");
+
+      return;
+    }
+
+    setFormErrors(null);
 
     const payload = {
       student_id: Number(rawStudentId) || 0,
@@ -814,9 +1035,12 @@ export default function VisionScreeningPage() {
       lens_power: lensPower,
       lens_remarks: lensRemarks,
       referral_to_specialist: referral === "yes",
+      referral_reason: referral === "yes" ? referralReason : null,
       advice_suggestions: adviceSuggestions,
       follow_up: followUp,
     };
+    console.log(payload,"payload");
+    
 
     dispatch(createVisionScreening(payload))
       .unwrap()
@@ -857,6 +1081,7 @@ export default function VisionScreeningPage() {
     ou,
     pupil,
     referral,
+    referralReason,
     refractiveError,
     refractiveErrorRemarks,
     selectedCampId,
@@ -895,6 +1120,7 @@ export default function VisionScreeningPage() {
 
     setReferral("no");
     setAdviceSuggestions("");
+    setReferralReason("");
     setFollowUp(followUpOptions[0]);
   }, []);
 
@@ -945,9 +1171,9 @@ export default function VisionScreeningPage() {
 
   return (
     <section className="space-y-4">
-      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
+      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between mb-4">
         <div>
-          <div className="flex items-center gap-2 py-2">
+          <div className="flex items-center gap-2 py-3">
             {/* <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <Eye className="size-5" />
             </div> */}
@@ -956,7 +1182,7 @@ export default function VisionScreeningPage() {
             </div>
 
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">
+              <h1 className="text-3xl font-semibold tracking-tight">
                 Vision Screening
               </h1>
 
@@ -1043,6 +1269,13 @@ export default function VisionScreeningPage() {
             Save & Exit
           </Button>
 
+          {formErrors && (
+            <div className="flex items-center gap-2 rounded-lg border border-destructive/60 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+              <AlertTriangle className="size-4 shrink-0" />
+              Please fix the highlighted fields before saving.
+            </div>
+          )}
+
           <Button type="button" onClick={handleSaveAssessment}>
             <Save className="size-4" />
             Save & Next
@@ -1121,56 +1354,62 @@ export default function VisionScreeningPage() {
               />
             </div>
           </article> */}
-              <AssessmentCard
-                // onChange={handleAssessmentChange}
-                // form={assessmentForm}
-                data={getSelectedStudentScreeningData}
-                studentOptions={assessmentStudentOptions}
-                studentValue={studentSelectValue}
-                onStudentChange={handleAssessmentStudentChange}
-                onSave={handleSaveAssessment}
-                onCancel={handleCancelAssessment}
-              />
+              <FramerCard>
+                <AssessmentCard
+                  // onChange={handleAssessmentChange}
+                  // form={assessmentForm}
+                  data={getSelectedStudentScreeningData}
+                  studentOptions={assessmentStudentOptions}
+                  studentValue={studentSelectValue}
+                  onStudentChange={handleAssessmentStudentChange}
+                  onSave={handleSaveAssessment}
+                  onCancel={handleCancelAssessment}
+                />
+              </FramerCard>
 
-              <article className="rounded-xl border border-border bg-card p-4">
-                <h3 className="text-sm font-semibold text-foreground">
-                  Quick Findings Summary
-                </h3>
-                <div className="mt-3 space-y-2">
-                  <SummaryRow
-                    icon={Eye}
-                    label="OD Acuity"
-                    value={odStatus.label}
-                    tone={odStatus.tone}
-                  />
-                  <SummaryRow
-                    icon={Eye}
-                    label="OS Acuity"
-                    value={osStatus.label}
-                    tone={osStatus.tone}
-                  />
-                  <SummaryRow
-                    icon={AlertTriangle}
-                    label="Strabismus"
-                    value={strabismus === "yes" ? "Present" : "Absent"}
-                    tone={strabismus === "yes" ? "warning" : "success"}
-                  />
-                  <SummaryRow
-                    icon={Glasses}
-                    label="Uses Correction"
-                    value={usesGlasses === "yes" ? "Yes" : "No"}
-                    tone="muted"
-                  />
-                  <SummaryRow
-                    icon={Send}
-                    label="Referral"
-                    value={referral === "yes" ? "Required" : "Not Required"}
-                    tone={referral === "yes" ? "warning" : "success"}
-                  />
-                </div>
-              </article>
-
-              <div className="flex gap-2">
+              <FramerCard>
+                <article className="rounded-xl border border-border bg-card p-4">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                    <span className="flex size-7 items-center justify-center rounded-md bg-primary/10">
+                      <ClipboardCheckIcon size={16} className="text-primary" />
+                    </span>
+                    Quick Findings Summary
+                  </h3>
+                  <div className="mt-3 space-y-2">
+                    <SummaryRow
+                      icon={Eye}
+                      label="OD Acuity"
+                      value={odStatus.label}
+                      tone={odStatus.tone}
+                    />
+                    <SummaryRow
+                      icon={Eye}
+                      label="OS Acuity"
+                      value={osStatus.label}
+                      tone={osStatus.tone}
+                    />
+                    <SummaryRow
+                      icon={AlertTriangle}
+                      label="Strabismus"
+                      value={strabismus === "yes" ? "Present" : "Absent"}
+                      tone={strabismus === "yes" ? "warning" : "success"}
+                    />
+                    <SummaryRow
+                      icon={Glasses}
+                      label="Uses Correction"
+                      value={usesGlasses === "yes" ? "Yes" : "No"}
+                      tone="muted"
+                    />
+                    <SummaryRow
+                      icon={Send}
+                      label="Referral"
+                      value={referral === "yes" ? "Required" : "Not Required"}
+                      tone={referral === "yes" ? "warning" : "success"}
+                    />
+                  </div>
+                </article>
+              </FramerCard>
+              {/* <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={handleCancelAssessment}
@@ -1185,224 +1424,287 @@ export default function VisionScreeningPage() {
                 >
                   Save &amp; Next
                 </button>
-              </div>
+              </div> */}
             </div>
 
             {/* ---------------- Middle column: acuity + external exam ---------------- */}
             <div className="space-y-4">
-              <article className="rounded-xl border border-border bg-card p-4 sm:p-5">
-                <h3 className="text-sm font-semibold text-foreground">
-                  Visual Acuity Snapshot
-                </h3>
-                <div className="mt-4">
-                  <VisionSnapshot
-                    odDistanceWith={od.distanceWith}
-                    odDistanceWithout={od.distanceWithout}
-                    osDistanceWith={os.distanceWith}
-                    osDistanceWithout={os.distanceWithout}
-                  />
-                </div>
-
-                <div className="mt-5 space-y-3">
-                  <AcuityRow
-                    label="Right Eye (OD)"
-                    eye={
-                      getSelectedStudentScreeningData?.od_distance_without || od
-                    }
-                    onChange={setOd}
-                  />
-                  <AcuityRow
-                    label="Left Eye (OS)"
-                    eye={
-                      getSelectedStudentScreeningData?.os_distance_without || os
-                    }
-                    onChange={setOs}
-                  />
-                  <AcuityRow
-                    label="Both Eyes (OU)"
-                    eye={
-                      getSelectedStudentScreeningData?.ou_distance_without || ou
-                    }
-                    onChange={setOu}
-                  />
-                </div>
-              </article>
-
-              <article className="rounded-xl border border-border bg-card p-4 sm:p-5">
-                <h3 className="text-sm font-semibold text-foreground">
-                  Color Vision &amp; Muscle Balance
-                </h3>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <SelectField
-                    label="Color Vision Status"
-                    options={colorVisionStatusOptions}
-                    value={colorVisionStatus}
-                    onChange={setColorVisionStatus}
-                  />
-                  <SelectField
-                    label="Test Type"
-                    options={colorVisionTestTypeOptions}
-                    value={colorVisionTestType}
-                    onChange={setColorVisionTestType}
-                  />
-                  <TextField
-                    label="Color Vision Remarks"
-                    value={colorVisionRemarks}
-                    onChange={setColorVisionRemarks}
-                    placeholder="Optional"
-                  />
-                  <SelectField
-                    label="Cover Test"
-                    options={coverTestOptions}
-                    value={coverTest}
-                    onChange={setCoverTest}
-                  />
-                  <div>
-                    <ToggleGroup
-                      label="Strabismus"
-                      options={yesNoOptions("no")}
-                      value={strabismus}
-                      onChange={setStrabismus}
+              <FramerCard>
+                <article className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Visual Acuity Snapshot
+                  </h3>
+                  <div className="mt-4">
+                    <VisionSnapshot
+                      odDistanceWith={od.distanceWith}
+                      odDistanceWithout={od.distanceWithout}
+                      osDistanceWith={os.distanceWith}
+                      osDistanceWithout={os.distanceWithout}
                     />
                   </div>
-                  <TextField
-                    label="Muscle Balance Remarks"
-                    value={muscleBalanceRemarks}
-                    onChange={setMuscleBalanceRemarks}
-                    placeholder="Optional"
-                  />
-                </div>
-              </article>
 
-              <article className="rounded-xl border border-border bg-card p-4 sm:p-5">
-                <h3 className="text-sm font-semibold text-foreground">
-                  External Examination
-                </h3>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <SelectField
-                    label="Lids"
-                    options={lidsOptions}
-                    value={lids}
-                    onChange={setLids}
-                  />
-                  <SelectField
-                    label="Conjunctiva"
-                    options={conjunctivaOptions}
-                    value={conjunctiva}
-                    onChange={setConjunctiva}
-                  />
-                  <SelectField
-                    label="Cornea"
-                    options={corneaOptions}
-                    value={cornea}
-                    onChange={setCornea}
-                  />
-                  <SelectField
-                    label="Pupil"
-                    options={pupilOptions}
-                    value={pupil}
-                    onChange={setPupil}
-                  />
-                </div>
-                <div className="mt-3">
-                  <FieldLabel>Other Findings</FieldLabel>
-                  <textarea
-                    value={externalOtherFindings}
-                    onChange={(e) => setExternalOtherFindings(e.target.value)}
-                    rows={3}
-                    placeholder="Enter notes"
-                    className="w-full resize-none rounded-md border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
-                  />
-                </div>
-              </article>
-            </div>
+                  <div className="mt-5 space-y-3">
+                    <AcuityRow
+                      label="Right Eye (OD)"
+                      eye={
+                        getSelectedStudentScreeningData?.od_distance_without ||
+                        od
+                      }
+                      onChange={setOd}
+                    />
+                    <AcuityRow
+                      label="Left Eye (OS)"
+                      eye={
+                        getSelectedStudentScreeningData?.os_distance_without ||
+                        os
+                      }
+                      onChange={setOs}
+                    />
+                    <AcuityRow
+                      label="Both Eyes (OU)"
+                      eye={
+                        getSelectedStudentScreeningData?.ou_distance_without ||
+                        ou
+                      }
+                      onChange={setOu}
+                    />
+                  </div>
+                </article>
+              </FramerCard>
+              <FramerCard>
+                <article className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                  {/* <h3 className="text-sm font-semibold text-foreground">
+                    Color Vision &amp; Muscle Balance
+                  </h3> */}
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                    <span className="flex size-9 items-center justify-center rounded-xl bg-warning/10">
+                      <EyeDashed className="size-4 text-warning" />
+                    </span>
+                    Refractive Error
+                  </h3>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <SelectField
+                      label="Color Vision Status"
+                      options={colorVisionData?.map((item)=> item.name)}
+                      value={colorVisionStatus}
+                      onChange={setColorVisionStatus}
+                    />
+                    <SelectField
+                      label="Test Type"
+                      options={colorVisionTestTypeOptions}
+                      value={colorVisionTestType}
+                      onChange={setColorVisionTestType}
+                    />
+                    <TextField
+                      label="Color Vision Remarks"
+                      value={colorVisionRemarks}
+                      onChange={setColorVisionRemarks}
+                      placeholder="Optional"
+                    />
+                    <SelectField
+                      label="Cover Test"
+                      options={coverTestOptions}
+                      value={coverTest}
+                      onChange={setCoverTest}
+                    />
+                    <div>
+                      <ToggleGroup
+                        label="Strabismus"
+                        options={yesNoOptions("no")}
+                        value={strabismus}
+                        onChange={setStrabismus}
+                      />
+                    </div>
+                    <TextField
+                      label="Muscle Balance Remarks"
+                      value={muscleBalanceRemarks}
+                      onChange={setMuscleBalanceRemarks}
+                      placeholder="Optional"
+                    />
+                  </div>
+                </article>
+              </FramerCard>
 
-            {/* ---------------- Right column: refraction, correction, referral ---------------- */}
-            <div className="space-y-4">
-              <article className="rounded-xl border border-border bg-card p-4">
-                <h3 className="text-sm font-semibold text-foreground">
-                  Refractive Error
-                </h3>
-                <div className="mt-3 space-y-3">
-                  <SelectField
-                    label="Refractive Error"
-                    options={refractiveErrorOptions}
-                    value={refractiveError}
-                    onChange={setRefractiveError}
-                  />
-                  <TextField
-                    label="Remarks"
-                    value={refractiveErrorRemarks}
-                    onChange={setRefractiveErrorRemarks}
-                    placeholder="Optional"
-                  />
-                </div>
-              </article>
-
-              <article className="rounded-xl border border-border bg-card p-4">
-                <h3 className="text-sm font-semibold text-foreground">
-                  Correction / Lens
-                </h3>
-                <div className="mt-3 space-y-3">
-                  <ToggleGroup
-                    label="Uses Glasses or Lens"
-                    options={yesNoOptions("neutral")}
-                    value={
-                      getSelectedStudentScreeningData?.uses_glasses_or_lens ||
-                      usesGlasses
-                    }
-                    onChange={setUsesGlasses}
-                  />
-                  <SelectField
-                    label="Lens Type"
-                    options={lensTypeOptions}
-                    value={lensType}
-                    onChange={setLensType}
-                  />
-                  <TextField
-                    label="Lens Power"
-                    value={lensPower}
-                    onChange={setLensPower}
-                    placeholder="e.g. -1.50 DS"
-                  />
-                  <TextField
-                    label="Lens Remarks"
-                    value={lensRemarks}
-                    onChange={setLensRemarks}
-                    placeholder="Optional"
-                  />
-                </div>
-              </article>
-
-              <article className="rounded-xl border border-border bg-card p-4">
-                <h3 className="text-sm font-semibold text-foreground">
-                  Referral &amp; Follow-up
-                </h3>
-                <div className="mt-3 space-y-3">
-                  <ToggleGroup
-                    label="Referral to Specialist"
-                    options={yesNoOptions("no")}
-                    value={referral}
-                    onChange={setReferral}
-                  />
-                  <div>
-                    <FieldLabel>Advice / Suggestions</FieldLabel>
+              <FramerCard>
+                <article className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                  {/* <h3 className="text-sm font-semibold text-foreground">
+                    External Examination
+                  </h3> */}
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                    <span className="flex size-9 items-center justify-center rounded-xl bg-domain-vision/10">
+                      <IExamMultipleChoiceOutlineIcon  className="size-4 text-domain-vision" />
+                    </span>
+                      External Examination
+                  </h3>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <SelectField
+                      label="Lids"
+                      options={lidsOptions}
+                      value={lids}
+                      onChange={setLids}
+                    />
+                    <SelectField
+                      label="Conjunctiva"
+                      options={conjunctivaOptions}
+                      value={conjunctiva}
+                      onChange={setConjunctiva}
+                    />
+                    <SelectField
+                      label="Cornea"
+                      options={corneaOptions}
+                      value={cornea}
+                      onChange={setCornea}
+                    />
+                    <SelectField
+                      label="Pupil"
+                      options={pupilOptions}
+                      value={pupil}
+                      onChange={setPupil}
+                    />
+                  </div>
+                  <div className="mt-3">
+                    <FieldLabel>Other Findings</FieldLabel>
                     <textarea
-                      value={adviceSuggestions}
-                      onChange={(e) => setAdviceSuggestions(e.target.value)}
+                      value={externalOtherFindings}
+                      onChange={(e) => setExternalOtherFindings(e.target.value)}
                       rows={3}
                       placeholder="Enter notes"
                       className="w-full resize-none rounded-md border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
                     />
                   </div>
-                  <SelectField
-                    label="Follow-up"
-                    options={followUpOptions}
-                    value={followUp}
-                    onChange={setFollowUp}
-                  />
-                </div>
-              </article>
+                </article>
+              </FramerCard>
+            </div>
+
+            {/* ---------------- Right column: refraction, correction, referral ---------------- */}
+            <div className="space-y-4">
+              <FramerCard>
+                <article className="rounded-xl border border-border bg-card p-4">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                    <span className="flex size-9 items-center justify-center rounded-xl bg-success/10">
+                      <Focus className="size-4 text-success" />
+                    </span>
+                    Refractive Error
+                  </h3>
+                  <div className="mt-3 space-y-3">
+                    <SelectField
+                      label="Refractive Error"
+                      options={refractiveErrorOptions}
+                      value={refractiveError}
+                      onChange={setRefractiveError}
+                    />
+                    <TextField
+                      label="Remarks"
+                      value={refractiveErrorRemarks}
+                      onChange={setRefractiveErrorRemarks}
+                      placeholder="Optional"
+                    />
+                  </div>
+                </article>
+              </FramerCard>
+              <FramerCard>
+                <article className="rounded-xl border border-border bg-card p-4">
+                  {/* <h3 className="text-sm font-semibold text-foreground">
+                   
+                  </h3> */}
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                    <span className="flex size-9 items-center justify-center rounded-xl bg-info/10">
+                      <LensConvex className="size-4 text-info" />
+                    </span>
+                    Correction / Lens
+                  </h3>
+                  <div className="mt-3 space-y-3">
+                    <ToggleGroup
+                      label="Uses Glasses or Lens"
+                      options={yesNoOptions("neutral")}
+                      value={
+                        getSelectedStudentScreeningData?.uses_glasses_or_lens ||
+                        usesGlasses
+                      }
+                      onChange={setUsesGlasses}
+                    />
+                    <SelectField
+                      label="Lens Type"
+                      options={lensTypeOptions}
+                      value={lensType}
+                      onChange={setLensType}
+                    />
+                    <TextField
+                      label="Lens Power"
+                      value={lensPower}
+                      onChange={setLensPower}
+                      placeholder="e.g. -1.50 DS"
+                    />
+                    <TextField
+                      label="Lens Remarks"
+                      value={lensRemarks}
+                      onChange={setLensRemarks}
+                      placeholder="Optional"
+                    />
+                  </div>
+                </article>
+              </FramerCard>
+
+              <FramerCard>
+                <article className="rounded-xl border border-border bg-card p-4">
+                  {/* <h3 className="text-sm font-semibold text-foreground">
+                    Referral &amp; Follow-up
+                  </h3> */}
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                    <span className="flex size-9 items-center justify-center rounded-xl bg-domain-oral/10">
+                      <ReferralIcon  className="size-5 text-domain-oral" />
+                    </span>
+                    Referral &amp; Follow-up
+                  </h3>
+                  <div className="mt-3 space-y-3">
+                    <ToggleGroup
+                      label="Referral to Specialist"
+                      options={yesNoOptions("no")}
+                      value={referral}
+                      onChange={setReferral}
+                    />
+                    {referral === "yes" && (
+                      <div>
+                        <SelectField
+                          label="Referral Reason"
+                          options={[
+                            "",
+                            ...(Array.isArray(referralReasons)
+                              ? referralReasons
+                              : []
+                            ).map((item) => String(item?.name ?? "").trim()),
+                          ].filter((name, index, all) => all.indexOf(name) === index)}
+                          value={referralReason}
+                          onChange={handleReferralReasonChange}
+                          error={formErrors?.referralReason}
+                        />
+                        {formErrors?.referralReason && (
+                          <p className="mt-1.5 text-xs text-destructive">
+                            {formErrors.referralReason}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    <div>
+                      <FieldLabel>Advice / Suggestions</FieldLabel>
+                      <textarea
+                        value={adviceSuggestions}
+                        onChange={(e) => setAdviceSuggestions(e.target.value)}
+                        rows={3}
+                        placeholder="Enter notes"
+                        className="w-full resize-none rounded-md border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+                      />
+                    </div>
+                    <SelectField
+                      label="Follow-up"
+                      options={followUpOptions}
+                      value={followUp}
+                      onChange={handleFollowUpChange}
+                      error={formErrors?.followUp}
+                    />
+                  </div>
+                </article>
+              </FramerCard>
             </div>
           </div>
         </>

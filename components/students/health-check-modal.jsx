@@ -17,6 +17,7 @@ import { useScreeningRecord } from "./getScreeningRecord";
 import { usePathname } from "next/navigation";
 import html2canvas from "html2canvas-pro";
 import jsPDF from "jspdf";
+import ToothIcon from "@/app/health-checks/dental-screening/toothIcon";
 
 function Info({ label, value }) {
   return (
@@ -27,11 +28,11 @@ function Info({ label, value }) {
   );
 }
 
-function StatusCard({ icon: Icon, title, status, toneClass }) {
+function StatusCard({ icon: Icon, title, status, toneClass, iconClass }) {
   return (
     <div className={`rounded-lg border p-3 ${toneClass}`}>
       <div className="mb-2 flex items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/80">
+        <div className= {`flex h-7 w-7 items-center justify-center rounded-full ${iconClass}`}>
           <Icon className="size-4" />
         </div>
       </div>
@@ -92,22 +93,62 @@ export default function HealthCheckModal({ student }) {
   // Use the real student identifier from the record — the URL slug is
   // lowercased by getStudentSlug(), which breaks backend lookups.
   const studentIdentifier = String(
+    student?.student_id ??
+    student?.id ??
+    student?.studentId ??
     student?.cus_id ??
-      student?.id ??
-      student?.studentId ??
-      student?.student_id ??
       "",
   ).trim();
+ const formatDateTime = (date) => {
+  if (!date) return "--";
 
+  return new Date(date).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
+const calculateAge = (dob) => {
+  if (!dob) return "--";
+
+  const birthDate = new Date(dob);
+  const today = new Date();
+  // let age = today.getFullYear() - birthDate.getFullYear();
+  // if (!hasBirthdayPassed) {
+//     age--;
+//   }
+
+  let years = today.getFullYear() - birthDate.getFullYear();
+  let months = today.getMonth() - birthDate.getMonth();
+
+  if (today.getDate() < birthDate.getDate()) {
+    months--;
+  }
+
+  if (months < 0) {
+    years--;
+    months += 12;
+  }
+
+  return `${years} Years ${months} Months`;
+};
   const {
     generalScreeningRecord,
     hearingScreeningRecord,
+     dentalScreeningRecord,
+    visionScreeningRecord,
     isLoading: screeningLoading,
   } = useScreeningRecord({ getId: studentIdentifier });
 
   console.log(
     generalScreeningRecord,
     hearingScreeningRecord,
+     dentalScreeningRecord,
+    visionScreeningRecord,
     "generalScreeningRecord",
   );
   const handleDownloadPDF = async () => {
@@ -372,12 +413,12 @@ export default function HealthCheckModal({ student }) {
                     Health Check Report
                   </h3>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Academic Year: 2024-25
+                    Academic Year: {student.academic_year ?? "2026-2027"}
                   </p>
                 </div>
                 <div className="flex flex-row gap-2">
                   <div className="rounded-lg bg-primary/10 px-3 py-2 text-xs text-primary">
-                    {student?.school_name ?? "School"}
+                    {student?.school_name ?? "SchoolName"}
                   </div>
                   <Button
                     type="button"
@@ -401,6 +442,7 @@ export default function HealthCheckModal({ student }) {
                 <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
                   <Info label="Student Name" value={studentName} />
                   <Info label="Date of Birth" value={dobValue} />
+                  <Info label="Age" value={calculateAge(dobValue)} />
                   <Info label="Admission No" value={admissionNo} />
                   <Info label="Gender" value={student?.gender ?? "--"} />
                   <Info
@@ -409,7 +451,7 @@ export default function HealthCheckModal({ student }) {
                   />
                   <Info
                     label="Health Check Date"
-                    value={student?.updated_at ?? student?.updatedAt ?? "--"}
+                    value={formatDateTime(student?.updated_at ?? student?.updatedAt)}
                   />
                 </div>
 
@@ -424,7 +466,7 @@ export default function HealthCheckModal({ student }) {
                       />
                     ) : (
                       <span className="text-xs text-muted-foreground">
-                        No Photo
+                        Paste Photo here
                       </span>
                     )}
                   </div>
@@ -433,34 +475,39 @@ export default function HealthCheckModal({ student }) {
 
               <section className="grid grid-cols-2 gap-3 sm:grid-cols-5">
                 <StatusCard
+                iconClass="text-success bg-success/50"
                   icon={Activity}
                   title="Physical Health"
                   status="Normal"
                   toneClass="bg-success/10 text-success border-success/30"
                 />
                 <StatusCard
+                iconClass="text-info bg-info/50"
                   icon={Eye}
                   title="Vision"
                   status="Normal"
                   toneClass="bg-info/10 text-info border-info/30"
                 />
                 <StatusCard
+                iconClass="text-primary bg-primary/50"
                   icon={Ear}
                   title="Hearing"
                   status="Normal"
                   toneClass="bg-primary/10 text-primary border-primary/30"
                 />
                 <StatusCard
-                  icon={HeartPulse}
+                iconClass="text-warning bg-warning/50"
+                  icon={ToothIcon}
                   title="Oral Health"
                   status="Good"
                   toneClass="bg-warning/10 text-warning border-warning/30"
                 />
                 <StatusCard
+                iconClass="text-destructive bg-destructive/50"
                   icon={Syringe}
                   title="Immunization"
                   status="Up to Date"
-                  toneClass="bg-cyan-100 text-cyan-700 border-cyan-200"
+                  toneClass="bg-destructive/10 text-destructive border-destructive/30"
                 />
               </section>
 
