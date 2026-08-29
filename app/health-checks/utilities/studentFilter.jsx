@@ -6,6 +6,7 @@ import { useAppDispatch } from "@/lib/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { findSelectedCamp } from "@/lib/useAssignedEvents";
 import React, { useMemo } from "react";
+// import { selectAuthRole } from "@/lib/features/auth-slice";
 // import { useDispatch } from "react-redux";
 
 const getStudentClass = (student) => {
@@ -59,6 +60,9 @@ const StudentFilter = ({
     [filterPayload],
   );
   console.log(authUser, "authUser");
+  // const getRole=  selectAuthRole
+  // console.log(selectAuthRole,"selectAuthRole");
+  
 
   const studentsBySchoolAndYear = useMemo(
     () =>
@@ -87,7 +91,7 @@ const StudentFilter = ({
   // Role gate for the Camp/School selects. Matches checkDoctor in
   // useStudentData: admins count as doctors.
   const isDoctor =
-    authUser?.account_type === "doctor" || authUser?.account_type === "admin";
+    authUser?.account_type === "doctor" || authUser?.account_type === "staff";
 console.log(authUser,"isDoctor");
 
   // const schoolOptions = useMemo(() => {

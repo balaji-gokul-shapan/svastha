@@ -1539,9 +1539,9 @@ import StudentFilter from "../health-checks/utilities/studentFilter";
 import { getFilterStudent } from "@/lib/features/getFilterStudent";
 import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useAppDispatch } from "@/lib/hooks";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { EmptyState } from "@/components/ui/empty-state";
-import useAuthUser from "@/lib/useAuthUser";
+import { selectAuthUser } from "@/lib/features/auth-slice";
 import useAssignedEvents, { findSelectedCamp } from "@/lib/useAssignedEvents";
 import { getStudentByEvent } from "@/lib/features/getEventAssignSlice";
 
@@ -1755,7 +1755,13 @@ export default function HealthOverviewReport() {
   const [sectionFilter, setSectionFilter] = useState("all");
   const [studentFilter, setStudentFilter] = useState("all");
   const [studentId, setStudentId] = useState("");
-  const { authUser } = useAuthUser();
+  // Auth must come from the SAME source the screening pages use — the Redux
+  // login snapshot (selectAuthUser), whose account_type is the string label
+  // ("doctor"/"admin"/...). useAuthUser() was wrong here: it fetches /api/auth/me,
+  // which returns the RAW backend user record where account_type is a numeric
+  // id (e.g. 5), so StudentFilter's `account_type === "doctor"` gate failed and
+  // the Camp/School selects vanished on this page only.
+  const authUser = useAppSelector(selectAuthUser);
   const { assignedEvents, assignEventLoading, assignEventError } =
     useAssignedEvents();
   // Resolve the camp linked to the currently selected school filter. The

@@ -76,11 +76,7 @@ const FemaleStudentsCard = ({ data, onChange }) => {
           <div className="grid gap-4 md:grid-cols-2">
             <TextareaField
               textFontClass="!text-domain-soft"
-              textareaClassName="!bg-domain-female-hover border-domain-female  !bg-domain-female-hover
-  !border-domain-female
-  focus:!border-domain-female
-  focus:!ring-0
-  focus:!outline-none"
+              textareaClassName="!bg-domain-female-hover border-domain-female  !bg-domain-female-hover !border-domain-female focus:!border-domain-female focus:!ring-0 focus:!outline-none"
               label="Other Concerns"
               value={data.otherConcerns}
               onChange={(event) =>
@@ -92,11 +88,7 @@ const FemaleStudentsCard = ({ data, onChange }) => {
 
             <TextareaField
               textFontClass="!text-domain-soft"
-              textareaClassName="!bg-domain-female-hover border-domain-female  !bg-domain-female-hover
-  !border-domain-female
-  focus:!border-domain-female
-  focus:!ring-0
-  focus:!outline-none"
+              textareaClassName="!bg-domain-female-hover border-domain-female  !bg-domain-female-hover !border-domain-female focus:!border-domain-female focus:!ring-0 focus:!outline-none"
               label="Referral (if any)"
               value={data.referral}
               onChange={(event) => onChange("referral", event.target.value)}

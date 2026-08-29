@@ -152,9 +152,6 @@ function AcuityRow({
     );
   };
 
-  // Distance options come from master data, but "NA" must always be
-  // selectable — it's how a not-applicable eye is recorded, and the save
-  // schema only requires the (Without) fields to be non-empty strings.
   const masterNames = (Array.isArray(visionResultData) ? visionResultData : [])
     .map((item) => item?.name)
     .filter(Boolean);
@@ -215,9 +212,6 @@ function AcuityRow({
 }
 
 const emptyEye = {
-  // "NA" is the default selection for every acuity dropdown — an
-  // untested / not-applicable eye must still satisfy the save schema,
-  // which requires the (Without) fields to be non-empty strings.
   distanceWithout: "NA",
   nearWithout: "NA",
   distanceWith: "NA",
@@ -283,7 +277,6 @@ const authUser = useAppSelector(selectAuthUser);
     refetchOnWindowFocus: true,
   });
 
-    console.log(studentFilter,"studentFilter-------------------");
 
 
   const {
@@ -776,9 +769,6 @@ const authUser = useAppSelector(selectAuthUser);
 
   const applyScreeningRecordToForm = useCallback((screeningRecord) => {
     const record = screeningRecord ?? {};
-
-    // "|| NA" (not ??) so legacy records saved with "" also show the
-    // NA default instead of an empty select.
     setOd({
       distanceWithout: String(record?.od_distance_without || "NA"),
       nearWithout: String(record?.od_near_without || "NA"),
