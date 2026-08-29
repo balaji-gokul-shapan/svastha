@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   AlertTriangle,
@@ -43,7 +43,7 @@ import {
 } from "./vision-screening-data";
 import { Button } from "@/components/ui/button";
 import CampStudentSelectorDrawer from "@/components/health-checks/camp-student-selector-drawer";
-import { useAppDispatch } from "@/lib/hooks";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { getVisionScreening } from "@/lib/features/getVisionScreening";
 import { createVisionScreening } from "@/lib/features/registerVisionScreening";
 import useStudentData from "@/components/health-checks/getStudentData";
@@ -56,6 +56,8 @@ import { visionScreeningSchema } from "./vision-screening-schema";
 import { FramerCard } from "@/util/FramerCard";
 import { getMasterData } from "@/util/masterData";
 import { getAllMasterScreening } from "@/lib/features/masterScreeningSlice";
+import { getAssignEvent } from "@/lib/features/getEventAssignSlice";
+import { selectAuthUser } from "@/lib/features/auth-slice";
 
 function FieldLabel({ children }) {
   return (
@@ -109,6 +111,87 @@ function TextField({ label, value, onChange, placeholder }) {
   );
 }
 
+// Rendered once per eye (OD / OS / OU). MUST stay at module scope: if defined
+// inside VisionScreeningPage, every keystroke re-created the component type and
+// React remounted the row, so the remarks input lost focus while typing.
+// Dependencies from the page are passed as props instead of closed over.
+function AcuityRow({
+  label,
+  eye,
+  onChange,
+  visionResultData,
+  acuitySeverityMap,
+}) {
+  const severityFor = (value) => {
+    const record = (acuitySeverityMap ?? {})[String(value ?? "").trim()];
+    return record?.severity ?? "";
+  };
+
+  const severityLine = (value) => {
+    const severity = severityFor(value);
+    if (!severity) return null;
+    return (
+      <p className={`mt-1 text-xs ${SEVERITY_TEXT_CLASS[severityTone(severity)]}`}>
+        {severity}
+      </p>
+    );
+  };
+
+  const distanceOptions = (Array.isArray(visionResultData) ? visionResultData : []).map(
+    (item) => item?.name,
+  );
+
+  return (
+    <div className="rounded-lg border border-border/70 bg-background p-3 sm:p-4">
+      <p className="mb-3 text-sm font-semibold text-foreground">{label}</p>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div>
+          <SelectField
+            label="Distance (Without)"
+            options={distanceOptions}
+            value={eye.distanceWithout}
+            onChange={(v) => onChange({ ...eye, distanceWithout: v })}
+          />
+          {/* {severityLine(eye.distanceWithout)} */}
+        </div>
+        <div>
+          <SelectField
+            label="Near (Without)"
+            options={nearAcuityOptions}
+            value={eye.nearWithout}
+            onChange={(v) => onChange({ ...eye, nearWithout: v })}
+          />
+        </div>
+        <div>
+          <SelectField
+            label="Distance (With)"
+            options={distanceOptions}
+            value={eye.distanceWith}
+            onChange={(v) => onChange({ ...eye, distanceWith: v })}
+          />
+          {/* {severityLine(eye.distanceWith)} */}
+        </div>
+        <div>
+          <SelectField
+            label="Near (With)"
+            options={nearAcuityOptions}
+            value={eye.nearWith}
+            onChange={(v) => onChange({ ...eye, nearWith: v })}
+          />
+        </div>
+      </div>
+      <div className="mt-3">
+        <TextField
+          label="Remarks"
+          value={eye.remarks}
+          onChange={(v) => onChange({ ...eye, remarks: v })}
+          placeholder="Optional notes for this eye"
+        />
+      </div>
+    </div>
+  );
+}
+
 const emptyEye = {
   distanceWithout: "",
   nearWithout: "",
@@ -146,6 +229,7 @@ const SUMMARY_TONE_CLASS = {
 
 export default function VisionScreeningPage() {
   const dispatch = useAppDispatch();
+  const queryClient = useQueryClient();
    const academicYearOptions = ["2026-2027", "2025-2026", "2024-2025"];
  const [selectedCampId, setSelectedCampId] = useState("1");
   const [academicYear, setAcademicYear] = useState(academicYearOptions[0]);
@@ -155,7 +239,7 @@ export default function VisionScreeningPage() {
   const [classFilter, setClassFilter] = useState("all");
   const [sectionFilter, setSectionFilter] = useState("all");
   const [studentFilter, setStudentFilter] = useState("all");
-
+const authUser = useAppSelector(selectAuthUser);
     const { data: filterPayload, isLoading } = useQuery({
     queryKey: ["filter-student", schoolName, academicYear, "options"],
     queryFn: () =>
@@ -232,7 +316,7 @@ export default function VisionScreeningPage() {
       const trimmed = String(value ?? "").trim();
       if (!trimmed) return { label: "Not tested", tone: "muted" };
 
-      const match = acuitySeverityMap[trimmed];
+      const match = acuitySeverityMap[trimmed] || distanceAcuityNames[trimmed];
       if (match) {
         const severity = String(match.severity ?? "").trim();
         return {
@@ -245,7 +329,7 @@ export default function VisionScreeningPage() {
 
       return classifyAcuity(trimmed);
     },
-    [acuitySeverityMap],
+    [acuitySeverityMap, distanceAcuityNames],
   );
 
  
@@ -259,76 +343,6 @@ export default function VisionScreeningPage() {
   const [od, setOd] = useState({ ...emptyEye, distanceWith: "6/6" });
   const [os, setOs] = useState({ ...emptyEye, distanceWith: "6/9" });
   const [ou, setOu] = useState(emptyEye);
-
-  // Initial state for one eye's four acuity readings + remarks.
-
-
-function AcuityRow({ label, eye, onChange }) {
-    const severityFor = (value) => {
-      const record = acuitySeverityMap[String(value ?? "").trim()];
-      return record?.severity ?? "";
-    };
-
-    const severityLine = (value) => {
-      const severity = severityFor(value);
-      if (!severity) return null;
-      return (
-        <p className={`mt-1 text-xs ${SEVERITY_TEXT_CLASS[severityTone(severity)]}`}>
-          {severity}
-        </p>
-      );
-    };
-
-    return (
-      <div className="rounded-lg border border-border/70 bg-background p-3 sm:p-4">
-        <p className="mb-3 text-sm font-semibold text-foreground">{label}</p>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <div>
-            <SelectField
-              label="Distance (Without)"
-              options={visionResultData.map((item)=> item?.name)}
-              value={eye.distanceWithout}
-              onChange={(v) => onChange({ ...eye, distanceWithout: v })}
-            />
-            {/* {severityLine(eye.distanceWithout)} */}
-          </div>
-          <div>
-            <SelectField
-              label="Near (Without)"
-              options={nearAcuityOptions}
-              value={eye.nearWithout}
-              onChange={(v) => onChange({ ...eye, nearWithout: v })}
-            />
-          </div>
-          <div>
-            <SelectField
-              label="Distance (With)"
-              options={visionResultData.map((item)=> item?.name)}
-              value={eye.distanceWith}
-              onChange={(v) => onChange({ ...eye, distanceWith: v })}
-            />
-            {/* {severityLine(eye.distanceWith)} */}
-          </div>
-          <div>
-            <SelectField
-              label="Near (With)"
-              options={nearAcuityOptions}
-              value={eye.nearWith}
-              onChange={(v) => onChange({ ...eye, nearWith: v })}
-            />
-          </div>
-        </div>
-        <div className="mt-3">
-          <TextField
-            label="Remarks"
-            value={eye.remarks}
-            onChange={(v) => onChange({ ...eye, remarks: v })}
-            placeholder="Optional notes for this eye"
-          />
-        </div>
-      </div>
-    );
-  }
 
   const [colorVisionStatus, setColorVisionStatus] = useState(
     colorVisionData?.name,
@@ -395,6 +409,30 @@ function AcuityRow({ label, eye, onChange }) {
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
+
+    const {
+        data: assignedEvents,
+        isLoading: assignEventLoading,
+        error: assignEventError,
+      } = useQuery({
+        // Key includes the user id: when the session hydrates (or the
+        // signed-in user changes) the query refetches with the right id.
+        queryKey: ["get-event", authUser?.id ?? authUser?.Id ?? null],
+        queryFn: () => {
+          const userId = authUser?.id ?? authUser?.Id;
+          if (!userId) {
+            throw new Error("Signed-in user not available yet");
+          }
+          return dispatch(getAssignEvent({ id: userId })).unwrap();
+        },
+        // Don't fire before the auth user is in the store — otherwise
+        // `authUser.id` throws and the query dies in the error state.
+        enabled: Boolean(authUser?.id ?? authUser?.Id),
+        staleTime: 0,
+        refetchOnWindowFocus: true,
+      });
+  console.log(assignedEvents,"assignedEvents");
+  
   // const {
   //   campsData = [],
   //   campsLoading,
@@ -1045,7 +1083,9 @@ function AcuityRow({ label, eye, onChange }) {
     dispatch(createVisionScreening(payload))
       .unwrap()
       .then(() => {
-        dispatch(getVisionScreening({ studentId: rawStudentId }));
+        // Refresh the react-query cache; the ["vision-screening"] query's
+        // queryFn re-dispatches getVisionScreening, keeping Redux in sync.
+        queryClient.invalidateQueries({ queryKey: ["vision-screening"] });
 
         toast.success("Vision screening saved successfully", {
           description: selectedStudent?.name
@@ -1080,6 +1120,7 @@ function AcuityRow({ label, eye, onChange }) {
     os,
     ou,
     pupil,
+    queryClient,
     referral,
     referralReason,
     refractiveError,
@@ -1124,8 +1165,13 @@ function AcuityRow({ label, eye, onChange }) {
     setFollowUp(followUpOptions[0]);
   }, []);
 
+  // Keep studentFilter in sync: selectedStudentFromFilter gives
+  // studentFilter precedence over studentId, so without this the
+  // assessment-card selection would be ignored once a student has
+  // been picked in the filter dropdown.
   const handleAssessmentStudentChange = useCallback((value) => {
     setStudentId(value);
+    setStudentFilter(value);
   }, []);
 
   const resetDependentFilters = useCallback(() => {
@@ -1295,6 +1341,10 @@ function AcuityRow({ label, eye, onChange }) {
         onClassFilterChange={handleClassFilterChange}
         onSectionFilterChange={handleSectionFilterChange}
         onStudentFilterChange={handleStudentFilterChange}
+        assignedEvents={assignedEvents}
+        assignEventLoading={assignEventLoading}
+        assignEventError={assignEventError}
+        authUser={authUser}
       />
       {studentSelectValue?.length > 0 ? (
         <>
@@ -1361,9 +1411,11 @@ function AcuityRow({ label, eye, onChange }) {
                   data={getSelectedStudentScreeningData}
                   studentOptions={assessmentStudentOptions}
                   studentValue={studentSelectValue}
+                  schoolName={schoolName}
                   onStudentChange={handleAssessmentStudentChange}
                   onSave={handleSaveAssessment}
                   onCancel={handleCancelAssessment}
+                   authUser={authUser}
                 />
               </FramerCard>
 
@@ -1451,6 +1503,8 @@ function AcuityRow({ label, eye, onChange }) {
                         od
                       }
                       onChange={setOd}
+                      visionResultData={visionResultData}
+                      acuitySeverityMap={acuitySeverityMap}
                     />
                     <AcuityRow
                       label="Left Eye (OS)"
@@ -1459,6 +1513,8 @@ function AcuityRow({ label, eye, onChange }) {
                         os
                       }
                       onChange={setOs}
+                      visionResultData={visionResultData}
+                      acuitySeverityMap={acuitySeverityMap}
                     />
                     <AcuityRow
                       label="Both Eyes (OU)"
@@ -1467,6 +1523,8 @@ function AcuityRow({ label, eye, onChange }) {
                         ou
                       }
                       onChange={setOu}
+                      visionResultData={visionResultData}
+                      acuitySeverityMap={acuitySeverityMap}
                     />
                   </div>
                 </article>

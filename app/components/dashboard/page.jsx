@@ -8,7 +8,7 @@ const MasterDashboard = () => {
  console.log(authUser, "authUser in useStudentData");
  const checkDoctor = authUser?.account_type === "doctor"
  const isAdmin = authUser?.role === "admin";
- console.log({isAdmin, checkDoctor});
+//  console.log({isAdmin, checkDoctor});
  
   return (
     <>

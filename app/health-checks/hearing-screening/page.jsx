@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Activity,
@@ -26,7 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import CampStudentSelectorDrawer from "@/components/health-checks/camp-student-selector-drawer";
 import useStudentData from "@/components/health-checks/getStudentData";
-import { useAppDispatch } from "@/lib/hooks";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { getHearingScreening } from "@/lib/features/getHearingScreening";
 import AssessmentCard from "@/app/ui/AssessmentCard";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -38,11 +38,16 @@ import { FramerCard } from "@/util/FramerCard";
 import { hearingScreeningSchema } from "./hearningSchema";
 import { getMasterData } from "@/util/masterData";
 import { getAllMasterScreening } from "@/lib/features/masterScreeningSlice";
+import { selectAuthUser } from "@/lib/features/auth-slice";
+import { getAssignEvent } from "@/lib/features/getEventAssignSlice";
 
 const FREQUENCIES = [250, 500, 1000, 2000, 4000, 8000];
 
 export default function HearingScreening({ screening = {} }) {
   const dispatch = useAppDispatch();
+  const queryClient = useQueryClient();
+  const authUser = useAppSelector(selectAuthUser);
+
 
   const [form, setForm] = React.useState({
     pta_250hz_re: screening.pta_250hz_re ?? "",
@@ -127,8 +132,31 @@ export default function HearingScreening({ screening = {} }) {
 
     refetchOnWindowFocus: false,
   });
-
+    const {
+        data: assignedEvents,
+        isLoading: assignEventLoading,
+        error: assignEventError,
+      } = useQuery({
+        // Key includes the user id: when the session hydrates (or the
+        // signed-in user changes) the query refetches with the right id.
+        queryKey: ["get-event", authUser?.id ?? authUser?.Id ?? null],
+        queryFn: () => {
+          const userId = authUser?.id ?? authUser?.Id;
+          if (!userId) {
+            throw new Error("Signed-in user not available yet");
+          }
+          return dispatch(getAssignEvent({ id: userId })).unwrap();
+        },
+        // Don't fire before the auth user is in the store — otherwise
+        // `authUser.id` throws and the query dies in the error state.
+        enabled: Boolean(authUser?.id ?? authUser?.Id),
+        staleTime: 0,
+        refetchOnWindowFocus: true,
+      });
+  console.log(assignedEvents,"assignedEvents");
   console.log(masterScreeningData, "All Master Screening Data");
+
+  
 
   const requiredMasterData = React.useMemo(
     () =>
@@ -141,6 +169,8 @@ export default function HearingScreening({ screening = {} }) {
   );
   console.log(requiredMasterData, "requiredMasterData");
 
+ 
+
   // Hearing referral reasons → dropdown option names for the select.
   const referralReasonOptions = (
     requiredMasterData["hearing-referral-reasons"] ?? []
@@ -148,9 +178,9 @@ export default function HearingScreening({ screening = {} }) {
     .map((item) => String(item?.name ?? "").trim())
     .filter(Boolean);
 
-  const examinationOptions = (
-        requiredMasterData["ear-examinations"] ?? []
-  ).map((item)=> String(item?.name ?? "").trim()).filter(Boolean)
+  const examinationOptions = (requiredMasterData["ear-examinations"] ?? [])
+    .map((item) => String(item?.name ?? "").trim())
+    .filter(Boolean);
 
   // Hearing classifications → used to classify the pure-tone average.
   const hearingClassifications =
@@ -220,7 +250,10 @@ export default function HearingScreening({ screening = {} }) {
       selectedStudent?.student_id ??
       selectedStudent?.studentId ??
       studentId;
-
+    if (!String(rawStudentId ?? "").trim()) {
+      toast.error("Select a student before saving the hearing screening.");
+      return;
+    }
     const result = hearingScreeningSchema.safeParse(form);
 
     if (!result.success) {
@@ -264,7 +297,9 @@ export default function HearingScreening({ screening = {} }) {
     dispatch(createHearingScreening(data))
       .unwrap()
       .then(() => {
-        dispatch(getHearingScreening({ studentId: rawStudentId }));
+        // Refresh the react-query cache; the ["hearing-screening"] query's
+        // queryFn re-dispatches getHearingScreening, keeping Redux in sync.
+        queryClient.invalidateQueries({ queryKey: ["hearing-screening"] });
 
         toast.success("Hearing screening saved successfully", {
           description: selectedStudent?.name
@@ -766,8 +801,13 @@ export default function HearingScreening({ screening = {} }) {
     [filterPayload?.items],
   );
 
+  // Keep studentFilter in sync: selectedStudentFromFilter gives
+  // studentFilter precedence over studentId, so without this the
+  // assessment-card selection would be ignored once a student has
+  // been picked in the filter dropdown.
   const handleAssessmentStudentChange = React.useCallback((value) => {
     setStudentId(value);
+    setStudentFilter(value);
   }, []);
 
   const resetDependentFilters = React.useCallback(() => {
@@ -923,6 +963,10 @@ export default function HearingScreening({ screening = {} }) {
         onClassFilterChange={handleClassFilterChange}
         onSectionFilterChange={handleSectionFilterChange}
         onStudentFilterChange={handleStudentFilterChange}
+        assignedEvents={assignedEvents}
+        assignEventLoading={assignEventLoading}
+        assignEventError={assignEventError}
+        authUser={authUser}
       />
       {/* =====================================================
           MAIN GRID
@@ -958,7 +1002,9 @@ export default function HearingScreening({ screening = {} }) {
                   data={getSelectedStudentScreeningData}
                   studentOptions={assessmentStudentOptions}
                   studentValue={studentSelectValue}
+                  schoolName={schoolName}
                   onStudentChange={handleAssessmentStudentChange}
+                   authUser={authUser}
                   // onSave={handleSaveAssessment}
                   // onCancel={handleCancelAssessment}
                 />
@@ -1013,17 +1059,13 @@ export default function HearingScreening({ screening = {} }) {
                   </CardHeader>
 
                   <CardContent className="space-y-2">
-                    <StatusItem
-                      label="Right Ear"
-                      value={form.ear_exam_re}
-                    />
+                    <StatusItem label="Right Ear" value={form.ear_exam_re} />
 
                     <StatusItem
                       label="Left Ear"
                       // value={form.overall_status_le}
                       value={form.ear_exam_le}
                       // status={form.ear_exam_le}
-
                     />
 
                     <StatusItem label="Overall" value={form.overall_status} />
@@ -1453,9 +1495,7 @@ export default function HearingScreening({ screening = {} }) {
                     <SelectField
                       label="Left Ear"
                       value={form.ear_exam_le}
-                      onChange={(value) =>
-                        updateField("ear_exam_le", value)
-                      }
+                      onChange={(value) => updateField("ear_exam_le", value)}
                       options={examinationOptions}
                       error={formErrors?.ear_exam_le}
                     />
@@ -1463,9 +1503,7 @@ export default function HearingScreening({ screening = {} }) {
                     <SelectField
                       label="Right Ear"
                       value={form.ear_exam_re}
-                      onChange={(value) =>
-                        updateField("ear_exam_re", value)
-                      }
+                      onChange={(value) => updateField("ear_exam_re", value)}
                       options={examinationOptions}
                       error={formErrors?.ear_exam_re}
                     />
@@ -1828,7 +1866,9 @@ function Audiogram({ form, updateField }) {
                   <Input
                     type="number"
                     value={form[field]}
-                    onChange={(e) => updateField(field, clampDbValue(e.target.value))}
+                    onChange={(e) =>
+                      updateField(field, clampDbValue(e.target.value))
+                    }
                     min={PTA_MIN_DB}
                     max={PTA_MAX_DB}
                     className="h-9 text-center text-xs"
@@ -1854,7 +1894,9 @@ function Audiogram({ form, updateField }) {
                   <Input
                     type="number"
                     value={form[field]}
-                    onChange={(e) => updateField(field, clampDbValue(e.target.value))}
+                    onChange={(e) =>
+                      updateField(field, clampDbValue(e.target.value))
+                    }
                     min={PTA_MIN_DB}
                     max={PTA_MAX_DB}
                     className="h-9 text-center text-xs"

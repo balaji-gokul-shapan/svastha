@@ -67,10 +67,169 @@ export function calcBmi(heightCm, weightKg) {
   return Number((weight / (heightM * heightM)).toFixed(2));
 }
 
-export function bmiCategory(bmi) {
-  if (bmi == null || Number.isNaN(bmi)) return { label: "—", icon: ManIcon, tone: "muted" };
+export function bmiCategory(bmiValue) {
+  // Callers may pass numbers, numeric strings ("25"), empty strings from a
+  // reset form, or stale placeholder values — coerce defensively before the
+  // comparisons so nothing slips through the bands unchanged.
+  const bmi = Number(bmiValue);
+
+  if (bmiValue == null || bmiValue === "" || !Number.isFinite(bmi)) {
+    return { label: "—", icon: ManIcon, tone: "muted" };
+  }
   if (bmi < 18.5) return { label: "Underweight", icon:UnderweightIcon, tone: "info" };
   if (bmi < 25) return { label: "Normal", icon:ManIcon, tone: "success" };
   if (bmi < 30) return { label: "Overweight", icon:Overweight24pxIcon, tone: "warning" };
   return { label: "Obese", icon:OverweightIcon, tone: "destructive" };
 }
+
+export const GROWTH_STANDARD_BANDS = [
+  {
+    minAge: 5,
+    maxAge: 6,
+    heightMin: 105,
+    heightMax: 124,
+    weightMin: 15,
+    weightMax: 25,
+  },
+  {
+    minAge: 7,
+    maxAge: 8,
+    heightMin: 115,
+    heightMax: 136,
+    weightMin: 19,
+    weightMax: 32,
+  },
+  {
+    minAge: 9,
+    maxAge: 10,
+    heightMin: 126,
+    heightMax: 148,
+    weightMin: 24,
+    weightMax: 40,
+  },
+  {
+    minAge: 11,
+    maxAge: 12,
+    heightMin: 136,
+    heightMax: 162,
+    weightMin: 30,
+    weightMax: 51,
+  },
+  {
+    minAge: 13,
+    maxAge: 14,
+    heightMin: 148,
+    heightMax: 174,
+    weightMin: 38,
+    weightMax: 64,
+  },
+  {
+    minAge: 15,
+    maxAge: 16,
+    heightMin: 154,
+    heightMax: 182,
+    weightMin: 45,
+    weightMax: 72,
+  },
+  {
+    minAge: 17,
+    maxAge: 18,
+    heightMin: 158,
+    heightMax: 186,
+    weightMin: 50,
+    weightMax: 80,
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Age-based reference ranges for vitals (resting, school-age children).
+// Bands mirror GROWTH_STANDARD_BANDS by age so one DOB lookup covers both.
+// Values are standard pediatric reference tables; treat them as the default
+// and swap in your school's / board's source-of-truth numbers as needed.
+// ---------------------------------------------------------------------------
+export const VITALS_STANDARD_BANDS = [
+  {
+    minAge: 5,
+    maxAge: 6,
+    pulseMin: 75,
+    pulseMax: 115,
+    bpSystolicMin: 95,
+    bpSystolicMax: 105,
+    bpDiastolicMin: 57,
+    bpDiastolicMax: 68,
+    spo2Min: 95,
+    spo2Max: 100,
+  },
+  {
+    minAge: 7,
+    maxAge: 8,
+    pulseMin: 70,
+    pulseMax: 110,
+    bpSystolicMin: 97,
+    bpSystolicMax: 107,
+    bpDiastolicMin: 57,
+    bpDiastolicMax: 69,
+    spo2Min: 95,
+    spo2Max: 100,
+  },
+  {
+    minAge: 9,
+    maxAge: 10,
+    pulseMin: 70,
+    pulseMax: 110,
+    bpSystolicMin: 102,
+    bpSystolicMax: 110,
+    bpDiastolicMin: 61,
+    bpDiastolicMax: 73,
+    spo2Min: 95,
+    spo2Max: 100,
+  },
+  {
+    minAge: 11,
+    maxAge: 12,
+    pulseMin: 60,
+    pulseMax: 105,
+    bpSystolicMin: 106,
+    bpSystolicMax: 114,
+    bpDiastolicMin: 61,
+    bpDiastolicMax: 77,
+    spo2Min: 95,
+    spo2Max: 100,
+  },
+  {
+    minAge: 13,
+    maxAge: 14,
+    pulseMin: 60,
+    pulseMax: 100,
+    bpSystolicMin: 110,
+    bpSystolicMax: 119,
+    bpDiastolicMin: 65,
+    bpDiastolicMax: 76,
+    spo2Min: 95,
+    spo2Max: 100,
+  },
+  {
+    minAge: 15,
+    maxAge: 16,
+    pulseMin: 60,
+    pulseMax: 100,
+    bpSystolicMin: 112,
+    bpSystolicMax: 124,
+    bpDiastolicMin: 66,
+    bpDiastolicMax: 78,
+    spo2Min: 95,
+    spo2Max: 100,
+  },
+  {
+    minAge: 17,
+    maxAge: 18,
+    pulseMin: 60,
+    pulseMax: 100,
+    bpSystolicMin: 118,
+    bpSystolicMax: 128,
+    bpDiastolicMin: 65,
+    bpDiastolicMax: 83,
+    spo2Min: 95,
+    spo2Max: 100,
+  },
+];

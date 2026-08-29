@@ -2,7 +2,7 @@
 import * as React from "react";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   AlertTriangle,
@@ -20,7 +20,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 
-import { useAppDispatch } from "@/lib/hooks";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { getDentalScreening } from "@/lib/features/getDentalScreening";
 import { createDentalScreening } from "@/lib/features/registerDentalScreening";
 import CampStudentSelectorDrawer from "@/components/health-checks/camp-student-selector-drawer";
@@ -52,14 +52,15 @@ import { ScoreMeter } from "./scoreMeter";
 import { EmptyState } from "@/components/ui/empty-state";
 import ToothIcon from "./toothIcon";
 import StudentProfileCard from "@/app/students/studentProfileCard";
-import { cn } from "../../lib/util";
+import { cn } from "@/lib/utils";
 import StudentFilter from "../utilities/studentFilter";
 import { getFilterStudent } from "@/lib/features/getFilterStudent";
 import { dentalScreeningSchema } from "./dental-screening-schema";
 import { FramerCard } from "@/util/FramerCard";
 import { getMasterData } from "@/util/masterData";
 import { getAllMasterScreening } from "@/lib/features/masterScreeningSlice";
-("../../lib/util");
+import { getAssignEvent } from "@/lib/features/getEventAssignSlice";
+import { selectAuthUser } from "@/lib/features/auth-slice";
 
 function FieldLabel({ children }) {
   return (
@@ -258,6 +259,7 @@ function buildChartFromCounts(record) {
 
 export default function DentalAssessmentPage() {
   const dispatch = useAppDispatch();
+  const queryClient = useQueryClient();
 
   const [assessmentDate, setAssessmentDate] = useState("2025-08-05");
   const [location, setLocation] = useState(locationOptions[0]);
@@ -387,6 +389,7 @@ export default function DentalAssessmentPage() {
   const [notes, setNotes] = useState("Mild crowding in lower anterior region.");
 
   
+  const authUser = useAppSelector(selectAuthUser);
 
 
   // { fieldName: "message" } — populated when zod validation fails.
@@ -429,6 +432,30 @@ export default function DentalAssessmentPage() {
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
+
+   const {
+          data: assignedEvents,
+          isLoading: assignEventLoading,
+          error: assignEventError,
+        } = useQuery({
+          // Key includes the user id: when the session hydrates (or the
+          // signed-in user changes) the query refetches with the right id.
+          queryKey: ["get-event", authUser?.id ?? authUser?.Id ?? null],
+          queryFn: () => {
+            const userId = authUser?.id ?? authUser?.Id;
+            if (!userId) {
+              throw new Error("Signed-in user not available yet");
+            }
+            return dispatch(getAssignEvent({ id: userId })).unwrap();
+          },
+          // Don't fire before the auth user is in the store — otherwise
+          // `authUser.id` throws and the query dies in the error state.
+          enabled: Boolean(authUser?.id ?? authUser?.Id),
+          staleTime: 0,
+          refetchOnWindowFocus: true,
+        });
+    console.log(assignedEvents,"assignedEvents");
+    console.log(masterScreeningData, "All Master Screening Data");
 
   const {
     data: dentalScreeningData = [],
@@ -1111,7 +1138,9 @@ export default function DentalAssessmentPage() {
     dispatch(createDentalScreening(payload))
       .unwrap()
       .then(() => {
-        dispatch(getDentalScreening({ studentId: rawStudentId }));
+        // Refresh the react-query cache; the ["dental-screening"] query's
+        // queryFn re-dispatches getDentalScreening, keeping Redux in sync.
+        queryClient.invalidateQueries({ queryKey: ["dental-screening"] });
 
         toast.success("Dental screening saved successfully", {
           description: selectedStudent?.name
@@ -1142,8 +1171,13 @@ export default function DentalAssessmentPage() {
     setNotes("Mild crowding in lower anterior region.");
   };
 
+  // Keep studentFilter in sync: selectedStudentFromFilter gives
+  // studentFilter precedence over studentId, so without this the
+  // assessment-card selection would be ignored once a student has
+  // been picked in the filter dropdown.
   const handleAssessmentStudentChange = React.useCallback((value) => {
     setStudentId(value);
+    setStudentFilter(value);
   }, []);
 
   const resetDependentFilters = React.useCallback(() => {
@@ -1315,6 +1349,10 @@ export default function DentalAssessmentPage() {
         onClassFilterChange={handleClassFilterChange}
         onSectionFilterChange={handleSectionFilterChange}
         onStudentFilterChange={handleStudentFilterChange}
+        assignedEvents={assignedEvents}
+        assignEventLoading={assignEventLoading}
+        assignEventError={assignEventError}
+        authUser={authUser}
       />
       {dentalScreeningQueryError ? (
         <p className="text-sm text-destructive">
@@ -1407,9 +1445,11 @@ export default function DentalAssessmentPage() {
                 // isScreeningLoading={getData.studentCampLoading}
                 // isScreeningError={getData.studentCampQueryError}
                 // isScreening={true}
+                schoolName={schoolName}
                 onStudentChange={handleAssessmentStudentChange}
                 onSave={handleSaveAssessment}
                 onCancel={handleCancelAssessment}
+                 authUser={authUser}
               />
               </FramerCard>
               <FramerCard>

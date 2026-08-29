@@ -3,11 +3,14 @@ import { useMemo } from "react";
 import { useAppDispatch } from "@/lib/hooks";
 import { getCamp } from "@/lib/features/getCampSlice";
 import { getStudentByCamp } from "@/lib/features/getStudentbyCampSlice";
-import { useSelector } from "react-redux";
+import useAuthUser from "@/lib/useAuthUser";
 
 const useStudentData = (selectedCampId = "") => {
   const dispatch = useAppDispatch();
-  const authUser = useSelector((state) => state.auth?.user);
+  // Auth user via react-query (fresh from /api/auth/me, with a session
+  // fallback). NOTE: it resolves asynchronously — authUser is null for the
+  // first render(s) until the query settles.
+  const { authUser, isLoading: authUserLoading } = useAuthUser();
   console.log(authUser, "authUser in useStudentData");
   const checkDoctor = authUser?.account_type === "doctor" || authUser?.account_type === "admin";
   const checkSchool = authUser?.account_type === "school";
@@ -108,6 +111,10 @@ const useStudentData = (selectedCampId = "") => {
 
 
   return {
+    authUser,
+    authUserLoading,
+    checkDoctor,
+    checkSchool,
     campsData,
     campsLoading,
     campsQueryError,

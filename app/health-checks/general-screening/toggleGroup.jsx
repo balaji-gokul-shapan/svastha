@@ -9,7 +9,29 @@ const TONE_ACTIVE_CLASS = {
   neutral: "border-primary bg-primary/10 text-primary",
 };
 
+// Shared button chrome for BOTH components — tweak once, both follow.
+const SEGMENT_BASE_CLASS =
+  "min-h-10 rounded-md border px-2.5 py-2 text-xs font-medium leading-tight transition-colors sm:px-3 sm:text-sm";
+const SEGMENT_INACTIVE_CLASS =
+  "border-border bg-background text-muted-foreground hover:bg-muted";
+
+// Options may arrive as plain strings ("Normal") or as schema objects
+// ({ value, label, tone }). Normalizing here lets ToggleGroup and
+// SegmentedControl consume exactly the same data — including tones —
+// without callers maintaining two option shapes.
+function normalizeOption(option) {
+  if (typeof option === "string") {
+    return { value: option, label: option };
+  }
+  return {
+    value: option?.value,
+    label: option?.label ?? option?.value,
+    tone: option?.tone,
+  };
+}
+
 const COLUMN_CLASS = {
+  2: "grid-cols-1 sm:grid-cols-2",
   3: "grid-cols-1 sm:grid-cols-3",
   4: "grid-cols-2 sm:grid-cols-4",
   8: "grid-cols-2 sm:grid-cols-4 lg:grid-cols-auto",
@@ -29,37 +51,49 @@ function ToggleGroupComponent({
   value,
   onChange,
   columns = 3,
+  icon,
+  iconBg,
+  // textColor="text-foreground",
+  headingClass="text-foreground",
+  textClass,
 }) {
+  // Dynamic icon: when an `icon` component is passed it renders that one
+  // (e.g. Syringe for Immunization); otherwise it falls back to the default
+  // blood-drop. Both styles are accepted — a component reference like
+  // icon={Syringe} — not an element.
+  const Icon = icon || BloodDropOutlineIcon;
+
   return (
     <div>
       <div className="flex flex-row items-center gap-2 mb-3">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-destructive/10">
-          <BloodDropOutlineIcon
-            className="size-4 text-destructive"
-            height="4rem"
-          />
+        {icon && (
+          <div className={`flex size-8 items-center justify-center rounded-lg ${iconBg}`}>
+          <Icon className={`size-4 ${textClass}`} height="4rem" />
         </div>
+        )}
         {/* <HematologyLaboratoryIcon className="size-6 text-success rounded-xl " height="5rem" /> */}
-        <p className="mb-2 text-sm font-semibold text-foreground">{label}</p>
+        <p className={`mb-2 text-sm font-semibold ${headingClass}`}>{label}</p>
       </div>
       <div
         className={`grid gap-2 sm:gap-2.5 ${COLUMN_CLASS[columns] || COLUMN_CLASS[3]}`}
       >
-        {options.map((option) => {
-          const isActive = value === option.value;
+        {options.map((rawOption) => {
+          const { value: optionValue, label: optionLabel, tone } =
+            normalizeOption(rawOption);
+          const isActive = value === optionValue;
           return (
             <button
-              key={option.value}
+              key={optionValue}
               type="button"
-              onClick={() => onChange(option.value)}
+              onClick={() => onChange(optionValue)}
               aria-pressed={isActive}
-              className={`min-h-10 w-full rounded-md border px-2.5 py-2 text-xs font-medium leading-tight transition-colors sm:px-3 sm:text-sm ${
+              className={`${SEGMENT_BASE_CLASS} w-full ${
                 isActive
-                  ? TONE_ACTIVE_CLASS[option.tone || "neutral"]
-                  : "border-border bg-background text-muted-foreground hover:bg-muted"
+                  ? TONE_ACTIVE_CLASS[tone || "neutral"]
+                  : SEGMENT_INACTIVE_CLASS
               }`}
             >
-              {formatBloodGroup(option.label)}
+              {formatBloodGroup(optionLabel)}
             </button>
           );
         })}
@@ -68,5 +102,9 @@ function ToggleGroupComponent({
   );
 }
 
+
+
 // Memoized: avoids re-rendering all toggle buttons on unrelated parent updates.
 export const ToggleGroup = memo(ToggleGroupComponent);
+
+

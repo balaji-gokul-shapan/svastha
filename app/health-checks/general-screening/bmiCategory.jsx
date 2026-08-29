@@ -64,19 +64,46 @@ const ICON_CLASS = {
 const TONE_ICON = {
   info: UnderweightIcon,
   success: ManIcon,
-  warning: OverweightIcon ,
+  warning: OverweightIcon,
   destructive: Overweight24pxIcon,
   muted: ManIcon,
 };
 
-// Build gauge zones from master-data categories, clamped to the visible
+// Extract a finite bound from a master-data row, tolerating alternate key
+// names and text-polluted values ("25 cm", stray spaces, empty strings).
+function pickBound(item, keys) {
+  for (const key of keys) {
+    const parsed = Number(String(item?.[key] ?? "").replace(/[^0-9.-]/g, ""));
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return Number.NaN;
+}
+
+// Master-data rows may arrive with different key shapes depending on how the
+// backend serializes them (min_value / minValue / min …). Normalize once so
+// the zones and the lookup below always operate on clean numeric bands.
+function normalizeCategories(categories) {
+  return (categories ?? [])
+    .map((item) => ({
+      id: item?.id,
+      name: item?.name ?? item?.label ?? item?.category_name ?? "",
+      min: pickBound(item, ["min_value", "minValue", "min"]),
+      max: pickBound(item, ["max_value", "maxValue", "max"]),
+    }))
+    .filter(
+      (row) => row.name && Number.isFinite(row.min) && Number.isFinite(row.max),
+    )
+    .sort((a, b) => a.min - b.min);
+}
+
+// Build gauge zones from normalized categories, clamped to the visible
 // BMI range and skipping any band that lies fully outside it.
 function buildZones(categories) {
   return categories
     .map((item) => ({
       key: String(item.id ?? item.name),
-      from: Number(item.min_value),
-      to: Number(item.max_value),
+      from: Number(item.min),
+      to: Number(item.max),
       strokeClass: STROKE_CLASS[resolveTone(item.name)],
     }))
     .map((zone) => ({
@@ -87,15 +114,26 @@ function buildZones(categories) {
     .filter((zone) => zone.to > zone.from);
 }
 
-// Find the category whose [min_value, max_value] band contains the BMI.
-function findCategory(categories, bmi) {
-  return (
-    categories.find(
-      (item) =>
-        Number(bmi) >= Number(item.min_value) &&
-        Number(bmi) <= Number(item.max_value),
-    ) ?? null
-  );
+// Find the category whose [min, max] band contains the BMI. Bands are treated
+// as one continuous sorted scale: any gap between consecutive rows (e.g. the
+// 24.90 → 25.00 space left by two-decimal boundaries) belongs to the next
+// band's lower edge, so a value like 24.95 still resolves instead of showing
+// an unclassified dash.
+function findCategory(sortedRows, bmi) {
+  const value = Number(bmi);
+  if (!sortedRows.length || !Number.isFinite(value)) return null;
+
+  for (let i = 0; i < sortedRows.length; i += 1) {
+    const row = sortedRows[i];
+    const next = sortedRows[i + 1];
+
+    if (value >= row.min) {
+      if (value <= row.max) return row;
+      // Inside a gap between this band's max and the next band's min?
+      if (next && value < next.min) return row;
+    }
+  }
+  return null;
 }
 
 const GAP_DEG = 1.5;
@@ -118,7 +156,19 @@ function describeArc(cx, cy, r, startAngle, endAngle) {
   const start = polarToCartesian(cx, cy, r, endAngle);
   const end = polarToCartesian(cx, cy, r, startAngle);
   const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
-  return ["M", start.x, start.y, "A", r, r, 0, largeArcFlag, 0, end.x, end.y].join(" ");
+  return [
+    "M",
+    start.x,
+    start.y,
+    "A",
+    r,
+    r,
+    0,
+    largeArcFlag,
+    0,
+    end.x,
+    end.y,
+  ].join(" ");
 }
 
 function BmiGaugeComponent({ bmi, categories }) {
@@ -127,12 +177,15 @@ function BmiGaugeComponent({ bmi, categories }) {
       ? categories
       : FALLBACK_CATEGORIES;
 
-  const zones = useMemo(() => buildZones(list), [list]);
+  const normalizedList = useMemo(() => normalizeCategories(list), [list]);
+  const zones = useMemo(() => buildZones(normalizedList), [normalizedList]);
 
   const normalizedBmi = Number(bmi);
   const hasValue = Number.isFinite(normalizedBmi);
 
-  const activeCategory = hasValue ? findCategory(list, normalizedBmi) : null;
+  const activeCategory = hasValue
+    ? findCategory(normalizedList, normalizedBmi)
+    : null;
   const label = activeCategory?.name ?? "—";
   const tone = activeCategory ? resolveTone(activeCategory.name) : "muted";
   const CategoryIcon = TONE_ICON[tone];
@@ -141,8 +194,12 @@ function BmiGaugeComponent({ bmi, categories }) {
   const needleTip = polarToCartesian(CX, CY, R - STROKE / 2 - 4, needleAngle);
 
   return (
-    <div className="flex flex-col items-center">
-      <svg width="220" height="130" viewBox="0 0 220 130">
+    <div className="flex w-full flex-col items-center">
+      <svg
+        viewBox="0 0 220 130"
+        className="h-auto w-full max-w-[220px]"
+        preserveAspectRatio="xMidYMid meet"
+      >
         {/* track */}
         <path
           d={describeArc(CX, CY, R, 0, 180)}
@@ -187,7 +244,7 @@ function BmiGaugeComponent({ bmi, categories }) {
         )}
       </svg>
 
-      <div className="-mt-4 flex flex-col items-center">
+      <div className="-mt-4 flex flex-col items-center gap-2">
         <p className="text-3xl font-semibold text-foreground">
           {hasValue ? normalizedBmi.toFixed(1) : "—"}
         </p>

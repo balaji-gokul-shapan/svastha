@@ -1,4 +1,5 @@
 import React from "react";
+import { getNormaliseName } from "./students-cards";
 
 function formatDob(value) {
   if (!value) {
@@ -104,6 +105,8 @@ const StudentProfileCard = ({ student }) => {
   const dobValue =
     student?.dob ?? student?.date_of_birth ?? student?.dateOfBirth ?? "";
   const ageValue = student?.age ? String(student.age) : calculateAgeFromDob(dobValue);
+  const getGender = student?.gender ?? student?.Gender ?? "-"
+            const getNormalise = getNormaliseName(getGender);
 
   return (
     <article className="rounded-xl border border-border bg-card p-4 sm:p-5">
@@ -130,11 +133,12 @@ const StudentProfileCard = ({ student }) => {
         ) : null}
       </div>
 
-      <div className="mt-4 grid w-full grid-cols-2 gap-4 text-sm sm:mt-5 sm:grid-cols-3 lg:grid-cols-6">
-        <InfoItem label="Class" value={classValue} />
-        <InfoItem label="Section" value={sectionValue} />
+      <div className="mt-4 grid w-full grid-cols-2 gap-4 text-sm sm:mt-5 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7">
         <InfoItem label="DOB" value={formatDob(dobValue)} />
         <InfoItem label="Age" value={ageValue} />
+        <InfoItem label="Gender" value={getNormalise} />
+        <InfoItem label="Class" value={classValue} />
+        <InfoItem label="Section" value={sectionValue} />
         <InfoItem
           label="Father"
           value={student?.fatherName ?? student?.father_name ?? "--"}

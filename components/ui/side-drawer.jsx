@@ -1,5 +1,6 @@
 "use client";
 
+import { isValidElement } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -31,7 +32,22 @@ export default function SideDrawer({
       <DrawerContent side="right" className={`rounded-none rounded-l-2xl ${contentClassName}`}>
         <DrawerHeader>
           <DrawerTitle className="flex items-center gap-2">
-            {icon ? <span className="text-primary">{icon}</span> : null}
+            {(() => {
+              // Accept either style: a ready-made element ("icon={<School />}"),
+              // or a component reference ("icon={School}"). Rendering a bare
+              // component reference as a child crashes with
+              // "Objects are not valid as a React child".
+              if (!icon) return null;
+              if (isValidElement(icon)) {
+                return <span className="text-primary">{icon}</span>;
+              }
+              const Icon = icon;
+              return (
+                <span className="text-primary">
+                  <Icon />
+                </span>
+              );
+            })()}
             <span>{title}</span>
           </DrawerTitle>
           {description ? <DrawerDescription className="text-muted-foreground pl-8">{description}</DrawerDescription> : null}

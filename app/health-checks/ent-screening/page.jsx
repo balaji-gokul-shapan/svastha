@@ -39,6 +39,8 @@ import { getFilterStudent } from "@/lib/features/getFilterStudent";
 import { useQuery } from "@tanstack/react-query";
 import { getEntScreening } from "@/lib/features/getEntScreening";
 import { createEntScreening } from "@/lib/features/registerEntScreening";
+import useAssignedEvents from "@/lib/useAssignedEvents";
+import useAuthUser from "@/lib/useAuthUser";
 import { toast } from "sonner";
 import { useAppDispatch } from "@/lib/hooks";
 import StudentFilter from "../utilities/studentFilter";
@@ -137,6 +139,13 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
   const [sectionFilter, setSectionFilter] = React.useState("all");
   const [studentFilter, setStudentFilter] = React.useState("all");
   const [academicYear, setAcademicYear] = React.useState("2026-2027");
+
+  // Assigned camps/events power the Camp Name select in StudentFilter.
+  const { assignedEvents, assignEventLoading, assignEventError } =
+    useAssignedEvents();
+
+  // Auth user drives the doctor-only camp/school selects in StudentFilter.
+  const { authUser } = useAuthUser();
 
   const [form, setForm] = React.useState({
     ...initialForm,
@@ -312,8 +321,13 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
   });
   console.log(masterScreeningData, "EntScreeningData");
 
+  // Keep studentFilter in sync: selectedStudentFromFilter gives
+  // studentFilter precedence over studentId, so without this the
+  // assessment-card selection would be ignored once a student has
+  // been picked in the filter dropdown.
   const handleAssessmentStudentChange = React.useCallback((value) => {
     setStudentId(value);
+    setStudentFilter(value);
   }, []);
 
   const assessmentStudentOptions = React.useMemo(
@@ -442,6 +456,10 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
           onClassFilterChange={handleClassFilterChange}
           onSectionFilterChange={handleSectionFilterChange}
           onStudentFilterChange={handleStudentFilterChange}
+          assignedEvents={assignedEvents}
+          assignEventLoading={assignEventLoading}
+          assignEventError={assignEventError}
+          authUser={authUser}
         />
 
         {hasSelectedStudent ? (
@@ -528,7 +546,9 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
                     // isScreeningLoading={studentsLoading}
                     // isScreeningError={studentsError}
                     isScreening={false}
+                    schoolName={schoolName}
                     onStudentChange={handleAssessmentStudentChange}
+                     authUser={authUser}
                     // onSave={handleSaveAssessment}
                     // onCancel={handleCancelAssessment}
                   />

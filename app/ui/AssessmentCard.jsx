@@ -4,37 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import ReusableSelect from "@/components/ui/reusable-select";
 import { ClipboardList, FileText } from "lucide-react";
 
 import HealthWorkerFormOutlineIcon from "@iconify-react/healthicons/health-worker-form-outline";
-
-const StudentSelectField = React.memo(function StudentSelectField({
-  options,
-  value,
-  onChange,
-}) {
-  return (
-    <Select value={value || undefined} onValueChange={onChange}>
-      <SelectTrigger>
-        <SelectValue placeholder="Select student" />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((item) => (
-          <SelectItem key={item.value} value={String(item.value)}>
-            {item.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-});
+import useAssignedEvents, { findSelectedCamp } from "@/lib/useAssignedEvents";
+import { TextField } from "@/components/ui/text-field";
+import { getNormaliseName } from "../students/students-cards";
 
 const AssessmentCard = ({
   form,
@@ -48,8 +24,13 @@ const AssessmentCard = ({
   isScreeningLoading = false,
   isScreeningError = false,
   isScreening = false,
+  authUser,
+  schoolName = "all",
 }) => {
-  const [assessmentDate, setAssessmentDate] = React.useState("2026-08-17");
+  const [assessmentDate, setAssessmentDate] = React.useState(new Date().toISOString().split("T")[0]);
+  const getDoctername = authUser?.emp_name || authUser?.name
+  console.log(form, authUser,"sssss");
+  
 
   const studentName =
     studentOptions.find((item) => String(item.value) === String(studentValue))
@@ -83,9 +64,19 @@ const AssessmentCard = ({
   const bmiDisplayValue =
     computedBmi && computedBmi !== "--" ? computedBmi : enteredBmi || "--";
 
+  const { assignedEvents, assignEventLoading, assignEventError } =
+    useAssignedEvents();
+
+  // The camp (event) selected via the page's school filter — shown in
+  // the Camp/Location fields of this card.
+  const selectedCamp = React.useMemo(
+    () => findSelectedCamp(assignedEvents, schoolName),
+    [assignedEvents, schoolName],
+  );
+
   return (
     <div className="grid gap-4 grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)_320px]">
-      <div className="space-y-4">
+      <section className="space-y-4">
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -107,32 +98,43 @@ const AssessmentCard = ({
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">Student</label>
-              <StudentSelectField
-                options={studentOptions}
-                value={studentValue}
-                onChange={onStudentChange}
-              />
-              {/* {!studentValue ? (
-                <p className="text-[11px] text-muted-foreground">{studentName}</p>
-              ) : null} */}
-            </div>
+            <ReusableSelect
+              label="Student"
+              options={studentOptions}
+              value={studentValue}
+              onChange={onStudentChange}
+              placeholder="Select student"
+              searchPlaceholder="Search student by name or ID..."
+            />
 
-            <div className="space-y-1.5">
+            {/* <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground">Location</label>
               <Input defaultValue="Sunshine Public School" />
-            </div>
+            </div> */}
+                                    <TextField
+              label="Camp"
+              defaultValue={selectedCamp.name === "all" ? "" : selectedCamp.name}
+              readOnly
+              placeholder="Select a camp in the filters"
+            />
+            <TextField
+              label="Location"
+              defaultValue={
+                selectedCamp.schoolName === "all" ? "" : selectedCamp.schoolName
+              }
+              readOnly
+              placeholder="Location"
+            />
 
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">Examiner</label>
-              <Input defaultValue="Dr. Priya Sharma" />
+              <label className="text-xs text-muted-foreground pointer-none:">Examiner</label>
+              <Input defaultValue={getNormaliseName(getDoctername)} readonly  />
             </div>
 
-            <div className="space-y-1.5">
+            {/* <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground">Assistant</label>
               <Input defaultValue="Riya Nair" />
-            </div>
+            </div> */}
           </CardContent>
         </Card>
 
@@ -168,12 +170,23 @@ const AssessmentCard = ({
               <SummaryItem
                 label="Blood Group"
                 value={form.bloodGroup || "O+"}
-                status="Normal"
+              />
+              <SummaryItem
+                label="Blood Pressure"
+                value={form.bloodPressure || "O+"}
+              />
+              <SummaryItem
+                label="Pulse"
+                value={form.pulse || "O+"}
+              />
+              <SummaryItem
+                label="SPO2"
+                value={form.spo2 || "O+"}
               />
             </CardContent>
           </Card>
         )}
-      </div>
+      </section>
 
       {/* <div className="space-y-4">
         <Card>
@@ -233,9 +246,9 @@ function SummaryItem({ label, value, unit, status }) {
         </p>
       </div>
 
-      {status && (
+      {/* {status && (
         <span className="text-xs font-medium text-emerald-500">{status}</span>
-      )}
+      )} */}
     </div>
   );
 }

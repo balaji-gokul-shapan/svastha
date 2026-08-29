@@ -1541,6 +1541,8 @@ import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAppDispatch } from "@/lib/hooks";
 import { EmptyState } from "@/components/ui/empty-state";
+import useAuthUser from "@/lib/useAuthUser";
+import useAssignedEvents, { findSelectedCamp } from "@/lib/useAssignedEvents";
 
 /* =========================================================
    COMPLETE STUDENT HEALTH PROFILE DATA
@@ -1752,7 +1754,16 @@ export default function HealthOverviewReport() {
   const [sectionFilter, setSectionFilter] = useState("all");
   const [studentFilter, setStudentFilter] = useState("all");
   const [studentId, setStudentId] = useState("");
-
+  const { authUser } = useAuthUser();
+  const { assignedEvents, assignEventLoading, assignEventError } =
+    useAssignedEvents();
+  // Resolve the camp linked to the currently selected school filter. The
+  // shared helper returns { id, name, schoolName } (name/schoolName are "all"
+  // when no specific camp/school is selected).
+  const selectedCamp = useMemo(
+    () => findSelectedCamp(assignedEvents, schoolName),
+    [assignedEvents, schoolName],
+  );
   const resetDependentFilters = useCallback(() => {
     setClassFilter("all");
     setSectionFilter("all");
@@ -1841,8 +1852,69 @@ export default function HealthOverviewReport() {
   const healthProfile = useMemo(() => {
     if (!selectedStudent) return HEALTH_PROFILE_TEMPLATE;
     const s = selectedStudent;
+
+    // The filter's selected school + the camp linked to it via assigned
+    // events (same live resolution the general-screening AssessmentCard
+    // uses). Prefer these over the student row — /students/filter rows often
+    // don't carry school/camp names, and there must be NO mock fallback.
+    const filterSchool =
+      selectedCamp?.schoolName && selectedCamp.schoolName !== "all"
+        ? selectedCamp.schoolName
+        : schoolName && schoolName !== "all"
+          ? schoolName
+          : "";
+    const filterCamp =
+      selectedCamp?.name && selectedCamp.name !== "all"
+        ? selectedCamp.name
+        : "";
+
+    // Report-only fallback: unlike general screening (where students come
+    // from a per-camp roster, so a camp is always in context), here a
+    // student can be picked while the school filter is still "all". Match
+    // the student's own camp_id against the assigned events so camp/school
+    // still resolve.
+    const studentCampId = String(
+      s.camp_id ?? s.campId ?? s.event_id ?? s.eventId ?? "",
+    ).trim();
+    const studentCampEvent =
+      studentCampId && Array.isArray(assignedEvents)
+        ? assignedEvents.find(
+            (event) => String(event?.id ?? "") === studentCampId,
+          )
+        : null;
+    const studentCampName = String(studentCampEvent?.name ?? "").trim();
+    const studentCampSchool = String(
+      studentCampEvent?.school?.school_name ??
+        studentCampEvent?.school?.name ??
+        studentCampEvent?.school_name ??
+        studentCampEvent?.schoolName ??
+        "",
+    ).trim();
+
+    const resolvedSchool =
+      filterSchool ||
+      studentCampSchool ||
+      s.school_name ||
+      s.schoolName ||
+      s.school ||
+      "--";
+    const resolvedCamp =
+      filterCamp ||
+      studentCampName ||
+      s.camp_name ||
+      s.campName ||
+      s.camp ||
+      "--";
+
     return {
       ...HEALTH_PROFILE_TEMPLATE,
+      // Assessment details (Camp + Location) resolve live from the filter,
+      // exactly like the general-screening AssessmentCard.
+      assessment: {
+        ...HEALTH_PROFILE_TEMPLATE.assessment,
+        location: resolvedSchool,
+        camp: resolvedCamp,
+      },
       student: {
         ...HEALTH_PROFILE_TEMPLATE.student,
         name: s.name ?? s.student_name ?? HEALTH_PROFILE_TEMPLATE.student.name,
@@ -1857,10 +1929,8 @@ export default function HealthOverviewReport() {
           s.class ??
           s.grade ??
           HEALTH_PROFILE_TEMPLATE.student.class,
-        school:
-          s.school_name ??
-          s.schoolName ??
-          HEALTH_PROFILE_TEMPLATE.student.school,
+        school: resolvedSchool,
+        campName: resolvedCamp,
         dateOfBirth:
           s.dob ??
           s.date_of_birth ??
@@ -1873,7 +1943,7 @@ export default function HealthOverviewReport() {
           HEALTH_PROFILE_TEMPLATE.student.bloodGroup,
       },
     };
-  }, [selectedStudent]);
+  }, [selectedStudent, schoolName, selectedCamp, assignedEvents]);
 
   // ADDITION: numeric scores per system, derived from the same status
   // strings already in healthProfile — feeds the new radar chart below.
@@ -2013,6 +2083,10 @@ export default function HealthOverviewReport() {
           onClassFilterChange={handleClassFilterChange}
           onSectionFilterChange={handleSectionFilterChange}
           onStudentFilterChange={handleStudentFilterChange}
+          assignedEvents={assignedEvents}
+          assignEventLoading={assignEventLoading}
+          assignEventError={assignEventError}
+          authUser={authUser}
         />
       </div>
       {/* HEADER */}
@@ -2083,7 +2157,10 @@ export default function HealthOverviewReport() {
                     </div>
 
                     <div className="my-2 flex items-start gap-2 ">
-                      <CircleDot size={15} className="bg-success/10 text-success" />
+                      <CircleDot
+                        size={15}
+                        className="bg-success/10 text-success"
+                      />
                       {/* <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> */}
                       <p className="text-[11px] font-semibold uppercase tracking-[.2em] text-success">
                         Assessment Complete
@@ -2092,9 +2169,28 @@ export default function HealthOverviewReport() {
 
                     <p className="mt-1 text-sm text-muted-foreground">
                       {healthProfile.student.id} • Class{" "}
-                      {healthProfile.student.class} •{" "}
-                      {healthProfile.student.school}
+                      {healthProfile.student.class}
                     </p>
+
+                    {healthProfile.student.school ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">
+                          School:
+                        </span>{" "}
+                        {healthProfile.student.school}
+                        {healthProfile.student.campName &&
+                          healthProfile.student.campName !== "--" && (
+                            <>
+                              {" "}
+                              •{" "}
+                              <span className="font-medium text-foreground">
+                                Camp:
+                              </span>{" "}
+                              {healthProfile.student.campName}
+                            </>
+                          )}
+                      </p>
+                    ) : null}
 
                     <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
                       <span>DOB: {healthProfile.student.dateOfBirth}</span>
@@ -2115,7 +2211,9 @@ export default function HealthOverviewReport() {
                 <div className="flex items-center gap-4 rounded-xl border border-success/20 bg-success/5 px-6 py-4">
                   <HealthScoreRing score={healthProfile.overall.score} />
                   <div>
-                    <p className="text-xs text-muted-foreground">Health Score</p>
+                    <p className="text-xs text-muted-foreground">
+                      Health Score
+                    </p>
 
                     <div className="flex items-end gap-2">
                       <span className="text-3xl font-bold text-success">
@@ -2152,8 +2250,13 @@ export default function HealthOverviewReport() {
                 />
 
                 <Result
+                  label="Camp"
+                  value={healthProfile.assessment.camp || "--"}
+                />
+
+                <Result
                   label="Location"
-                  value={healthProfile.assessment.location}
+                  value={healthProfile.assessment.location || "--"}
                 />
 
                 <Result
@@ -2861,7 +2964,7 @@ export default function HealthOverviewReport() {
    REUSABLE COMPONENTS
 ========================================================= */
 
-function StatCard({ icon, label, value, status, color }) {
+function StatCard({ icon: Icon, label, value, status, color }) {
   const styles = {
     blue: "bg-primary/10 text-primary",
     green: "bg-success/10 text-success",
@@ -2878,7 +2981,7 @@ function StatCard({ icon, label, value, status, color }) {
           <div
             className={`flex h-9 w-9 items-center justify-center rounded-lg ${styles[color]}`}
           >
-            {icon}
+            {Icon ? <Icon className="size-5" /> : null}
           </div>
 
           <span className="text-xs text-success">{status}</span>
@@ -2892,12 +2995,12 @@ function StatCard({ icon, label, value, status, color }) {
   );
 }
 
-function SectionTitle({ icon, title, subtitle, badge }) {
+function SectionTitle({ icon: Icon, title, subtitle, badge }) {
   return (
     <div className="flex items-start justify-between gap-3">
       <div className="flex gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          {icon}
+          {Icon ? <Icon className="size-5" /> : null}
         </div>
 
         <div>
@@ -3062,7 +3165,17 @@ function OverallItem({ title, value }) {
 // anywhere else in the report.
 function statusToScore(status) {
   const s = (status ?? "").toString().toLowerCase();
-  if (["normal", "good", "up to date", "healthy", "complete", "completed"].includes(s)) return 100;
+  if (
+    [
+      "normal",
+      "good",
+      "up to date",
+      "healthy",
+      "complete",
+      "completed",
+    ].includes(s)
+  )
+    return 100;
   if (["mild", "fair"].includes(s)) return 75;
   if (["moderate"].includes(s)) return 55;
   if (!s) return 40;
@@ -3077,13 +3190,34 @@ function HealthScoreRing({ score, size = 96 }) {
   const circumference = 2 * Math.PI * r;
   const offset = circumference * (1 - clamped / 100);
 
-  const tone = clamped >= 80 ? "success" : clamped >= 50 ? "warning" : "destructive";
-  const strokeClass = { success: "stroke-success", warning: "stroke-warning", destructive: "stroke-destructive" }[tone];
-  const fillClass = { success: "fill-success", warning: "fill-warning", destructive: "fill-destructive" }[tone];
+  const tone =
+    clamped >= 80 ? "success" : clamped >= 50 ? "warning" : "destructive";
+  const strokeClass = {
+    success: "stroke-success",
+    warning: "stroke-warning",
+    destructive: "stroke-destructive",
+  }[tone];
+  const fillClass = {
+    success: "fill-success",
+    warning: "fill-warning",
+    destructive: "fill-destructive",
+  }[tone];
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" className="stroke-muted" strokeWidth={strokeWidth} />
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      className="shrink-0"
+    >
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        className="stroke-muted"
+        strokeWidth={strokeWidth}
+      />
       <circle
         cx={size / 2}
         cy={size / 2}
@@ -3096,10 +3230,24 @@ function HealthScoreRing({ score, size = 96 }) {
         strokeLinecap="round"
         transform={`rotate(-90 ${size / 2} ${size / 2})`}
       />
-      <text x="50%" y="47%" textAnchor="middle" dominantBaseline="middle" className={`${fillClass} font-bold`} style={{ fontSize: size * 0.26 }}>
+      <text
+        x="50%"
+        y="47%"
+        textAnchor="middle"
+        dominantBaseline="middle"
+        className={`${fillClass} font-bold`}
+        style={{ fontSize: size * 0.26 }}
+      >
         {clamped}
       </text>
-      <text x="50%" y="68%" textAnchor="middle" dominantBaseline="middle" className="fill-muted-foreground" style={{ fontSize: size * 0.1 }}>
+      <text
+        x="50%"
+        y="68%"
+        textAnchor="middle"
+        dominantBaseline="middle"
+        className="fill-muted-foreground"
+        style={{ fontSize: size * 0.1 }}
+      >
         / 100
       </text>
     </svg>
@@ -3129,7 +3277,15 @@ function BmiMiniGauge({ bmi, size = 150 }) {
   const end = polarToCartesian(180);
   const needleTip = polarToCartesian(angle);
 
-  const tone = !hasValue ? "muted" : value < 18.5 ? "info" : value < 25 ? "success" : value < 30 ? "warning" : "destructive";
+  const tone = !hasValue
+    ? "muted"
+    : value < 18.5
+      ? "info"
+      : value < 25
+        ? "success"
+        : value < 30
+          ? "warning"
+          : "destructive";
   const toneStroke = {
     muted: "stroke-muted-foreground",
     info: "stroke-info",
@@ -3146,7 +3302,12 @@ function BmiMiniGauge({ bmi, size = 150 }) {
   }[tone];
 
   return (
-    <svg width={size} height={size * 0.65} viewBox={`0 0 ${size} ${size * 0.65}`} className="shrink-0">
+    <svg
+      width={size}
+      height={size * 0.65}
+      viewBox={`0 0 ${size} ${size * 0.65}`}
+      className="shrink-0"
+    >
       <path
         d={`M ${start.x} ${start.y} A ${r} ${r} 0 0 1 ${end.x} ${end.y}`}
         fill="none"
@@ -3156,7 +3317,15 @@ function BmiMiniGauge({ bmi, size = 150 }) {
       />
       {hasValue && (
         <>
-          <line x1={cx} y1={cy} x2={needleTip.x} y2={needleTip.y} className={toneStroke} strokeWidth={3} strokeLinecap="round" />
+          <line
+            x1={cx}
+            y1={cy}
+            x2={needleTip.x}
+            y2={needleTip.y}
+            className={toneStroke}
+            strokeWidth={3}
+            strokeLinecap="round"
+          />
           <circle cx={cx} cy={cy} r={4} className={toneFill} />
         </>
       )}
@@ -3189,7 +3358,9 @@ function SystemsRadarChart({ values, size = 260 }) {
   }
 
   const ringLevels = [0.25, 0.5, 0.75, 1];
-  const dataPoints = RADAR_AXES.map((axis, i) => pointAt(i, (values[axis.key] ?? 0) / 100));
+  const dataPoints = RADAR_AXES.map((axis, i) =>
+    pointAt(i, (values[axis.key] ?? 0) / 100),
+  );
   const polygonPoints = dataPoints.map((p) => `${p.x},${p.y}`).join(" ");
 
   return (
@@ -3199,17 +3370,45 @@ function SystemsRadarChart({ values, size = 260 }) {
           const p = pointAt(i, level);
           return `${p.x},${p.y}`;
         }).join(" ");
-        return <polygon key={level} points={ringPoints} fill="none" className="stroke-border" strokeWidth={1} />;
+        return (
+          <polygon
+            key={level}
+            points={ringPoints}
+            fill="none"
+            className="stroke-border"
+            strokeWidth={1}
+          />
+        );
       })}
 
       {RADAR_AXES.map((axis, i) => {
         const edge = pointAt(i, 1);
-        return <line key={axis.key} x1={cx} y1={cy} x2={edge.x} y2={edge.y} className="stroke-border" strokeWidth={1} />;
+        return (
+          <line
+            key={axis.key}
+            x1={cx}
+            y1={cy}
+            x2={edge.x}
+            y2={edge.y}
+            className="stroke-border"
+            strokeWidth={1}
+          />
+        );
       })}
 
-      <polygon points={polygonPoints} className="fill-primary/15 stroke-primary" strokeWidth={2} />
+      <polygon
+        points={polygonPoints}
+        className="fill-primary/15 stroke-primary"
+        strokeWidth={2}
+      />
       {dataPoints.map((p, i) => (
-        <circle key={RADAR_AXES[i].key} cx={p.x} cy={p.y} r={3.5} className="fill-primary" />
+        <circle
+          key={RADAR_AXES[i].key}
+          cx={p.x}
+          cy={p.y}
+          r={3.5}
+          className="fill-primary"
+        />
       ))}
 
       {RADAR_AXES.map((axis, i) => {
@@ -3237,7 +3436,16 @@ function SystemsRadarChart({ values, size = 260 }) {
 function EyeStatusBadge({ acuity, size = 26 }) {
   const match = /^6\/(\d+)/.exec((acuity ?? "").trim());
   const ratio = match ? Number(match[1]) / 6 : null;
-  const tone = ratio == null ? "muted" : ratio <= 1.2 ? "success" : ratio <= 2 ? "info" : ratio <= 4 ? "warning" : "destructive";
+  const tone =
+    ratio == null
+      ? "muted"
+      : ratio <= 1.2
+        ? "success"
+        : ratio <= 2
+          ? "info"
+          : ratio <= 4
+            ? "warning"
+            : "destructive";
   const toneClass = {
     muted: "bg-muted text-muted-foreground",
     success: "bg-success/15 text-success",
@@ -3251,7 +3459,10 @@ function EyeStatusBadge({ acuity, size = 26 }) {
       className={`flex shrink-0 items-center justify-center rounded-full ${toneClass}`}
       style={{ width: size, height: size }}
     >
-      <Eye style={{ width: size * 0.55, height: size * 0.55 }} strokeWidth={2.25} />
+      <Eye
+        style={{ width: size * 0.55, height: size * 0.55 }}
+        strokeWidth={2.25}
+      />
     </span>
   );
 }

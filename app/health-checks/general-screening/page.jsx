@@ -1,34 +1,36 @@
 "use client";
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   AlertCircle,
   ChevronDown,
   Cross,
-  Ruler,
+  HeartPulse,
   Save,
-  ScanHeart,
+  Scale,
   Search,
-  Weight,
+  Stethoscope,
+  Syringe,
+  Wind,
 } from "lucide-react";
 import HeightIcon from "@iconify-react/healthicons/height";
 import HealthDataSecurityOutlineIcon from "@iconify-react/healthicons/health-data-security-outline";
 import WeightIcon from "@iconify-react/healthicons/weight";
 import INoteActionIcon from "@iconify-react/healthicons/i-note-action";
-import HealthWorkerFormOutlineIcon from "@iconify-react/healthicons/health-worker-form-outline";
 import { ToggleGroup } from "./toggleGroup";
+import BloodDropOutlineIcon from "@iconify-react/healthicons/blood-drop-outline";
+import BloodPressureMonitorIcon from "@iconify-react/healthicons/blood-pressure-monitor";
+import PulseOximeterOutlineIcon from "@iconify-react/healthicons/pulse-oximeter-outline";
 import {
-  allergyOptions,
   assistantOptions,
   bloodGroupOptions,
   calcBmi,
-  chronicDiseaseOptions,
   examinerOptions,
   immunizationOptions,
   locationOptions,
-  studentOptions,
   bmiCategory,
+  GROWTH_STANDARD_BANDS,
+  VITALS_STANDARD_BANDS,
 } from "./general-screening-data";
 import { BmiGauge } from "./bmiCategory";
 import { BmiSvgGauge } from "./BmiSvgGauge";
@@ -38,6 +40,7 @@ import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { getCamp } from "@/lib/features/getCampSlice";
 import { getFilterStudent } from "@/lib/features/getFilterStudent";
 import { getInitialScreening } from "@/lib/features/getInitialScreening";
+import { getAssignEvent } from "@/lib/features/getEventAssignSlice";
 import {
   createInitialScreening,
   updateInitialScreening,
@@ -53,6 +56,12 @@ import { FramerCard } from "@/util/FramerCard";
 import { getAllMasterScreening } from "@/lib/features/masterScreeningSlice";
 import { getMasterData } from "@/util/masterData";
 import { generalScreeningSchema } from "./general-screening-schema";
+import ClinicalSignsCard from "./ClinicalSignCard";
+import GeneralPhysicalExamination from "./GeneralPhysicalExamination";
+import FemaleStudentsCard from "./FemaleStudentsCard";
+import EditableVitalCard from "./EditableVitalCard";
+import { Textarea } from "@/components/ui/textarea";
+import { selectAuthUser } from "@/lib/features/auth-slice";
 
 function FieldLabel({ children }) {
   return (
@@ -112,65 +121,6 @@ function NumberField({ label, value, onChange, unit, error }) {
     </div>
   );
 }
-
-const GROWTH_STANDARD_BANDS = [
-  {
-    minAge: 5,
-    maxAge: 6,
-    heightMin: 105,
-    heightMax: 124,
-    weightMin: 15,
-    weightMax: 25,
-  },
-  {
-    minAge: 7,
-    maxAge: 8,
-    heightMin: 115,
-    heightMax: 136,
-    weightMin: 19,
-    weightMax: 32,
-  },
-  {
-    minAge: 9,
-    maxAge: 10,
-    heightMin: 126,
-    heightMax: 148,
-    weightMin: 24,
-    weightMax: 40,
-  },
-  {
-    minAge: 11,
-    maxAge: 12,
-    heightMin: 136,
-    heightMax: 162,
-    weightMin: 30,
-    weightMax: 51,
-  },
-  {
-    minAge: 13,
-    maxAge: 14,
-    heightMin: 148,
-    heightMax: 174,
-    weightMin: 38,
-    weightMax: 64,
-  },
-  {
-    minAge: 15,
-    maxAge: 16,
-    heightMin: 154,
-    heightMax: 182,
-    weightMin: 45,
-    weightMax: 72,
-  },
-  {
-    minAge: 17,
-    maxAge: 18,
-    heightMin: 158,
-    heightMax: 186,
-    weightMin: 50,
-    weightMax: 80,
-  },
-];
 
 function getAgeInYearsFromDob(dobValue) {
   const dobString = String(dobValue ?? "").trim();
@@ -267,6 +217,121 @@ function parseMetricValue(rawValue) {
   return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
+// Parses "120/80" (or "120/80 mmHg") into { systolic, diastolic } or null.
+function parseBloodPressure(rawValue) {
+  const [systolic, diastolic] = String(rawValue ?? "")
+    .trim()
+    .replace(/[^0-9/]/g, "")
+    .split("/")
+    .map(Number);
+
+  if (
+    !Number.isFinite(systolic) ||
+    !Number.isFinite(diastolic) ||
+    systolic <= 0 ||
+    diastolic <= 0
+  ) {
+    return null;
+  }
+
+  return { systolic, diastolic };
+}
+
+// Age-based health-standard evaluation for vitals — same shape as
+// evaluateGrowthStandard so the result feeds straight into StandardStatus.
+function evaluateVitalsStandard(metric, rawValue, ageYears) {
+  const parsed =
+    metric === "bloodPressure"
+      ? parseBloodPressure(rawValue)
+      : Number.parseFloat(String(rawValue ?? ""));
+  const hasValue =
+    metric === "bloodPressure"
+      ? parsed !== null
+      : Number.isFinite(parsed) && parsed > 0;
+
+  if (!hasValue) {
+    return {
+      standard: "Not entered",
+      status: "Enter value",
+      tone: "muted",
+    };
+  }
+
+  if (!Number.isFinite(ageYears)) {
+    return {
+      standard: "Unknown",
+      status: "DOB required",
+      tone: "warning",
+    };
+  }
+
+  const band = VITALS_STANDARD_BANDS.find(
+    (item) => ageYears >= item.minAge && ageYears <= item.maxAge,
+  );
+
+  if (!band) {
+    return {
+      standard: "Unknown",
+      status: "Age out of range",
+      tone: "warning",
+    };
+  }
+
+  // Blood pressure compares systolic AND diastolic independently.
+  if (metric === "bloodPressure") {
+    const below =
+      parsed.systolic < band.bpSystolicMin ||
+      parsed.diastolic < band.bpDiastolicMin;
+    const above =
+      parsed.systolic > band.bpSystolicMax ||
+      parsed.diastolic > band.bpDiastolicMax;
+    const rangeText = `(${band.bpSystolicMin}-${band.bpSystolicMax}/${band.bpDiastolicMin}-${band.bpDiastolicMax} mmHg)`;
+
+    if (below) {
+      return {
+        standard: "Below Average",
+        status: `Below range ${rangeText}`,
+        tone: "destructive",
+      };
+    }
+    if (above) {
+      return {
+        standard: "Above Average",
+        status: `Above range ${rangeText}`,
+        tone: "warning",
+      };
+    }
+    return {
+      standard: "Average",
+      status: `Within range ${rangeText}`,
+      tone: "success",
+    };
+  }
+
+  const min = metric === "pulse" ? band.pulseMin : band.spo2Min;
+  const max = metric === "pulse" ? band.pulseMax : band.spo2Max;
+
+  if (parsed < min) {
+    return {
+      standard: "Below Average",
+      status: `Below range (${min}-${max})`,
+      tone: "destructive",
+    };
+  }
+  if (parsed > max) {
+    return {
+      standard: "Above Average",
+      status: `Above range (${min}-${max})`,
+      tone: "warning",
+    };
+  }
+  return {
+    standard: "Average",
+    status: `Within range (${min}-${max})`,
+    tone: "success",
+  };
+}
+
 export default function GeneralScreeningPage() {
   const dispatch = useAppDispatch();
   const queryClient = useQueryClient();
@@ -328,10 +393,9 @@ export default function GeneralScreeningPage() {
   const chronicDiseasesOption = requiredMasterData["chronic-diseases"] ?? [];
 
   const bloodGroupOption = requiredMasterData["blood-groups"] ?? [];
-  console.log(bloodGroupOption);
   const bmiCategories = requiredMasterData["bmi-categories"] ?? [];
-  console.log(bmiCategories,"bmiCategories");
-  
+
+  const authUser = useAppSelector(selectAuthUser);
 
   const academicYearOptions = ["2026-2027", "2025-2026", "2024-2025"];
   const [isCaDrawerOpen, setIsCaDrawerOpen] = useState(false);
@@ -347,6 +411,9 @@ export default function GeneralScreeningPage() {
 
   const [height, setHeight] = useState("0");
   const [weight, setWeight] = useState("0");
+  const [pulse, setPulse] = useState("");
+  const [bloodPressure, setBloodPressure] = useState("");
+  const [spo2, setSpo2] = useState("");
 
   const [bloodGroup, setBloodGroup] = useState(
     bloodGroupOption?.[0]?.name ?? "",
@@ -356,6 +423,42 @@ export default function GeneralScreeningPage() {
   const [immunization, setImmunization] = useState("up_to_date");
   const [notes, setNotes] = useState("");
 
+  // ============================================================
+  // CLINICAL SIGNS
+  // ============================================================
+
+  const [clinicalSigns, setClinicalSigns] = useState({
+    pallor: 0,
+    clubbing: 0,
+    edema: 0,
+    skinAssessment: "Normal",
+    medicalCondition: "",
+    currentComplaints: "",
+    regularMedication: "",
+  });
+
+  // ============================================================
+  // GENERAL PHYSICAL EXAMINATION
+  // ============================================================
+
+  const [physicalExamination, setPhysicalExamination] = useState({
+    generalAppearance: "Normal",
+    postureSpine: "Normal",
+    nutritionalStatus: "Normal",
+    consciousness: "Alert",
+    cvs: "Normal S1 S2",
+    respiratorySystem: "Bilateral clear",
+    abdomen: "Soft, non-tender",
+    neurology: "NAD",
+    referral: "",
+  });
+  const [femaleScreening, setFemaleScreening] = useState({
+    menstrualCycle: "Regular",
+    excessiveBleeding: 0,
+    menstrualPain: 0,
+    otherConcerns: "",
+    referral: "",
+  });
   // { fieldName: "message" } — populated when zod validation fails.
   const [formErrors, setFormErrors] = useState(null);
 
@@ -432,6 +535,29 @@ export default function GeneralScreeningPage() {
     refetchOnWindowFocus: true,
   });
 
+  const {
+    data: assignedEvents,
+    isLoading: assignEventLoading,
+    error: assignEventError,
+  } = useQuery({
+    // Key includes the user id: when the session hydrates (or the
+    // signed-in user changes) the query refetches with the right id.
+    queryKey: ["get-event", authUser?.id ?? authUser?.Id ?? null],
+    queryFn: () => {
+      const userId = authUser?.id ?? authUser?.Id;
+      if (!userId) {
+        throw new Error("Signed-in user not available yet");
+      }
+      return dispatch(getAssignEvent({ id: userId })).unwrap();
+    },
+    // Don't fire before the auth user is in the store — otherwise
+    // `authUser.id` throws and the query dies in the error state.
+    enabled: Boolean(authUser?.id ?? authUser?.Id),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+  console.log(assignedEvents, "assignedEvents");
+
   //-------------------------------------------
 
   const applyScreeningRecordToForm = (screeningRecord) => {
@@ -442,6 +568,11 @@ export default function GeneralScreeningPage() {
 
     setHeight(getMetricValue(screeningRecord?.height));
     setWeight(getMetricValue(screeningRecord?.weight));
+    setPulse(getMetricValue(screeningRecord?.pulse) || "");
+    setBloodPressure(
+      String(screeningRecord?.blood_pressure ?? "").trim() || "",
+    );
+    setSpo2(getMetricValue(screeningRecord?.spo2) || "");
     setNotes(
       String(
         screeningRecord?.notes ??
@@ -675,28 +806,85 @@ export default function GeneralScreeningPage() {
     [studentAgeYears, weight],
   );
 
-  const bmi = useMemo(() => calcBmi(height, weight), [height, weight]);
-  const category = useMemo(
-    () => bmiCategory(getSelectedStudentScreeningData?.bmi ?? bmi),
-    [getSelectedStudentScreeningData?.bmi, bmi],
+  const pulseStandardResult = useMemo(
+    () => evaluateVitalsStandard("pulse", pulse, studentAgeYears),
+    [pulse, studentAgeYears],
   );
+
+  const bloodPressureStandardResult = useMemo(
+    () =>
+      evaluateVitalsStandard("bloodPressure", bloodPressure, studentAgeYears),
+    [bloodPressure, studentAgeYears],
+  );
+
+  const spo2StandardResult = useMemo(
+    () => evaluateVitalsStandard("spo2", spo2, studentAgeYears),
+    [spo2, studentAgeYears],
+  );
+
+  const bmi = useMemo(() => calcBmi(height, weight), [height, weight]);
+
+  // Single source of truth for every BMI readout on the screen (category
+  // pill, gauge, details grid, assessment payload): the live height/weight
+  // calculation wins while it produces a valid value, otherwise we show the
+  // student's saved screening record. Mirrors the `live || saved` order the
+  // rest of this page uses.
+  const selectedScreeningRecord = getSelectedStudentScreeningData;
+
+  const displayBmi = useMemo(() => {
+    if (bmi != null) return bmi;
+    const saved = parseMetricValue(selectedScreeningRecord?.bmi);
+    return saved > 0 ? saved : null;
+  }, [bmi, selectedScreeningRecord]);
+
+  // const displayHeightCm = useMemo(() => {
+  //   const live = parseMetricValue(height);
+  //   if (live > 0) return live;
+  //   const saved = parseMetricValue(selectedScreeningRecord?.height);
+  //   return saved > 0 ? saved : null;
+  // }, [height, selectedScreeningRecord]);
+
+  // const displayWeightKg = useMemo(() => {
+  //   const live = parseMetricValue(weight);
+  //   if (live > 0) return live;
+  //   const saved = parseMetricValue(selectedScreeningRecord?.weight);
+  //   return saved > 0 ? saved : null;
+  // }, [weight, selectedScreeningRecord]);
+
+  const category = useMemo(() => bmiCategory(displayBmi), [displayBmi]);
   const assessmentForm = useMemo(
     () => ({
       height,
       weight,
-      bmi: getSelectedStudentScreeningData?.bmi || (bmi ? bmi.toFixed(1) : ""),
-      notes,
+      bmi: displayBmi ? displayBmi.toFixed(1) : "",
+      bloodPressure,
+      pulse,
+      spo2,
       bloodGroup,
     }),
-    [
-      bmi,
-      getSelectedStudentScreeningData?.bmi,
-      height,
-      notes,
-      weight,
-      bloodGroup,
-    ],
+    [bmi, displayBmi, height, pulse,bloodPressure, spo2, weight, bloodGroup,],
   );
+
+  const handleClinicalSignChange = useCallback((field, value) => {
+    setClinicalSigns((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }, []);
+
+  const handlePhysicalExaminationChange = useCallback((field, value) => {
+    setPhysicalExamination((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }, []);
+
+  const handleFemaleScreeningChange = useCallback((field, value) => {
+    setFemaleScreening((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }, []);
 
   const handleAssessmentChange = useCallback((field, value) => {
     if (field === "height") {
@@ -709,7 +897,7 @@ export default function GeneralScreeningPage() {
       return;
     }
 
-    if (field === "notes") {
+    if (field === "bmi") {
       setNotes(value);
     }
     if (field === "bloodGroup") {
@@ -731,6 +919,11 @@ export default function GeneralScreeningPage() {
       selectedStudent?.studentId ??
       studentId;
 
+    if (!String(rawStudentId ?? "").trim()) {
+      toast.error("Select a student before saving the general screening.");
+      return;
+    }
+
     // --- Validate editable fields with zod -------------------------
     const formValues = {
       height,
@@ -740,6 +933,9 @@ export default function GeneralScreeningPage() {
       chronicDisease,
       immunization,
       notes,
+      clinicalSigns,
+      physicalExamination,
+      femaleScreening,
     };
 
     const result = generalScreeningSchema.safeParse(formValues);
@@ -798,6 +994,15 @@ export default function GeneralScreeningPage() {
     const standardMap = { "Below Average": 1, Average: 2, "Above Average": 3 };
     const heightStandardId = standardMap[heightStandardResult?.standard] || 2;
     const weightStandardId = standardMap[weightStandardResult?.standard] || 2;
+    const pulseStandardId = pulse
+      ? standardMap[pulseStandardResult?.standard] || 2
+      : null;
+    const bloodPressureStandardId = bloodPressure
+      ? standardMap[bloodPressureStandardResult?.standard] || 2
+      : null;
+    const spo2StandardId = spo2
+      ? standardMap[spo2StandardResult?.standard] || 2
+      : null;
 
     const numHeight = Number(height) || 0;
     const numWeight = Number(weight) || 0;
@@ -806,6 +1011,7 @@ export default function GeneralScreeningPage() {
       Normal: 2,
       Overweight: 3,
       Obese: 4,
+      severeObesse: 5,
     };
     const bmiCategoryId = bmiCategoryMap[category?.label] || 2;
 
@@ -818,9 +1024,19 @@ export default function GeneralScreeningPage() {
       immunization_id: immunizationId,
       height: numHeight,
       weight: numWeight,
+      pulse: pulse ? Number(pulse) : null,
+      blood_pressure: bloodPressure || null,
+      spo2: spo2 ? Number(spo2) : null,
       height_standard_id: heightStandardId,
       weight_standard_id: weightStandardId,
+      pulse_standard_id: pulseStandardId,
+      blood_pressure_standard_id: bloodPressureStandardId,
+      spo2_standard_id: spo2StandardId,
       bmi_category_id: bmiCategoryId,
+      pallor: clinicalSigns.pallor,
+      clubbing: clinicalSigns.clubbing,
+      edema: clinicalSigns.edema,
+      skin: clinicalSigns.skin,
     };
     const existingRecordId =
       getSelectedStudentScreeningData?.id ??
@@ -859,15 +1075,11 @@ export default function GeneralScreeningPage() {
     dispatch(saveAction)
       .unwrap()
       .then(() => {
-        dispatch(
-          getInitialScreening({
-            all: true,
-            search: "",
-            status: "all",
-            sortBy: "name",
-            sortOrder: "asc",
-          }),
-        );
+        // Refresh the react-query cache after a successful save. The
+        // ["initial-screening"] query's queryFn re-dispatches
+        // getInitialScreening, which keeps the Redux store in sync —
+        // so no manual dispatch is needed here.
+        queryClient.invalidateQueries({ queryKey: ["initial-screening"] });
 
         toast.success(
           hasSavedMeasurements
@@ -891,6 +1103,7 @@ export default function GeneralScreeningPage() {
   }, [
     allergy,
     bloodGroup,
+    bloodPressureStandardResult?.standard,
     category?.label,
     chronicDisease,
     getSelectedStudentScreeningData,
@@ -898,8 +1111,11 @@ export default function GeneralScreeningPage() {
     heightStandardResult?.standard,
     immunization,
     notes,
+    pulseStandardResult?.standard,
+    queryClient,
     selectedCampId,
     selectedStudent,
+    spo2StandardResult?.standard,
     studentId,
     weight,
     weightStandardResult?.standard,
@@ -909,8 +1125,13 @@ export default function GeneralScreeningPage() {
     applyScreeningRecordToForm(getSelectedStudentScreeningData);
   }, [getSelectedStudentScreeningData]);
 
+  // Keep studentFilter in sync: selectedStudentFromFilter gives
+  // studentFilter precedence over studentId, so without this the
+  // assessment-card selection would be ignored once a student has
+  // been picked in the filter dropdown.
   const handleAssessmentStudentChange = useCallback((value) => {
     setStudentId(value);
+    setStudentFilter(value);
   }, []);
 
   const resetDependentFilters = useCallback(() => {
@@ -1080,7 +1301,7 @@ export default function GeneralScreeningPage() {
       </div>
       <>
         <StudentFilter
-          filterPayload={filterPayload}
+          // filterPayload={filterPayload}
           isLoading={isLoading}
           schoolName={schoolName}
           academicYear={academicYear}
@@ -1092,6 +1313,10 @@ export default function GeneralScreeningPage() {
           onClassFilterChange={handleClassFilterChange}
           onSectionFilterChange={handleSectionFilterChange}
           onStudentFilterChange={handleStudentFilterChange}
+          assignedEvents={assignedEvents}
+          assignEventLoading={assignEventLoading}
+          assignEventError={assignEventError}
+          authUser={authUser}
         />
         {hasSelectedStudent ? (
           <>
@@ -1164,9 +1389,11 @@ export default function GeneralScreeningPage() {
                   isScreeningLoading={studentsLoading}
                   isScreeningError={studentsError}
                   isScreening={true}
+                  schoolName={schoolName}
                   onStudentChange={handleAssessmentStudentChange}
                   onSave={handleSaveAssessment}
                   onCancel={handleCancelAssessment}
+                  authUser={authUser}
                 />
               </FramerCard>
               {/* ---------------- Middle column: growth & vitals ---------------- */}
@@ -1197,181 +1424,200 @@ export default function GeneralScreeningPage() {
                     </span>
                   </div>
 
-                  {/* Height & Weight */}
-                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                    {/* Height */}
-                    <div className="rounded-xl border border-border/70 bg-background p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex size-10 items-center justify-center rounded-lg bg-info/10">
-                          {/* <Ruler className="size-4 text-info" /> */}
-                          <HeightIcon
-                            className="size-6 text-info"
-                            height="5rem"
-                          />
-                        </div>
-
-                        <span className="text-[11px] text-muted-foreground">
-                          cm
-                        </span>
-                      </div>
-
-                      <p className="mt-4 text-xs text-muted-foreground">
-                        Height
-                      </p>
-
-                      <div className="mt-1 flex items-end gap-1">
-                        <span className="text-2xl font-semibold tracking-tight">
-                          {height || "0 cm"}
-                        </span>
-
-                        {/* <span className="mb-1 text-xs text-muted-foreground">cm</span> */}
-                      </div>
-                    </div>
-
-                    {/* Weight */}
-                    <div className="rounded-xl border border-border/70 bg-background p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex size-10 items-center justify-center rounded-lg bg-success/10">
-                          <WeightIcon
-                            className="size-6 text-success"
-                            height="5rem"
-                          />
-                        </div>
-
-                        <span className="text-[11px] text-muted-foreground">
-                          kg
-                        </span>
-                      </div>
-
-                      <p className="mt-4 text-xs text-muted-foreground">
-                        Weight
-                      </p>
-
-                      <div className="mt-1 flex items-end gap-1">
-                        <span className="text-2xl font-semibold tracking-tight">
-                          {weight || "0 kg"}
-                        </span>
-
-                        {/* <span className="mb-1 text-xs text-muted-foreground">kg</span> */}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Input fields */}
-                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                    <NumberField
+                  <div className="grid grid-cols-2  xl:grid-cols-5 gap-2 py-5">
+                    <EditableVitalCard
+                      label="Pulse"
+                      value={pulse}
+                      onChange={setPulse}
+                      unit="bpm"
+                      icon={Stethoscope}
+                      iconClass="bg-domain-physical/10"
+                      iconColor="text-domain-physical"
+                      placeholder="0"
+                    />
+                    <EditableVitalCard
+                      label="Blood Pressure"
+                      value={bloodPressure}
+                      onChange={setBloodPressure}
+                      unit="mmHg"
+                      icon={BloodPressureMonitorIcon}
+                      iconClass="bg-destructive/10"
+                      iconColor="text-destructive"
+                      inputType="text"
+                      placeholder="120/80"
+                      displayValue={bloodPressure || "0/0"}
+                    />
+                    <EditableVitalCard
+                      label="SpO₂"
+                      value={spo2}
+                      onChange={setSpo2}
+                      unit="%"
+                      icon={PulseOximeterOutlineIcon}
+                      iconClass="bg-domain-vision/10"
+                      iconColor="text-domain-vision"
+                      placeholder="0"
+                    />
+                    <EditableVitalCard
                       label="Height"
                       value={height}
                       onChange={handleHeightChange}
                       unit="cm"
-                      error={formErrors?.height}
+                      icon={HeightIcon}
+                      iconClass="bg-info/10"
+                      iconColor="text-info"
+                      placeholder="0"
                     />
-
-                    <NumberField
+                    <EditableVitalCard
                       label="Weight"
                       value={weight}
                       onChange={handleWeightChange}
                       unit="kg"
-                      error={formErrors?.weight}
+                      icon={WeightIcon}
+                      iconClass="bg-success/10"
+                      iconColor="text-success"
+                      placeholder="0"
                     />
                   </div>
-
-                  {/* Standards */}
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {/* Vitals Standards — age-based range check, like Height/Weight */}
+                  {/* <div className="grid gap-3 md:grid-cols-3">
                     <StandardStatus
-                      label="Height Standard"
-                      value={height || heightStandardResult.standard}
-                      status={heightStandardResult.status}
-                      tone={heightStandardResult.tone}
+                      label="Pulse Standard"
+                      value={pulse || pulseStandardResult.standard}
+                      status={pulseStandardResult.status}
+                      tone={pulseStandardResult.tone}
                     />
-
                     <StandardStatus
-                      label="Weight Standard"
-                      value={weight || weightStandardResult.standard}
-                      status={weightStandardResult.status}
-                      tone={weightStandardResult.tone}
+                      label="Blood Pressure Standard"
+                      value={bloodPressure || bloodPressureStandardResult.standard}
+                      status={bloodPressureStandardResult.status}
+                      tone={bloodPressureStandardResult.tone}
                     />
+                    <StandardStatus
+                      label="SpO₂ Standard"
+                      value={spo2 || spo2StandardResult.standard}
+                      status={spo2StandardResult.status}
+                      tone={spo2StandardResult.tone}
+                    />
+                  </div> */}
+                  <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 py-5">
+                    {/* LEFT SIDE - Height & Weight */}
+                    <div className="grid gap-2 space-y-2">
+                      {/* Height & Weight Cards */}
+                      {/* <div className="grid gap-3 sm:grid-cols-2">
+                        <EditableVitalCard
+                          label="Height"
+                          value={height}
+                          onChange={handleHeightChange}
+                          unit="cm"
+                          icon={HeightIcon}
+                          iconClass="bg-info/10"
+                          iconColor="text-info"
+                          placeholder="0"
+                        />
+                        <EditableVitalCard
+                          label="Weight"
+                          value={weight}
+                          onChange={handleWeightChange}
+                          unit="kg"
+                          icon={WeightIcon}
+                          iconClass="bg-success/10"
+                          iconColor="text-success"
+                          placeholder="0"
+                        />
+                      </div> */}
+
+                      {/* Input Fields */}
+                      {/* <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <NumberField
+                          label="Height"
+                          value={height}
+                          onChange={handleHeightChange}
+                          unit="cm"
+                          error={formErrors?.height}
+                        />
+
+                        <NumberField
+                          label="Weight"
+                          value={weight}
+                          onChange={handleWeightChange}
+                          unit="kg"
+                          error={formErrors?.weight}
+                        />
+                      </div> */}
+                      {/* Standards */}
+                      <div className=" grid gap-3 grid-cols-1 md:grid-cols-1">
+                        <StandardStatus
+                          label="Height Standard"
+                          value={height || heightStandardResult.standard}
+                          status={heightStandardResult.status}
+                          tone={heightStandardResult.tone}
+                        />
+
+                        <StandardStatus
+                          label="Weight Standard"
+                          value={weight || weightStandardResult.standard}
+                          status={weightStandardResult.status}
+                          tone={weightStandardResult.tone}
+                        />
+                        <StandardStatus
+                          label="Pulse Standard"
+                          value={pulse || pulseStandardResult.standard}
+                          status={pulseStandardResult.status}
+                          tone={pulseStandardResult.tone}
+                        />
+                        <StandardStatus
+                          label="Blood Pressure Standard"
+                          value={
+                            bloodPressure ||
+                            bloodPressureStandardResult.standard
+                          }
+                          status={bloodPressureStandardResult.status}
+                          tone={bloodPressureStandardResult.tone}
+                        />
+                        <StandardStatus
+                          label="SpO₂ Standard"
+                          value={spo2 || spo2StandardResult.standard}
+                          status={spo2StandardResult.status}
+                          tone={spo2StandardResult.tone}
+                        />
+                      </div>
+                    </div>
+
+                    {/* RIGHT SIDE - BMI */}
+                    <FramerCard className="overflow-hidden rounded-2xl border border-border/70 bg-background">
+                      {/* BMI Header */}
+                      <div className="flex flex-row items-center justify-between border-b border-border/70 px-4 py-3 md:flex-row">
+                        <div>
+                          <h3 className="text-sm font-semibold">
+                            Body Mass Index
+                          </h3>
+
+                          <p className="text-[11px] text-muted-foreground">
+                            Calculated from height and weight
+                          </p>
+                        </div>
+
+                        <div
+                          className={`rounded-full px-3 py-1 text-xs font-medium ${
+                            category.tone === "success"
+                              ? "bg-success/10 text-success"
+                              : category.tone === "warning"
+                                ? "bg-warning/10 text-warning"
+                                : category.tone === "destructive"
+                                  ? "bg-destructive/10 text-destructive"
+                                  : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {category.label}
+                        </div>
+                      </div>
+
+                      {/* BMI Visualization */}
+                      <div className="relative px-4 py-5">
+                        <BmiGauge categories={bmiCategories} bmi={displayBmi} />
+                      </div>
+                    </FramerCard>
                   </div>
-
-                  {/* BMI CARD */}
-                  <FramerCard className="mt-5 overflow-hidden rounded-2xl border border-border/70 bg-background">
-                    {/* BMI Header */}
-                    <div className="flex flex-col md:flex-row items-center justify-between border-b border-border/70 px-4 py-3">
-                      <div>
-                        <h3 className="text-sm font-semibold">
-                          Body Mass Index
-                        </h3>
-
-                        <p className="text-[11px] text-muted-foreground">
-                          Calculated from height and weight
-                        </p>
-                      </div>
-
-                      <div
-                        className={`rounded-full px-3 py-1 text-xs font-medium ${
-                          category.tone === "success"
-                            ? "bg-success/10 text-success"
-                            : category.tone === "warning"
-                              ? "bg-warning/10 text-warning"
-                              : category.tone === "destructive"
-                                ? "bg-destructive/10 text-destructive"
-                                : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {category.label}
-                      </div>
-                    </div>
-
-                    {/* BMI Visualization */}
-                    {/* <div className="relative px-4 py-5">
-              <BmiGauge  bmi={initialScreeningData?.bmi} category={category} />
-            </div> */}
-                    {/* BMI Visualization */}
-                    <div className="relative px-4 py-5">
-                      <BmiGauge
-                        categories={bmiCategories}
-                        bmi={bmi || getSelectedStudentScreeningData?.bmi}
-                      />
-                    </div>
-
-                    {/* BMI Details */}
-                    <div className="grid grid-cols-3 divide-x divide-border/70 border-t border-border/70">
-                      <div className="p-4 text-center">
-                        <p className="text-[11px] text-muted-foreground">BMI</p>
-
-                        <p className="mt-1 text-lg font-semibold">
-                          {bmi || getSelectedStudentScreeningData?.bmi || 0.0}
-                          {/* {Number.isFinite(Number(getSelectedStudentScreeningData?.bmi))
-                          ? Number(getSelectedStudentScreeningData?.bmi).toFixed(1)
-                          : "0.0"} */}
-                        </p>
-                      </div>
-
-                      <div className="p-4 text-center">
-                        <p className="text-[11px] text-muted-foreground">
-                          Height
-                        </p>
-
-                        <p className="mt-1 text-lg font-semibold">
-                          {getSelectedStudentScreeningData?.height
-                            ? `${getSelectedStudentScreeningData.height} `
-                            : "0 cm"}
-                        </p>
-                      </div>
-
-                      <div className="p-4 text-center">
-                        <p className="text-[11px] text-muted-foreground">
-                          Weight
-                        </p>
-
-                        <p className="mt-1 text-lg font-semibold">
-                          {getSelectedStudentScreeningData?.weight
-                            ? `${getSelectedStudentScreeningData.weight}`
-                            : "0 kg"}
-                        </p>
-                      </div>
-                    </div>
-                  </FramerCard>
 
                   {/* Clinical interpretation */}
                   <div className="mt-4 flex items-start gap-3 rounded-xl border border-success/20 bg-success/5 p-3">
@@ -1390,6 +1636,31 @@ export default function GeneralScreeningPage() {
                       </p>
                     </div>
                   </div>
+
+                  {/* =========================================================
+    CLINICAL SIGNS
+========================================================= */}
+
+                  <ClinicalSignsCard
+                    data={clinicalSigns}
+                    onChange={handleClinicalSignChange}
+                  />
+
+                  {selectedStudent?.gender?.toLowerCase() === "female" && (
+                    <FemaleStudentsCard
+                      data={femaleScreening}
+                      onChange={handleFemaleScreeningChange}
+                    />
+                  )}
+
+                  {/* =========================================================
+    GENERAL PHYSICAL EXAMINATION
+========================================================= */}
+
+                  <GeneralPhysicalExamination
+                    data={physicalExamination}
+                    onChange={handlePhysicalExaminationChange}
+                  />
                 </article>
               </FramerCard>
 
@@ -1398,11 +1669,14 @@ export default function GeneralScreeningPage() {
                 <FramerCard>
                   <article className="space-y-4 rounded-xl border border-border bg-card p-4">
                     <ToggleGroup
+                      icon={BloodDropOutlineIcon}
                       label="Blood Group"
                       options={bloodGroupToggleOptions}
                       value={bloodGroup}
                       onChange={handleBloodGroupChange}
                       columns={8}
+                      iconBg={"bg-destructive/10"}
+                      textClass={"text-destructive"}
                     />
                     {formErrors?.bloodGroup && (
                       <p className="text-xs text-destructive">
@@ -1410,11 +1684,14 @@ export default function GeneralScreeningPage() {
                       </p>
                     )}
                     <ToggleGroup
+                      icon={Syringe}
                       label="Immunization Status"
                       options={immunizationOptions}
                       value={immunization}
                       onChange={setImmunization}
                       columns={3}
+                      iconBg={"bg-info/20"}
+                      textClass={"text-info"}
                     />
                   </article>
                 </FramerCard>
@@ -1466,7 +1743,7 @@ export default function GeneralScreeningPage() {
                       </h3>
                     </div>
 
-                    <textarea
+                    <Textarea
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
                       rows={4}
@@ -1530,7 +1807,7 @@ function StandardStatus({ label, value, status, tone = "success" }) {
           : "text-success";
 
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border/70 bg-background p-3">
+    <div className="flex flex-row items-center justify-between rounded-xl border border-border/70 bg-background p-3">
       <div className="min-w-0">
         <p className="text-[11px] text-muted-foreground">{label}</p>
 

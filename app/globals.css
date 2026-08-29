@@ -92,6 +92,11 @@
   --domain-oral: hsl(38 90% 50%); /* amber/gold — Oral Health */
   --domain-immunization: hsl(350 65% 55%); /* rose — Immunization */
 
+    --domain-female: hsl(340 72% 48%);
+  --domain-female-soft: hsl(340 75% 96%);
+  --domain-female-border: hsl(340 65% 88%);
+  --domain-female-hover: hsl(340 75% 92%);
+
   /* Brand gradient — subtle two-tone wash echoing the logo's blue + green,
      applied to <body> at low opacity. Use .bg-brand-gradient to apply the
      same treatment deliberately to a hero/login section instead. */
@@ -163,6 +168,11 @@
   --domain-oral: hsl(38 92% 58%);
   --domain-immunization: hsl(350 75% 65%);
 
+  --domain-female: hsl(340 80% 68%);
+  --domain-female-soft: hsl(340 35% 15%);
+  --domain-female-border: hsl(340 35% 28%);
+  --domain-female-hover: hsl(340 35% 22%);
+
   --brand-gradient:
     radial-gradient(
       120% 120% at 100% 0%,
@@ -231,6 +241,11 @@
   --color-domain-oral: var(--domain-oral);
   --color-domain-immunization: var(--domain-immunization);
 
+  --color-domain-female: var(--domain-female);
+  --color-domain-female-soft: var(--domain-female-soft);
+  --color-domain-female-border: var(--domain-female-border);
+  --color-domain-female-hover: var(--domain-female-hover);
+  
   /* Typography — generates font-display / font-body / font-mono / font-sf */
   --font-display: "Fraunces", ui-serif, Georgia, serif;
   --font-body: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -292,7 +307,7 @@
     color: var(--color-foreground);
     font-weight: 600;
     line-height: 1.2;
-    letter-spacing: -0.01em;
+    letter-spacing: 0.01em;
   }
 
   h5,
@@ -411,6 +426,11 @@
     font-family: inherit;
     font-size: 1rem;
   }
+  select,
+  button {
+   cursor: pointer;
+  }
+
 
   table {
     width: 100%;
@@ -554,4 +574,17 @@
   position: relative;
   width: 100%;
   height: 100%;
+}
+
+/* ===== Female domain skin: ToggleGroup keeps its pink text =====
+   The FemaleStudentsCard renders active toggle with the neutral (blue)
+   text-primary by default; this unlayered rule re-colors it to the pink
+   domain token. Unlayered beats the @layer utilities classes. */
+.screening-card--female button[aria-pressed="true"] {
+  color: var(--color-domain-female);
+  border-color: var(--color-domain-female);
+  background-color: var(--color-domain-female-soft);
+}
+.screening-card--female button[aria-pressed="true"]:hover {
+  background-color: var(--color-domain-female-hover);
 }

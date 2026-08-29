@@ -23,7 +23,7 @@ export const distanceAcuityOptions = [
 ];
 
 // Near acuity: Jaeger / N-notation.
-export const nearAcuityOptions = ["N5", "N6", "N8", "N10", "N12", "N18", "N24", "N36"];
+export const nearAcuityOptions = ["N5", "N6", "N8", "N10", "N12", "N18", "N24", "N36", "NA"];
 
 export const colorVisionStatusOptions = ["Normal", "Deficient — Protanopia", "Deficient — Deuteranopia", "Deficient — Tritanopia", "Not Tested"];
 export const colorVisionTestTypeOptions = ["Ishihara", "Farnsworth D-15", "City University Test"];
