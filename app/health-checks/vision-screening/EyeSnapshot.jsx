@@ -119,10 +119,14 @@ function VisionScale({ acuityValue, tone }) {
 function EyeBadge({
   label,
   shortLabel,
-  acuityValue,
-  corrected,
+  withValue,
+  withoutValue,
 }) {
-  const status = classifyAcuity(acuityValue);
+  // Best-corrected reading drives the status/scale; falls back to uncorrected
+  // when no "with" reading was recorded.
+  const primaryValue = withValue || withoutValue;
+  const corrected = Boolean(withValue);
+  const status = classifyAcuity(primaryValue);
   const toneClass =
     TONE_CLASS[status.tone] || TONE_CLASS.muted;
 
@@ -175,9 +179,25 @@ function EyeBadge({
               Visual Acuity
             </p>
 
-            <p className="mt-1 text-3xl font-bold tracking-tight text-foreground">
-              {acuityValue || "—"}
-            </p>
+            {/* Distance without correction */}
+            <div className="mt-2 flex items-baseline justify-end gap-2">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                Without
+              </span>
+              <span className="text-lg font-semibold text-foreground">
+                {withoutValue || "—"}
+              </span>
+            </div>
+
+            {/* Distance with correction */}
+            <div className="mt-1 flex items-baseline justify-end gap-2">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                With
+              </span>
+              <span className="text-2xl font-bold tracking-tight text-foreground">
+                {withValue || "—"}
+              </span>
+            </div>
 
             <div className="mt-2 flex items-center justify-end gap-1.5">
 
@@ -198,7 +218,7 @@ function EyeBadge({
 
         {/* Scale */}
         <VisionScale
-          acuityValue={acuityValue}
+          acuityValue={primaryValue}
           tone={status.tone}
         />
 
@@ -219,19 +239,15 @@ function EyeBadge({
   );
 }
 
-// Best-corrected acuity is preferred.
-// Falls back to uncorrected when correction wasn't recorded.
+// Both distance readings are shown per eye: "Without" (uncorrected) and
+// "With" (best corrected). The status/scale use the best-corrected value
+// when available, falling back to the uncorrected reading.
 export function VisionSnapshot({
   odDistanceWith,
   odDistanceWithout,
   osDistanceWith,
   osDistanceWithout,
 }) {
-  const rightValue =
-    odDistanceWith || odDistanceWithout;
-
-  const leftValue =
-    osDistanceWith || osDistanceWithout;
 
   return (
     <div className="space-y-4">
@@ -271,15 +287,15 @@ export function VisionSnapshot({
         <EyeBadge
           label="Right Eye"
           shortLabel="OD"
-          acuityValue={rightValue}
-          corrected={Boolean(odDistanceWith)}
+          withValue={odDistanceWith}
+          withoutValue={odDistanceWithout}
         />
 
         <EyeBadge
           label="Left Eye"
           shortLabel="OS"
-          acuityValue={leftValue}
-          corrected={Boolean(osDistanceWith)}
+          withValue={osDistanceWith}
+          withoutValue={osDistanceWithout}
         />
 
       </div>
