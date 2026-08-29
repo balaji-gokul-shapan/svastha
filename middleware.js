@@ -21,7 +21,7 @@ const PUBLIC_PATHS = new Set(["/login", "/register"]);
 const AUTH_PAGES = new Set(["/login"]);
 
 const LOGIN_PATH = "/login";
-const AUTHENTICATED_HOME_PATH = "/dashboard";
+const AUTHENTICATED_HOME_PATH = "/";
 
 export function middleware(request) {
   const { pathname, search } = request.nextUrl;

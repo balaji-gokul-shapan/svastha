@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import React from "react";
-import { Activity } from "lucide-react";
+import { Activity, Pill } from "lucide-react";
 import {
   SegmentedField,
   ScreeningTextarea,
@@ -111,17 +111,17 @@ const GeneralPhysicalExamination = ({ data, onChange }) => {
       <FramerCard>
         <article className="space-y-4 rounded-xl border border-border bg-card p-4">
           <div className="flex items-center gap-2">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary aspect-square">
-              <Activity className="size-4" />
+            <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary aspect-square">
+              <Pill  className="size-5" />
             </span>
 
             <div>
               <h3 className="text-sm font-semibold text-foreground">
-                Clinical Signs
+                 General Physical Examination
               </h3>
 
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Physical measurements and growth assessment
+                Physical measurements and Examination diagnostic
               </p>
             </div>
           </div>
@@ -182,15 +182,15 @@ const GeneralPhysicalExamination = ({ data, onChange }) => {
                 <Activity className="size-4" />
               </span> */}
 
-              <div>
+              {/* <div>
                 <h3 className="text-sm font-semibold text-foreground">
                   General Physical Examination
                 </h3>
 
-                {/* <p className="mt-0.5 text-xs text-muted-foreground">
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   Physical measurements and growth assessment
-                </p> */}
-              </div>
+                </p>
+              </div> */}
             </div>
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2">

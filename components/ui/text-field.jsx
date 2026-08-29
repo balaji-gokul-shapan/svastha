@@ -85,7 +85,7 @@ const TextareaField = React.forwardRef(function TextareaField(
   return (
     <div className={cn("space-y-1.5", className)}>
       {label ? (
-        <Label htmlFor={fieldId} className={`!textFontClass ${textFontClass} mb-2`}>
+        <Label htmlFor={fieldId} className={` ${textFontClass} mb-2`}>
           {label}
           {required ? (
             <span className="ml-0.5 text-destructive">*</span>

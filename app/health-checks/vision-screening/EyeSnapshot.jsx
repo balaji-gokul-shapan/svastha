@@ -185,7 +185,7 @@ function EyeBadge({
                 Without
               </span>
               <span className="text-lg font-semibold text-foreground">
-                {withoutValue || "—"}
+                {withoutValue || "6/6"}
               </span>
             </div>
 
@@ -195,7 +195,7 @@ function EyeBadge({
                 With
               </span>
               <span className="text-2xl font-bold tracking-tight text-foreground">
-                {withValue || "—"}
+                {withValue || "6/6"}
               </span>
             </div>
 

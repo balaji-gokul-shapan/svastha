@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import React from "react";
-import { Activity } from "lucide-react";
+import { Stethoscope } from "lucide-react";
 import { ToggleGroup } from "./toggleGroup";
 import { TextareaField } from "@/components/ui/text-field";
 
@@ -17,8 +17,8 @@ const ClinicalSignsCard = ({ data, onChange }) => {
           </div>
         </div> */}
         <div className="flex items-center gap-2">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary aspect-square">
-            <Activity className="size-4" />
+          <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary aspect-square">
+            <Stethoscope className="size-5" />
           </span>
 
           <div>

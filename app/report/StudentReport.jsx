@@ -1543,6 +1543,7 @@ import { useAppDispatch } from "@/lib/hooks";
 import { EmptyState } from "@/components/ui/empty-state";
 import useAuthUser from "@/lib/useAuthUser";
 import useAssignedEvents, { findSelectedCamp } from "@/lib/useAssignedEvents";
+import { getStudentByEvent } from "@/lib/features/getEventAssignSlice";
 
 /* =========================================================
    COMPLETE STUDENT HEALTH PROFILE DATA
@@ -1764,6 +1765,67 @@ export default function HealthOverviewReport() {
     () => findSelectedCamp(assignedEvents, schoolName),
     [assignedEvents, schoolName],
   );
+
+  // Reverse lookup for the report: general screening knows a student's camp
+  // because its roster comes FROM the camp (getStudentByEvent). Here students
+  // are listed across all camps, so fetch every assigned camp's roster and
+  // index it by each student identifier. Any selected student then resolves
+  // to its camp + school even when the school filter is still "all" — the
+  // /students/filter rows don't carry camp/school fields.
+  const assignedEventIds = useMemo(
+    () =>
+      (Array.isArray(assignedEvents) ? assignedEvents : [])
+        .map((event) => String(event?.id ?? "").trim())
+        .filter(Boolean)
+        .sort(),
+    [assignedEvents],
+  );
+
+  const { data: campStudentMap } = useQuery({
+    queryKey: ["report-camp-rosters", assignedEventIds],
+    queryFn: async () => {
+      const map = {};
+      for (const event of Array.isArray(assignedEvents) ? assignedEvents : []) {
+        const eventId = String(event?.id ?? "").trim();
+        if (!eventId) continue;
+        try {
+          const rows = await dispatch(getStudentByEvent({ eventId })).unwrap();
+          const campName = String(event?.name ?? "").trim();
+          const campSchool = String(
+            event?.school?.school_name ??
+              event?.school?.name ??
+              event?.school_name ??
+              event?.schoolName ??
+              "",
+          ).trim();
+          for (const row of Array.isArray(rows) ? rows : []) {
+            const keys = [
+              row?.id,
+              row?.studentId,
+              row?.student_id,
+              row?.cus_id,
+              row?.school_registration_number,
+              row?.admission_number,
+            ]
+              .map((value) => String(value ?? "").trim())
+              .filter(Boolean);
+            for (const key of keys) {
+              if (!map[key]) {
+                map[key] = { campId: eventId, campName, schoolName: campSchool };
+              }
+            }
+          }
+        } catch {
+          // One failed roster must not break the remaining camps.
+        }
+      }
+      return map;
+    },
+    enabled: assignedEventIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
   const resetDependentFilters = useCallback(() => {
     setClassFilter("all");
     setSectionFilter("all");
@@ -1891,9 +1953,33 @@ export default function HealthOverviewReport() {
         "",
     ).trim();
 
+    // Final fallback: look the student up in the assigned camps' rosters
+    // (campStudentMap). Covers students picked while the school filter is
+    // still "all" and non-doctor users who can't open the School select.
+    const studentLookupKeys = [
+      s.id,
+      s.studentId,
+      s.student_id,
+      s.cus_id,
+      s.school_registration_number,
+      s.admission_number,
+    ]
+      .map((value) => String(value ?? "").trim())
+      .filter(Boolean);
+    let rosterCamp = null;
+    for (const key of studentLookupKeys) {
+      if (campStudentMap?.[key]) {
+        rosterCamp = campStudentMap[key];
+        break;
+      }
+    }
+    const rosterCampName = String(rosterCamp?.campName ?? "").trim();
+    const rosterCampSchool = String(rosterCamp?.schoolName ?? "").trim();
+
     const resolvedSchool =
       filterSchool ||
       studentCampSchool ||
+      rosterCampSchool ||
       s.school_name ||
       s.schoolName ||
       s.school ||
@@ -1901,6 +1987,7 @@ export default function HealthOverviewReport() {
     const resolvedCamp =
       filterCamp ||
       studentCampName ||
+      rosterCampName ||
       s.camp_name ||
       s.campName ||
       s.camp ||
@@ -2280,7 +2367,7 @@ export default function HealthOverviewReport() {
           {/* VITALS */}
           <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <StatCard
-              icon={<Activity />}
+              icon={Activity}
               label="Height"
               value={healthProfile.vitals.height.value}
               status={healthProfile.vitals.height.status}
@@ -2288,7 +2375,7 @@ export default function HealthOverviewReport() {
             />
 
             <StatCard
-              icon={<HeartPulse />}
+              icon={HeartPulse}
               label="Weight"
               value={healthProfile.vitals.weight.value}
               status={healthProfile.vitals.weight.status}
@@ -2296,7 +2383,7 @@ export default function HealthOverviewReport() {
             />
 
             <StatCard
-              icon={<Baby />}
+              icon={Baby}
               label="BMI"
               value={healthProfile.vitals.bmi.value}
               status={healthProfile.vitals.bmi.status}
@@ -2304,7 +2391,7 @@ export default function HealthOverviewReport() {
             />
 
             <StatCard
-              icon={<ShieldCheck />}
+              icon={ShieldCheck}
               label="Immunization"
               value={healthProfile.immunization.status}
               status="Complete"
@@ -2315,7 +2402,7 @@ export default function HealthOverviewReport() {
           {/* MORE VITALS */}
           <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <StatCard
-              icon={<HeartPulse />}
+              icon={HeartPulse}
               label="Blood Pressure"
               value={healthProfile.vitals.bloodPressure.value}
               status={healthProfile.vitals.bloodPressure.status}
@@ -2323,7 +2410,7 @@ export default function HealthOverviewReport() {
             />
 
             <StatCard
-              icon={<Activity />}
+              icon={Activity}
               label="Pulse"
               value={healthProfile.vitals.pulse.value}
               status={healthProfile.vitals.pulse.status}
@@ -2331,7 +2418,7 @@ export default function HealthOverviewReport() {
             />
 
             <StatCard
-              icon={<Activity />}
+              icon={Activity}
               label="Temperature"
               value={healthProfile.vitals.temperature.value}
               status={healthProfile.vitals.temperature.status}
@@ -2339,7 +2426,7 @@ export default function HealthOverviewReport() {
             />
 
             <StatCard
-              icon={<ShieldCheck />}
+              icon={ShieldCheck}
               label="SpO₂"
               value={healthProfile.vitals.oxygen.value}
               status={healthProfile.vitals.oxygen.status}
@@ -2354,7 +2441,7 @@ export default function HealthOverviewReport() {
               <FramerCard asCard className="border-border bg-card">
                 <CardHeader>
                   <SectionTitle
-                    icon={<Activity />}
+                    icon={Activity}
                     title="Growth & BMI"
                     subtitle="Physical measurements and growth assessment"
                     badge="Normal"
@@ -2418,7 +2505,7 @@ export default function HealthOverviewReport() {
               <FramerCard asCard className="border-border bg-card">
                 <CardHeader>
                   <SectionTitle
-                    icon={<Eye />}
+                    icon={Eye}
                     title="Vision Screening"
                     subtitle="Visual acuity and eye health"
                     badge={healthProfile.vision.status}
@@ -2465,7 +2552,7 @@ export default function HealthOverviewReport() {
               <FramerCard asCard className="border-border bg-card">
                 <CardHeader>
                   <SectionTitle
-                    icon={<Ear />}
+                    icon={Ear}
                     title="Hearing Screening"
                     subtitle="Audiological assessment and hearing health"
                     badge={healthProfile.hearing.status}
@@ -2551,7 +2638,7 @@ export default function HealthOverviewReport() {
               <FramerCard asCard className="border-border bg-card">
                 <CardHeader>
                   <SectionTitle
-                    icon={<HeartPulse />}
+                    icon={HeartPulse}
                     title="Dental Screening"
                     subtitle="Oral and dental examination"
                     badge={healthProfile.dental.status}
@@ -2661,7 +2748,7 @@ export default function HealthOverviewReport() {
               <FramerCard asCard className="border-border bg-card">
                 <CardHeader>
                   <SectionTitle
-                    icon={<Activity />}
+                    icon={Activity}
                     title="ENT Screening"
                     subtitle="Ear, nose and throat assessment"
                     badge={healthProfile.ent.status}
@@ -2720,7 +2807,7 @@ export default function HealthOverviewReport() {
               <FramerCard asCard className="border-border bg-card">
                 <CardHeader>
                   <SectionTitle
-                    icon={<Syringe />}
+                    icon={Syringe}
                     title="Immunization"
                     subtitle="Vaccination status"
                     badge={healthProfile.immunization.status}
@@ -2870,7 +2957,7 @@ export default function HealthOverviewReport() {
           <FramerCard asCard className="border-border bg-card">
             <CardHeader>
               <SectionTitle
-                icon={<CheckCircle2 />}
+                icon={CheckCircle2}
                 title="Overall Assessment"
                 subtitle="Summary of complete health screening"
                 badge="Healthy"

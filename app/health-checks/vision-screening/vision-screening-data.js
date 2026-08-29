@@ -1,15 +1,3 @@
-// Mock data + helpers for the Vision Screening form.
-// Field names below match the API shape exactly (od_distance_without,
-// os_near_with, strabismus, uses_glasses_or_lens, etc.) — swap the option
-// arrays for real lookup data later without touching the page component.
-
-export const studentOptions = [
-  { id: 1, name: "Devvrat Guneta" },
-  { id: 2, name: "Aarav Mehta" },
-  { id: 3, name: "Ishita Sharma" },
-  { id: 4, name: "Kabir Nair" },
-  { id: 5, name: "Ananya Reddy" },
-];
 
 export const locationOptions = ["Sunshine Public School", "Riverside Elementary", "Maple Grove Academy"];
 export const examinerOptions = ["Dr. Priya Sharma", "Dr. Arjun Mehta", "Dr. Kavya Reddy"];
@@ -18,14 +6,15 @@ export const assistantOptions = ["Riya Nair", "Sanjay Kumar", "Meera Iyer"];
 // Distance acuity: standard Snellen fractions, plus the notations used when
 // acuity is too poor to measure on the chart at all.
 export const distanceAcuityOptions = [
+  "NA",
   "6/6", "6/9", "6/12", "6/18", "6/24", "6/36", "6/60",
   "CF (Counting Fingers)", "HM (Hand Movement)", "PL (Perception of Light)", "NPL (No Perception of Light)",
 ];
 
 // Near acuity: Jaeger / N-notation.
-export const nearAcuityOptions = ["N5", "N6", "N8", "N10", "N12", "N18", "N24", "N36", "NA"];
+export const nearAcuityOptions = ["NA","N5", "N6", "N8", "N10", "N12", "N18", "N24", "N36", ];
 
-export const colorVisionStatusOptions = ["NA","Normal", "Deficient — Protanopia", "Deficient — Deuteranopia", "Deficient — Tritanopia", "Not Tested"];
+export const colorVisionStatusOptions = ["NA", "Normal", "Deficient — Protanopia", "Deficient — Deuteranopia", "Deficient — Tritanopia", "Not Tested"];
 export const colorVisionTestTypeOptions = ["NA","Ishihara", "Farnsworth D-15", "City University Test"];
 
 export const coverTestOptions = ["NA","Orthophoria (Normal)", "Esophoria", "Exophoria", "Esotropia", "Exotropia", "Hypertropia", "Hypotropia"];

@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   Calendar,
-  ChevronDown,
   ClipboardCheckIcon,
   Eye,
   EyeDashed,
@@ -31,17 +30,22 @@ import {
   corneaOptions,
   coverTestOptions,
   distanceAcuityOptions,
-  examinerOptions,
   followUpOptions,
   lensTypeOptions,
   lidsOptions,
-  locationOptions,
   nearAcuityOptions,
   pupilOptions,
   refractiveErrorOptions,
   yesNoOptions,
 } from "./vision-screening-data";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import CampStudentSelectorDrawer from "@/components/health-checks/camp-student-selector-drawer";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { getVisionScreening } from "@/lib/features/getVisionScreening";
@@ -67,28 +71,39 @@ function FieldLabel({ children }) {
   );
 }
 
-function SelectField({ label, options, value, onChange, icon: Icon, error }) {
+function SelectField({
+  label,
+  options,
+  value,
+  onChange,
+  icon: Icon,
+  error,
+  placeholder = "Select",
+}) {
+  const safeOptions = Array.isArray(options) ? options : [];
   return (
     <div>
       {label && <FieldLabel>{label}</FieldLabel>}
-      <div className="relative">
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={`h-10 w-full appearance-none rounded-md border border-input bg-background pl-3 pr-9 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30 ${error ? "border-destructive focus:ring-destructive/30" : ""}`}
+      {/* Radix treats "" / undefined as "nothing selected" and shows the
+          placeholder, so empty initial state (e.g. OU row) stays valid. */}
+      <Select value={value ?? ""} onValueChange={onChange}>
+        <SelectTrigger
+          className={error ? "border-destructive focus:ring-destructive/30" : ""}
+          aria-invalid={error ? true : undefined}
         >
-          {options.map((opt) => (
-            <option key={opt} value={opt}>
+          {Icon ? (
+            <Icon className="mr-1 size-4 shrink-0 text-muted-foreground" />
+          ) : null}
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          {safeOptions.map((opt) => (
+            <SelectItem key={opt} value={opt}>
               {opt}
-            </option>
+            </SelectItem>
           ))}
-        </select>
-        {Icon ? (
-          <Icon className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        ) : (
-          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        )}
-      </div>
+        </SelectContent>
+      </Select>
       {error ? (
         <p className="mt-1.5 text-xs text-destructive">{error}</p>
       ) : null}
@@ -137,9 +152,16 @@ function AcuityRow({
     );
   };
 
-  const distanceOptions = (Array.isArray(visionResultData) ? visionResultData : []).map(
-    (item) => item?.name,
-  );
+  // Distance options come from master data, but "NA" must always be
+  // selectable — it's how a not-applicable eye is recorded, and the save
+  // schema only requires the (Without) fields to be non-empty strings.
+  const masterNames = (Array.isArray(visionResultData) ? visionResultData : [])
+    .map((item) => item?.name)
+    .filter(Boolean);
+  const baseOptions = masterNames.length ? masterNames : distanceAcuityOptions;
+  const distanceOptions = baseOptions.includes("NA")
+    ? baseOptions
+    : ["NA", ...baseOptions];
 
   return (
     <div className="rounded-lg border border-border/70 bg-background p-3 sm:p-4">
@@ -193,10 +215,13 @@ function AcuityRow({
 }
 
 const emptyEye = {
-  distanceWithout: "",
-  nearWithout: "",
-  distanceWith: "",
-  nearWith: "",
+  // "NA" is the default selection for every acuity dropdown — an
+  // untested / not-applicable eye must still satisfy the save schema,
+  // which requires the (Without) fields to be non-empty strings.
+  distanceWithout: "NA",
+  nearWithout: "NA",
+  distanceWith: "NA",
+  nearWith: "NA",
   remarks: "",
 };
 
@@ -257,6 +282,9 @@ const authUser = useAppSelector(selectAuthUser);
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
+
+    console.log(studentFilter,"studentFilter-------------------");
+
 
   const {
     data: masterScreeningData = {},
@@ -335,17 +363,22 @@ const authUser = useAppSelector(selectAuthUser);
  
   
   const [studentId, setStudentId] = useState("");
-  const [assessmentDate, setAssessmentDate] = useState("2026-08-05");
-  const [location, setLocation] = useState(locationOptions[0]);
-  const [examiner, setExaminer] = useState(examinerOptions[0]);
-  const [assistant, setAssistant] = useState(assistantOptions[0]);
+  // const [assessmentDate, setAssessmentDate] = useState("2026-08-05");
+  // const [location, setLocation] = useState(locationOptions[0]);
+  // const [examiner, setExaminer] = useState(examinerOptions[0]);
+  // const [assistant, setAssistant] = useState(assistantOptions[0]);
 
   const [od, setOd] = useState({ ...emptyEye, distanceWith: "6/6" });
   const [os, setOs] = useState({ ...emptyEye, distanceWith: "6/9" });
-  const [ou, setOu] = useState(emptyEye);
+   const [ou, setOu] = useState({ ...emptyEye });
 
+  // Seeded from the static options (NOT master data) — master data arrives
+  // asynchronously and is an array anyway, so `colorVisionData?.name` was
+  // always undefined and the payload key got dropped by JSON.stringify,
+  // causing the backend to reject saves with
+  // "Invalid input: expected string, received undefined".
   const [colorVisionStatus, setColorVisionStatus] = useState(
-    colorVisionData?.name,
+    colorVisionStatusOptions[0],
   );
   const [colorVisionTestType, setColorVisionTestType] = useState(
     colorVisionTestTypeOptions[0],
@@ -744,27 +777,29 @@ const authUser = useAppSelector(selectAuthUser);
   const applyScreeningRecordToForm = useCallback((screeningRecord) => {
     const record = screeningRecord ?? {};
 
+    // "|| NA" (not ??) so legacy records saved with "" also show the
+    // NA default instead of an empty select.
     setOd({
-      distanceWithout: String(record?.od_distance_without ?? ""),
-      nearWithout: String(record?.od_near_without ?? ""),
-      distanceWith: String(record?.od_distance_with ?? "6/6"),
-      nearWith: String(record?.od_near_with ?? ""),
+      distanceWithout: String(record?.od_distance_without || "NA"),
+      nearWithout: String(record?.od_near_without || "NA"),
+      distanceWith: String(record?.od_distance_with || "6/6"),
+      nearWith: String(record?.od_near_with || "NA"),
       remarks: String(record?.od_remarks ?? ""),
     });
 
     setOs({
-      distanceWithout: String(record?.os_distance_without ?? ""),
-      nearWithout: String(record?.os_near_without ?? ""),
-      distanceWith: String(record?.os_distance_with ?? "6/9"),
-      nearWith: String(record?.os_near_with ?? ""),
+      distanceWithout: String(record?.os_distance_without || "NA"),
+      nearWithout: String(record?.os_near_without || "NA"),
+      distanceWith: String(record?.os_distance_with || "6/9"),
+      nearWith: String(record?.os_near_with || "NA"),
       remarks: String(record?.os_remarks ?? ""),
     });
 
     setOu({
-      distanceWithout: String(record?.ou_distance_without ?? ""),
-      nearWithout: String(record?.ou_near_without ?? ""),
-      distanceWith: String(record?.ou_distance_with ?? ""),
-      nearWith: String(record?.ou_near_with ?? ""),
+      distanceWithout: String(record?.ou_distance_without || "NA"),
+      nearWithout: String(record?.ou_near_without || "NA"),
+      distanceWith: String(record?.ou_distance_with || "NA"),
+      nearWith: String(record?.ou_near_with || "NA"),
       remarks: String(record?.ou_remarks ?? ""),
     });
 
@@ -1005,15 +1040,19 @@ const authUser = useAppSelector(selectAuthUser);
       referral,
       referralReason,
       od_distance_without: od.distanceWithout,
-      od_near_without: od.nearWithout,
+      od_near_without: od.nearWithout ,
       os_distance_without: os.distanceWithout,
-      os_near_without: os.nearWithout,
-      ou_distance_without: ou.distanceWithout,
-      ou_near_without: ou.nearWithout,
+      os_near_without: os.nearWithout ,
+      ou_distance_without: ou.distanceWithout ,
+      ou_near_without: ou.nearWithout ,
+      od_remarks: od.remarks,
+      os_remarks: os.remarks,
     };
+console.log(formValues.od_near_without,"od_near_without");
 
     const result = visionScreeningSchema.safeParse(formValues);
-
+    console.log(formValues,"result");
+    
     if (!result.success) {
       const errors = result.error.flatten().fieldErrors;
 
@@ -1055,7 +1094,7 @@ const authUser = useAppSelector(selectAuthUser);
       ou_distance_with: ou.distanceWith,
       ou_near_with: ou.nearWith,
       ou_remarks: ou.remarks,
-      color_vision_status: colorVisionStatus,
+      color_vision_status: colorVisionStatus ?? colorVisionStatusOptions[0],
       color_vision_test_type: colorVisionTestType,
       color_vision_remarks: colorVisionRemarks,
       cover_test: coverTest,
@@ -1135,7 +1174,7 @@ const authUser = useAppSelector(selectAuthUser);
   const handleCancelAssessment = useCallback(() => {
     setOd({ ...emptyEye, distanceWith: "6/6" });
     setOs({ ...emptyEye, distanceWith: "6/9" });
-    setOu(emptyEye);
+    setOu({ ...emptyEye });
 
     setColorVisionStatus(colorVisionStatusOptions[0]);
     setColorVisionTestType(colorVisionTestTypeOptions[0]);

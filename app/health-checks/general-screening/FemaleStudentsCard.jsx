@@ -4,10 +4,7 @@ import { Activity } from "react";
 import { ToggleGroup } from "./toggleGroup";
 import { TextareaField } from "@/components/ui/text-field";
 import { Separator } from "@/components/ui/separator";
-
-/* Female-specific card. Container keeps .screening-card--female so the pink
-   domain skin (tint, active toggle, textarea focus) from globals.css applies;
-   only structural spacing/grid utilities live here. */
+import Girl0105y24pxIcon from "@iconify-react/healthicons/girl-0105y-24px";
 const FemaleStudentsCard = ({ data, onChange }) => {
   return (
     <section className="screening-card screening-card--female">
@@ -17,12 +14,12 @@ const FemaleStudentsCard = ({ data, onChange }) => {
           <h5 className="screening-title text-domain-female">For Female Students</h5>
         </div> */}
         <div className="flex items-center gap-2">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary aspect-square">
-            <Activity className="size-4" />
+          <span className="flex size-10 items-center justify-center rounded-lg bg-domain-female/10 text-domain-female aspect-square">
+            <Girl0105y24pxIcon className="size-8" />
           </span>
 
           <div>
-            <h3 className="text-sm font-semibold text-foreground">
+            <h3 className="text-sm font-semibold  text-domain-female">
               For Female Students
             </h3>
 
@@ -79,7 +76,11 @@ const FemaleStudentsCard = ({ data, onChange }) => {
           <div className="grid gap-4 md:grid-cols-2">
             <TextareaField
               textFontClass="!text-domain-soft"
-              textareaClassName="!bg-domain-female-hover"
+              textareaClassName="!bg-domain-female-hover border-domain-female  !bg-domain-female-hover
+  !border-domain-female
+  focus:!border-domain-female
+  focus:!ring-0
+  focus:!outline-none"
               label="Other Concerns"
               value={data.otherConcerns}
               onChange={(event) =>
@@ -91,7 +92,11 @@ const FemaleStudentsCard = ({ data, onChange }) => {
 
             <TextareaField
               textFontClass="!text-domain-soft"
-              textareaClassName="!bg-domain-female-hover"
+              textareaClassName="!bg-domain-female-hover border-domain-female  !bg-domain-female-hover
+  !border-domain-female
+  focus:!border-domain-female
+  focus:!ring-0
+  focus:!outline-none"
               label="Referral (if any)"
               value={data.referral}
               onChange={(event) => onChange("referral", event.target.value)}
