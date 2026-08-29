@@ -12,11 +12,11 @@ export const visionScreeningSchema = z.object({
   referralReason: z.string().optional(),
 
   // Acuity/remarks fields are required for the three eye groups.
-  od_distance_without: z.string().min(1, "Right eye (distance) required"),
+  // od_distance_without: z.string().min(1, "Right eye (distance) required"),
   od_near_without: z.string().min(1, "Right eye (near) required"),
-  os_distance_without: z.string().min(1, "Left eye (distance) required"),
+  // os_distance_without: z.string().min(1, "Left eye (distance) required"),
   os_near_without: z.string().min(1, "Left eye (near) required"),
-  ou_distance_without: z.string().min(1, "Both eyes (distance) required"),
+  // ou_distance_without: z.string().min(1, "Both eyes (distance) required"),
   ou_near_without: z.string().min(1, "Both eyes (near) required"),
 }).superRefine((data, ctx) => {
   // A referred student must have a referral reason selected.
