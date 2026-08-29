@@ -25,15 +25,15 @@ export const distanceAcuityOptions = [
 // Near acuity: Jaeger / N-notation.
 export const nearAcuityOptions = ["N5", "N6", "N8", "N10", "N12", "N18", "N24", "N36", "NA"];
 
-export const colorVisionStatusOptions = ["Normal", "Deficient — Protanopia", "Deficient — Deuteranopia", "Deficient — Tritanopia", "Not Tested"];
-export const colorVisionTestTypeOptions = ["Ishihara", "Farnsworth D-15", "City University Test"];
+export const colorVisionStatusOptions = ["NA","Normal", "Deficient — Protanopia", "Deficient — Deuteranopia", "Deficient — Tritanopia", "Not Tested"];
+export const colorVisionTestTypeOptions = ["NA","Ishihara", "Farnsworth D-15", "City University Test"];
 
-export const coverTestOptions = ["Orthophoria (Normal)", "Esophoria", "Exophoria", "Esotropia", "Exotropia", "Hypertropia", "Hypotropia"];
+export const coverTestOptions = ["NA","Orthophoria (Normal)", "Esophoria", "Exophoria", "Esotropia", "Exotropia", "Hypertropia", "Hypotropia"];
 
-export const lidsOptions = ["Normal", "Ptosis", "Blepharitis", "Stye", "Edema"];
-export const conjunctivaOptions = ["Normal", "Conjunctivitis", "Pallor", "Hyperemia", "Pterygium"];
-export const corneaOptions = ["Clear", "Opacity", "Scar", "Ulcer", "Arcus"];
-export const pupilOptions = ["Normal (PERRLA)", "Anisocoria", "Miosis", "Mydriasis", "Sluggish Reaction"];
+export const lidsOptions = ["NA","Normal", "Ptosis", "Blepharitis", "Stye", "Edema"];
+export const conjunctivaOptions = ["NA","Normal", "Conjunctivitis", "Pallor", "Hyperemia", "Pterygium"];
+export const corneaOptions = ["NA","Clear", "Opacity", "Scar", "Ulcer", "Arcus"];
+export const pupilOptions = ["NA","Normal (PERRLA)", "Anisocoria", "Miosis", "Mydriasis", "Sluggish Reaction"];
 
 export const refractiveErrorOptions = ["None", "Myopia", "Hyperopia", "Astigmatism", "Presbyopia", "Myopic Astigmatism", "Hyperopic Astigmatism"];
 export const lensTypeOptions = ["None", "Single Vision", "Bifocal", "Progressive", "Contact Lens"];
