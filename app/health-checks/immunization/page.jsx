@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, Calendar, CheckCircle2, Clock, Syringe } from "lucide-react";
+import { AlertTriangle, Calendar, CheckCircle2, Clock, MousePointerClick, Syringe } from "lucide-react";
 
 import { ImmunizationMatrix } from "./ImmunizationMatrix";
 import {
@@ -52,6 +52,14 @@ export default function ImmunizationChartPage() {
     vaccines.forEach((vaccine) => {
       vaccine.schedule.forEach((milestoneId) => {
         const milestone = ageMilestones.find((m) => m.id === milestoneId);
+        if (!milestone) {
+          // Unknown milestone id in a schedule — skip the cell (with a console
+          // warning) instead of crashing the whole chart.
+          console.warn(
+            `immunization: vaccine "${vaccine.id}" references unknown milestone "${milestoneId}" — cell skipped`
+          );
+          return;
+        }
         const record = demoDoseRecords.find((r) => r.vaccineId === vaccine.id && r.milestoneId === milestoneId);
         const status = cellStatus({ ageMonths, milestoneMonths: milestone.months, record });
         cells.push({ vaccine, milestone, status, record });
@@ -74,29 +82,43 @@ export default function ImmunizationChartPage() {
 
   return (
     <section className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 sm:p-5">
+      {/* Header — global .card style: student switcher + completion progress */}
+      <div className="card flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <div className="flex items-center gap-3">
-          <span className="flex size-11 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
-            {student.name.split(" ").map((p) => p[0]).slice(0, 2).join("")}
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-domain-immunization/10 text-domain-immunization">
+            <Syringe className="size-5" strokeWidth={2.25} />
           </span>
           <div>
-            <h2 className="font-display text-lg font-semibold text-foreground">{student.name}</h2>
-            <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <h2 className="font-display text-lg font-semibold text-foreground">Immunization Chart</h2>
+            <p className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
               <Calendar className="size-3.5" />
-              Age {formatAge(ageMonths)} · DOB {student.dob}
+              {student.name} · Age {formatAge(ageMonths)} · DOB {student.dob}
             </p>
           </div>
         </div>
 
-        <div className="relative">
+        <div className="flex items-center gap-4">
+          <div className="hidden w-40 sm:block">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Complete</span>
+              <span className="font-semibold text-foreground">{completionPct}%</span>
+            </div>
+            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-success transition-[width] duration-500"
+                style={{ width: `${completionPct}%` }}
+              />
+            </div>
+          </div>
+
           <select
             value={studentId}
             onChange={(e) => {
               setStudentId(Number(e.target.value));
               setSelectedCell(null);
             }}
-            className="h-10 appearance-none rounded-md border border-input bg-background px-3 pr-8 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+            aria-label="Select student"
+            className="h-10 appearance-none rounded-md border border-input bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
           >
             {studentOptions.map((s) => (
               <option key={s.id} value={s.id}>
@@ -115,24 +137,14 @@ export default function ImmunizationChartPage() {
         <StatCard icon={Syringe} label="Completion" value={`${completionPct}%`} tone={completionPct === 100 ? "success" : "muted"} />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         {/* Matrix */}
-        <article className="rounded-xl border border-border bg-card p-4 sm:p-5">
-          <h3 className="text-sm font-semibold text-foreground">Immunization Chart</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
+        <article className="card flex min-h-0 flex-col">
+          <p className="text-xs text-muted-foreground">
             Tap any cell to see dose details. Blank cells mean that vaccine isn't scheduled at that age.
           </p>
-          <div className="mt-4">
-            <ImmunizationMatrix
-              vaccines={vaccines}
-              ageMonths={ageMonths}
-              records={demoDoseRecords}
-              selectedCell={selectedCell}
-              onSelectCell={setSelectedCell}
-            />
-          </div>
 
-          {selectedCell && (
+           {selectedCell ? (
             <div className="mt-4 rounded-lg border border-border/70 bg-background p-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-foreground">
@@ -172,13 +184,38 @@ export default function ImmunizationChartPage() {
                 </button>
               )}
             </div>
+          ) : (
+            <div className="mt-4 flex items-center gap-3 rounded-lg border border-dashed border-border bg-muted/40 p-4">
+              <MousePointerClick className="size-4 shrink-0 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                Select a cell in the chart to see dose details — batch number, date given, and who administered it.
+              </p>
+            </div>
           )}
+          <div className="mt-4 min-h-0">
+            <ImmunizationMatrix
+              vaccines={vaccines}
+              ageMonths={ageMonths}
+              records={demoDoseRecords}
+              selectedCell={selectedCell}
+              onSelectCell={setSelectedCell}
+            />
+          </div>
+
+         
         </article>
 
         {/* Overdue & due-soon list */}
-        <article className="rounded-xl border border-border bg-card p-4">
-          <h3 className="text-sm font-semibold text-foreground">Needs Attention</h3>
-          <div className="mt-3 space-y-2">
+        <article className="card flex min-h-0 flex-col">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">Needs Attention</h3>
+            {actionItems.length > 0 && (
+              <span className="inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
+                {actionItems.length}
+              </span>
+            )}
+          </div>
+          <div className="mt-3 max-h-[45vh] min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5 xl:max-h-[60vh]">
             {actionItems.length === 0 && (
               <p className="rounded-lg border border-border/70 bg-background p-3 text-sm text-muted-foreground">
                 Nothing due or overdue right now.

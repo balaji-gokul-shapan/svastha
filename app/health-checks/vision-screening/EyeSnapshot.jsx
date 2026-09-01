@@ -126,6 +126,8 @@ function EyeBadge({
   // when no "with" reading was recorded.
   const primaryValue = withValue || withoutValue;
   const corrected = Boolean(withValue);
+  console.log(corrected,"corrected---");
+  
   const status = classifyAcuity(primaryValue);
   const toneClass =
     TONE_CLASS[status.tone] || TONE_CLASS.muted;

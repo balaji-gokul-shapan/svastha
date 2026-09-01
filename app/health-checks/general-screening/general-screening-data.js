@@ -67,20 +67,89 @@ export function calcBmi(heightCm, weightKg) {
   return Number((weight / (heightM * heightM)).toFixed(2));
 }
 
-export function bmiCategory(bmiValue) {
-  // Callers may pass numbers, numeric strings ("25"), empty strings from a
-  // reset form, or stale placeholder values — coerce defensively before the
-  // comparisons so nothing slips through the bands unchanged.
+export function bmiCategory(bmiValue, categories = FALLBACK_CATEGORIES) {
   const bmi = Number(bmiValue);
 
-  if (bmiValue == null || bmiValue === "" || !Number.isFinite(bmi)) {
-    return { label: "—", icon: ManIcon, tone: "muted" };
+  // Invalid / empty BMI
+  if (
+    bmiValue == null ||
+    bmiValue === "" ||
+    !Number.isFinite(bmi)
+  ) {
+    return {
+      label: "—",
+      icon: ManIcon,
+      tone: "muted",
+    };
   }
-  if (bmi < 18.5) return { label: "Underweight", icon:UnderweightIcon, tone: "info" };
-  if (bmi < 25) return { label: "Normal", icon:ManIcon, tone: "success" };
-  if (bmi < 30) return { label: "Overweight", icon:Overweight24pxIcon, tone: "warning" };
-  return { label: "Obese", icon:OverweightIcon, tone: "destructive" };
+
+  const category = categories.find((item) => {
+    const min = Number(item.min_value);
+    const max = Number(item.max_value);
+
+    return bmi >= min && bmi <= max;
+  });
+
+  if (!category) {
+    return {
+      label: "—",
+      icon: ManIcon,
+      tone: "muted",
+    };
+  }
+
+  switch (category.name.toLowerCase()) {
+    case "underweight":
+      return {
+        label: category.name,
+        icon: UnderweightIcon,
+        tone: "info",
+      };
+
+    case "normal":
+      return {
+        label: category.name,
+        icon: ManIcon,
+        tone: "success",
+      };
+
+    case "overweight":
+      return {
+        label: category.name,
+        icon: Overweight24pxIcon,
+        tone: "warning",
+      };
+
+    case "obese":
+      return {
+        label: category.name,
+        icon: OverweightIcon,
+        tone: "destructive",
+      };
+
+    case "severely obese":
+      return {
+        label: category.name,
+        icon: OverweightIcon,
+        tone: "destructive",
+      };
+
+    default:
+      return {
+        label: category.name,
+        icon: ManIcon,
+        tone: "muted",
+      };
+  }
 }
+
+const FALLBACK_CATEGORIES = [
+  { id: 1, name: "Underweight", min_value: "0.00", max_value: "18.49" },
+  { id: 2, name: "Normal", min_value: "18.50", max_value: "24.90" },
+  { id: 3, name: "Overweight", min_value: "25.00", max_value: "29.90" },
+  { id: 4, name: "Obese", min_value: "30.00", max_value: "34.90" },
+  { id: 5, name: "Severely Obese", min_value: "35.00", max_value: "999.00" },
+];
 
 export const GROWTH_STANDARD_BANDS = [
   {

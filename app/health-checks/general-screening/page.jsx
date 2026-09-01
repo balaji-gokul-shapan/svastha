@@ -852,7 +852,7 @@ export default function GeneralScreeningPage() {
   //   return saved > 0 ? saved : null;
   // }, [weight, selectedScreeningRecord]);
 
-  const category = useMemo(() => bmiCategory(displayBmi), [displayBmi]);
+  const category = useMemo(() => bmiCategory(displayBmi), [displayBmi]);  
   const assessmentForm = useMemo(
     () => ({
       height,

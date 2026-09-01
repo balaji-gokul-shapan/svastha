@@ -2,7 +2,12 @@
 
 import { AlertTriangle } from "lucide-react";
 
-import { TOOTH_STATUS_COLOR, UPPER_TEETH, LOWER_TEETH } from "./dental-screening-data";
+import {
+  TOOTH_STATUS_COLOR,
+  UPPER_TEETH,
+  LOWER_TEETH,
+  UPPER_TEETH_POSITION,
+} from "./dental-screening-data";
 import { cn } from "@/lib/utils";
 
 // A single simplified tooth silhouette: a domed crown tapering to one root.
@@ -40,11 +45,14 @@ function ToothButton({ tooth, isSelected, onSelect }) {
       aria-label={`Tooth ${tooth.number}, ${tooth.status}`}
       className={cn(
         "flex size-4 md:size-7 lg:size-6 xl:size-6 2xl:size-9 shrink-0 items-center justify-center rounded-md transition-colors",
-        isSelected ? "bg-accent/15 ring-2 ring-accent" : "hover:bg-muted"
+        isSelected ? "bg-accent/15 ring-2 ring-accent" : "hover:bg-muted",
       )}
     >
       {tooth.status === "other" ? (
-        <AlertTriangle className={cn("size-4", colorClass)} strokeWidth={2.25} />
+        <AlertTriangle
+          className={cn("size-4", colorClass)}
+          strokeWidth={2.25}
+        />
       ) : (
         <ToothShape status={tooth.status} className={colorClass} />
       )}
@@ -52,42 +60,50 @@ function ToothButton({ tooth, isSelected, onSelect }) {
   );
 }
 
-function ToothRow({ teeth, chartByNumber, selectedTooth, onSelect, arc = "up" }) {
+function ToothRow({
+  teeth,
+  chartByNumber,
+  selectedTooth,
+  onSelect,
+  arc = "up",
+}) {
   const midpoint = (teeth.length - 1) / 2;
 
   return (
     <div className="mx-auto my-2 md:my-1 flex items-center justify-center gap-1.5 px-1">
-        {teeth.map((number, index) => {
-          const distance = Math.abs(index - midpoint);
-          const normalized = midpoint === 0 ? 0 : distance / midpoint;
-          const curveAmount = Math.round((1 - normalized * normalized) * 20);
-          const translateY = arc === "up" ? -curveAmount : curveAmount;
+      {teeth.map((number, index) => {
+        const distance = Math.abs(index - midpoint);
+        const normalized = midpoint === 0 ? 0 : distance / midpoint;
+        const curveAmount = Math.round((1 - normalized * normalized) * 20);
+        const translateY = arc === "up" ? -curveAmount : curveAmount;
 
-          return (
-            <div
-              key={number}
-              style={{
-                transform: `translateY(${translateY}px)`,
-              }}
-            >
-              <ToothButton
-                tooth={chartByNumber[number]}
-                isSelected={selectedTooth === number}
-                onSelect={onSelect}
-              />
-            </div>
-          );
-        })}
+        return (
+          <div
+            key={number}
+            style={{
+              transform: `translateY(${translateY}px)`,
+            }}
+          >
+            <ToothButton
+              tooth={chartByNumber[number]}
+              isSelected={selectedTooth === number}
+              onSelect={onSelect}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }
 
 function NumberRow({ teeth }) {
   return (
-    <div className="flex items-center justify-center gap-1.5 sm:gap:1.5 md:gap-2 lg:gap-2 px-1 my-4">
-      {teeth.map((number) => (
+    <div className="flex items-center justify-center gap-1.5 sm:gap-1.5 md:gap-2 lg:gap-2 px-1 my-4">
+      {/* Values can repeat (e.g. position rows render 8..1,1..8), so suffix the
+          index to keep keys unique; lists here are static, so keys stay stable. */}
+      {teeth.map((number, index) => (
         <span
-          key={number}
+          key={`${number}-${index}`}
           className="flex shrink-0 items-center justify-center text-[10px] font-medium text-muted-foreground size-4 md:size-7 lg:size-6 xl:size-6 2xl:size-9  sm:text-[11px]"
         >
           {number}
@@ -132,7 +148,9 @@ export function ToothChartSvg({
 
       {/* Upper arch — numbers above, teeth below, scrolls horizontally on narrow screens */}
       <div className="overflow-x-auto pb-2">
-        <p className="py-2 text-center text-xs font-medium text-muted-foreground">Upper (Maxillary)</p>
+        <p className="py-2 text-center text-xs font-medium text-muted-foreground">
+          Upper (Maxillary)
+        </p>
 
         <NumberRow teeth={UPPER_TEETH} />
         <ToothRow
@@ -142,12 +160,17 @@ export function ToothChartSvg({
           onSelect={onSelectTooth}
           arc="up"
         />
+        <NumberRow teeth={UPPER_TEETH_POSITION} />
       </div>
 
       <div className="my-3 border-t border-dashed border-border" />
-
+      <div className="relative">
+        <div className="absolute left-1/2 top-1/2 my-3 w-72 border-t border-dashed border-border -translate-x-1/2 -translate-y-[-50%] rotate-90" />
+      </div>
       {/* Lower arch — teeth above, numbers below */}
       <div className="overflow-x-auto pt-2">
+        <NumberRow teeth={UPPER_TEETH_POSITION} />
+
         <ToothRow
           teeth={LOWER_TEETH}
           chartByNumber={chartByNumber}
@@ -157,8 +180,9 @@ export function ToothChartSvg({
         />
         <NumberRow teeth={LOWER_TEETH} />
       </div>
-      <p className="pb-2 text-center text-xs font-medium text-muted-foreground">Lower (Mandibular)</p>
-
+      <p className="pb-2 text-center text-xs font-medium text-muted-foreground">
+        Lower (Mandibular)
+      </p>
     </div>
   );
 }
@@ -181,7 +205,9 @@ function FindingPill({ label, value, tone }) {
       )}
     >
       <span className="text-[11px] font-medium">{label}</span>
-      <span className="text-xs font-semibold">{Number.isFinite(value) ? value : 0}</span>
+      <span className="text-xs font-semibold">
+        {Number.isFinite(value) ? value : 0}
+      </span>
     </div>
   );
 }
@@ -192,7 +218,10 @@ export function ToothDetailGraphic({ status }) {
   return (
     <div className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-muted/60">
       {status === "other" ? (
-        <AlertTriangle className={cn("size-8", colorClass)} strokeWidth={1.75} />
+        <AlertTriangle
+          className={cn("size-8", colorClass)}
+          strokeWidth={1.75}
+        />
       ) : (
         <ToothShape status={status} className={colorClass} size={44} />
       )}

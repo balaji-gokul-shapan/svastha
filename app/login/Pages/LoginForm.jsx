@@ -1,18 +1,23 @@
-import React from 'react'
+import React from "react";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { Eye, EyeOff } from "lucide-react";
 
-
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { loginUser } from "@/lib/features/loginSlice";
 import { setAuthSession } from "@/lib/features/auth-slice";
 
 const LoginForm = () => {
-     const router = useRouter();
+  const router = useRouter();
   const dispatch = useDispatch();
   const loginLoading = useSelector((state) => state.login?.loading);
 
@@ -22,6 +27,11 @@ const LoginForm = () => {
   const [errorMessage, setErrorMessage] = React.useState("");
   const [successMessage, setSuccessMessage] = React.useState("");
 
+  const handleReset = () => {
+    setUsername("");
+    setPassword("");
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -29,9 +39,7 @@ const LoginForm = () => {
     setSuccessMessage("");
 
     try {
-      const result = await dispatch(
-        loginUser({ username, password }),
-      ).unwrap();
+      const result = await dispatch(loginUser({ username, password })).unwrap();
 
       dispatch(
         setAuthSession({
@@ -75,10 +83,10 @@ const LoginForm = () => {
     }
   };
   return (
-   <>
-   <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_top,hsl(var(--primary)/0.18),transparent_45%),radial-gradient(circle_at_bottom_right,hsl(var(--secondary)/0.18),transparent_40%)]" />
+    <>
+      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_top,hsl(var(--primary)/0.18),transparent_45%),radial-gradient(circle_at_bottom_right,hsl(var(--secondary)/0.18),transparent_40%)]" />
 
-      <Card className="relative z-10 w-full max-w-max border border-brand-blue shadow-2xs sm:max-w-max md:max-w-1/2 lg:max-w-1/4">
+      <Card className="relative z-10 w-full max-w-max border border-brand-blue shadow-2xs sm:max-w-max">
         <CardHeader className="space-y-1">
           <div className="flex flex-row items-center gap-2">
             <Image
@@ -88,13 +96,17 @@ const LoginForm = () => {
               height={50}
               className=""
             />
-            <span className="truncate font-sf text-2xl font-semibold text-brand-blue transition-all tracking-wide duration-200">
+            <div className="flex flex-col">
+              <span className="truncate font-sf text-2xl font-semibold text-brand-blue transition-all tracking-wide duration-200">
               Svas<span className="text-brand-green">t</span>ha
             </span>
+            <small className=" text-brand-blue" >Care that follows <span className="text-brand-green">every child</span></small>
+            </div>
           </div>
           <CardTitle className="text-2xl">Login</CardTitle>
           <CardDescription>
-            Sign in with your username and password.
+            Please Enter your details and access your Account.
+            {/* Sign in with your username and password. */}
           </CardDescription>
         </CardHeader>
 
@@ -127,7 +139,11 @@ const LoginForm = () => {
                   className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
-                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  {showPassword ? (
+                    <EyeOff className="size-4" />
+                  ) : (
+                    <Eye className="size-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -143,10 +159,19 @@ const LoginForm = () => {
                 {successMessage}
               </p>
             ) : null}
-
-            <Button className="w-full" type="submit" disabled={loginLoading}>
-              Sign In
-            </Button>
+            <div className="flex flex-row gap-2 w-full py-4">
+              <Button
+                variant="outline"
+                className="w-1/2"
+                type="reset"
+                onClick={handleReset}
+              >
+                Reset
+              </Button>
+              <Button className="w-1/2" type="submit" disabled={loginLoading}>
+                {loginLoading ? `Signing In..` : `Sign In`}
+              </Button>
+            </div>
 
             {/* <div className="rounded-md border border-border/70 bg-muted/50 p-3 text-xs text-muted-foreground">
               <p className="font-medium text-foreground">Demo credentials</p>
@@ -155,8 +180,8 @@ const LoginForm = () => {
           </form>
         </CardContent>
       </Card>
-      </>
-  )
-}
+    </>
+  );
+};
 
-export default LoginForm
+export default LoginForm;

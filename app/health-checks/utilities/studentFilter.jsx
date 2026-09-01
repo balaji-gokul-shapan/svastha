@@ -208,16 +208,44 @@ console.log(selectedCamp,"selectedCamp");
   // Students belonging to the selected camp/event. The thunk already
   // unwraps paginator envelopes; guard alternate shapes anyway.
   const eventStudents = useMemo(() => {
-    if (Array.isArray(getStundentByEvent)) return getStundentByEvent;
-    if (Array.isArray(getStundentByEvent?.data)) return getStundentByEvent.data;
+    console.log("=== eventStudents useMemo ===");
+    console.log("getStundentByEvent raw:", getStundentByEvent);
+    console.log("getStundentByEvent type:", typeof getStundentByEvent);
+    console.log("getStundentByEvent isArray:", Array.isArray(getStundentByEvent));
+    if (!getStundentByEvent) {
+      console.log("getStundentByEvent is falsy, returning []");
+      return [];
+    }
+    if (Array.isArray(getStundentByEvent)) {
+      console.log("getStundentByEvent is array, length:", getStundentByEvent.length);
+      return getStundentByEvent;
+    }
+    if (Array.isArray(getStundentByEvent?.data)) {
+      console.log("getStundentByEvent.data is array, length:", getStundentByEvent.data.length);
+      return getStundentByEvent.data;
+    }
+    if (getStundentByEvent?.students) {
+      console.log("getStundentByEvent.students exists:", getStundentByEvent.students);
+      if (Array.isArray(getStundentByEvent.students)) {
+        console.log("getStundentByEvent.students is array, length:", getStundentByEvent.students.length);
+        return getStundentByEvent.students;
+      }
+      if (Array.isArray(getStundentByEvent.students?.data)) {
+        console.log("getStundentByEvent.students.data is array, length:", getStundentByEvent.students.data.length);
+        return getStundentByEvent.students.data;
+      }
+    }
+    console.log("No matching structure found, returning []");
     return [];
   }, [getStundentByEvent]);
 
-  console.log(eventStudents, "eventStudents");
+  console.log("eventStudents final:", eventStudents, "length:", eventStudents.length);
 
   const optionStudents = eventStudents.length
     ? eventStudents
     : studentsBySchoolAndYear;
+
+    console.log(optionStudents, "optionStudents");
 
   const academicYearOptions = useMemo(() => {
     const unique = new Set();
@@ -230,7 +258,6 @@ console.log(selectedCamp,"selectedCamp");
         unique.add(value);
       }
     });
-    console.log(optionStudents, "optionStudents");
 
     return [
       { label: "All Academic Years", value: "all" },
@@ -239,6 +266,9 @@ console.log(selectedCamp,"selectedCamp");
         .map((value) => ({ label: value, value })),
     ];
   }, [optionStudents]);
+
+  console.log(academicYearOptions,"academicYearOptions");
+  
 
   const classOptions = useMemo(() => {
     const unique = new Set();

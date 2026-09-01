@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 const API_BASE_URL = (
   process.env.API_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:5000/api/v1"
+  "http://localhost:5000/api"
 ).replace(/\/+$/, "");
 
 // Paths that live at the backend ROOT instead of under /api/v1.
@@ -12,15 +12,18 @@ const API_BASE_URL = (
 const ROOT_PATH_PREFIXES = new Set(["doctor-camps"]);
 
 function buildBackendUrl(segments, searchParams) {
-  const base = API_BASE_URL.endsWith("/api/v1")
+  // Use the configured base as-is when it already carries an /api path
+  // (..ends with /api OR /api/v1). Only when the base has NO api segment (e.g.
+  // a bare host) do we append the default /api/v1 prefix.
+  const base = /\/api(\/v1)?$/.test(API_BASE_URL)
     ? API_BASE_URL
-    : `${API_BASE_URL}/api/v1`;
+    : `${API_BASE_URL}/api/`;
 
   // Frontend paths like /api/v1/students/filter include a redundant "v1"
   // segment while the base URL already targets /api/v1 — drop it to avoid
   // producing /api/v1/v1/... on the backend.
   let normalizedSegments =
-    segments[0] === "v1" && base.endsWith("/api/v1")
+    segments[0] === "v1" && base.endsWith("/api/")
       ? segments.slice(1)
       : segments;
 

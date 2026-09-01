@@ -128,7 +128,7 @@ const AssessmentCard = ({
 
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground pointer-none:">Examiner</label>
-              <Input defaultValue={getNormaliseName(getDoctername)} readonly  />
+              <Input defaultValue={getNormaliseName(getDoctername)} readOnly />
             </div>
 
             {/* <div className="space-y-1.5">

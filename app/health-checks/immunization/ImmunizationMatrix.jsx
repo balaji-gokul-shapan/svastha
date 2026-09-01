@@ -66,18 +66,18 @@ export function ImmunizationMatrix({ vaccines, ageMonths, records, selectedCell,
         })}
       </div>
 
-      {/* Matrix */}
-      <div className="overflow-x-auto">
+      {/* Matrix — scrolls on both axes; age-header row and vaccine column stay pinned */}
+      <div className="max-h-[60vh] overflow-auto rounded-lg border border-border">
         <table className="border-collapse text-sm">
           <thead>
             <tr>
-              <th className="sticky left-0 z-10 min-w-[160px] border border-border/50 bg-card px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+              <th className="sticky left-0 top-0 z-30 min-w-[160px] border-b border-r border-border bg-card px-3 py-2 text-left text-xs font-medium text-muted-foreground">
                 Vaccine
               </th>
               {ageMilestones.map((m) => (
                 <th
                   key={m.id}
-                  className="w-14 min-w-14 border border-border/50 bg-card px-1 py-2 text-center text-[11px] font-medium text-muted-foreground"
+                  className="sticky top-0 z-20 min-w-14 border-b border-border bg-card px-1 py-2 text-center text-[11px] font-medium text-muted-foreground"
                 >
                   {m.label}
                 </th>

@@ -1522,6 +1522,7 @@ import {
   Eye,
   FileText,
   HeartPulse,
+  Loader2,
   Printer,
   Search,
   ShieldCheck,
@@ -1537,13 +1538,16 @@ import { Separator } from "@/components/ui/separator";
 import { fadeUp, FramerCard } from "@/util/FramerCard";
 import StudentFilter from "../health-checks/utilities/studentFilter";
 import { getFilterStudent } from "@/lib/features/getFilterStudent";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { EmptyState } from "@/components/ui/empty-state";
 import { selectAuthUser } from "@/lib/features/auth-slice";
 import useAssignedEvents, { findSelectedCamp } from "@/lib/useAssignedEvents";
 import { getStudentByEvent } from "@/lib/features/getEventAssignSlice";
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas-pro";
+import { toast } from "sonner";
 
 /* =========================================================
    COMPLETE STUDENT HEALTH PROFILE DATA
@@ -1755,12 +1759,11 @@ export default function HealthOverviewReport() {
   const [sectionFilter, setSectionFilter] = useState("all");
   const [studentFilter, setStudentFilter] = useState("all");
   const [studentId, setStudentId] = useState("");
-  // Auth must come from the SAME source the screening pages use — the Redux
-  // login snapshot (selectAuthUser), whose account_type is the string label
-  // ("doctor"/"admin"/...). useAuthUser() was wrong here: it fetches /api/auth/me,
-  // which returns the RAW backend user record where account_type is a numeric
-  // id (e.g. 5), so StudentFilter's `account_type === "doctor"` gate failed and
-  // the Camp/School selects vanished on this page only.
+  // PDF export — ref points at the report body, html2canvas-pro captures it
+  // and jsPDF paginates the render into a downloadable A4 document.
+  const reportRef = useRef(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+
   const authUser = useAppSelector(selectAuthUser);
   const { assignedEvents, assignEventLoading, assignEventError } =
     useAssignedEvents();
@@ -2053,6 +2056,131 @@ export default function HealthOverviewReport() {
     [healthProfile],
   );
 
+  // Export the rendered report as a paginated A4 PDF.
+  //
+  // Robustness (why section-by-section):
+  // 1. Each top-level section is captured on its own — if a section trips
+  //    html2canvas (e.g. an SVG-heavy block), it is skipped with a warning
+  //    instead of failing the whole export.
+  // 2. SVG colors in the app are Tailwind classes (fill-primary,
+  //    stroke-border…). A serialized SVG loses the page stylesheet, so the
+  //    computed fill/stroke/color are stamped onto the clone — otherwise the
+  //    radar chart, gauge and icons render unstyled in the PDF.
+  const handleDownloadPdf = async () => {
+    const node = reportRef.current;
+    if (!node || isExportingPdf) return;
+    setIsExportingPdf(true);
+    try {
+      // Paint the page behind the transparent report body so the PDF has no
+      // transparent gaps — body already carries the theme's bg-background.
+      const nodeBg = window.getComputedStyle(node).backgroundColor;
+      const bodyBg = window.getComputedStyle(document.body).backgroundColor;
+      const backgroundColor =
+        nodeBg && nodeBg !== "rgba(0, 0, 0, 0)" ? nodeBg : bodyBg || "#ffffff";
+
+      const sections = Array.from(node.children);
+      const captured = [];
+      const skipped = [];
+
+      for (let index = 0; index < sections.length; index += 1) {
+        const section = sections[index];
+        try {
+          const canvas = await html2canvas(section, {
+            scale: 2,
+            useCORS: true,
+            backgroundColor,
+            logging: false,
+            onclone: (clonedDoc, clonedSection) => {
+              if (!clonedSection) return;
+              const originals = section.querySelectorAll("svg, svg *");
+              const clones = clonedSection.querySelectorAll("svg, svg *");
+              clones.forEach((cloneEl, svgIndex) => {
+                const originalEl = originals[svgIndex];
+                if (!originalEl) return;
+                const computed = window.getComputedStyle(originalEl);
+                // Resolved token colors as concrete attributes — these survive
+                // SVG serialization, class-based fills do not.
+                cloneEl.setAttribute("fill", computed.fill);
+                cloneEl.setAttribute("stroke", computed.stroke);
+                cloneEl.setAttribute("color", computed.color);
+              });
+            },
+          });
+          captured.push({
+            imgData: canvas.toDataURL("image/png"),
+            canvasWidth: canvas.width,
+            canvasHeight: canvas.height,
+          });
+        } catch (sectionError) {
+          console.error(
+            `PDF export: section ${index + 1} failed — skipped`,
+            sectionError
+          );
+          skipped.push(index + 1);
+        }
+      }
+
+      if (captured.length === 0) {
+        throw new Error("No report sections could be rendered");
+      }
+
+      const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 18;
+      const contentWidth = pageWidth - margin * 2;
+      const contentHeight = pageHeight - margin * 2;
+      const gap = 4;
+
+      let pageStarted = false;
+      let cursorY = margin;
+      const startPage = () => {
+        if (pageStarted) pdf.addPage();
+        pageStarted = true;
+        cursorY = margin;
+      };
+
+      for (const { imgData, canvasWidth, canvasHeight } of captured) {
+        const imageHeight = (canvasHeight * contentWidth) / canvasWidth;
+        if (imageHeight <= contentHeight) {
+          // Section fits on a single page — flow it, breaking first if needed.
+          if (!pageStarted || cursorY + imageHeight > pageHeight - margin) {
+            startPage();
+          }
+          pdf.addImage(imgData, "PNG", margin, cursorY, contentWidth, imageHeight);
+          cursorY += imageHeight + gap;
+        } else {
+          // Section taller than one page — slice it across pages.
+          let rendered = 0;
+          while (rendered < imageHeight) {
+            startPage();
+            pdf.addImage(imgData, "PNG", margin, margin - rendered, contentWidth, imageHeight);
+            rendered += contentHeight;
+          }
+          cursorY = margin;
+        }
+      }
+
+      const studentName = healthProfile?.student?.name || "student";
+      pdf.save(
+        `health-report-${studentName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`
+      );
+
+      if (skipped.length > 0) {
+        toast.warning(
+          `Report downloaded, but ${skipped.length} section(s) could not be rendered`
+        );
+      } else {
+        toast.success("Report downloaded");
+      }
+    } catch (error) {
+      console.error("PDF export failed:", error);
+      toast.error("Could not generate the PDF. Please try again.");
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   return (
     <div className="min-h-screen">
       <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
@@ -2071,11 +2199,11 @@ export default function HealthOverviewReport() {
                 General health screening and assessment
               </p> */}
               <div>
-                <h1 className="text-3xl font-semibold tracking-tight text-white lg:text-4xl">
+                <h1 className="font-sf text-3xl font-semibold tracking-tight text-foreground lg:text-4xl">
                   Health Check Overview
                 </h1>
 
-                <p className="mt-2 text-sm text-slate-500">
+                <p className="mt-2 text-sm text-muted-foreground">
                   Comprehensive student health assessment · 17 Aug 2026
                 </p>
               </div>
@@ -2151,6 +2279,20 @@ export default function HealthOverviewReport() {
             filteredStudents={filteredStudents}
             normalizedCampStudents={normalizedCampStudents}
           /> */}
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleDownloadPdf}
+            disabled={isExportingPdf || !selectedStudent}
+          >
+            {isExportingPdf ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            {isExportingPdf ? "Preparing PDF…" : "Download PDF"}
+          </Button>
 
           <Button type="button" variant="outline">
             Save & Exit
@@ -2228,7 +2370,7 @@ export default function HealthOverviewReport() {
         </div>
       </header> */}
       {selectedStudent ? (
-        <main className="space-y-5">
+        <main ref={reportRef} className="space-y-5">
           {/* STUDENT PROFILE */}
           <FramerCard asCard className="border-border bg-card">
             <CardContent className="p-5">
@@ -2916,12 +3058,13 @@ export default function HealthOverviewReport() {
                   <CardTitle className="text-base text-foreground">
                     Referral & Follow-up
                   </CardTitle>
-                </CardHeader>
-
-                <CardContent className="space-y-4">
                   <Badge className="bg-warning/10 text-warning">
                     {healthProfile.referral.priority}
                   </Badge>
+                </CardHeader>
+
+                <CardContent className="space-y-4">
+                  
 
                   <Result label="Type" value={healthProfile.referral.type} />
 

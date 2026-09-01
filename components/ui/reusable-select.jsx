@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Check, ChevronDown, Loader2 } from "lucide-react";
 
-import { cn } from "../../lib/utils"; 
+import { cn } from "../../lib/utils";
 
 function normalizeOption(option) {
 	if (typeof option === "string") {
@@ -25,11 +25,15 @@ export default function ReusableSelect({
 	searchPlaceholder = "Search...",
 	className = "",
 	disabled = false,
+	onLoadMore = null,
+	hasMore = false,
+	isLoadingMore = false,
 }) {
 	const [open, setOpen] = useState(false);
 	const [searchTerm, setSearchTerm] = useState("");
 	const containerRef = useRef(null);
 	const inputRef = useRef(null);
+	const dropdownRef = useRef(null);
 
 	const normalizedOptions = useMemo(
 		() => options.map(normalizeOption).filter((opt) => opt.value.length > 0),
@@ -46,6 +50,33 @@ export default function ReusableSelect({
 	}, [normalizedOptions, searchTerm]);
 
 	const selectedOption = normalizedOptions.find((opt) => opt.value === String(value ?? ""));
+
+	// Infinite scroll handler
+	const handleScroll = useCallback(
+		(event) => {
+			if (!onLoadMore || !hasMore || isLoadingMore) return;
+
+			const { scrollTop, scrollHeight, clientHeight } = event.target;
+			// Trigger load more when within 100px of the bottom
+			const threshold = 100;
+			if (scrollHeight - scrollTop - clientHeight < threshold) {
+				onLoadMore();
+			}
+		},
+		[onLoadMore, hasMore, isLoadingMore],
+	);
+
+	// Attach scroll listener to dropdown
+	useEffect(() => {
+		if (!open || !dropdownRef.current) return;
+
+		const dropdown = dropdownRef.current;
+		dropdown.addEventListener("scroll", handleScroll);
+
+		return () => {
+			dropdown.removeEventListener("scroll", handleScroll);
+		};
+	}, [open, handleScroll]);
 
 	useEffect(() => {
 		if (!open) {
@@ -113,7 +144,7 @@ export default function ReusableSelect({
 						className="mb-2 h-9 w-full rounded-md border border-input bg-background px-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
 					/>
 
-					<div className="max-h-60 space-y-1 overflow-y-auto">
+					<div ref={dropdownRef} className="max-h-60 space-y-1 overflow-y-auto">
 						{filteredOptions.length ? (
 							filteredOptions.map((option) => {
 								const isSelected = option.value === String(value ?? "");
@@ -138,6 +169,18 @@ export default function ReusableSelect({
 						) : (
 							<p className="px-2 py-1.5 text-sm text-muted-foreground">No results found</p>
 						)}
+
+						{/* Loading indicator for infinite scroll */}
+						{isLoadingMore ? (
+							<div className="flex items-center justify-center gap-2 px-2 py-3 text-sm text-muted-foreground">
+								<Loader2 className="size-4 animate-spin" />
+								<span>Loading more...</span>
+							</div>
+						) : hasMore && filteredOptions.length > 0 ? (
+							<p className="px-2 py-2 text-center text-xs text-muted-foreground">
+								Scroll for more
+							</p>
+						) : null}
 					</div>
 				</div>
 			) : null}
