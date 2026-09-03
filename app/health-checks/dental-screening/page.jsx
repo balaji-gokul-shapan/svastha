@@ -426,7 +426,8 @@ export default function DentalAssessmentPage() {
   const [activeToothTab, setActiveToothTab] = useState("primary");
 
   // Get the current selected tooth based on active tab
-  const selectedTooth = activeToothTab === "primary" ? selectedPrimaryTooth : selectedAdultTooth;
+  const selectedTooth =
+    activeToothTab === "primary" ? selectedPrimaryTooth : selectedAdultTooth;
 
   const handlePrimaryToothSelect = (number) => {
     setSelectedPrimaryTooth(number);
@@ -448,9 +449,7 @@ export default function DentalAssessmentPage() {
       return;
     }
 
-    setSelectedAdultTooth(
-      (current) => current ?? UPPER_TEETH[0] ?? null,
-    );
+    setSelectedAdultTooth((current) => current ?? UPPER_TEETH[0] ?? null);
   };
 
   const handleToothSelect = (number) => {
@@ -1103,8 +1102,7 @@ export default function DentalAssessmentPage() {
   const updateSelectedTooth = (update) => {
     setChart((prev) => {
       const existing = prev.find((tooth) => tooth.number === selectedTooth);
-      const baseTooth =
-        existing ??
+      const baseTooth = existing ??
         toothMap.get(selectedTooth) ?? {
           number: selectedTooth,
           status: "healthy",
@@ -1133,38 +1131,39 @@ export default function DentalAssessmentPage() {
   const handleSelectedToothTreatmentChange = (value) => {
     updateSelectedTooth({ treatment: value });
   };
-function getBackendErrorMessage(error) {
-  let payload = error;
+  function getBackendErrorMessage(error) {
+    let payload = error;
 
-  if (typeof payload === "string") {
-    try {
-      payload = JSON.parse(payload);
-    } catch {
-      return /<!doctype html|<html[\s>]/i.test(payload) || payload.length > 240
-        ? "Unable to save screening. Please try again."
-        : payload;
+    if (typeof payload === "string") {
+      try {
+        payload = JSON.parse(payload);
+      } catch {
+        return /<!doctype html|<html[\s>]/i.test(payload) ||
+          payload.length > 240
+          ? "Unable to save screening. Please try again."
+          : payload;
+      }
     }
+
+    if (!payload || typeof payload !== "object") {
+      return "Something went wrong. Please try again.";
+    }
+
+    const fieldMessages = Object.values(payload.errors ?? {})
+      .flatMap((messages) => (Array.isArray(messages) ? messages : [messages]))
+      .filter(Boolean);
+
+    const message =
+      fieldMessages[0] ??
+      payload.message ??
+      payload.error ??
+      payload.detail ??
+      "Something went wrong. Please try again.";
+    return /<!doctype html|<html[\s>]/i.test(String(message)) ||
+      String(message).length > 240
+      ? "Unable to save screening. Please try again."
+      : String(message);
   }
-
-  if (!payload || typeof payload !== "object") {
-    return "Something went wrong. Please try again.";
-  }
-
-  const fieldMessages = Object.values(payload.errors ?? {})
-    .flatMap((messages) => (Array.isArray(messages) ? messages : [messages]))
-    .filter(Boolean);
-
-     const message =
-    fieldMessages[0] ??
-    payload.message ??
-    payload.error ??
-    payload.detail ??
-    "Something went wrong. Please try again."
- return /<!doctype html|<html[\s>]/i.test(String(message)) ||
-    String(message).length > 240
-    ? "Unable to save screening. Please try again."
-    : String(message);
-}
   const assessmentStudentOptions = useMemo(
     () =>
       (studentsArray ?? []).map((student) => {
@@ -1288,8 +1287,7 @@ function getBackendErrorMessage(error) {
         console.error("Unable to save dental screening:", error);
 
         toast.error("Failed to save dental screening", {
-          description:
-            getBackendErrorMessage(error),
+          description: getBackendErrorMessage(error),
         });
       });
   };
@@ -1700,6 +1698,78 @@ function getBackendErrorMessage(error) {
                         <ToothDetailGraphic status={currentTooth.status} />
                       </div>
                     )}
+
+                     <div className="mt-4 flex flex-col gap-4 rounded-lg border border-border/70 bg-background p-3 sm:flex-row sm:items-center sm:p-4">
+                        <div className="flex-1">
+                          <p className="text-xs text-muted-foreground">
+                            Current Tooth
+                          </p>
+                          <p className="mt-0.5 text-sm font-semibold text-foreground">
+                            Tooth {currentTooth.number}{" "}
+                            <span className="font-normal text-muted-foreground">
+                              ({getToothName(currentTooth.number)})
+                            </span>
+                          </p>
+
+                          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            <div>
+                              <FieldLabel>Status</FieldLabel>
+                              <Select
+                                value={String(currentTooth.status ?? "healthy")}
+                                onValueChange={handleSelectedToothStatusChange}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {toothChartLegend.map((item) => (
+                                    <SelectItem
+                                      key={item.value}
+                                      value={item.value}
+                                    >
+                                      {item.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <DetailField
+                              label="Surface"
+                              value={currentTooth.surface}
+                            />
+                            <DetailField
+                              label="Severity"
+                              value={currentTooth.severity}
+                            />
+                            <SelectField
+                              label="Treatment"
+                              options={DentalTreatmentOptionData}
+                              value={String(currentTooth.treatment ?? "")}
+                              onChange={handleSelectedToothTreatmentChange}
+                            />
+                          </div>
+
+                          {currentTooth.status === "other" ? (
+                            <div className="mt-3">
+                              <FieldLabel>Other Finding</FieldLabel>
+                              <input
+                                type="text"
+                                value={String(currentTooth.otherNote ?? "")}
+                                onChange={(event) =>
+                                  handleSelectedToothOtherNoteChange(
+                                    event.target.value,
+                                  )
+                                }
+                                placeholder="Describe the finding"
+                                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+
+                        <ToothDetailGraphic status={currentTooth.status} />
+                      </div>
                   </div>
                 </FramerCard>
 
@@ -1755,7 +1825,7 @@ function getBackendErrorMessage(error) {
                     oralHygiene={oralHygiene}
                     notes={notes}
                     otherFindingsOptions={otherFindingsOptions}
-                    gingivalHealth ={gingivalHealth}
+                    gingivalHealth={gingivalHealth}
                     plaque={plaque}
                     referralAction={referralAction}
                     referralReason={referralReason}

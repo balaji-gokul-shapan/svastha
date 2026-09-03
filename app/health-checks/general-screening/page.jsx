@@ -1,5 +1,5 @@
 ﻿"use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   Activity,
@@ -582,6 +582,10 @@ export default function GeneralScreeningPage() {
   });
   // { fieldName: "message" } — populated when zod validation fails.
   const [formErrors, setFormErrors] = useState(null);
+  // When true, the auto-apply effect (below) skips re-populating the form —
+  // set right before a post-save reset so the refetched record can't restore
+  // the values we just cleared.
+  const resetAfterSaveRef = useRef(false);
 
   const clearFormError = (field) =>
     setFormErrors((prev) =>
@@ -1029,6 +1033,13 @@ export default function GeneralScreeningPage() {
     );
   }, [selectedStudentKeys, students]);
   useEffect(() => {
+    // After a save we reset the form; skip re-applying the just-saved record
+    // when the queries invalidate/refetch and this memo gets a new identity.
+    if (resetAfterSaveRef.current) {
+      resetAfterSaveRef.current = false;
+      return;
+    }
+
     if (getSelectedStudentScreeningData) {
       applyScreeningRecordToForm(getSelectedStudentScreeningData);
       return;
@@ -1389,6 +1400,11 @@ export default function GeneralScreeningPage() {
       .then(() => {
         queryClient.invalidateQueries({ queryKey: ["initial-screening"] });
 
+        // Reset the form for the next student; the ref guard stops the
+        // auto-apply effect from re-filling the just-saved values.
+        resetAfterSaveRef.current = true;
+        resetFormToDefaults();
+
         toast.success(
           ALLOW_SCREENING_UPDATE && hasSavedMeasurements
             ? "Initial screening updated successfully"
@@ -1441,6 +1457,60 @@ export default function GeneralScreeningPage() {
   const handleSaveScreening = useCallback(() => {
     handleSaveAssessment();
   }, [handleSaveAssessment]);
+
+  // Clears all screening values back to their defaults so the next student can
+  // be assessed. Called after a successful save (with the auto-apply guard set).
+  const resetFormToDefaults = useCallback(() => {
+    setHeight("");
+    setWeight("");
+    setPulse("");
+    setTemperature("");
+    setBloodPressure("");
+    setSpo2("");
+    setBloodGroup(bloodGroupOption?.[0]?.name ?? "");
+    setAllergy("None");
+    setChronicDisease("None");
+    setImmunization("up_to_date");
+    setNotes("");
+    setClinicalSigns({
+      pallor: "",
+      clubbing: "",
+      edema: "",
+      skinAssessment:
+        skinOptions.find((item) => item.name === "Normal")?.name ??
+        skinOptions?.[0]?.name ??
+        "Normal",
+      medicalCondition: "",
+      currentComplaints: "",
+      regularMedication: "",
+    });
+    setPhysicalExamination({
+      generalAppearance: appearanceOptions?.[0]?.name ?? "",
+      postureSpine: appearanceOptions?.[0]?.name ?? "",
+      nutritionalStatus: nutritionOptions?.[0]?.name ?? "",
+      consciousness: consciousnessOptions?.[0]?.name ?? "",
+      cvs: "",
+      respiratorySystem: "",
+      abdomen: "",
+      neurology: "",
+      referral: "",
+    });
+    setFemaleScreening({
+      menstrualCycle: "",
+      excessiveBleeding: "",
+      menstrualPain: "",
+      otherConcerns: "",
+      referral: "",
+    });
+    setFormErrors(null);
+    setActiveStep("growth");
+  }, [
+    bloodGroupOption,
+    skinOptions,
+    appearanceOptions,
+    nutritionOptions,
+    consciousnessOptions,
+  ]);
 
   const handleCancelAssessment = useCallback(() => {
     applyScreeningRecordToForm(getSelectedStudentScreeningData);

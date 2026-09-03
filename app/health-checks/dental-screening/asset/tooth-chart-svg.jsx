@@ -208,7 +208,8 @@ export function ToothChartSvg({
               />
             </div>
 
-            <div className="my-3 border-t border-dashed border-border" />
+            {/* Occlusal divider — centered, narrower than the card */}
+            <div className="mx-auto w-2/4 my-3 border-t border-dashed border-border" />
             <div className="relative">
               <div className="absolute left-1/2 top-1/2 my-3 w-72 border-t border-dashed border-border -translate-x-1/2 -translate-y-[-50%] rotate-90" />
             </div>
@@ -246,7 +247,8 @@ export function ToothChartSvg({
               <NumberRow teeth={UPPER_TEETH_POSITION} />
             </div>
 
-            <div className="my-3 border-t border-dashed border-border" />
+            {/* Occlusal divider — centered, narrower than the card */}
+            <div className="mx-auto w-2/3 my-3 border-t border-dashed border-border" />
             <div className="relative">
               <div className="absolute left-1/2 top-1/2 my-3 w-72 border-t border-dashed border-border -translate-x-1/2 -translate-y-[-50%] rotate-90" />
             </div>
