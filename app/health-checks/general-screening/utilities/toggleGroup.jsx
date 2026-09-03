@@ -7,6 +7,7 @@ const TONE_ACTIVE_CLASS = {
   warn: "border-warning bg-warning/10 text-warning-foreground",
   bad: "border-destructive bg-destructive/10 text-destructive",
   neutral: "border-primary bg-primary/10 text-primary",
+  muted: "border-muted-foreground/40 bg-muted text-muted-foreground",
 };
 
 // Shared button chrome for BOTH components — tweak once, both follow.

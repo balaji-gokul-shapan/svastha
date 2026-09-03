@@ -240,7 +240,7 @@ function evaluateGrowthStandard(metric, value, ageYears) {
   };
 }
 
-const IMMUNIZATION_MAP = { up_to_date: 1, partial: 2, overdue: 3 };
+const IMMUNIZATION_MAP = { up_to_date: 1, partial: 2, overdue: 3, na: 4 };
 const STANDARD_MAP = { "Below Average": 1, Average: 2, "Above Average": 3 };
 const BMI_CATEGORY_MAP = {
   Underweight: 1,
@@ -825,8 +825,6 @@ export default function GeneralScreeningPage() {
         prev.generalAppearance || "Normal",
       ),
       nutritionalStatus: normalizeChoice(
-        // Saved records now carry the master id — map it back to the name for
-        // the ToggleGroup; fall through for older records stored as a name.
         nutritionOptions.find(
           (item) =>
             String(item.id) === String(screeningRecord?.nutritional_status),
@@ -1373,13 +1371,18 @@ export default function GeneralScreeningPage() {
     //   ? updateInitialScreening({ id: existingRecordId, payload })
     //   : createInitialScreening(payload);
 
-    const saveAction = hasSavedMeasurements
-      ? updateInitialScreening({
-          id: existingRecordId,
-          studentId: numericStudentId,
-          payload,
-        })
-      : createInitialScreening(payload);
+    // TEMP: update flow hidden — saves always create a new screening record.
+    // Flip to true to restore update-on-resave behaviour.
+    const ALLOW_SCREENING_UPDATE = false;
+
+    const saveAction =
+      ALLOW_SCREENING_UPDATE && hasSavedMeasurements
+        ? updateInitialScreening({
+            id: existingRecordId,
+            studentId: numericStudentId,
+            payload,
+          })
+        : createInitialScreening(payload);
 
     dispatch(saveAction)
       .unwrap()
@@ -1387,7 +1390,7 @@ export default function GeneralScreeningPage() {
         queryClient.invalidateQueries({ queryKey: ["initial-screening"] });
 
         toast.success(
-          hasSavedMeasurements
+          ALLOW_SCREENING_UPDATE && hasSavedMeasurements
             ? "Initial screening updated successfully"
             : "Initial screening saved successfully",
           {
@@ -1548,11 +1551,11 @@ export default function GeneralScreeningPage() {
         label: name,
         tone:
           name === "Alert"
-            ? "bad"
+            ? "good"
             : name === "Drowsy"
               ? "warn"
               : name === "Unresponsive"
-                ? "neutral"
+                ? "bad"
                 : "neutral",
       };
     }),

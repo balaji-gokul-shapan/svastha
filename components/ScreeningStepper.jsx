@@ -48,9 +48,10 @@ export default function ScreeningStepper({
 }) {
   const stepButtonRefs = useRef({});
 
-  const visibleSteps = filterFemale && steps === STEPS && !isFemale
-    ? steps.filter((step) => step.value !== "female")
-    : steps;
+  const visibleSteps =
+    filterFemale && steps === STEPS && !isFemale
+      ? steps.filter((step) => step.value !== "female")
+      : steps;
 
   const currentIndex = visibleSteps.findIndex(
     (step) => step.value === activeStep,
@@ -86,9 +87,22 @@ export default function ScreeningStepper({
 
   return (
     <div className="w-full">
-      {/* STEPPER HEADER */}
-      <div className="mb-6 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex h-auto w-max min-w-full items-center justify-start gap-0 rounded-xl border bg-card p-2">
+      <div
+        className="
+    relative
+    mb-6
+    overflow-x-auto
+    rounded-xl
+    border
+    border-border
+    bg-card
+    shadow-[inset_12px_0_14px_-14px_rgba(0,0,0,0.35),inset_-12px_0_14px_-14px_rgba(0,0,0,0.35)]
+    [scrollbar-width:none]
+    [&::-webkit-scrollbar]:hidden
+  "
+      >
+        {" "}
+        <div className="flex h-auto w-max min-w-full items-center justify-center gap-0 rounded-xl border bg-card p-2  shadow-[inset_12px_0_14px_-14px_rgba(0,0,0,0.35),inset_-12px_0_14px_-14px_rgba(0,0,0,0.35)]">
           {visibleSteps.map((step, index) => {
             const completed = index < currentIndex;
             const active = index === currentIndex;
@@ -102,10 +116,10 @@ export default function ScreeningStepper({
                   }}
                   onClick={() => setActiveStep(step.value)}
                   className={`
-                    relative flex items-center min-w-auto flex-1
+                    relative flex items-center  min-w-auto flex-1
                     gap-2 rounded-lg px-4 py-3
                     transition-colors
-                    ${active ? "bg-primary text-primary-foreground" : "hover:bg-muted"}
+                    ${active ? "bg-primary text-primary-foreground justify-center" : "hover:bg-muted"}
                   `}
                 >
                   <span
@@ -121,31 +135,19 @@ export default function ScreeningStepper({
                       }
                     `}
                   >
-                    {completed ? (
-                      <Check className="size-4" />
-                    ) : (
-                      index + 1
-                    )}
+                    {completed ? <Check className="size-4" /> : index + 1}
                   </span>
 
-                  <span className="hidden text-sm md:block">
-                    {step.label}
-                  </span>
+                  <span className="hidden text-sm md:block">{step.label}</span>
 
-                  <span className="text-xs md:hidden">
-                    {step.shortLabel}
-                  </span>
+                  <span className="text-xs md:hidden">{step.shortLabel}</span>
                 </button>
 
                 {index < visibleSteps.length - 1 && (
                   <div
                     className={`
                       mt-1 h-px w-3 shrink-0 sm:w-5 md:w-8 lg:flex-1
-                      ${
-                        index < currentIndex
-                          ? "bg-primary"
-                          : "bg-border"
-                      }
+                      ${index < currentIndex ? "bg-primary" : "bg-border"}
                     `}
                   />
                 )}
@@ -156,9 +158,7 @@ export default function ScreeningStepper({
       </div>
 
       {/* CONTENT */}
-      <div className="min-h-[400px]">
-        {childArray[currentIndex]}
-      </div>
+      <div className="min-h-[400px]">{childArray[currentIndex]}</div>
 
       {/* FOOTER */}
       <div className="mt-6 flex items-center justify-between border-t pt-4">

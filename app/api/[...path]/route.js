@@ -93,9 +93,41 @@ async function handleRequest(request, context) {
       }
     }
 
+    // Shared hosts (LiteSpeed/Apache, e.g. Hostinger) reject PUT/PATCH/DELETE
+    // with a server-level 403 HTML page before the request ever reaches the
+    // Laravel backend — GET/POST pass through fine (verified by probing).
+    // Laravel supports method spoofing: resend these verbs as POST with an
+    // _method override in the JSON body.
+    let effectiveMethod = method;
+    let outBody = fetchOptions.body;
+    const contentType = headers["Content-Type"] || "";
+
+    if (
+      ["PUT", "PATCH", "DELETE"].includes(method) &&
+      !contentType.startsWith("multipart/")
+    ) {
+      let overridePayload = {};
+      if (outBody) {
+        try {
+          const parsed = JSON.parse(outBody);
+          // Only merge into plain objects — arrays/scalars are replaced by
+          // the override body (all app payloads are objects).
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            overridePayload = parsed;
+          }
+        } catch {
+          // Non-JSON body: spoof with just the method override.
+        }
+      }
+      overridePayload._method = method;
+      effectiveMethod = "POST";
+      headers["Content-Type"] = "application/json";
+      outBody = JSON.stringify(overridePayload);
+    }
+
     const response = await fetch(
       buildBackendUrl(segments, request.nextUrl.searchParams),
-      fetchOptions,
+      { ...fetchOptions, method: effectiveMethod, body: outBody },
     );
 
     const responseText = await response.text();
@@ -113,6 +145,18 @@ async function handleRequest(request, context) {
         headers: resHeaders,
       });
     } catch {
+      // Non-JSON upstream body — usually a server-level HTML error page
+      // (Hostinger 403/500 templates). Wrap it so clients get a clean JSON
+      // message instead of raw markup.
+      if (/<html[\s>]|<!doctype html/i.test(responseText)) {
+        return NextResponse.json(
+          {
+            message: `The API server rejected this request (HTTP ${response.status}) before it reached the application — likely a hosting firewall/security rule.`,
+            serverErrorPage: true,
+          },
+          { status: response.status, headers: resHeaders },
+        );
+      }
       return new NextResponse(responseText, {
         status: response.status,
         headers: { "Content-Type": "text/plain", ...Object.fromEntries(resHeaders) },

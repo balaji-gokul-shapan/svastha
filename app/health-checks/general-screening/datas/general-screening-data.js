@@ -38,6 +38,7 @@ export const immunizationOptions = [
   { value: "up_to_date", label: "Up to date", tone: "good" },
   { value: "partial", label: "Partial", tone: "warn" },
   { value: "overdue", label: "Overdue", tone: "bad" },
+  { value: "na", label: "NA", tone: "neutral" },
 ];
 
 export const heightStandardOptions = ["Below Average", "Average", "Above Average"];
