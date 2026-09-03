@@ -1,5 +1,18 @@
 import React from "react";
+import {
+  Baby,
+  BookOpen,
+  Cake,
+  GraduationCap,
+  Mars,
+  Transgender,
+  User,
+  UserRound,
+  Venus,
+} from "lucide-react";
 import { getNormaliseName } from "./students-cards";
+import { Badge } from "@/components/ui/badge";
+import Image from "next/image";
 
 function formatDob(value) {
   if (!value) {
@@ -42,11 +55,7 @@ function calculateAgeFromDob(value) {
 }
 
 function getInitials(name = "") {
-  const parts = String(name)
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2);
+  const parts = String(name).trim().split(/\s+/).filter(Boolean).slice(0, 2);
 
   if (!parts.length) {
     return "NA";
@@ -73,13 +82,28 @@ function statusToneClass(status) {
   return "bg-muted text-muted-foreground";
 }
 
-function InfoItem({ label, value }) {
+function InfoItem({ icon: Icon, label, value }) {
   return (
-    <div>
-      <p className="text-[11px] text-muted-foreground">{label}</p>
-      <p className="text-sm font-medium text-foreground">{value || "--"}</p>
+    <div className="flex items-start gap-2.5">
+      {Icon ? (
+        <span className="mt-0.5 flex size-8 shrink-0 items-center aspect-square justify-center rounded-lg bg-muted">
+          <Icon className="size-5 text-muted-foreground" strokeWidth={2} />
+        </span>
+      ) : null}
+      <div>
+        <p className="text-[11px] text-muted-foreground">{label}</p>
+        <p className="text-sm font-medium text-foreground">{value || "--"}</p>
+      </div>
     </div>
   );
+}
+
+// getNormaliseName() yields "Male" / "Female" (capitalised); anything else
+// (missing, "-", "other") falls back to a neutral icon.
+function genderIcon(normalised) {
+  if (normalised === "Female") return Venus;
+  if (normalised === "Male") return Mars;
+  return Transgender;
 }
 
 const StudentProfileCard = ({ student }) => {
@@ -93,20 +117,25 @@ const StudentProfileCard = ({ student }) => {
 
   const name = student?.name ?? student?.student_name ?? "Student";
   const studentCode =
-    student?.cus_id ??
+    student?.uhid ??
+    student?.svastha_id ??
     student?.id ??
     student?.school_registration_number ??
     student?.admission_number ??
     student?.id ??
     "--";
 
+  const svasthaId = student?.svastha_id ?? student?.cus_id ?? '--';
+
   const classValue = student?.Class ?? student?.class ?? student?.grade ?? "--";
   const sectionValue = student?.sec ?? student?.section ?? "--";
   const dobValue =
     student?.dob ?? student?.date_of_birth ?? student?.dateOfBirth ?? "";
-  const ageValue = student?.age ? String(student.age) : calculateAgeFromDob(dobValue);
-  const getGender = student?.gender ?? student?.Gender ?? "-"
-            const getNormalise = getNormaliseName(getGender);
+  const ageValue = student?.age
+    ? String(student.age)
+    : calculateAgeFromDob(dobValue);
+  const getGender = student?.gender ?? student?.Gender ?? "-";
+  const getNormalise = getNormaliseName(getGender);
 
   return (
     <article className="rounded-xl border border-border bg-card p-4 sm:p-5">
@@ -116,9 +145,19 @@ const StudentProfileCard = ({ student }) => {
             {getInitials(name)}
           </span>
 
-          <div className="min-w-0">
-            <p className="truncate text-base font-semibold text-foreground">{name}</p>
-            <p className="text-xs text-muted-foreground">{studentCode}</p>
+          <div className="min-w-0 gap-5">
+            <p className="truncate text-base font-semibold text-foreground">
+              {name}
+            </p>
+           <div className="flex gap-2 my-1">
+             <Badge variant="secondary" className="text-xs border border-primary flex flex-row items-end gap-1">
+              <>
+              <Image src={"/logo.svg"} width={16} height={16} alt="svastha-id"/>
+              {studentCode}
+              </>
+              </Badge>
+            <Badge className="text-xs">{svasthaId}</Badge>
+           </div>
           </div>
         </div>
 
@@ -134,16 +173,22 @@ const StudentProfileCard = ({ student }) => {
       </div>
 
       <div className="mt-4 grid w-full grid-cols-2 gap-4 text-sm sm:mt-5 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7">
-        <InfoItem label="DOB" value={formatDob(dobValue)} />
-        <InfoItem label="Age" value={ageValue} />
-        <InfoItem label="Gender" value={getNormalise} />
-        <InfoItem label="Class" value={classValue} />
-        <InfoItem label="Section" value={sectionValue} />
+        <InfoItem icon={Cake} label="DOB" value={formatDob(dobValue)} />
+        <InfoItem icon={Baby} label="Age" value={ageValue} />
         <InfoItem
+          icon={genderIcon(getNormalise)}
+          label="Gender"
+          value={getNormalise}
+        />
+        <InfoItem icon={GraduationCap} label="Class" value={classValue} />
+        <InfoItem icon={BookOpen} label="Section" value={sectionValue} />
+        <InfoItem
+          icon={User}
           label="Father"
           value={student?.fatherName ?? student?.father_name ?? "--"}
         />
         <InfoItem
+          icon={UserRound}
           label="Mother"
           value={student?.motherName ?? student?.mother_name ?? "--"}
         />
