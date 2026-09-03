@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Reusable settings sidebar navigation item.
  * Status is fully controlled by the parent via `active` + `onClick` so the
  * same item can be reused in any settings/sub-navigation.

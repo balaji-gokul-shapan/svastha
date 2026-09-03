@@ -359,6 +359,9 @@ export function formatAge(months) {
 // "given" | "due" | "overdue" | "upcoming"
 export function cellStatus({ ageMonths, milestoneMonths, record }) {
   if (record) return "given";
+  // No student/DOB selected (filters reset studentId to "") — nothing can be
+  // due or overdue yet; NaN age would otherwise classify every cell "overdue".
+  if (ageMonths == null) return "upcoming";
   const diff = ageMonths - milestoneMonths;
   if (diff < -0.5) return "upcoming";
   if (diff <= 1) return "due"; // within ~1 month of the checkpoint, not yet overdue

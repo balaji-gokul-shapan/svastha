@@ -11,19 +11,22 @@ const API_BASE_URL = (
 // Key = first segment of the incoming /api/<key>/... request.
 const ROOT_PATH_PREFIXES = new Set(["doctor-camps"]);
 
+// Paths that live under /api but NOT under /api/v1.
+const API_PATH_PREFIXES = new Set(["login", "register"]);
+
 function buildBackendUrl(segments, searchParams) {
   // Use the configured base as-is when it already carries an /api path
-  // (..ends with /api OR /api/v1). Only when the base has NO api segment (e.g.
-  // a bare host) do we append the default /api/v1 prefix.
+  // (ends with /api or /api/v1). Only when the base is a bare host do we
+  // append the standard /api/v1 prefix.
   const base = /\/api(\/v1)?$/.test(API_BASE_URL)
-    ? API_BASE_URL
-    : `${API_BASE_URL}/api/`;
+    ? API_BASE_URL.replace(/\/+$/, "")
+    : `${API_BASE_URL.replace(/\/+$/, "")}/api/v1`;
 
   // Frontend paths like /api/v1/students/filter include a redundant "v1"
   // segment while the base URL already targets /api/v1 — drop it to avoid
   // producing /api/v1/v1/... on the backend.
   let normalizedSegments =
-    segments[0] === "v1" && base.endsWith("/api/")
+    segments[0] === "v1" && base.endsWith("/api/v1")
       ? segments.slice(1)
       : segments;
 
@@ -31,10 +34,21 @@ function buildBackendUrl(segments, searchParams) {
     normalizedSegments = [""];
   }
 
-  const useRoot =
-    normalizedSegments.length > 0 &&
-    ROOT_PATH_PREFIXES.has(normalizedSegments[0]);
-  const prefix = useRoot ? API_BASE_URL.replace(/\/api\/v1$/, "") : base;
+  const firstSegment = normalizedSegments[0];
+  const useRoot = ROOT_PATH_PREFIXES.has(firstSegment);
+  const useApi = API_PATH_PREFIXES.has(firstSegment);
+
+  let prefix;
+  if (useRoot) {
+    // Strip /api/v1 to get bare host (e.g., /doctor-camps)
+    prefix = API_BASE_URL.replace(/\/+$/, "").replace(/\/api\/v1$/, "");
+  } else if (useApi) {
+    // Keep /api but remove /v1 (e.g., /api/login)
+    prefix = API_BASE_URL.replace(/\/+$/, "").replace(/\/api\/v1$/, "/api");
+  } else {
+    // Default: use the resolved /api/v1 base
+    prefix = base;
+  }
 
   const url = new URL(
     `${prefix}/${normalizedSegments.map(encodeURIComponent).join("/")}`,

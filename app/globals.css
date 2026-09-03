@@ -312,7 +312,7 @@
 
   h5,
   h6 {
-    font-family: var(--font-body);
+    font-family: var(--font-sf);
     font-weight: 600;
     line-height: 1.35;
     color: var(--color-foreground);
@@ -345,13 +345,14 @@
 
   h6 {
     font-size: 0.9375rem;
-    text-transform: uppercase;
+    text-transform: capitalize;
     letter-spacing: 0.04em;
     color: var(--color-muted-foreground);
   }
 
   p {
     line-height: 1.65;
+    letter-spacing: 0.04em;
   }
 
   small,
@@ -587,4 +588,18 @@
 }
 .screening-card--female button[aria-pressed="true"]:hover {
   background-color: var(--color-domain-female-hover);
+}
+
+/* ===== Tooth chart tabs (dental screening): active tab = primary =====
+   TabsTrigger (components/ui/tabs.jsx) paints the active tab with
+   bg-background/text-foreground utilities. This unlayered rule re-colors
+   the active trigger with the primary token — same "unlayered beats
+   @layer utilities" trick as the female-domain rule above. Scoped to
+   .tooth-tabs so every other Tabs instance keeps its default styling. */
+.tooth-tabs [role="tab"][data-state="active"] {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+.tooth-tabs [role="tab"][data-state="active"]:hover {
+  background-color: color-mix(in oklch, var(--color-primary) 88%, black);
 }

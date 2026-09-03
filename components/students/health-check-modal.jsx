@@ -17,7 +17,7 @@ import { useScreeningRecord } from "./getScreeningRecord";
 import { usePathname } from "next/navigation";
 import html2canvas from "html2canvas-pro";
 import jsPDF from "jspdf";
-import ToothIcon from "@/app/health-checks/dental-screening/toothIcon";
+import ToothIcon from "@/app/health-checks/dental-screening/asset/toothIcon";
 
 function Info({ label, value }) {
   return (

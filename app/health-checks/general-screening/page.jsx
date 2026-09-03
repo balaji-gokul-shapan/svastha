@@ -1,26 +1,23 @@
-"use client";
+﻿"use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   Activity,
   AlertCircle,
+  Calendar,
   ChevronDown,
   Cross,
-  HeartPulse,
+  Droplet,
+  Heart,
+  Ruler,
   Save,
-  Scale,
   Search,
-  Stethoscope,
-  Syringe,
+  Thermometer,
+  Weight,
   Wind,
 } from "lucide-react";
-import HeightIcon from "@iconify-react/healthicons/height";
-import HealthDataSecurityOutlineIcon from "@iconify-react/healthicons/health-data-security-outline";
-import WeightIcon from "@iconify-react/healthicons/weight";
 import INoteActionIcon from "@iconify-react/healthicons/i-note-action";
-import { ToggleGroup } from "./toggleGroup";
-import BloodDropOutlineIcon from "@iconify-react/healthicons/blood-drop-outline";
-import BloodPressureMonitorIcon from "@iconify-react/healthicons/blood-pressure-monitor";
-import PulseOximeterOutlineIcon from "@iconify-react/healthicons/pulse-oximeter-outline";
+
 import {
   assistantOptions,
   bloodGroupOptions,
@@ -31,14 +28,10 @@ import {
   bmiCategory,
   GROWTH_STANDARD_BANDS,
   VITALS_STANDARD_BANDS,
-} from "./general-screening-data";
-import { BmiGauge } from "./bmiCategory";
-import { BmiSvgGauge } from "./BmiSvgGauge";
+} from "./datas/general-screening-data";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { getCamp } from "@/lib/features/getCampSlice";
-import { getFilterStudent } from "@/lib/features/getFilterStudent";
 import { getInitialScreening } from "@/lib/features/getInitialScreening";
 import { getAssignEvent } from "@/lib/features/getEventAssignSlice";
 
@@ -46,23 +39,44 @@ import {
   createInitialScreening,
   updateInitialScreening,
 } from "@/lib/features/registerGeneralScreening";
-import AssessmentCard from "@/app/ui/AssessmentCard";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import CampStudentSelectorDrawer from "@/components/health-checks/camp-student-selector-drawer";
-import useStudentData from "@/components/health-checks/getStudentData";
 import StudentProfileCard from "@/app/students/studentProfileCard";
 import StudentFilter from "../utilities/studentFilter";
 import { FramerCard } from "@/util/FramerCard";
+import AssessmentCard from "@/app/ui/AssessmentCard";
 import { getAllMasterScreening } from "@/lib/features/masterScreeningSlice";
 import { getMasterData } from "@/util/masterData";
-import { generalScreeningSchema } from "./general-screening-schema";
-import ClinicalSignsCard from "./ClinicalSignCard";
-import GeneralPhysicalExamination from "./GeneralPhysicalExamination";
-import FemaleStudentsCard from "./FemaleStudentsCard";
-import EditableVitalCard from "./EditableVitalCard";
+import { generalScreeningSchema } from "./datas/general-screening-schema";
 import { Textarea } from "@/components/ui/textarea";
 import { selectAuthUser } from "@/lib/features/auth-slice";
+import ScreeningStepper from "@/components/ScreeningStepper";
+
+const GeneralSectionLoading = () => (
+  <div className="min-h-24 rounded-xl border border-border bg-card p-4" />
+);
+
+const ClinicalSignsCard = dynamic(
+  () => import("./components/ClinicalSignCard"),
+  { loading: GeneralSectionLoading },
+);
+const FemaleStudentsCard = dynamic(
+  () => import("./components/FemaleStudentsCard"),
+  { loading: GeneralSectionLoading },
+);
+const GeneralPhysicalExamination = dynamic(
+  () => import("./components/GeneralPhysicalExamination"),
+  { loading: GeneralSectionLoading },
+);
+const GrowthVitals = dynamic(() => import("./components/GrowthVitals"), {
+  loading: GeneralSectionLoading,
+});
+const BloodGroup = dynamic(() => import("./components/BloodGroup"), {
+  loading: GeneralSectionLoading,
+});
+const HealthHistory = dynamic(() => import("./components/HealthHistory"), {
+  loading: GeneralSectionLoading,
+});
 
 function FieldLabel({ children }) {
   return (
@@ -123,7 +137,31 @@ function NumberField({ label, value, onChange, unit, error }) {
   );
 }
 
-function getAgeInYearsFromDob(dobValue) {
+function SummaryRow({ icon: Icon, label, value, tone = "muted" }) {
+  const toneStyles = {
+    info: "bg-info/10 text-info",
+    success: "bg-success/10 text-success",
+    warning: "bg-warning/10 text-warning",
+    destructive: "bg-destructive/10 text-destructive",
+    muted: "bg-muted text-muted-foreground",
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
+      <div className="flex items-center gap-2">
+        <span
+          className={`flex size-7 items-center justify-center rounded-md ${toneStyles[tone] ?? toneStyles.muted}`}
+        >
+          <Icon className="size-3.5" />
+        </span>
+        <span className="text-sm text-muted-foreground">{label}</span>
+      </div>
+      <span className="text-sm font-medium text-foreground">{value}</span>
+    </div>
+  );
+}
+
+export function getAgeInYearsFromDob(dobValue) {
   const dobString = String(dobValue ?? "").trim();
   if (!dobString) {
     return null;
@@ -202,6 +240,16 @@ function evaluateGrowthStandard(metric, value, ageYears) {
   };
 }
 
+const IMMUNIZATION_MAP = { up_to_date: 1, partial: 2, overdue: 3 };
+const STANDARD_MAP = { "Below Average": 1, Average: 2, "Above Average": 3 };
+const BMI_CATEGORY_MAP = {
+  Underweight: 1,
+  Normal: 2,
+  Overweight: 3,
+  Obese: 4,
+  severeObesse: 5,
+};
+
 function parseMetricValue(rawValue) {
   if (typeof rawValue === "number") {
     return Number.isFinite(rawValue) ? rawValue : Number.NaN;
@@ -216,6 +264,40 @@ function parseMetricValue(rawValue) {
 
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
+function getBackendErrorMessage(error) {
+  let payload = error;
+
+  if (typeof payload === "string") {
+    try {
+      payload = JSON.parse(payload);
+    } catch {
+      return /<!doctype html|<html[\s>]/i.test(payload) || payload.length > 240
+        ? "Unable to save screening. Please try again."
+        : payload;
+    }
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return "Something went wrong. Please try again.";
+  }
+
+  const fieldMessages = Object.values(payload.errors ?? {})
+    .flatMap((messages) => (Array.isArray(messages) ? messages : [messages]))
+    .filter(Boolean);
+
+  const message =
+    fieldMessages[0] ??
+    payload.message ??
+    payload.error ??
+    payload.detail ??
+    "Unable to save screening. Please try again.";
+
+  return /<!doctype html|<html[\s>]/i.test(String(message)) ||
+    String(message).length > 240
+    ? "Unable to save screening. Please try again."
+    : String(message);
 }
 
 // Parses "120/80" (or "120/80 mmHg") into { systolic, diastolic } or null.
@@ -309,8 +391,18 @@ function evaluateVitalsStandard(metric, rawValue, ageYears) {
     };
   }
 
-  const min = metric === "pulse" ? band.pulseMin : band.spo2Min;
-  const max = metric === "pulse" ? band.pulseMax : band.spo2Max;
+  const min =
+    metric === "pulse"
+      ? band.pulseMin
+      : metric === "temperature"
+        ? band.tempMin
+        : band.spo2Min;
+  const max =
+    metric === "pulse"
+      ? band.pulseMax
+      : metric === "temperature"
+        ? band.tempMax
+        : band.spo2Max;
 
   if (parsed < min) {
     return {
@@ -358,8 +450,6 @@ export default function GeneralScreeningPage() {
     refetchOnWindowFocus: false,
   });
 
-  console.log(masterScreeningData, "All Master Screening Data");
-
   // ---------------------------------------------------------
   // Required master data for THIS module
   // ---------------------------------------------------------
@@ -371,23 +461,26 @@ export default function GeneralScreeningPage() {
         "blood-groups",
         "bmi-categories",
         "chronic-diseases",
-        "color-vision-statuses",
-        "dental-conditions",
-        "dental-treatments",
-        "ear-examinations",
-        "hearing-classifications",
-        "hearing-referral-reasons",
+        "skin-masters",
+        "nutrition-masters",
+        "consciousness-masters",
+        "appearance-masters",
+        // "color-vision-statuses",
+        // "dental-conditions",
+        // "dental-treatments",
+        // "ear-examinations",
+        // "hearing-classifications",
+        // "hearing-referral-reasons",
         "height-weight-standards",
         "immunizations",
-        "oral-hygiene-statuses",
-        "plaque-scores",
-        "vision-referral-reasons",
-        "vision-results",
+        // "oral-hygiene-statuses",
+        // "plaque-scores",
+        // "vision-referral-reasons",
+        // "vision-results",
         "vital-signs",
       ]),
     [masterScreeningData],
   );
-  console.log(requiredMasterData, "requiredMasterData");
 
   const allergies = requiredMasterData.allergies ?? [];
 
@@ -395,27 +488,27 @@ export default function GeneralScreeningPage() {
 
   const bloodGroupOption = requiredMasterData["blood-groups"] ?? [];
   const bmiCategories = requiredMasterData["bmi-categories"] ?? [];
-
+  const nutritionOptions = requiredMasterData["nutrition-masters"] ?? [];
+  const consciousnessOptions =
+    requiredMasterData["consciousness-masters"] ?? [];
+  const appearanceOptions = requiredMasterData["appearance-masters"] ?? [];
+  const skinOptions = requiredMasterData["skin-masters"] ?? [];
+  const vitalOptions = requiredMasterData["vital-signs"] ?? [];
   const authUser = useAppSelector(selectAuthUser);
-
   const academicYearOptions = ["2026-2027", "2025-2026", "2024-2025"];
   const [isCaDrawerOpen, setIsCaDrawerOpen] = useState(false);
+  const [activeStep, setActiveStep] = useState("growth");
   const [selectedCampId, setSelectedCampId] = useState("");
   const [studentId, setStudentId] = useState("");
   const [academicYear, setAcademicYear] = useState(academicYearOptions[0]);
   const [selectedClassFilter, setSelectedClassFilter] = useState("all");
-  const [selectedSectionFilter, setSelectedSectionFilter] = useState("all");
-  const [assessmentDate, setAssessmentDate] = useState("2026-08-05");
-  const [location, setLocation] = useState(locationOptions[0]);
-  const [examiner, setExaminer] = useState(examinerOptions[0]);
-  const [assistant, setAssistant] = useState(assistantOptions[0]);
-
-  const [height, setHeight] = useState("0");
-  const [weight, setWeight] = useState("0");
+  const [getStudentDataByEvent, setGetStudentDataByEvent] = useState([]);
+  const [height, setHeight] = useState("");
+  const [weight, setWeight] = useState("");
   const [pulse, setPulse] = useState("");
+  const [temperature, setTemperature] = useState("");
   const [bloodPressure, setBloodPressure] = useState("");
   const [spo2, setSpo2] = useState("");
-
   const [bloodGroup, setBloodGroup] = useState(
     bloodGroupOption?.[0]?.name ?? "",
   );
@@ -429,34 +522,61 @@ export default function GeneralScreeningPage() {
   // ============================================================
 
   const [clinicalSigns, setClinicalSigns] = useState({
-    pallor: 0,
-    clubbing: 0,
-    edema: 0,
-    skinAssessment: "Normal",
+    pallor: "",
+    clubbing: "",
+    edema: "",
+    skinAssessment:
+      skinOptions.find((item) => item.name === "Normal")?.name ??
+      skinOptions?.[0]?.name ??
+      "Normal",
     medicalCondition: "",
     currentComplaints: "",
     regularMedication: "",
   });
+
+  // The useState initializer above runs BEFORE the master query resolves, so
+  // it can see an empty skinOptions list and leave the field blank. Re-default
+  // the skin assessment once masters arrive (or guarantee the static "Normal"
+  // fallback is pre-selected) — without clobbering a value already picked.
+  useEffect(() => {
+    setClinicalSigns((prev) => {
+      if (
+        prev.skinAssessment &&
+        (skinOptions.length === 0 ||
+          skinOptions.some((item) => item.name === prev.skinAssessment))
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        skinAssessment:
+          skinOptions.find((item) => item.name === "Normal")?.name ??
+          skinOptions[0]?.name ??
+          "Normal",
+      };
+    });
+  }, [skinOptions]);
 
   // ============================================================
   // GENERAL PHYSICAL EXAMINATION
   // ============================================================
 
   const [physicalExamination, setPhysicalExamination] = useState({
-    generalAppearance: "Normal",
-    postureSpine: "Normal",
-    nutritionalStatus: "Normal",
-    consciousness: "Alert",
-    cvs: "Normal S1 S2",
-    respiratorySystem: "Bilateral clear",
-    abdomen: "Soft, non-tender",
-    neurology: "NAD",
+    generalAppearance: appearanceOptions?.[0]?.name ?? "",
+    postureSpine: appearanceOptions?.[0]?.name ?? "",
+    nutritionalStatus: nutritionOptions?.[0]?.name ?? "",
+    consciousness: consciousnessOptions?.[0]?.name ?? "",
+    cvs: "",
+    respiratorySystem: "",
+    abdomen: "",
+    neurology: "",
     referral: "",
   });
   const [femaleScreening, setFemaleScreening] = useState({
-    menstrualCycle: "Regular",
-    excessiveBleeding: 0,
-    menstrualPain: 0,
+    menstrualCycle: "",
+    excessiveBleeding: "",
+    menstrualPain: "",
     otherConcerns: "",
     referral: "",
   });
@@ -495,23 +615,23 @@ export default function GeneralScreeningPage() {
   const [sectionFilter, setSectionFilter] = useState("all");
   const [studentFilter, setStudentFilter] = useState("all");
 
-  const { data: filterPayload, isLoading } = useQuery({
-    queryKey: ["filter-student", schoolName, academicYear, "options"],
-    queryFn: () =>
-      dispatch(
-        getFilterStudent({
-          all: true,
-          status: "all",
-          schoolName,
-          academicYear,
-          sortBy: "name",
-          sortOrder: "asc",
-          search: "",
-        }),
-      ).unwrap(),
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-  });
+  // const { data: filterPayload, isLoading } = useQuery({
+  //   queryKey: ["filter-student", schoolName, academicYear, "options"],
+  //   queryFn: () =>
+  //     dispatch(
+  //       getFilterStudent({
+  //         all: true,
+  //         status: "all",
+  //         schoolName,
+  //         academicYear,
+  //         sortBy: "name",
+  //         sortOrder: "asc",
+  //         search: "",
+  //       }),
+  //     ).unwrap(),
+  //   staleTime: 0,
+  //   refetchOnWindowFocus: true,
+  // });
 
   useQuery({
     queryKey: [
@@ -541,8 +661,6 @@ export default function GeneralScreeningPage() {
     isLoading: assignEventLoading,
     error: assignEventError,
   } = useQuery({
-    // Key includes the user id: when the session hydrates (or the
-    // signed-in user changes) the query refetches with the right id.
     queryKey: ["get-event", authUser?.id ?? authUser?.Id ?? null],
     queryFn: () => {
       const userId = authUser?.id ?? authUser?.Id;
@@ -551,15 +669,11 @@ export default function GeneralScreeningPage() {
       }
       return dispatch(getAssignEvent({ id: userId })).unwrap();
     },
-    // Don't fire before the auth user is in the store — otherwise
-    // `authUser.id` throws and the query dies in the error state.
     enabled: Boolean(authUser?.id ?? authUser?.Id),
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
-  console.log(assignedEvents, "assignedEvents");
-
-  //-------------------------------------------
+  
 
   const applyScreeningRecordToForm = (screeningRecord) => {
     const getMetricValue = (value) => {
@@ -567,9 +681,43 @@ export default function GeneralScreeningPage() {
       return normalizedValue || "0";
     };
 
+    const normalizeText = (value, fallback = "") => {
+      const normalized = String(value ?? "").trim();
+      return normalized || fallback;
+    };
+
+    const normalizeChoice = (value, validOptions, fallback = "") => {
+      const text = String(value ?? "").trim();
+      if (!text) return fallback;
+
+      const exactMatch = validOptions.find(
+        (option) => option.toLowerCase() === text.toLowerCase(),
+      );
+      if (exactMatch) return exactMatch;
+
+      if (["1", "true", "yes", "y"].includes(text.toLowerCase())) {
+        return validOptions[1] ?? fallback;
+      }
+
+      if (["0", "false", "no", "n"].includes(text.toLowerCase())) {
+        return validOptions[0] ?? fallback;
+      }
+
+      return fallback;
+    };
+
+    const normalizeBinary = (value, fallback = "0") => {
+      const text = String(value ?? "").trim();
+      if (!text) return fallback;
+      if (["1", "true", "yes", "y"].includes(text.toLowerCase())) return "1";
+      if (["0", "false", "no", "n"].includes(text.toLowerCase())) return "0";
+      return text;
+    };
+
     setHeight(getMetricValue(screeningRecord?.height));
     setWeight(getMetricValue(screeningRecord?.weight));
     setPulse(getMetricValue(screeningRecord?.pulse) || "");
+    setTemperature(getMetricValue(screeningRecord?.temperature) || "");
     setBloodPressure(
       String(screeningRecord?.blood_pressure ?? "").trim() || "",
     );
@@ -601,13 +749,137 @@ export default function GeneralScreeningPage() {
         bloodGroupOption[0]?.name ??
         "",
     );
+
+    setClinicalSigns((prev) => ({
+      ...prev,
+      pallor: normalizeBinary(
+        screeningRecord?.pallor ?? screeningRecord?.clinical_signs?.pallor,
+        prev.pallor || "0",
+      ),
+      clubbing: normalizeBinary(
+        screeningRecord?.clubbing ?? screeningRecord?.clinical_signs?.clubbing,
+        prev.clubbing || "0",
+      ),
+      edema: normalizeBinary(
+        screeningRecord?.edema ?? screeningRecord?.clinical_signs?.edema,
+        prev.edema || "0",
+      ),
+      skinAssessment: normalizeChoice(
+        // Saved payloads carry the master id in `skin` — map it back to the
+        // name for the toggle; fall through for records stored as a name.
+        skinOptions.find(
+          (item) =>
+            String(item.id) ===
+            String(screeningRecord?.skin ?? screeningRecord?.skin_assessment),
+        )?.name ??
+          screeningRecord?.skin ??
+          screeningRecord?.skin_assessment,
+        [
+          ...skinOptions.map((item) => item.name),
+          "Normal",
+          "Abnormal",
+          "Rashes",
+          "Infection",
+          "NA",
+        ],
+        prev.skinAssessment || "Normal",
+      ),
+      medicalCondition: normalizeText(
+        screeningRecord?.medical_condition ??
+          screeningRecord?.medicalCondition ??
+          screeningRecord?.known_medical_condition,
+        prev.medicalCondition || "",
+      ),
+      currentComplaints: normalizeText(
+        screeningRecord?.current_complaints ??
+          screeningRecord?.currentComplaints,
+        prev.currentComplaints || "",
+      ),
+      regularMedication: normalizeText(
+        screeningRecord?.regular_medication ??
+          screeningRecord?.regularMedication,
+        prev.regularMedication || "",
+      ),
+    }));
+
+    setPhysicalExamination((prev) => ({
+      ...prev,
+      generalAppearance: normalizeChoice(
+        appearanceOptions.find(
+          (item) =>
+            String(item.id) === String(screeningRecord?.general_appearance),
+        )?.name ??
+          screeningRecord?.general_appearance ??
+          screeningRecord?.generalAppearance,
+        ["Normal", "Needs attention"],
+        prev.generalAppearance || "Normal",
+      ),
+      postureSpine: normalizeChoice(
+       appearanceOptions.find(
+          (item) =>
+            String(item.id) === String(screeningRecord?.general_appearance),
+        )?.name ??
+          screeningRecord?.general_appearance ??
+          screeningRecord?.generalAppearance,
+        ["Normal", "Needs attention"],
+        prev.generalAppearance || "Normal",
+      ),
+      nutritionalStatus: normalizeChoice(
+        // Saved records now carry the master id — map it back to the name for
+        // the ToggleGroup; fall through for older records stored as a name.
+        nutritionOptions.find(
+          (item) =>
+            String(item.id) === String(screeningRecord?.nutritional_status),
+        )?.name ??
+          screeningRecord?.nutritional_status ??
+          screeningRecord?.nutritionalStatus,
+        ["Normal", "Underweight", "Overweight"],
+        prev.nutritionalStatus || "Normal",
+      ),
+      consciousness: normalizeChoice(
+        consciousnessOptions.find(
+          (item) => String(item.id) === String(screeningRecord?.consciousness),
+        )?.name ?? screeningRecord?.consciousness,
+        ["Alert", "Drowsy", "Unresponsive"],
+        prev.consciousness || "",
+      ),
+      cvs: normalizeText(screeningRecord?.cvs, prev.cvs || ""),
+      respiratorySystem: normalizeText(
+        screeningRecord?.rs ?? screeningRecord?.respiratory_system,
+        prev.respiratorySystem || "",
+      ),
+      abdomen: normalizeText(screeningRecord?.abdomen, prev.abdomen || ""),
+      neurology: normalizeText(
+        screeningRecord?.neurology,
+        prev.neurology || "",
+      ),
+      referral: normalizeText(screeningRecord?.referral, prev.referral || ""),
+    }));
   };
+
+  // Helper to extract students array from API response
+  // API returns: { event: {...}, students: { data: [...], current_page: 1, ... } }
+  const studentsArray = useMemo(() => {
+    if (Array.isArray(getStudentDataByEvent?.students?.data)) {
+      return getStudentDataByEvent.students.data;
+    }
+    if (Array.isArray(getStudentDataByEvent?.students)) {
+      return getStudentDataByEvent.students;
+    }
+    if (Array.isArray(getStudentDataByEvent?.data)) {
+      return getStudentDataByEvent.data;
+    }
+    if (Array.isArray(getStudentDataByEvent)) {
+      return getStudentDataByEvent;
+    }
+    return [];
+  }, [getStudentDataByEvent]);
 
   const selectedStudentFromFilter = useMemo(() => {
     const activeId = studentFilter !== "all" ? studentFilter : studentId;
-    if (activeId && Array.isArray(filterPayload?.items)) {
+    if (activeId && studentsArray.length > 0) {
       return (
-        filterPayload.items.find(
+        studentsArray.find(
           (student) =>
             String(student?.id ?? student?.studentId ?? student?.cus_id) ===
             String(activeId),
@@ -615,15 +887,15 @@ export default function GeneralScreeningPage() {
       );
     }
     return null;
-  }, [filterPayload?.items, studentFilter, studentId]);
+  }, [studentsArray, studentFilter, studentId]);
 
   const selectedStudent = useMemo(() => {
     if (selectedStudentFromFilter) {
       return selectedStudentFromFilter;
     }
 
-    if (studentId && Array.isArray(filterPayload?.items)) {
-      const match = filterPayload.items.find(
+    if (studentId && studentsArray.length > 0) {
+      const match = studentsArray.find(
         (student) =>
           String(student.id ?? student.studentId ?? student.cus_id) ===
           String(studentId),
@@ -632,12 +904,12 @@ export default function GeneralScreeningPage() {
     }
 
     return null;
-  }, [filterPayload?.items, selectedStudentFromFilter, studentId]);
+  }, [studentsArray, selectedStudentFromFilter, studentId]);
 
   const classOptions = useMemo(() => {
-    if (!Array.isArray(filterPayload?.items)) return ["all"];
+    if (studentsArray.length === 0) return ["all"];
     const classSet = new Set();
-    filterPayload.items.forEach((student) => {
+    studentsArray.forEach((student) => {
       const cls = String(
         student?.Class ?? student?.class ?? student?.grade ?? "",
       )
@@ -651,12 +923,12 @@ export default function GeneralScreeningPage() {
         a.localeCompare(b, undefined, { numeric: true }),
       ),
     ];
-  }, [filterPayload?.items]);
+  }, [studentsArray]);
 
   const sectionOptions = useMemo(() => {
-    if (!Array.isArray(filterPayload?.items)) return ["all"];
+    if (studentsArray.length === 0) return ["all"];
     const sectionSet = new Set();
-    filterPayload.items.forEach((student) => {
+    studentsArray.forEach((student) => {
       const cls = String(
         student?.Class ?? student?.class ?? student?.grade ?? "",
       )
@@ -672,7 +944,7 @@ export default function GeneralScreeningPage() {
         a.localeCompare(b, undefined, { numeric: true }),
       ),
     ];
-  }, [filterPayload?.items, selectedClassFilter]);
+  }, [studentsArray, selectedClassFilter]);
 
   const selectedStudentKey = String(
     selectedStudent?.id ??
@@ -688,25 +960,28 @@ export default function GeneralScreeningPage() {
     studentId,
   );
 
-  const assessmentStudentOptions = useMemo(
-    () =>
-      (filterPayload?.items ?? []).map((student) => {
-        const value = String(
-          student.id ?? student.studentId ?? student.cus_id ?? "",
-        );
-        const studentCode =
-          student.studentId ??
-          student.student_id ??
-          student.school_registration_number ??
-          student.admission_number;
-
-        return {
-          value,
-          label: `${student.name || student.student_name || "Unknown"}${studentCode ? ` (${studentCode})` : ""}`,
-        };
-      }),
-    [filterPayload?.items],
+  const isFemale = useMemo(
+    () => selectedStudent?.gender?.toLowerCase() === "female",
+    [selectedStudent],
   );
+
+  const assessmentStudentOptions = useMemo(() => {
+    return studentsArray.map((student) => {
+      const value = String(
+        student.id ?? student.studentId ?? student.cus_id ?? "",
+      );
+      const studentCode =
+        student.studentId ??
+        student.student_id ??
+        student.school_registration_number ??
+        student.admission_number;
+
+      return {
+        value,
+        label: `${student.name || student.student_name || "Unknown"}${studentCode ? ` (${studentCode})` : ""}`,
+      };
+    });
+  }, [studentsArray]);
   const selectedStudentKeys = useMemo(() => {
     if (selectedStudent) {
       return new Set(
@@ -755,11 +1030,6 @@ export default function GeneralScreeningPage() {
       }) ?? null
     );
   }, [selectedStudentKeys, students]);
-  console.log(
-    getSelectedStudentScreeningData,
-    "getSelectedStudentScreeningData",
-  );
-
   useEffect(() => {
     if (getSelectedStudentScreeningData) {
       applyScreeningRecordToForm(getSelectedStudentScreeningData);
@@ -823,6 +1093,11 @@ export default function GeneralScreeningPage() {
     [spo2, studentAgeYears],
   );
 
+  const temperatureStandardResult = useMemo(
+    () => evaluateVitalsStandard("temperature", temperature, studentAgeYears),
+    [temperature, studentAgeYears],
+  );
+
   const bmi = useMemo(() => calcBmi(height, weight), [height, weight]);
 
   // Single source of truth for every BMI readout on the screen (category
@@ -852,7 +1127,7 @@ export default function GeneralScreeningPage() {
   //   return saved > 0 ? saved : null;
   // }, [weight, selectedScreeningRecord]);
 
-  const category = useMemo(() => bmiCategory(displayBmi), [displayBmi]);  
+  const category = useMemo(() => bmiCategory(displayBmi), [displayBmi]);
   const assessmentForm = useMemo(
     () => ({
       height,
@@ -860,10 +1135,21 @@ export default function GeneralScreeningPage() {
       bmi: displayBmi ? displayBmi.toFixed(1) : "",
       bloodPressure,
       pulse,
+      temperature,
       spo2,
       bloodGroup,
     }),
-    [bmi, displayBmi, height, pulse,bloodPressure, spo2, weight, bloodGroup,],
+    [
+      bmi,
+      displayBmi,
+      temperature,
+      height,
+      pulse,
+      bloodPressure,
+      spo2,
+      weight,
+      bloodGroup,
+    ],
   );
 
   const handleClinicalSignChange = useCallback((field, value) => {
@@ -933,18 +1219,25 @@ export default function GeneralScreeningPage() {
       allergy,
       chronicDisease,
       immunization,
+      skin: clinicalSigns.skinAssessment || "",
+      regular_medication: clinicalSigns.regularMedication || "",
+      current_complaints: clinicalSigns.currentComplaints || "",
+      general_appearance: physicalExamination.generalAppearance || "",
+      posture_spine: physicalExamination.postureSpine || "",
+      nutritional_status: physicalExamination.nutritionalStatus || "",
+      consciousness: physicalExamination.consciousness || "",
+      cvs: physicalExamination.cvs || "",
+      rs: physicalExamination.respiratorySystem || "",
+      abdomen: physicalExamination.abdomen || "",
+      neurology: physicalExamination.neurology || "",
+      referral: physicalExamination.referral || "",
       notes,
-      clinicalSigns,
-      physicalExamination,
-      femaleScreening,
     };
 
     const result = generalScreeningSchema.safeParse(formValues);
 
     if (!result.success) {
       const errors = result.error.flatten().fieldErrors;
-
-      // Reduce to { fieldName: firstMessage } for inline display.
       const firstPerField = Object.fromEntries(
         Object.entries(errors)
           .map(([field, messages]) => [field, messages?.[0]])
@@ -952,10 +1245,10 @@ export default function GeneralScreeningPage() {
       );
 
       setFormErrors(firstPerField);
-
-      const firstError = Object.values(firstPerField).find(Boolean);
-      toast.error(firstError || "Please fill all required fields.");
-
+      toast.error(
+        Object.values(firstPerField).find(Boolean) ||
+          "Please fill all required fields.",
+      );
       return;
     }
 
@@ -969,7 +1262,6 @@ export default function GeneralScreeningPage() {
     const numericStudentId = Number(rawStudentId) || 0;
     const numericCampId =
       Number(selectedCampId) || Number(selectedStudent?.camp_id) || 1;
-    console.log(bloodGroupOption, bloodGroup, "bloodGroupOption");
 
     const bloodGroupEntry = bloodGroupOption.find(
       (item) =>
@@ -977,80 +1269,96 @@ export default function GeneralScreeningPage() {
         formatBloodGroup(bloodGroup).trim(),
     );
 
-    const bloodGroupId = bloodGroupEntry?.id ?? 0;
-
     const allergyEntry = allergies.find((item) => item.name === allergy);
-    console.log(allergyEntry, "allergyEntry");
-
-    const allergyId = allergyEntry?.id ?? null;
-
     const chronicDiseaseEntry = chronicDiseasesOption.find(
       (item) => item.name === chronicDisease,
     );
-    const chronicDiseaseId = chronicDiseaseEntry?.id ?? null;
 
-    const immunizationMap = { up_to_date: 1, partial: 2, overdue: 3 };
-    const immunizationId = immunizationMap[immunization] || 1;
+    const getExaminationMastersId = (findings, value) => {
+      const normalizedValue = String(value ?? "").trim().toLowerCase();
 
-    const standardMap = { "Below Average": 1, Average: 2, "Above Average": 3 };
-    const heightStandardId = standardMap[heightStandardResult?.standard] || 2;
-    const weightStandardId = standardMap[weightStandardResult?.standard] || 2;
-    const pulseStandardId = pulse
-      ? standardMap[pulseStandardResult?.standard] || 2
-      : null;
-    const bloodPressureStandardId = bloodPressure
-      ? standardMap[bloodPressureStandardResult?.standard] || 2
-      : null;
-    const spo2StandardId = spo2
-      ? standardMap[spo2StandardResult?.standard] || 2
-      : null;
-
-    const numHeight = Number(height) || 0;
-    const numWeight = Number(weight) || 0;
-    const bmiCategoryMap = {
-      Underweight: 1,
-      Normal: 2,
-      Overweight: 3,
-      Obese: 4,
-      severeObesse: 5,
+      return findings.find(
+        (item) =>
+          String(item?.name ?? "").trim().toLowerCase() === normalizedValue,
+      );
     };
-    const bmiCategoryId = bmiCategoryMap[category?.label] || 2;
+    // const nutritionEntry = nutritionOptions.find(
+    //   (item) => item.name === physicalExamination.nutritionalStatus,
+    // );
+
+    const consciousnessEntry = getExaminationMastersId(
+      consciousnessOptions,
+      physicalExamination.consciousness,
+    );
+    const nutritionEntry = getExaminationMastersId(
+      nutritionOptions,
+      physicalExamination.nutritionalStatus,
+    );
+    const generalAppearanceEntry = getExaminationMastersId(
+      appearanceOptions,
+      physicalExamination.generalAppearance,
+    );
+
+    const postureAppearanceEntry = getExaminationMastersId( appearanceOptions,
+      physicalExamination.postureSpine,)
+    
+    const skinAssessmentEntry = getExaminationMastersId(
+      skinOptions,
+      clinicalSigns.skinAssessment,
+    );
+    // const consciousnessEntry = consciousnessOptions.find((item) => item.name === physicalExamination.consciousness)
 
     const payload = {
       student_id: numericStudentId,
       camp_id: numericCampId,
-      blood_group_id: bloodGroupId,
-      allergy_id: allergyId === 0 ? null : allergyId,
-      chronic_disease_id: chronicDiseaseId === 0 ? null : chronicDiseaseId,
-      immunization_id: immunizationId,
-      height: numHeight,
-      weight: numWeight,
-      pulse: pulse ? Number(pulse) : null,
-      blood_pressure: bloodPressure || null,
-      spo2: spo2 ? Number(spo2) : null,
-      height_standard_id: heightStandardId,
-      weight_standard_id: weightStandardId,
-      pulse_standard_id: pulseStandardId,
-      blood_pressure_standard_id: bloodPressureStandardId,
-      spo2_standard_id: spo2StandardId,
-      bmi_category_id: bmiCategoryId,
-      pallor: clinicalSigns.pallor,
-      clubbing: clinicalSigns.clubbing,
-      edema: clinicalSigns.edema,
-      skin: clinicalSigns.skin,
+      blood_group_id: bloodGroupEntry?.id ?? 0,
+      allergy_id: allergyEntry?.id ?? null,
+      chronic_disease_id: chronicDiseaseEntry?.id ?? null,
+      immunization_id: IMMUNIZATION_MAP[immunization] || 1,
+      height: Number(height) || 0,
+      weight: Number(weight) || 0,
+      pulse: pulse ? Number(pulse) : 0,
+      temperature: temperature ? Number(temperature) : 0,
+      bp: bloodPressure || "",
+      spo2: spo2 ? Number(spo2) : 0,
+      height_standard_id: STANDARD_MAP[heightStandardResult?.standard] || 2,
+      weight_standard_id: STANDARD_MAP[weightStandardResult?.standard] || 2,
+      bmi_category_id: BMI_CATEGORY_MAP[category?.label] || 2,
+      pallor: clinicalSigns.pallor || "0",
+      skin: skinAssessmentEntry?.id || null,
+      clubbing: clinicalSigns.clubbing || "0",
+      edema: clinicalSigns.edema || "0",
+      regular_medication: clinicalSigns.regularMedication || "",
+      current_complaints: clinicalSigns.currentComplaints || "",
+      general_appearance: generalAppearanceEntry?.id || "",
+      posture_spine: postureAppearanceEntry?.id || "",
+      nutritional_status: nutritionEntry?.id ?? null,
+      consciousness: consciousnessEntry?.id || null,
+      cvs: physicalExamination.cvs || "",
+      rs: physicalExamination.respiratorySystem || "",
+      abdomen: physicalExamination.abdomen || "",
+      neurology: physicalExamination.neurology || "",
+      referral: physicalExamination.referral || "",
+      remarks: notes || "",
+      ...(isFemale
+        ? {
+            menstrual_cycle: femaleScreening.menstrualCycle || "",
+            menstrual_pain: femaleScreening.menstrualPain || "",
+            excessive_bleeding: femaleScreening.excessiveBleeding || "",
+            other_concern: femaleScreening.otherConcerns || "",
+            female_referral: femaleScreening.referral || "",
+          }
+        : {}),
     };
+
     const existingRecordId =
       getSelectedStudentScreeningData?.id ??
       getSelectedStudentScreeningData?.screening_id ??
       getSelectedStudentScreeningData?.screeningId;
 
-    // Update only when this student's screening already has saved
-    // measurements (height/weight); otherwise create a fresh record.
     const hasSavedMeasurements = (() => {
       const record = getSelectedStudentScreeningData;
-      if (!record) {
-        return false;
-      }
+      if (!record) return false;
 
       const parseMetric = (value) => {
         const parsed = Number.parseFloat(
@@ -1076,10 +1384,6 @@ export default function GeneralScreeningPage() {
     dispatch(saveAction)
       .unwrap()
       .then(() => {
-        // Refresh the react-query cache after a successful save. The
-        // ["initial-screening"] query's queryFn re-dispatches
-        // getInitialScreening, which keeps the Redux store in sync —
-        // so no manual dispatch is needed here.
         queryClient.invalidateQueries({ queryKey: ["initial-screening"] });
 
         toast.success(
@@ -1097,30 +1401,43 @@ export default function GeneralScreeningPage() {
         console.error("Unable to save general screening:", error);
 
         toast.error("Failed to save initial screening", {
-          description:
-            error?.message ?? "Something went wrong. Please try again.",
+          description: getBackendErrorMessage(error),
         });
       });
   }, [
+    allergies,
     allergy,
     bloodGroup,
-    bloodPressureStandardResult?.standard,
+    bloodGroupOption,
     category?.label,
+    chronicDiseasesOption,
     chronicDisease,
+    clinicalSigns,
+    femaleScreening,
     getSelectedStudentScreeningData,
     height,
     heightStandardResult?.standard,
     immunization,
     notes,
+    physicalExamination,
+    pulse,
     pulseStandardResult?.standard,
     queryClient,
     selectedCampId,
     selectedStudent,
-    spo2StandardResult?.standard,
+    spo2,
     studentId,
+    temperature,
     weight,
     weightStandardResult?.standard,
+    bloodPressure,
+    bloodPressureStandardResult?.standard,
+    spo2StandardResult?.standard,
   ]);
+
+  const handleSaveScreening = useCallback(() => {
+    handleSaveAssessment();
+  }, [handleSaveAssessment]);
 
   const handleCancelAssessment = useCallback(() => {
     applyScreeningRecordToForm(getSelectedStudentScreeningData);
@@ -1189,8 +1506,118 @@ export default function GeneralScreeningPage() {
     [bloodGroupOption, bloodGroupOptions],
   );
 
+  const nutritionToggleOptions = useMemo(
+    () =>
+      (nutritionOptions.length
+        ? nutritionOptions
+        : ["Normal", "Underweight", "Overweight"].map((name) => ({
+            id: undefined,
+            name,
+          }))
+      ).map((item) => {
+        const name = item.name ?? item;
+
+        return {
+          value: name,
+          label: name,
+          tone:
+            name === "Normal"
+              ? "good"
+              : name === "Underweight"
+                ? "warn"
+                : name === "Overweight"
+                  ? "bad"
+                  : "neutral",
+        };
+      }),
+    [nutritionOptions],
+  );
+
+  const consciousnessToggleOptions = useMemo(() =>
+    (consciousnessOptions.length
+      ? consciousnessOptions
+      : ["Alert", "Drowsy", "Unresponsive"].map((name) => ({
+          id: undefined,
+          name,
+        }))
+    ).map((item) => {
+      const name = item.name ?? item;
+
+      return {
+        value: name,
+        label: name,
+        tone:
+          name === "Alert"
+            ? "bad"
+            : name === "Drowsy"
+              ? "warn"
+              : name === "Unresponsive"
+                ? "neutral"
+                : "neutral",
+      };
+    }),
+  );
+const generalAppearanceToggleOptions = useMemo(
+  () =>
+    (
+      appearanceOptions.length
+        ? appearanceOptions
+        : ["Normal", "Needs Attention", "NA"].map((name) => ({
+            id: undefined,
+            name,
+          }))
+    ).map((item) => {
+      const name = item.name ?? item;
+
+      return {
+        value: name,
+        label: name,
+        tone:
+          name === "Normal"
+            ? "good"
+            : name === "Needs Attention"
+              ? "warn"
+              : name === "NA"
+                ? "neutral"
+                : "neutral",
+      };
+    }),
+  [appearanceOptions]
+);
+
+const skinAssessmentToggleOptions = useMemo(
+  () =>
+    (
+      skinOptions.length
+        ? skinOptions
+        : ["Normal", "Abnormal", "Rashes", "Infection", "NA"].map(
+            (name) => ({
+              id: undefined,
+              name,
+            })
+          )
+    ).map((item) => {
+      const name = item.name ?? item;
+
+      return {
+        value: name,
+        label: name,
+        tone:
+          name === "Normal"
+            ? "good"
+            : name === "Abnormal"
+              ? "warn"
+              : name === "Rashes"
+                ? "warn"
+                : name === "Infection"
+                  ? "warn"
+                  : "neutral",
+      };
+    }),
+  [skinOptions]
+);
   return (
-    <section className="space-y-4 ">
+    <section className="space-y-4">
       <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="flex items-center gap-2 py-3">
@@ -1206,79 +1633,11 @@ export default function GeneralScreeningPage() {
               <p className="text-sm text-muted-foreground">
                 General health screening and assessment
               </p>
-
-              {/* <p className="text-xs text-muted-foreground">
-                  {studentsLoading
-                    ? "Loading students..."
-                    : studentsError
-                      ? "Unable to load students"
-                      : selectedStudent?.name
-                        ? `Student: ${selectedStudent.name}`
-                        : ""}
-                </p> */}
             </div>
           </div>
         </div>
 
         <div className="flex flex-wrap gap-2 md:flex-nowrap">
-          {/* <CampStudentSelectorDrawer
-            open={isCaDrawerOpen}
-            onOpenChange={setIsCaDrawerOpen}
-            studentsLoading={studentsLoading}
-            studentsError={studentsError}
-            campsLoading={getData.campsLoading}
-            campsQueryError={getData.campsQueryError}
-            studentCampLoading={getData.studentCampLoading}
-            studentCampQueryError={getData.studentCampQueryError}
-            selectedCampId={selectedCampId}
-            onCampChange={(value) => {
-              setSelectedCampId(value);
-              setAcademicYear("");
-              setSelectedClassFilter("all");
-              setSelectedSectionFilter("all");
-              setStudentId("");
-            }}
-            campOptions={campOptions}
-            academicYears={academicYears}
-            activeAcademicYear={activeAcademicYear}
-            onAcademicYearChange={(value) => {
-              setAcademicYear(value);
-              setSelectedClassFilter("all");
-              setSelectedSectionFilter("all");
-              setStudentId("");
-            }}
-            classOptions={classOptions}
-            selectedClassFilter={selectedClassFilter}
-            onClassChange={(value) => {
-              setSelectedClassFilter(value);
-              setSelectedSectionFilter("all");
-              setStudentId("");
-            }}
-            sectionOptions={sectionOptions}
-            selectedSectionFilter={selectedSectionFilter}
-            onSectionChange={(value) => {
-              setSelectedSectionFilter(value);
-              setStudentId("");
-            }}
-            studentSelectValue={studentSelectValue}
-            onStudentChange={(value) => {
-              const selectedFromList = filteredStudents.find(
-                (student) => String(student.id ?? student.studentId) === String(value),
-              );
-
-              if (selectedFromList) {
-                const selectedKeys = getStudentKeys(selectedFromList);
-                const screeningRecord = findScreeningRecordByKeys(selectedKeys);
-                applyScreeningRecordToForm(screeningRecord);
-              }
-
-              setStudentId(value);
-              setIsCaDrawerOpen(false);
-            }}
-            filteredStudents={filteredStudents}
-            normalizedCampStudents={normalizedCampStudents}
-          /> */}
-
           <Button
             type="button"
             variant="outline"
@@ -1290,7 +1649,8 @@ export default function GeneralScreeningPage() {
           {formErrors && (
             <div className="flex items-center gap-2 rounded-lg border border-destructive/60 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
               <AlertCircle className="size-4 shrink-0" />
-              Please fix the highlighted fields before saving.
+              Please fix the highlighted fields before saving
+              {formErrors.error && `: ${formErrors.error}`}
             </div>
           )}
 
@@ -1300,10 +1660,9 @@ export default function GeneralScreeningPage() {
           </Button>
         </div>
       </div>
-      <>
+
+      <div className="space-y-4">
         <StudentFilter
-          // filterPayload={filterPayload}
-          isLoading={isLoading}
           schoolName={schoolName}
           academicYear={academicYear}
           classFilter={classFilter}
@@ -1318,441 +1677,204 @@ export default function GeneralScreeningPage() {
           assignEventLoading={assignEventLoading}
           assignEventError={assignEventError}
           authUser={authUser}
+          getStudentDataByEvent={getStudentDataByEvent}
+          setGetStudentDataByEvent={setGetStudentDataByEvent}
         />
+
         {hasSelectedStudent ? (
           <>
             <StudentProfileCard student={selectedStudent} />
-            <div className="grid gap-4 grid-cols-1 xl:grid-cols-[300px_1fr_320px] ">
-              {/* ---------------- Left column ---------------- */}
-              {/* <div className="space-y-4">
-          <article className="rounded-xl border border-border bg-card p-4">
-            <h3 className="text-sm font-semibold text-foreground">Assessment Details</h3>
 
-            <div className="mt-4 space-y-3">
-              <SelectField
-                label="Student"
-                options={studentOptions.map((s) => s.name)}
-                value={studentOptions.find((s) => s.id === studentId)?.name}
-                onChange={(name) => setStudentId(studentOptions.find((s) => s.name === name)?.id)}
-              />
-
-              <div>
-                <FieldLabel>Assessment Date</FieldLabel>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={assessmentDate}
-                    onChange={(e) => setAssessmentDate(e.target.value)}
-                    className="h-10 w-full rounded-md border border-input bg-background pl-3 pr-9 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+            <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)] xl:items-start">
+              <div className="relative md:relative lg:sticky top-0 lg:top-36 z-10 self-start">
+                <FramerCard>
+                  <AssessmentCard
+                    onChange={handleAssessmentChange}
+                    form={assessmentForm}
+                    data={getSelectedStudentScreeningData}
+                    studentOptions={assessmentStudentOptions}
+                    studentValue={studentSelectValue}
+                    isScreeningLoading={studentsLoading}
+                    isScreeningError={studentsError}
+                    isScreening={true}
+                    schoolName={schoolName}
+                    onStudentChange={handleAssessmentStudentChange}
+                    onSave={handleSaveAssessment}
+                    onCancel={handleCancelAssessment}
+                    authUser={authUser}
                   />
-                  <Calendar className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                </div>
+                </FramerCard>
               </div>
 
-              <SelectField label="Location" options={locationOptions} value={location} onChange={setLocation} />
-              <SelectField label="Examiner" options={examinerOptions} value={examiner} onChange={setExaminer} />
-              <SelectField label="Assistant" options={assistantOptions} value={assistant} onChange={setAssistant} />
-            </div>
-          </article>
-
-          <article className="rounded-xl border border-border bg-card p-4">
-            <h3 className="text-sm font-semibold text-foreground">Growth Summary</h3>
-            <div className="mt-3 space-y-2">
-              <SummaryRow icon={Ruler} label="Height" value={`${height || "—"} cm`} tone="info" />
-              <SummaryRow icon={Weight} label="Weight" value={`${weight || "—"} kg`} tone="success" />
-              <SummaryRow icon={Activity} label="BMI" value={bmi ? bmi.toFixed(1) : "—"} tone={category.tone} />
-              <SummaryRow icon={Droplet} label="Category" value={category.label} tone={category.tone} />
-            </div>
-          </article>
-
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="h-10 flex-1 rounded-md bg-primary text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-            >
-              Save Assessment
-            </button>
-            <button
-              type="button"
-              className="h-10 flex-1 rounded-md border border-border bg-background text-sm font-medium text-foreground transition-colors hover:bg-muted"
-            >
-              Save &amp; Next
-            </button>
-          </div>
-        </div> */}
-              <FramerCard>
-                <AssessmentCard
-                  onChange={handleAssessmentChange}
-                  form={assessmentForm}
-                  data={getSelectedStudentScreeningData}
-                  studentOptions={assessmentStudentOptions}
-                  studentValue={studentSelectValue}
-                  isScreeningLoading={studentsLoading}
-                  isScreeningError={studentsError}
-                  isScreening={true}
-                  schoolName={schoolName}
-                  onStudentChange={handleAssessmentStudentChange}
-                  onSave={handleSaveAssessment}
-                  onCancel={handleCancelAssessment}
-                  authUser={authUser}
-                />
-              </FramerCard>
-              {/* ---------------- Middle column: growth & vitals ---------------- */}
-              <FramerCard>
-                <article className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-                  {/* Header */}
-                  <div className="flex flex-col md:flex-row items-start justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary aspect-square">
-                          <Activity className="size-4" />
-                        </span>
-
-                        <div>
-                          <h3 className="text-sm font-semibold text-foreground">
-                            Growth & Vitals
-                          </h3>
-
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            Physical measurements and growth assessment
-                          </p>
-                        </div>
-                      </div>
+              <div className="min-w-0">
+                <ScreeningStepper
+                  activeStep={activeStep}
+                  setActiveStep={setActiveStep}
+                  isFemale={isFemale}
+                  onSave={handleSaveScreening}
+                >
+                  {/* <div className="grid gap-4 lg:grid-cols-2">
+                  <article className="rounded-xl border border-border bg-card p-4">
+                    <h3 className="text-sm font-semibold text-foreground">Growth Summary</h3>
+                    <div className="mt-3 space-y-2">
+                      <SummaryRow icon={Ruler} label="Height" value={`${height || "—"} cm`} tone="info" />
+                      <SummaryRow icon={Weight} label="Weight" value={`${weight || "—"} kg`} tone="success" />
+                      <SummaryRow icon={Activity} label="BMI" value={bmi ? bmi.toFixed(1) : "—"} tone={category.tone} />
+                      <SummaryRow icon={Droplet} label="Category" value={category.label} tone={category.tone} />
                     </div>
+                  </article>
+                </div> */}
 
-                    <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
-                      Assessment
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2  xl:grid-cols-5 gap-2 py-5">
-                    <EditableVitalCard
-                      label="Pulse"
-                      value={pulse}
-                      onChange={setPulse}
-                      unit="bpm"
-                      icon={Stethoscope}
-                      iconClass="bg-domain-physical/10"
-                      iconColor="text-domain-physical"
-                      placeholder="0"
-                    />
-                    <EditableVitalCard
-                      label="Blood Pressure"
-                      value={bloodPressure}
-                      onChange={setBloodPressure}
-                      unit="mmHg"
-                      icon={BloodPressureMonitorIcon}
-                      iconClass="bg-destructive/10"
-                      iconColor="text-destructive"
-                      inputType="text"
-                      placeholder="120/80"
-                      displayValue={bloodPressure || "0/0"}
-                    />
-                    <EditableVitalCard
-                      label="SpO₂"
-                      value={spo2}
-                      onChange={setSpo2}
-                      unit="%"
-                      icon={PulseOximeterOutlineIcon}
-                      iconClass="bg-domain-vision/10"
-                      iconColor="text-domain-vision"
-                      placeholder="0"
-                    />
-                    <EditableVitalCard
-                      label="Height"
-                      value={height}
-                      onChange={handleHeightChange}
-                      unit="cm"
-                      icon={HeightIcon}
-                      iconClass="bg-info/10"
-                      iconColor="text-info"
-                      placeholder="0"
-                    />
-                    <EditableVitalCard
-                      label="Weight"
-                      value={weight}
-                      onChange={handleWeightChange}
-                      unit="kg"
-                      icon={WeightIcon}
-                      iconClass="bg-success/10"
-                      iconColor="text-success"
-                      placeholder="0"
-                    />
-                  </div>
-                  {/* Vitals Standards — age-based range check, like Height/Weight */}
-                  {/* <div className="grid gap-3 md:grid-cols-3">
-                    <StandardStatus
-                      label="Pulse Standard"
-                      value={pulse || pulseStandardResult.standard}
-                      status={pulseStandardResult.status}
-                      tone={pulseStandardResult.tone}
-                    />
-                    <StandardStatus
-                      label="Blood Pressure Standard"
-                      value={bloodPressure || bloodPressureStandardResult.standard}
-                      status={bloodPressureStandardResult.status}
-                      tone={bloodPressureStandardResult.tone}
-                    />
-                    <StandardStatus
-                      label="SpO₂ Standard"
-                      value={spo2 || spo2StandardResult.standard}
-                      status={spo2StandardResult.status}
-                      tone={spo2StandardResult.tone}
-                    />
-                  </div> */}
-                  <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 py-5">
-                    {/* LEFT SIDE - Height & Weight */}
-                    <div className="grid gap-2 space-y-2">
-                      {/* Height & Weight Cards */}
-                      {/* <div className="grid gap-3 sm:grid-cols-2">
-                        <EditableVitalCard
-                          label="Height"
-                          value={height}
-                          onChange={handleHeightChange}
-                          unit="cm"
-                          icon={HeightIcon}
-                          iconClass="bg-info/10"
-                          iconColor="text-info"
-                          placeholder="0"
-                        />
-                        <EditableVitalCard
-                          label="Weight"
-                          value={weight}
-                          onChange={handleWeightChange}
-                          unit="kg"
-                          icon={WeightIcon}
-                          iconClass="bg-success/10"
-                          iconColor="text-success"
-                          placeholder="0"
-                        />
-                      </div> */}
-
-                      {/* Input Fields */}
-                      {/* <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        <NumberField
-                          label="Height"
-                          value={height}
-                          onChange={handleHeightChange}
-                          unit="cm"
-                          error={formErrors?.height}
-                        />
-
-                        <NumberField
-                          label="Weight"
-                          value={weight}
-                          onChange={handleWeightChange}
-                          unit="kg"
-                          error={formErrors?.weight}
-                        />
-                      </div> */}
-                      {/* Standards */}
-                      <div className=" grid gap-3 grid-cols-1 md:grid-cols-1">
-                        <StandardStatus
-                          label="Height Standard"
-                          value={height || heightStandardResult.standard}
-                          status={heightStandardResult.status}
-                          tone={heightStandardResult.tone}
-                        />
-
-                        <StandardStatus
-                          label="Weight Standard"
-                          value={weight || weightStandardResult.standard}
-                          status={weightStandardResult.status}
-                          tone={weightStandardResult.tone}
-                        />
-                        <StandardStatus
-                          label="Pulse Standard"
-                          value={pulse || pulseStandardResult.standard}
-                          status={pulseStandardResult.status}
-                          tone={pulseStandardResult.tone}
-                        />
-                        <StandardStatus
-                          label="Blood Pressure Standard"
-                          value={
-                            bloodPressure ||
-                            bloodPressureStandardResult.standard
-                          }
-                          status={bloodPressureStandardResult.status}
-                          tone={bloodPressureStandardResult.tone}
-                        />
-                        <StandardStatus
-                          label="SpO₂ Standard"
-                          value={spo2 || spo2StandardResult.standard}
-                          status={spo2StandardResult.status}
-                          tone={spo2StandardResult.tone}
-                        />
-                      </div>
-                    </div>
-
-                    {/* RIGHT SIDE - BMI */}
-                    <FramerCard className="overflow-hidden rounded-2xl border border-border/70 bg-background">
-                      {/* BMI Header */}
-                      <div className="flex flex-row items-center justify-between border-b border-border/70 px-4 py-3 md:flex-row">
-                        <div>
-                          <h3 className="text-sm font-semibold">
-                            Body Mass Index
-                          </h3>
-
-                          <p className="text-[11px] text-muted-foreground">
-                            Calculated from height and weight
-                          </p>
-                        </div>
-
-                        <div
-                          className={`rounded-full px-3 py-1 text-xs font-medium ${
-                            category.tone === "success"
-                              ? "bg-success/10 text-success"
-                              : category.tone === "warning"
-                                ? "bg-warning/10 text-warning"
-                                : category.tone === "destructive"
-                                  ? "bg-destructive/10 text-destructive"
-                                  : "bg-muted text-muted-foreground"
-                          }`}
-                        >
-                          {category.label}
-                        </div>
-                      </div>
-
-                      {/* BMI Visualization */}
-                      <div className="relative px-4 py-5">
-                        <BmiGauge categories={bmiCategories} bmi={displayBmi} />
-                      </div>
-                    </FramerCard>
-                  </div>
-
-                  {/* Clinical interpretation */}
-                  <div className="mt-4 flex items-start gap-3 rounded-xl border border-success/20 bg-success/5 p-3">
-                    <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-success/10">
-                      <Activity className="size-4 text-success" />
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-semibold text-foreground">
-                        Growth assessment
-                      </p>
-
-                      <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-                        Height, weight and BMI are currently within the expected
-                        range for this assessment.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* =========================================================
-    CLINICAL SIGNS
-========================================================= */}
+                  <GrowthVitals
+                    height={height}
+                    handleHeightChange={handleHeightChange}
+                    pulse={pulse}
+                    setPulse={setPulse}
+                    spo2={spo2}
+                    setSpo2={setSpo2}
+                    bloodPressure={bloodPressure}
+                    setBloodPressure={setBloodPressure}
+                    weight={weight}
+                    handleWeightChange={handleWeightChange}
+                    bmi={bmi}
+                    temperature={temperature}
+                    setTemperature={setTemperature}
+                    heightStandardResult={heightStandardResult}
+                    weightStandardResult={weightStandardResult}
+                    pulseStandardResult={pulseStandardResult}
+                    spo2StandardResult={spo2StandardResult}
+                    bloodPressureStandardResult={bloodPressureStandardResult}
+                    temperatureStandardResult={temperatureStandardResult}
+                    category={category}
+                    bmiCategories={bmiCategories}
+                    displayBmi={displayBmi}
+                  />
 
                   <ClinicalSignsCard
                     data={clinicalSigns}
                     onChange={handleClinicalSignChange}
+                     skinAssessmentToggleOptions={skinAssessmentToggleOptions}
                   />
-
-                  {selectedStudent?.gender?.toLowerCase() === "female" && (
-                    <FemaleStudentsCard
-                      data={femaleScreening}
-                      onChange={handleFemaleScreeningChange}
-                    />
-                  )}
-
-                  {/* =========================================================
-    GENERAL PHYSICAL EXAMINATION
-========================================================= */}
 
                   <GeneralPhysicalExamination
                     data={physicalExamination}
+                    setData={setPhysicalExamination}
                     onChange={handlePhysicalExaminationChange}
+                    nutritionToggleOptions={nutritionToggleOptions}
+                    consciousnessToggleOptions={consciousnessToggleOptions}
+                    generalAppearanceToggleOptions={generalAppearanceToggleOptions}
+                   
                   />
-                </article>
-              </FramerCard>
 
-              {/* ---------------- Right column: health profile ---------------- */}
-              <div className="space-y-4">
-                <FramerCard>
-                  <article className="space-y-4 rounded-xl border border-border bg-card p-4">
-                    <ToggleGroup
-                      icon={BloodDropOutlineIcon}
-                      label="Blood Group"
-                      options={bloodGroupToggleOptions}
-                      value={bloodGroup}
-                      onChange={handleBloodGroupChange}
-                      columns={8}
-                      iconBg={"bg-destructive/10"}
-                      textClass={"text-destructive"}
-                    />
-                    {formErrors?.bloodGroup && (
-                      <p className="text-xs text-destructive">
-                        {formErrors.bloodGroup}
-                      </p>
+                  {isFemale &&
+                    selectedStudent?.gender?.toLowerCase() === "female" && (
+                      <FemaleStudentsCard
+                        data={femaleScreening}
+                        onChange={handleFemaleScreeningChange}
+                      />
                     )}
-                    <ToggleGroup
-                      icon={Syringe}
-                      label="Immunization Status"
-                      options={immunizationOptions}
-                      value={immunization}
-                      onChange={setImmunization}
-                      columns={3}
-                      iconBg={"bg-info/20"}
-                      textClass={"text-info"}
+
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <BloodGroup
+                      bloodGroup={bloodGroup}
+                      handleBloodGroupChange={handleBloodGroupChange}
+                      formErrors={formErrors}
+                      bloodGroupToggleOptions={bloodGroupToggleOptions}
+                      immunizationOptions={immunizationOptions}
+                      immunization={immunization}
+                      setImmunization={setImmunization}
                     />
-                  </article>
-                </FramerCard>
-                <FramerCard>
-                  <article className="rounded-xl border border-border bg-card p-4">
-                    <div className="flex items-center gap-2">
-                      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-success/10">
-                        <HealthDataSecurityOutlineIcon className="size-4 text-info" />
-                      </div>
 
-                      <h3 className="text-sm font-semibold text-foreground">
-                        Health History
-                      </h3>
-                    </div>
-                    <div className="mt-3 space-y-3">
-                      <SelectField
-                        label="Allergy"
-                        options={[
-                          "None",
-                          ...allergies.map((item) => item.name),
-                        ]}
-                        value={allergy}
-                        onChange={handleAllergyChange}
-                        error={formErrors?.allergy}
+                    <div className="space-y-4">
+                      <HealthHistory
+                        allergy={allergy}
+                        chronicDisease={chronicDisease}
+                        handleAllergyChange={handleAllergyChange}
+                        handleChronicDiseaseChange={handleChronicDiseaseChange}
+                        formErrors={formErrors}
+                        allergies={allergies}
+                        chronicDiseasesOption={chronicDiseasesOption}
                       />
-                      <SelectField
-                        label="Chronic Disease"
-                        options={[
-                          "None",
-                          ...chronicDiseasesOption.map((item) => item.name),
-                        ]}
-                        value={chronicDisease}
-                        onChange={handleChronicDiseaseChange}
-                        error={formErrors?.chronicDisease}
-                      />
+                      {/* <FramerCard> */}
+                        <article className="rounded-xl border border-border bg-card p-4">
+                          <div className="flex items-center gap-2">
+                            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-success/10">
+                              <INoteActionIcon className="size-4 text-info" />
+                            </div>
+                            <h3 className="text-sm font-semibold text-foreground">
+                              Notes
+                            </h3>
+                          </div>
+                          <Textarea
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            rows={4}
+                            placeholder="Enter notes"
+                            className="mt-3 w-full resize-none rounded-md border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+                          />
+                        </article>
+                      {/* </FramerCard> */}
                     </div>
-                  </article>
-                </FramerCard>
+                  </div>
 
-                <FramerCard>
-                  <article className="rounded-xl border border-border bg-card p-4">
-                    <div className="flex items-center gap-2">
-                      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-success/10">
-                        <INoteActionIcon className="size-4 text-info" />
-                      </div>
-
+                  <FramerCard>
+                    <div className="space-y-4">
+                    <article className="rounded-xl border border-border bg-card p-4">
                       <h3 className="text-sm font-semibold text-foreground">
-                        Notes
+                        Review & Submit
                       </h3>
-                    </div>
-
-                    <Textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      rows={4}
-                      placeholder="Enter notes"
-                      className="mt-3 w-full resize-none rounded-md border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
-                    />
-                  </article>
-                </FramerCard>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        Please review all the information before saving the
+                        screening.
+                      </p>
+                      <div className="mt-4 space-y-2">
+                        <SummaryRow
+                          icon={Ruler}
+                          label="Height"
+                          value={`${height || "—"} cm`}
+                          tone="info"
+                        />
+                        <SummaryRow
+                          icon={Weight}
+                          label="Weight"
+                          value={`${weight || "—"} kg`}
+                          tone="success"
+                        />
+                        <SummaryRow
+                          icon={Activity}
+                          label="BMI"
+                          value={bmi ? bmi.toFixed(1) : "—"}
+                          tone={category.tone}
+                        />
+                        <SummaryRow
+                          icon={Heart}
+                          label="Pulse"
+                          value={pulse || "—"}
+                          tone="info"
+                        />
+                        <SummaryRow
+                          icon={Thermometer}
+                          label="Temperature"
+                          value={temperature ? `${temperature}°C` : "—"}
+                          tone="info"
+                        />
+                        <SummaryRow
+                          icon={Droplet}
+                          label="Blood Pressure"
+                          value={bloodPressure || "—"}
+                          tone="info"
+                        />
+                        <SummaryRow
+                          icon={Wind}
+                          label="SpO2"
+                          value={spo2 ? `${spo2}%` : "—"}
+                          tone="info"
+                        />
+                      </div>
+                    </article>
+                  </div>
+                  </FramerCard>
+                </ScreeningStepper>
               </div>
             </div>
           </>
@@ -1774,52 +1896,7 @@ export default function GeneralScreeningPage() {
             />
           </div>
         )}
-      </>
+      </div>
     </section>
-  );
-}
-
-function DetailField({ label, value }) {
-  return (
-    <div>
-      <p className="text-[11px] text-muted-foreground">{label}</p>
-      <p className="mt-0.5 text-sm font-medium text-foreground">{value}</p>
-    </div>
-  );
-}
-
-function StandardStatus({ label, value, status, tone = "success" }) {
-  const dotClass =
-    tone === "destructive"
-      ? "bg-destructive"
-      : tone === "warning"
-        ? "bg-warning"
-        : tone === "muted"
-          ? "bg-muted-foreground"
-          : "bg-success";
-
-  const textClass =
-    tone === "destructive"
-      ? "text-destructive"
-      : tone === "warning"
-        ? "text-warning"
-        : tone === "muted"
-          ? "text-muted-foreground"
-          : "text-success";
-
-  return (
-    <div className="flex flex-row items-center justify-between rounded-xl border border-border/70 bg-background p-3">
-      <div className="min-w-0">
-        <p className="text-[11px] text-muted-foreground">{label}</p>
-
-        <p className="mt-1 truncate text-sm font-medium">{value}</p>
-      </div>
-
-      <div className="ml-3 flex items-center gap-1.5">
-        <span className={`size-1.5 rounded-full ${dotClass}`} />
-
-        <span className={`text-[11px] font-medium ${textClass}`}>{status}</span>
-      </div>
-    </div>
   );
 }

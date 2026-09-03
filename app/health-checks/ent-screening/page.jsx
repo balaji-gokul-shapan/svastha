@@ -1,9 +1,11 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 
 import {
   AlertCircle,
+  Calendar,
   CheckCircle2,
   ChevronDown,
   Ear,
@@ -27,28 +29,44 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import EarIllustration from "./EarSvg";
-import EarPanel, {
-  BooleanCard,
-  ClinicalSelect,
-  Field,
-  QuickStatus,
-  RiskToggle,
-} from "./ent-screening-data";
+
 import { getFilterStudent } from "@/lib/features/getFilterStudent";
 import { useQuery } from "@tanstack/react-query";
 import { getEntScreening } from "@/lib/features/getEntScreening";
 import { createEntScreening } from "@/lib/features/registerEntScreening";
-import useAssignedEvents from "@/lib/useAssignedEvents";
+import useAssignedEvents, { findSelectedCamp } from "@/lib/useAssignedEvents";
 import useAuthUser from "@/lib/useAuthUser";
 import { toast } from "sonner";
-import { useAppDispatch } from "@/lib/hooks";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import StudentFilter from "../utilities/studentFilter";
+import CampDetailsCard from "@/components/ui/camp-details-card";
 import StudentProfileCard from "@/app/students/studentProfileCard";
 import { EmptyState } from "@/components/ui/empty-state";
 import AssessmentCard from "@/app/ui/AssessmentCard";
 import { getAllMasterScreening } from "@/lib/features/masterScreeningSlice";
 import { FramerCard } from "@/util/FramerCard";
+import EarPanel, {
+  BooleanCard,
+  ClinicalSelect,
+  Field,
+  RiskToggle,
+  SectionCard,
+} from "./datas/ent-screening-data";
+import { selectAuthUser } from "@/lib/features/auth-slice";
+import { TextareaField } from "@/components/ui/text-field";
+const ScreeningSectionLoading = () => (
+  <div className="min-h-24 rounded-xl border border-border bg-card p-4" />
+);
+
+const EarExamination = dynamic(() => import("./components/EarExamination"), {
+  loading: ScreeningSectionLoading,
+});
+const RiskAssessment = dynamic(() => import("./components/RiskAssessment"), {
+  loading: ScreeningSectionLoading,
+});
+const HeadNeckSpeech = dynamic(() => import("./components/HeadNeckSpeech"), {
+  loading: ScreeningSectionLoading,
+});
 
 const initialForm = {
   system_examination_re: "",
@@ -139,13 +157,14 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
   const [sectionFilter, setSectionFilter] = React.useState("all");
   const [studentFilter, setStudentFilter] = React.useState("all");
   const [academicYear, setAcademicYear] = React.useState("2026-2027");
+  const [getStudentDataByEvent, setGetStudentDataByEvent] = React.useState([]);
 
   // Assigned camps/events power the Camp Name select in StudentFilter.
   const { assignedEvents, assignEventLoading, assignEventError } =
     useAssignedEvents();
 
   // Auth user drives the doctor-only camp/school selects in StudentFilter.
-  const { authUser } = useAuthUser();
+  const authUser = useAppSelector(selectAuthUser);
 
   const [form, setForm] = React.useState({
     ...initialForm,
@@ -158,6 +177,40 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
       [field]: value,
     }));
   };
+ function getBackendErrorMessage(error) {
+  let payload = error;
+
+  if (typeof payload === "string") {
+    try {
+      payload = JSON.parse(payload);
+    } catch {
+      return /<!doctype html|<html[\s>]/i.test(payload) || payload.length > 240
+        ? "Unable to save screening. Please try again."
+        : payload;
+    }
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return "Something went wrong. Please try again.";
+  }
+
+  const fieldMessages = Object.values(payload.errors ?? {})
+    .flatMap((messages) => (Array.isArray(messages) ? messages : [messages]))
+    .filter(Boolean);
+
+  // return (
+ const message =
+    fieldMessages[0] ??
+    payload.message ??
+    payload.error ??
+    payload.detail ??
+    "Something went wrong. Please try again."
+  // );
+  return /<!doctype html|<html[\s>]/i.test(String(message)) ||
+    String(message).length > 240
+    ? "Unable to save screening. Please try again."
+    : String(message);
+}
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -194,34 +247,55 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
     } catch (error) {
       toast.error("Failed to save ENT screening", {
         description:
-          error?.message ?? "Something went wrong. Please try again.",
+          getBackendErrorMessage(error)
       });
     }
   };
 
-  const { data: filterPayload, isLoading } = useQuery({
-    queryKey: ["filter-student", schoolName, academicYear, "options"],
-    queryFn: () =>
-      dispatch(
-        getFilterStudent({
-          all: true,
-          status: "all",
-          schoolName,
-          academicYear,
-          sortBy: "name",
-          sortOrder: "asc",
-          search: "",
-        }),
-      ).unwrap(),
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-  });
+  // const { data: filterPayload, isLoading } = useQuery({
+  //   queryKey: ["filter-student", schoolName, academicYear, "options"],
+  //   queryFn: () =>
+  //     dispatch(
+  //       getFilterStudent({
+  //         all: true,
+  //         status: "all",
+  //         schoolName,
+  //         academicYear,
+  //         sortBy: "name",
+  //         sortOrder: "asc",
+  //         search: "",
+  //       }),
+  //     ).unwrap(),
+  //   staleTime: 0,
+  //   refetchOnWindowFocus: true,
+  // });
+  const studentsArray = React.useMemo(() => {
+    if (Array.isArray(getStudentDataByEvent?.students?.data)) {
+      return getStudentDataByEvent.students.data;
+    }
+    if (Array.isArray(getStudentDataByEvent?.students)) {
+      return getStudentDataByEvent.students;
+    }
+    if (Array.isArray(getStudentDataByEvent?.data)) {
+      return getStudentDataByEvent.data;
+    }
+    if (Array.isArray(getStudentDataByEvent)) {
+      return getStudentDataByEvent;
+    }
+    return [];
+  }, [getStudentDataByEvent]);
+
+  // Resolve the camp linked to the currently selected school filter.
+  const selectedCamp = React.useMemo(
+    () => findSelectedCamp(assignedEvents, schoolName),
+    [assignedEvents, schoolName],
+  );
 
   const selectedStudentFromFilter = React.useMemo(() => {
     const activeId = studentFilter !== "all" ? studentFilter : studentId;
-    if (activeId && Array.isArray(filterPayload?.items)) {
+    if (activeId && Array.isArray(studentsArray)) {
       return (
-        filterPayload.items.find(
+        studentsArray.find(
           (studentItem) =>
             String(
               studentItem?.id ?? studentItem?.studentId ?? studentItem?.cus_id,
@@ -230,15 +304,15 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
       );
     }
     return null;
-  }, [filterPayload?.items, studentFilter, studentId]);
+  }, [studentsArray, studentFilter, studentId]);
 
   const selectedStudent = React.useMemo(() => {
     if (selectedStudentFromFilter) {
       return selectedStudentFromFilter;
     }
 
-    if (studentId && Array.isArray(filterPayload?.items)) {
-      const match = filterPayload.items.find(
+    if (studentId && Array.isArray(studentsArray)) {
+      const match = studentsArray.find(
         (studentItem) =>
           String(
             studentItem.id ?? studentItem.studentId ?? studentItem.cus_id,
@@ -248,7 +322,7 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
     }
 
     return null;
-  }, [filterPayload?.items, selectedStudentFromFilter, studentId]);
+  }, [studentsArray, selectedStudentFromFilter, studentId]);
 
   const selectedStudentKey = String(
     selectedStudent?.id ?? selectedStudent?.studentId ?? "",
@@ -307,8 +381,6 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
-  console.log(EntScreeningData, "EntScreeningData");
-
   const {
     data: masterScreeningData = [],
     isLoading: masterScreeningDataLoading,
@@ -319,8 +391,6 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
-  console.log(masterScreeningData, "EntScreeningData");
-
   // Keep studentFilter in sync: selectedStudentFromFilter gives
   // studentFilter precedence over studentId, so without this the
   // assessment-card selection would be ignored once a student has
@@ -332,7 +402,7 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
 
   const assessmentStudentOptions = React.useMemo(
     () =>
-      (filterPayload?.items ?? []).map((student) => {
+      studentsArray.map((student) => {
         const value = String(
           student.id ?? student.studentId ?? student.cus_id ?? "",
         );
@@ -347,7 +417,7 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
           label: `${student.name || student.student_name || "Unknown"}${studentCode ? ` (${studentCode})` : ""}`,
         };
       }),
-    [filterPayload?.items],
+    [studentsArray],
   );
 
   const getSelectedStudentScreeningData = React.useMemo(() => {
@@ -444,8 +514,8 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
         ===================================================== */}
 
         <StudentFilter
-          filterPayload={filterPayload}
-          isLoading={isLoading}
+          // filterPayload={filterPayload}
+          // isLoading={isLoading}
           schoolName={schoolName}
           academicYear={academicYear}
           classFilter={classFilter}
@@ -460,7 +530,12 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
           assignEventLoading={assignEventLoading}
           assignEventError={assignEventError}
           authUser={authUser}
+          getStudentDataByEvent={getStudentDataByEvent}
+          setGetStudentDataByEvent={setGetStudentDataByEvent}
         />
+
+        {/* Camp Details Display */}
+        {/* <CampDetailsCard camp={selectedCamp} variant="compact" showLocation /> */}
 
         {hasSelectedStudent ? (
           <>
@@ -548,7 +623,7 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
                     isScreening={false}
                     schoolName={schoolName}
                     onStudentChange={handleAssessmentStudentChange}
-                     authUser={authUser}
+                    authUser={authUser}
                     // onSave={handleSaveAssessment}
                     // onCancel={handleCancelAssessment}
                   />
@@ -641,70 +716,15 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
                   {/* =====================================================
             ASSESSMENT SUMMARY
         ===================================================== */}
-
-                  <Card>
-                    <CardHeader>
-                      <div className="flex items-center gap-3">
-                        <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                          <HeartPulse className="size-5" />
-                        </div>
-
-                        <div>
-                          <CardTitle className="text-base">
-                            Clinical Assessment
-                          </CardTitle>
-
-                          <p className="text-xs text-muted-foreground">
-                            Overall ENT screening result
-                          </p>
-                        </div>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent>
-                      <div className="grid gap-4 md:grid-cols-3">
-                        <ClinicalSelect
-                          label="Severity"
-                          value={form.severity}
-                          onChange={(v) => updateField("severity", v)}
-                        />
-
-                        <ClinicalSelect
-                          label="Risk Level"
-                          value={form.risk_level}
-                          onChange={(v) => updateField("risk_level", v)}
-                        />
-
-                        <ClinicalSelect
-                          label="ENT Grade"
-                          value={form.ent_grade}
-                          onChange={(v) => updateField("ent_grade", v)}
-                        />
-                      </div>
-
-                      <div className="mt-5">
-                        <FieldLabel>Summary Remarks</FieldLabel>
-
-                        <Textarea
-                          value={form.summary_remarks}
-                          onChange={(e) =>
-                            updateField("summary_remarks", e.target.value)
-                          }
-                          placeholder="Enter overall ENT assessment..."
-                          rows={5}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
                 </div>
               </FramerCard>
 
-              
-                <article className="space-y-5">
-                  {/* =====================================================
+              <article className="space-y-5">
+                {/* =====================================================
             EAR EXAMINATION
         ===================================================== */}
-<FramerCard>
+        <EarExamination form={form} updateField={updateField} />
+                {/* <FramerCard>
                   <SectionCard
                     icon={Ear}
                     title="Ear Examination"
@@ -742,12 +762,12 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
                       />
                     </div>
                   </SectionCard>
-</FramerCard>
-                  {/* <div className="gird gird-rows-1 md:grid-rows-2 gap-4 space-y-4"> */}
-                  {/* =====================================================
+                </FramerCard> */}
+                {/* <div className="gird gird-rows-1 md:grid-rows-2 gap-4 space-y-4"> */}
+                {/* =====================================================
             RISK ASSESSMENT
         ===================================================== */}
-<FramerCard>
+                {/* <FramerCard>
                   <Card className="overflow-hidden">
                     <CardHeader className="border-b border-border/70 bg-muted/20">
                       <div className="flex items-center gap-3">
@@ -835,61 +855,14 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
                       </div>
                     </CardContent>
                   </Card>
-                    </FramerCard>
-                  {/* =====================================================
+                </FramerCard> */}
+                <RiskAssessment form={form} updateField={updateField} />
+                {/* =====================================================
             HEAD / NECK / SPEECH
         ===================================================== */}
-<FramerCard>
-                  <SectionCard
-                    icon={Headphones}
-                    title="Head, Neck & Speech"
-                    description="Lymph nodes, neck, speech and other clinical findings"
-                    tone="green"
-                  >
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
-                      <ClinicalSelect
-                        label="Head / Neck Lymph Nodes"
-                        value={form.head_neck_lymph_nodes}
-                        onChange={(v) =>
-                          updateField("head_neck_lymph_nodes", v)
-                        }
-                      />
-
-                      <ClinicalSelect
-                        label="Neck Swelling"
-                        value={form.neck_swelling}
-                        onChange={(v) => updateField("neck_swelling", v)}
-                      />
-
-                      <ClinicalSelect
-                        label="Speech"
-                        value={form.speech}
-                        onChange={(v) => updateField("speech", v)}
-                      />
-
-                      <ClinicalSelect
-                        label="Speech Clarity"
-                        value={form.speech_clarity}
-                        onChange={(v) => updateField("speech_clarity", v)}
-                      />
-                    </div>
-
-                    <div className="mt-5">
-                      <FieldLabel>Other Findings</FieldLabel>
-
-                      <Textarea
-                        value={form.any_other_findings}
-                        onChange={(e) =>
-                          updateField("any_other_findings", e.target.value)
-                        }
-                        placeholder="Enter any other clinical findings..."
-                        rows={4}
-                      />
-                    </div>
-                  </SectionCard>
-              </FramerCard>
-                  {/* </div> */}
-                </article>
+                <HeadNeckSpeech form={form} updateField={updateField} />
+                {/* </div> */}
+              </article>
 
               <div className="space-y-4">
                 {/* =====================================================
@@ -949,9 +922,10 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
                     </div>
 
                     <div className="mt-5">
-                      <FieldLabel>Throat Comments</FieldLabel>
+                      {/* <FieldLabel>Throat Comments</FieldLabel> */}
 
-                      <Textarea
+                      <TextareaField
+                        label="Throat Comments"
                         value={form.throat_comments}
                         onChange={(e) =>
                           updateField("throat_comments", e.target.value)
@@ -966,70 +940,127 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
                 {/* =====================================================
             RESPIRATORY / SLEEP
         ===================================================== */}
-                
-<FramerCard>
-                <SectionCard
-                  icon={Moon}
-                  title="Respiratory & Sleep"
-                  description="Sleep-related breathing and respiratory symptoms"
-                  tone="cyan"
-                >
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
-                    <ClinicalSelect
-                      label="Snoring"
-                      value={form.snoring}
-                      onChange={(v) => updateField("snoring", v)}
-                    />
 
-                    <ClinicalSelect
-                      label="Mouth Breathing"
-                      value={form.mouth_breathing}
-                      onChange={(v) => updateField("mouth_breathing", v)}
-                    />
+                <FramerCard>
+                  <SectionCard
+                    icon={Moon}
+                    title="Respiratory & Sleep"
+                    description="Sleep-related breathing and respiratory symptoms"
+                    tone="cyan"
+                  >
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
+                      <ClinicalSelect
+                        label="Snoring"
+                        value={form.snoring}
+                        onChange={(v) => updateField("snoring", v)}
+                      />
 
-                    <ClinicalSelect
-                      label="Sleep Disturbance"
-                      value={form.sleep_disturbance}
-                      onChange={(v) => updateField("sleep_disturbance", v)}
-                    />
+                      <ClinicalSelect
+                        label="Mouth Breathing"
+                        value={form.mouth_breathing}
+                        onChange={(v) => updateField("mouth_breathing", v)}
+                      />
 
-                    <ClinicalSelect
-                      label="Daytime Sleepiness"
-                      value={form.daytime_sleepiness}
-                      onChange={(v) => updateField("daytime_sleepiness", v)}
-                    />
+                      <ClinicalSelect
+                        label="Sleep Disturbance"
+                        value={form.sleep_disturbance}
+                        onChange={(v) => updateField("sleep_disturbance", v)}
+                      />
 
-                    <ClinicalSelect
-                      label="Chronic Cough"
-                      value={form.chronic_cough}
-                      onChange={(v) => updateField("chronic_cough", v)}
-                    />
-                  </div>
+                      <ClinicalSelect
+                        label="Daytime Sleepiness"
+                        value={form.daytime_sleepiness}
+                        onChange={(v) => updateField("daytime_sleepiness", v)}
+                      />
 
-                  <div className="mt-5">
-                    <FieldLabel>Respiratory / Sleep Comments</FieldLabel>
+                      <ClinicalSelect
+                        label="Chronic Cough"
+                        value={form.chronic_cough}
+                        onChange={(v) => updateField("chronic_cough", v)}
+                      />
+                    </div>
 
-                    <Textarea
-                      value={form.respiratory_sleep_comments}
-                      onChange={(e) =>
-                        updateField(
-                          "respiratory_sleep_comments",
-                          e.target.value,
-                        )
-                      }
-                      placeholder="Enter respiratory and sleep findings..."
-                      rows={4}
-                    />
-                  </div>
-                </SectionCard>
-              </FramerCard>
+                    <div className="mt-5">
+                      <TextareaField
+                        label="Respiratory / Sleep Comments"
+                        value={form.respiratory_sleep_comments}
+                        onChange={(e) =>
+                          updateField(
+                            "respiratory_sleep_comments",
+                            e.target.value,
+                          )
+                        }
+                        placeholder="Enter respiratory and sleep findings..."
+                        rows={4}
+                      />
+                    </div>
+                  </SectionCard>
+                </FramerCard>
+
+                <FramerCard>
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center gap-3">
+                        <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                          <HeartPulse className="size-5" />
+                        </div>
+
+                        <div>
+                          <CardTitle className="text-base">
+                            Clinical Assessment
+                          </CardTitle>
+
+                          <p className="text-xs text-muted-foreground">
+                            Overall ENT screening result
+                          </p>
+                        </div>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent>
+                      <div className="grid gap-4 md:grid-cols-3">
+                        <ClinicalSelect
+                          label="Severity"
+                          value={form.severity}
+                          onChange={(v) => updateField("severity", v)}
+                        />
+
+                        <ClinicalSelect
+                          label="Risk Level"
+                          value={form.risk_level}
+                          onChange={(v) => updateField("risk_level", v)}
+                        />
+
+                        <ClinicalSelect
+                          label="ENT Grade"
+                          value={form.ent_grade}
+                          onChange={(v) => updateField("ent_grade", v)}
+                        />
+                      </div>
+
+                      <div className="mt-5">
+                        {/* <FieldLabel>Summary Remarks</FieldLabel> */}
+
+                        <TextareaField
+                          label="Summary Remarks"
+                          value={form.summary_remarks}
+                          onChange={(e) =>
+                            updateField("summary_remarks", e.target.value)
+                          }
+                          placeholder="Enter overall ENT assessment..."
+                          rows={5}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </FramerCard>
               </div>
 
               {/* =====================================================
             FOOTER
         ===================================================== */}
 
-              <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
+              {/* <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
                 <Button type="button" variant="outline" className="gap-2">
                   <RefreshCcw className="size-4" />
                   Reset
@@ -1039,7 +1070,7 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
                   <CheckCircle2 className="size-4" />
                   Save ENT Screening
                 </Button>
-              </div>
+              </div> */}
             </div>
           </>
         ) : (
@@ -1139,47 +1170,9 @@ function StudentHeader({ student }) {
    SECTION CARD
 ============================================================ */
 
-function SectionCard({
-  icon: Icon,
-  title,
-  description,
-  tone = "blue",
-  children,
-}) {
-  const tones = {
-    blue: "bg-primary/10 text-primary",
-    purple: "bg-purple-500/10 text-purple-600",
-    orange: "bg-orange-500/10 text-orange-600",
-    cyan: "bg-cyan-500/10 text-cyan-600",
-    green: "bg-green-500/10 text-green-600",
-  };
 
-  return (
-    <Card className="overflow-hidden">
-      <CardHeader className="border-b border-border/70 bg-muted/10">
-        <div className="flex items-center gap-3">
-          <div
-            className={`flex size-10 items-center justify-center rounded-xl ${tones[tone]}`}
-          >
-            <Icon className="size-5" />
-          </div>
 
-          <div>
-            <CardTitle className="text-base">{title}</CardTitle>
-
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {description}
-            </p>
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="p-5">{children}</CardContent>
-    </Card>
-  );
-}
-
-function FieldLabel({ children }) {
+export function FieldLabel({ children }) {
   return (
     <label className="text-xs font-medium text-muted-foreground">
       {children}

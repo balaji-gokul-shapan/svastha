@@ -19,6 +19,7 @@ import {
   getRegisterSchool,
 } from "@/lib/features/registerSchoolSlice";
 import { useQuery } from "@tanstack/react-query";
+import CampDetails from "./pages/CampDetails";
 
 const Settings = () => {
   // =========================================================
@@ -349,6 +350,31 @@ const Settings = () => {
 
   const [tableView, setTableView] = useState("default");
 
+  // Restore saved appearance settings once on mount (after hydration).
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem("Svastha-appearance");
+      if (!raw) return;
+
+      const saved = JSON.parse(raw);
+
+      if (["system", "light", "dark"].includes(saved.theme)) {
+        setTheme(saved.theme);
+      }
+      if (typeof saved.transparentSidebar === "boolean") {
+        setTransparentSidebar(saved.transparentSidebar);
+      }
+      if (SIDEBAR_FEATURES.includes(saved.sidebarFeature)) {
+        setSidebarFeature(saved.sidebarFeature);
+      }
+      if (["default", "compact"].includes(saved.tableView)) {
+        setTableView(saved.tableView);
+      }
+    } catch {
+      // Corrupt or unavailable storage — keep defaults.
+    }
+  }, []);
+
   const handleAppearanceCancel = () => {
     setTheme("system");
     setTransparentSidebar(true);
@@ -359,6 +385,20 @@ const Settings = () => {
   };
 
   const handleAppearanceSave = () => {
+    try {
+      localStorage.setItem(
+        "Svastha-appearance",
+        JSON.stringify({
+          theme,
+          transparentSidebar,
+          sidebarFeature,
+          tableView,
+        }),
+      );
+    } catch {
+      // Ignore storage failures — the toast still confirms the action.
+    }
+
     toast.success("Appearance settings saved");
   };
 
@@ -383,6 +423,8 @@ const Settings = () => {
       id: "SchoolDetails",
       label: "School Details",
     },
+
+    { id: "campDetails", label: "Campus Details" },
     {
       id: "appearance",
       label: "Appearance",
@@ -468,7 +510,12 @@ const Settings = () => {
             setPassword={setPassword}
           />
         );
-
+        case "campDetails":
+        return (
+          <>
+            <CampDetails schoolProfile={schoolProfile} />
+          </>
+        );
       case "team":
         return (
           <TeamPage

@@ -5,7 +5,7 @@ import { getStudentByEvent } from "@/lib/features/getEventAssignSlice";
 import { useAppDispatch } from "@/lib/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { findSelectedCamp } from "@/lib/useAssignedEvents";
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 // import { selectAuthRole } from "@/lib/features/auth-slice";
 // import { useDispatch } from "react-redux";
 
@@ -53,6 +53,8 @@ const StudentFilter = ({
   assignedEvents,
   assignEventLoading = false,
   assignEventError = null,
+  getStudentDataByEvent,
+  setGetStudentDataByEvent,
 }) => {
   const dispatch = useAppDispatch();
   const students = useMemo(
@@ -62,7 +64,6 @@ const StudentFilter = ({
   console.log(authUser, "authUser");
   // const getRole=  selectAuthRole
   // console.log(selectAuthRole,"selectAuthRole");
-  
 
   const studentsBySchoolAndYear = useMemo(
     () =>
@@ -92,7 +93,7 @@ const StudentFilter = ({
   // useStudentData: admins count as doctors.
   const isDoctor =
     authUser?.account_type === "doctor" || authUser?.account_type === "staff";
-console.log(authUser,"isDoctor");
+  console.log(authUser, "isDoctor");
 
   // const schoolOptions = useMemo(() => {
   //   const unique = new Set();
@@ -145,11 +146,19 @@ console.log(authUser,"isDoctor");
   // schoolName: "Sudarshanam Vidyaashram" } or { id: null, name: "all",
   // schoolName: "all" } when no camp is selected.
   console.log(assignedEvents, schoolName, "schoolName");
-  
+
   const selectedCamp = useMemo(
     () => findSelectedCamp(assignedEvents, schoolName),
     [assignedEvents, schoolName],
   );
+
+  // Local selection state for the Camp Name dropdown so the dropdown gives
+  // immediate feedback, then snaps in sync with the school-derived camp.
+  const [campSelection, setCampSelection] = useState("all");
+
+  useEffect(() => {
+    setCampSelection(selectedCamp.name);
+  }, [selectedCamp.name]);
 
   const schoolOptions = useMemo(() => {
     const unique = new Set();
@@ -186,7 +195,7 @@ console.log(authUser,"isDoctor");
         .map((value) => ({ label: value, value })),
     ];
   }, [assignedEvents]);
-console.log(selectedCamp,"selectedCamp");
+  console.log(selectedCamp, "selectedCamp");
 
   const {
     data: getStundentByEvent,
@@ -203,7 +212,15 @@ console.log(selectedCamp,"selectedCamp");
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
-  console.log(getStundentByEvent, "getStundentByEvent");
+
+  // Update parent state after render to avoid "Cannot update a component while rendering" error
+  useEffect(() => {
+    if (typeof setGetStudentDataByEvent === "function") {
+      setGetStudentDataByEvent(getStundentByEvent);
+    }
+  }, [getStundentByEvent, setGetStudentDataByEvent]);
+
+  console.log(getStudentDataByEvent, "getStudentDataByEvent");
 
   // Students belonging to the selected camp/event. The thunk already
   // unwraps paginator envelopes; guard alternate shapes anyway.
@@ -211,27 +228,45 @@ console.log(selectedCamp,"selectedCamp");
     console.log("=== eventStudents useMemo ===");
     console.log("getStundentByEvent raw:", getStundentByEvent);
     console.log("getStundentByEvent type:", typeof getStundentByEvent);
-    console.log("getStundentByEvent isArray:", Array.isArray(getStundentByEvent));
+    console.log(
+      "getStundentByEvent isArray:",
+      Array.isArray(getStundentByEvent),
+    );
     if (!getStundentByEvent) {
       console.log("getStundentByEvent is falsy, returning []");
       return [];
     }
     if (Array.isArray(getStundentByEvent)) {
-      console.log("getStundentByEvent is array, length:", getStundentByEvent.length);
+      console.log(
+        "getStundentByEvent is array, length:",
+        getStundentByEvent.length,
+      );
       return getStundentByEvent;
     }
     if (Array.isArray(getStundentByEvent?.data)) {
-      console.log("getStundentByEvent.data is array, length:", getStundentByEvent.data.length);
+      console.log(
+        "getStundentByEvent.data is array, length:",
+        getStundentByEvent.data.length,
+      );
       return getStundentByEvent.data;
     }
     if (getStundentByEvent?.students) {
-      console.log("getStundentByEvent.students exists:", getStundentByEvent.students);
+      console.log(
+        "getStundentByEvent.students exists:",
+        getStundentByEvent.students,
+      );
       if (Array.isArray(getStundentByEvent.students)) {
-        console.log("getStundentByEvent.students is array, length:", getStundentByEvent.students.length);
+        console.log(
+          "getStundentByEvent.students is array, length:",
+          getStundentByEvent.students.length,
+        );
         return getStundentByEvent.students;
       }
       if (Array.isArray(getStundentByEvent.students?.data)) {
-        console.log("getStundentByEvent.students.data is array, length:", getStundentByEvent.students.data.length);
+        console.log(
+          "getStundentByEvent.students.data is array, length:",
+          getStundentByEvent.students.data.length,
+        );
         return getStundentByEvent.students.data;
       }
     }
@@ -239,13 +274,18 @@ console.log(selectedCamp,"selectedCamp");
     return [];
   }, [getStundentByEvent]);
 
-  console.log("eventStudents final:", eventStudents, "length:", eventStudents.length);
+  console.log(
+    "eventStudents final:",
+    eventStudents,
+    "length:",
+    eventStudents.length,
+  );
 
   const optionStudents = eventStudents.length
     ? eventStudents
     : studentsBySchoolAndYear;
 
-    console.log(optionStudents, "optionStudents");
+  console.log(optionStudents, "optionStudents");
 
   const academicYearOptions = useMemo(() => {
     const unique = new Set();
@@ -267,8 +307,7 @@ console.log(selectedCamp,"selectedCamp");
     ];
   }, [optionStudents]);
 
-  console.log(academicYearOptions,"academicYearOptions");
-  
+  console.log(academicYearOptions, "academicYearOptions");
 
   const classOptions = useMemo(() => {
     const unique = new Set();
@@ -364,8 +403,11 @@ console.log(selectedCamp,"selectedCamp");
             <ReusableSelect
               label="Camp Name"
               options={campOptions}
-              value={selectedCamp.name}
+              value={campSelection}
               onChange={(value) => {
+                // Immediate feedback for the dropdown itself.
+                setCampSelection(value);
+
                 if (value === "all") {
                   onSchoolNameChange?.("all");
                   return;

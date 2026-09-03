@@ -31,6 +31,7 @@ export default function ReusableSelect({
 }) {
 	const [open, setOpen] = useState(false);
 	const [searchTerm, setSearchTerm] = useState("");
+	const [dropDirection, setDropDirection] = useState("down");
 	const containerRef = useRef(null);
 	const inputRef = useRef(null);
 	const dropdownRef = useRef(null);
@@ -83,6 +84,17 @@ export default function ReusableSelect({
 			return;
 		}
 
+		const container = containerRef.current;
+		if (!container) return;
+
+		const rect = container.getBoundingClientRect();
+		const estimatedDropdownHeight = Math.min(320, Math.max(220, filteredOptions.length * 34 + 90));
+		const spaceBelow = window.innerHeight - rect.bottom;
+		const spaceAbove = rect.top;
+		const shouldOpenUp =
+			spaceBelow < estimatedDropdownHeight + 24 && spaceAbove > estimatedDropdownHeight;
+		setDropDirection(shouldOpenUp ? "up" : "down");
+
 		const onPointerDown = (event) => {
 			if (containerRef.current && !containerRef.current.contains(event.target)) {
 				setOpen(false);
@@ -94,7 +106,7 @@ export default function ReusableSelect({
 		return () => {
 			document.removeEventListener("mousedown", onPointerDown);
 		};
-	}, [open]);
+	}, [open, filteredOptions.length]);
 
 	useEffect(() => {
 		if (open) {
@@ -105,7 +117,7 @@ export default function ReusableSelect({
 	}, [open]);
 
 	return (
-		<div ref={containerRef} className={cn("relative", className, disabled && "opacity-60")}>
+		<div ref={containerRef} className={cn("relative overflow-visible", className, disabled && "opacity-60")}>
 			{label ? <label className="mb-1.5 block text-xs text-muted-foreground">{label}</label> : null}
 
 			<button
@@ -128,7 +140,10 @@ export default function ReusableSelect({
 			</button>
 
 			{open ? (
-				<div className="absolute left-0 right-0 top-full z-60 mt-1 rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md">
+				<div className={cn(
+					"absolute left-0 right-0 z-[70] rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md",
+					dropDirection === "up" ? "bottom-full mb-0.5" : "top-full mt-0",
+				)}>
 					<input
 						ref={inputRef}
 						type="text"

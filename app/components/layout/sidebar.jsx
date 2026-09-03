@@ -36,8 +36,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import Image from "next/image";
-import { ToothChartSvg } from "@/app/health-checks/dental-screening/tooth-chart-svg";
-import ToothIcon from "@/app/health-checks/dental-screening/toothIcon";
+import { ToothChartSvg } from "@/app/health-checks/dental-screening/asset/tooth-chart-svg";
+import ToothIcon from "@/app/health-checks/dental-screening/asset/toothIcon";
 
 const navItems = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -104,11 +104,11 @@ const navItems = [
   //   ],
   // },
   // { label: "Fees", href: "/fees", icon: Wallet },
-  { label: "register", href: "/settingsNew", icon: CalendarDays },
+  // { label: "register", href: "/settingsNew", icon: CalendarDays },
 ];
 
 const bottomItems = [
-  { label: "Settings", href: "/settings", icon: Settings },
+  { label: "Settings", href: "/settingsNew", icon: Settings },
   { label: "Help & Support", href: "/help", icon: HelpCircle },
 ];
 

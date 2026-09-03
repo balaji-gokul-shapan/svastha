@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { loginUser } from "@/lib/features/loginSlice";
 import { setAuthSession } from "@/lib/features/auth-slice";
+import { TextField } from "@/components/ui/text-field";
 
 const LoginForm = () => {
   const router = useRouter();
@@ -54,6 +55,7 @@ const LoginForm = () => {
             label: result.label,
           },
           token: result.token,
+          refresh_token: result.refresh_token,
           token_type: result.token_type,
           expires_in: result.expires_in,
           loginAt: result.loginAt,
@@ -113,13 +115,20 @@ const LoginForm = () => {
         <CardContent>
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Username</label>
+              {/* <label className="text-sm font-medium">Username</label>
               <Input
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
                 placeholder="Enter username"
                 autoComplete="username"
-              />
+              /> */}
+              <TextField
+                label="Username"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                placeholder="Enter username"
+                autoComplete="username"
+              /> 
             </div>
 
             <div className="space-y-2">

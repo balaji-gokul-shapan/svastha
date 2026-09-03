@@ -27,10 +27,11 @@ const AssessmentCard = ({
   authUser,
   schoolName = "all",
 }) => {
-  const [assessmentDate, setAssessmentDate] = React.useState(new Date().toISOString().split("T")[0]);
-  const getDoctername = authUser?.emp_name || authUser?.name
-  console.log(form, authUser,"sssss");
-  
+  const [assessmentDate, setAssessmentDate] = React.useState(
+    new Date().toISOString().split("T")[0],
+  );
+  const getDoctername = authUser?.emp_name || authUser?.name;
+  console.log(form, authUser, "sssss");
 
   const studentName =
     studentOptions.find((item) => String(item.value) === String(studentValue))
@@ -75,7 +76,7 @@ const AssessmentCard = ({
   );
 
   return (
-    <div className="grid gap-4 grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)_320px]">
+    <div className="grid gap-4 grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)_300px]">
       <section className="space-y-4">
         <Card>
           <CardHeader>
@@ -111,9 +112,11 @@ const AssessmentCard = ({
               <label className="text-xs text-muted-foreground">Location</label>
               <Input defaultValue="Sunshine Public School" />
             </div> */}
-                                    <TextField
+            <TextField
               label="Camp"
-              defaultValue={selectedCamp.name === "all" ? "" : selectedCamp.name}
+              defaultValue={
+                selectedCamp.name === "all" ? "" : selectedCamp.name
+              }
               readOnly
               placeholder="Select a camp in the filters"
             />
@@ -127,7 +130,9 @@ const AssessmentCard = ({
             />
 
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground pointer-none:">Examiner</label>
+              <label className="text-xs text-muted-foreground pointer-none:">
+                Examiner
+              </label>
               <Input defaultValue={getNormaliseName(getDoctername)} readOnly />
             </div>
 
@@ -149,18 +154,22 @@ const AssessmentCard = ({
               </CardTitle>
             </CardHeader>
 
-            <CardContent className="space-y-2">
+            <CardContent className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-2 space-y-2">
               <SummaryItem
                 label="Height"
-                value={form.height || "--"}
-                unit="cm"
-                status="Normal"
+                value={
+                  form.height
+                    ? `${form.height} cm / ${(parseFloat(form.height) / 2.54).toFixed(1)} in`
+                    : "0 cm / 0 in"
+                }
               />
               <SummaryItem
                 label="Weight"
-                value={form.weight || "--"}
-                unit="kg"
-                status="Normal"
+                value={
+                  form.weight
+                    ? `${form.weight} kg / ${(parseFloat(form.weight) * 2.20462).toFixed(1)} lbs`
+                    : "0 kg / 0 lbs"
+                }
               />
               <SummaryItem
                 label="BMI"
@@ -173,15 +182,17 @@ const AssessmentCard = ({
               />
               <SummaryItem
                 label="Blood Pressure"
-                value={form.bloodPressure || "O+"}
+                value={form.bloodPressure || "O/0"}
               />
+              <SummaryItem label="Pulse" value={form.pulse || "0 bpm"} />
+              <SummaryItem label="SPO2" value={form.spo2 || "0%"} />
               <SummaryItem
-                label="Pulse"
-                value={form.pulse || "O+"}
-              />
-              <SummaryItem
-                label="SPO2"
-                value={form.spo2 || "O+"}
+                label="Temperature"
+                value={
+                  form.temperature
+                    ? `${form.temperature}°C / ${((parseFloat(form.temperature) * 9) / 5 + 32).toFixed(1)}°F`
+                    : "0°C / 32°F"
+                }
               />
             </CardContent>
           </Card>

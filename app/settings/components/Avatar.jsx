@@ -1,4 +1,4 @@
-﻿const AVATAR_STYLES = [
+const AVATAR_STYLES = [
   "bg-primary/15 text-primary",
   "bg-info/15 text-info",
   "bg-success/15 text-success",

@@ -27,7 +27,7 @@ export function FramerCard({
 
   return (
     <Component
-      className={className}
+      className={className || "relative overflow-visible z-0"}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{
@@ -41,6 +41,7 @@ export function FramerCard({
         duration: 0.35,
         ease: "easeOut",
       }}
+      style={{ overflow: "visible" }}
     >
       {children}
     </Component>
