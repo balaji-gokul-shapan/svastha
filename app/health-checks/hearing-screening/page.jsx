@@ -9,6 +9,7 @@ import {
   Ear,
   EarOff,
   Headphones,
+  Loader2,
   Mic,
   Radio,
   Save,
@@ -373,10 +374,11 @@ export default function HearingScreening({ screening = {} }) {
       ...screening,
       ...form,
     };
-
+ setIsSaving(true);
     dispatch(createHearingScreening(data))
       .unwrap()
       .then(() => {
+         setIsSaving(false);
         // Refresh the react-query cache; the ["hearing-screening"] query's
         // queryFn re-dispatches getHearingScreening, keeping Redux in sync.
         queryClient.invalidateQueries({ queryKey: ["hearing-screening"] });
@@ -388,6 +390,7 @@ export default function HearingScreening({ screening = {} }) {
         });
       })
       .catch((error) => {
+         setIsSaving(false);
         console.error("Unable to save hearing screening:", error);
 
         toast.error("Failed to save hearing screening", {
@@ -409,6 +412,8 @@ export default function HearingScreening({ screening = {} }) {
   const [sectionFilter, setSectionFilter] = React.useState("all");
   const [studentFilter, setStudentFilter] = React.useState("all");
   const [getStudentDataByEvent, setGetStudentDataByEvent] = React.useState([]);
+    const [isSaving, setIsSaving] = useState(false);
+  
   const {
     data: hearingScreeningData = [],
     isLoading: hearingScreeningLoading,
@@ -785,34 +790,50 @@ export default function HearingScreening({ screening = {} }) {
 
   const selectedStudentFromFilter = React.useMemo(() => {
     const activeId = studentFilter !== "all" ? studentFilter : studentId;
-    if (activeId && Array.isArray(studentsArray)) {
-      return (
-        studentsArray.find(
-          (student) =>
-            String(student?.id ?? student?.studentId ?? student?.cus_id) ===
-            String(activeId),
-        ) ?? null
-      );
-    }
+    if (!activeId) return null;
+    const roster = Array.isArray(studentsArray) ? studentsArray : [];
+    const found = roster.find(
+      (student) =>
+        String(student?.id ?? student?.studentId ?? student?.cus_id) ===
+        String(activeId),
+    );
+    if (found) return found;
     return null;
   }, [studentsArray, studentFilter, studentId]);
+
+  // Fallback roster from the Redux slice (source of truth for the camp's students).
+  const eventRoster = useAppSelector((state) => state.eventAssign?.students) || [];
 
   const selectedStudent = React.useMemo(() => {
     if (selectedStudentFromFilter) {
       return selectedStudentFromFilter;
     }
 
-    if (studentId && Array.isArray(studentsArray)) {
+    const activeId = studentFilter !== "all" ? studentFilter : studentId;
+    if (!activeId) return null;
+
+    // Primary lookup in studentsArray (from API response)
+    if (Array.isArray(studentsArray) && studentsArray.length > 0) {
       const match = studentsArray.find(
         (student) =>
           String(student.id ?? student.studentId ?? student.cus_id) ===
-          String(studentId),
+          String(activeId),
+      );
+      if (match) return match;
+    }
+
+    // Fallback: look in the Redux slice roster
+    if (Array.isArray(eventRoster) && eventRoster.length > 0) {
+      const match = eventRoster.find(
+        (student) =>
+          String(student?.id ?? student?.studentId ?? student?.cus_id) ===
+          String(activeId),
       );
       if (match) return match;
     }
 
     return null;
-  }, [studentsArray, selectedStudentFromFilter, studentId]);
+  }, [studentsArray, selectedStudentFromFilter, studentFilter, studentId, eventRoster]);
 
   const selectedStudentKey = String(
     selectedStudent?.id ?? selectedStudent?.studentId ?? "",
@@ -1042,9 +1063,13 @@ export default function HearingScreening({ screening = {} }) {
             </div>
           )}
 
-          <Button onClick={handleSave}>
-            <Save className="size-4" />
-            Save & Next
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Save className="size-4" />
+            )}
+            {isSaving ? "Saving..." : "Save assessment"}
           </Button>
         </div>
       </div>

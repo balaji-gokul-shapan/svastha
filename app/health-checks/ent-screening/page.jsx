@@ -13,6 +13,7 @@ import {
   Headphones,
   HeartPulse,
   Info,
+  Loader2,
   Mic,
   Moon,
   RefreshCcw,
@@ -29,7 +30,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-
+import { useState } from "react";
 import { getFilterStudent } from "@/lib/features/getFilterStudent";
 import { useQuery } from "@tanstack/react-query";
 import { getEntScreening } from "@/lib/features/getEntScreening";
@@ -158,6 +159,7 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
   const [studentFilter, setStudentFilter] = React.useState("all");
   const [academicYear, setAcademicYear] = React.useState("2026-2027");
   const [getStudentDataByEvent, setGetStudentDataByEvent] = React.useState([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Assigned camps/events power the Camp Name select in StudentFilter.
   const { assignedEvents, assignEventLoading, assignEventError } =
@@ -177,40 +179,41 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
       [field]: value,
     }));
   };
- function getBackendErrorMessage(error) {
-  let payload = error;
+  function getBackendErrorMessage(error) {
+    let payload = error;
 
-  if (typeof payload === "string") {
-    try {
-      payload = JSON.parse(payload);
-    } catch {
-      return /<!doctype html|<html[\s>]/i.test(payload) || payload.length > 240
-        ? "Unable to save screening. Please try again."
-        : payload;
+    if (typeof payload === "string") {
+      try {
+        payload = JSON.parse(payload);
+      } catch {
+        return /<!doctype html|<html[\s>]/i.test(payload) ||
+          payload.length > 240
+          ? "Unable to save screening. Please try again."
+          : payload;
+      }
     }
+
+    if (!payload || typeof payload !== "object") {
+      return "Something went wrong. Please try again.";
+    }
+
+    const fieldMessages = Object.values(payload.errors ?? {})
+      .flatMap((messages) => (Array.isArray(messages) ? messages : [messages]))
+      .filter(Boolean);
+
+    // return (
+    const message =
+      fieldMessages[0] ??
+      payload.message ??
+      payload.error ??
+      payload.detail ??
+      "Something went wrong. Please try again.";
+    // );
+    return /<!doctype html|<html[\s>]/i.test(String(message)) ||
+      String(message).length > 240
+      ? "Unable to save screening. Please try again."
+      : String(message);
   }
-
-  if (!payload || typeof payload !== "object") {
-    return "Something went wrong. Please try again.";
-  }
-
-  const fieldMessages = Object.values(payload.errors ?? {})
-    .flatMap((messages) => (Array.isArray(messages) ? messages : [messages]))
-    .filter(Boolean);
-
-  // return (
- const message =
-    fieldMessages[0] ??
-    payload.message ??
-    payload.error ??
-    payload.detail ??
-    "Something went wrong. Please try again."
-  // );
-  return /<!doctype html|<html[\s>]/i.test(String(message)) ||
-    String(message).length > 240
-    ? "Unable to save screening. Please try again."
-    : String(message);
-}
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -233,8 +236,9 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
       ...screening,
       ...form,
     };
-
+    setIsSaving(true);
     try {
+      setIsSaving(false);
       await dispatch(createEntScreening(payload)).unwrap();
 
       toast.success("ENT screening saved successfully", {
@@ -245,9 +249,9 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
 
       refetchEntScreening();
     } catch (error) {
+      setIsSaving(false);
       toast.error("Failed to save ENT screening", {
-        description:
-          getBackendErrorMessage(error)
+        description: getBackendErrorMessage(error),
       });
     }
   };
@@ -293,36 +297,50 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
 
   const selectedStudentFromFilter = React.useMemo(() => {
     const activeId = studentFilter !== "all" ? studentFilter : studentId;
-    if (activeId && Array.isArray(studentsArray)) {
-      return (
-        studentsArray.find(
-          (studentItem) =>
-            String(
-              studentItem?.id ?? studentItem?.studentId ?? studentItem?.cus_id,
-            ) === String(activeId),
-        ) ?? null
-      );
-    }
+    if (!activeId) return null;
+    const roster = Array.isArray(studentsArray) ? studentsArray : [];
+    const found = roster.find(
+      (studentItem) =>
+        String(studentItem?.id ?? studentItem?.studentId ?? studentItem?.cus_id) ===
+        String(activeId),
+    );
+    if (found) return found;
     return null;
   }, [studentsArray, studentFilter, studentId]);
+
+  // Fallback roster from the Redux slice (source of truth for the camp's students).
+  const eventRoster = useAppSelector((state) => state.eventAssign?.students) || [];
 
   const selectedStudent = React.useMemo(() => {
     if (selectedStudentFromFilter) {
       return selectedStudentFromFilter;
     }
 
-    if (studentId && Array.isArray(studentsArray)) {
+    const activeId = studentFilter !== "all" ? studentFilter : studentId;
+    if (!activeId) return null;
+
+    // Primary lookup in studentsArray (from API response)
+    if (Array.isArray(studentsArray) && studentsArray.length > 0) {
       const match = studentsArray.find(
         (studentItem) =>
-          String(
-            studentItem.id ?? studentItem.studentId ?? studentItem.cus_id,
-          ) === String(studentId),
+          String(studentItem?.id ?? studentItem?.studentId ?? studentItem?.cus_id) ===
+          String(activeId),
+      );
+      if (match) return match;
+    }
+
+    // Fallback: look in the Redux slice roster
+    if (Array.isArray(eventRoster) && eventRoster.length > 0) {
+      const match = eventRoster.find(
+        (studentItem) =>
+          String(studentItem?.id ?? studentItem?.studentId ?? studentItem?.cus_id) ===
+          String(activeId),
       );
       if (match) return match;
     }
 
     return null;
-  }, [studentsArray, selectedStudentFromFilter, studentId]);
+  }, [studentsArray, selectedStudentFromFilter, studentFilter, studentId, eventRoster]);
 
   const selectedStudentKey = String(
     selectedStudent?.id ?? selectedStudent?.studentId ?? "",
@@ -473,8 +491,12 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
           </Button>
 
           <Button type="button" onClick={handleSubmit}>
-            <Save className="size-4" />
-            Save & Next
+            {isSaving ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Save className="size-4" />
+            )}
+            {isSaving ? "Saving..." : "Save assessment"}
           </Button>
         </div>
         {/* <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between w-full">
@@ -723,7 +745,7 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
                 {/* =====================================================
             EAR EXAMINATION
         ===================================================== */}
-        <EarExamination form={form} updateField={updateField} />
+                <EarExamination form={form} updateField={updateField} />
                 {/* <FramerCard>
                   <SectionCard
                     icon={Ear}
@@ -1169,8 +1191,6 @@ function StudentHeader({ student }) {
 /* ============================================================
    SECTION CARD
 ============================================================ */
-
-
 
 export function FieldLabel({ children }) {
   return (

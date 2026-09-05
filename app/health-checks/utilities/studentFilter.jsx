@@ -2,10 +2,16 @@
 
 import ReusableSelect from "@/components/ui/reusable-select";
 import { getStudentByEvent } from "@/lib/features/getEventAssignSlice";
-import { useAppDispatch } from "@/lib/hooks";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { findSelectedCamp } from "@/lib/useAssignedEvents";
-import React, { useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 // import { selectAuthRole } from "@/lib/features/auth-slice";
 // import { useDispatch } from "react-redux";
 
@@ -203,15 +209,24 @@ const StudentFilter = ({
     error: getStundentByEventError,
   } = useQuery({
     queryKey: ["get-event-student", selectedCamp.id],
-    queryFn: () =>
-      dispatch(getStudentByEvent({ eventId: selectedCamp.id })).unwrap(),
+    queryFn: async () => {
+      try {
+        const result = await dispatch(getStudentByEvent({ eventId: selectedCamp.id })).unwrap();
+        console.log("[StudentFilter] Raw thunk result:", result);
+        const items = Array.isArray(result?.items) ? result.items : Array.isArray(result) ? result : [];
+        console.log("[StudentFilter] Extracted items:", items.length, "items");
+        return items;
+      } catch (err) {
+        console.error("[StudentFilter] queryFn error:", err);
+        throw err;
+      }
+    },
     enabled: Boolean(selectedCamp.id),
-    // The roster fetch can span many pages (20 students/page) — cache it
-    // for 5 minutes and skip window-focus refetches so switching tabs
-    // doesn't re-run the whole paginated fetch.
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
+
+  console.log("[StudentFilter] selectedCamp.id:", selectedCamp?.id, "| enabled:", Boolean(selectedCamp?.id), "| loading:", getStundentByEventLoading, "| error:", getStundentByEventError?.message, "| data length:", Array.isArray(getStundentByEvent) ? getStundentByEvent.length : "not array");
 
   // Update parent state after render to avoid "Cannot update a component while rendering" error
   useEffect(() => {
@@ -222,70 +237,181 @@ const StudentFilter = ({
 
   console.log(getStudentDataByEvent, "getStudentDataByEvent");
 
-  // Students belonging to the selected camp/event. The thunk already
-  // unwraps paginator envelopes; guard alternate shapes anyway.
+  // Students belonging to the selected camp/event. Read from the Redux slice's
+  // dedicated `students` field so that infinite-scroll appends (page 2+) are
+  // reflected and the camps query can never clobber the roster.
+  // The useQuery only triggers page 1; subsequent pages dispatch directly.
+  const eventAssignState = useAppSelector((state) => state.eventAssign);
   const eventStudents = useMemo(() => {
-    console.log("=== eventStudents useMemo ===");
-    console.log("getStundentByEvent raw:", getStundentByEvent);
-    console.log("getStundentByEvent type:", typeof getStundentByEvent);
-    console.log(
-      "getStundentByEvent isArray:",
-      Array.isArray(getStundentByEvent),
-    );
-    if (!getStundentByEvent) {
-      console.log("getStundentByEvent is falsy, returning []");
-      return [];
+    // Primary source: slice.students (always a flat array)
+    const roster = eventAssignState?.students;
+    if (Array.isArray(roster) && roster.length) {
+      return roster;
     }
+    // Legacy fallback: fetchedRecord (may be flat array)
+    const legacy = eventAssignState?.fetchedRecord;
+    if (Array.isArray(legacy) && legacy.length) {
+      return legacy;
+    }
+    // Last resort: the useQuery result (flat array from queryFn)
     if (Array.isArray(getStundentByEvent)) {
-      console.log(
-        "getStundentByEvent is array, length:",
-        getStundentByEvent.length,
-      );
       return getStundentByEvent;
     }
-    if (Array.isArray(getStundentByEvent?.data)) {
-      console.log(
-        "getStundentByEvent.data is array, length:",
-        getStundentByEvent.data.length,
-      );
-      return getStundentByEvent.data;
+    if (Array.isArray(getStundentByEvent?.items)) {
+      return getStundentByEvent.items;
     }
-    if (getStundentByEvent?.students) {
-      console.log(
-        "getStundentByEvent.students exists:",
-        getStundentByEvent.students,
-      );
-      if (Array.isArray(getStundentByEvent.students)) {
-        console.log(
-          "getStundentByEvent.students is array, length:",
-          getStundentByEvent.students.length,
-        );
-        return getStundentByEvent.students;
-      }
-      if (Array.isArray(getStundentByEvent.students?.data)) {
-        console.log(
-          "getStundentByEvent.students.data is array, length:",
-          getStundentByEvent.students.data.length,
-        );
-        return getStundentByEvent.students.data;
-      }
-    }
-    console.log("No matching structure found, returning []");
     return [];
-  }, [getStundentByEvent]);
+  }, [eventAssignState?.students, eventAssignState?.fetchedRecord, getStundentByEvent]);
 
-  console.log(
-    "eventStudents final:",
-    eventStudents,
-    "length:",
-    eventStudents.length,
+  // Pagination metadata from the slice (studentTotal, studentPage, loadingMore).
+  // studentHasMore is computed in the slice (trusts backend total when given,
+  // falls back to "full page = probably more" and dedupe-based bail-out).
+  const studentTotal = eventAssignState?.studentTotal ?? 0;
+  const studentPage = eventAssignState?.studentPage ?? 1;
+  const studentTotalKnown = eventAssignState?.studentTotalKnown ?? false;
+  const loadingMoreStudents = eventAssignState?.loadingMore ?? false;
+  const hasMoreStudents = eventAssignState?.studentHasMore ?? false;
+
+  // Infinite scroll: dispatch the next page when the dropdown bottom is reached.
+  const handleLoadMoreStudents = useCallback(() => {
+    if (loadingMoreStudents || !hasMoreStudents) return;
+    const nextPage = studentPage + 1;
+    dispatch(getStudentByEvent({ eventId: selectedCamp.id, page: nextPage, perPage: 50 }));
+  }, [dispatch, selectedCamp?.id, studentPage, loadingMoreStudents, hasMoreStudents]);
+
+  // Search across the FULL camp roster: typing in the Student select first
+  // fetches any not-yet-loaded pages (beyond the initial 50), then filters
+  // every student — so a match on page 7 is found without scrolling.
+  const [studentSearchOptions, setStudentSearchOptions] = useState(null);
+
+  // Latest-value refs keep handleStudentSearch's identity stable, so the
+  // select's debounce effect doesn't re-fire every time the roster grows.
+  const rosterRef = useRef(eventStudents);
+  const rosterPageRef = useRef(studentPage);
+  const rosterTotalRef = useRef(studentTotal);
+  const rosterTotalKnownRef = useRef(studentTotalKnown);
+  rosterRef.current = eventStudents;
+  rosterPageRef.current = studentPage;
+  rosterTotalRef.current = studentTotal;
+  rosterTotalKnownRef.current = studentTotalKnown;
+
+  const handleStudentSearch = useCallback(
+    async (keyword) => {
+      const term = String(keyword ?? "").trim().toLowerCase();
+      if (!term) {
+        setStudentSearchOptions(null);
+        return;
+      }
+
+      const seen = new Set();
+      const allStudents = [];
+      const pushAll = (list) => {
+        (list ?? []).forEach((student) => {
+          const key = String(
+            student?.id ?? student?.student_id ?? student?.student_name ?? "",
+          );
+          if (key && !seen.has(key)) {
+            seen.add(key);
+            allStudents.push(student);
+          }
+        });
+      };
+      pushAll(rosterRef.current);
+
+      // Fetch remaining pages until the roster is complete. Robust against
+      // backend quirks: keep going until an empty page, a page that adds
+      // nothing new (backend repeating itself), or the reported total —
+      // do NOT trust item counts or per_page being honored.
+      let page = rosterPageRef.current;
+      let guard = 60; // ≈ 3000 students max
+      try {
+        while (guard-- > 0) {
+          // Only trust the total when the backend actually reported one.
+          // A faked total (= items.length of the first page) would read as
+          // "all loaded" and abort the search before page 2.
+          const total = rosterTotalRef.current;
+          const totalKnown = rosterTotalKnownRef.current;
+          if (totalKnown && total && allStudents.length >= total) break;
+          const result = await dispatch(
+            getStudentByEvent({
+              eventId: selectedCamp?.id,
+              page: page + 1,
+              perPage: 50,
+            }),
+          ).unwrap();
+          const items = Array.isArray(result?.items) ? result.items : [];
+          if (!items.length) break; // genuine end of data
+          const before = allStudents.length;
+          pushAll(items);
+          page = result?.page ?? page + 1;
+          if (allStudents.length === before) break; // backend repeating a page
+        }
+      } catch {
+        // Page fetch failed — fall back to filtering whatever is loaded.
+      }
+
+      // Same label/value shape as studentOptions, honoring class/section filters.
+      const matches = allStudents
+        .filter((student) => {
+          const studentClass = getStudentClass(student);
+          const studentSection = getStudentSection(student);
+          const classMatch = classFilter === "all" || studentClass === classFilter;
+          const sectionMatch =
+            sectionFilter === "all" || studentSection === sectionFilter;
+          if (!classMatch || !sectionMatch) return false;
+
+          const code =
+            student?.studentId ??
+            student?.student_id ??
+            student?.school_registration_number ??
+            student?.admission_number;
+          const haystack = [
+            student?.student_name,
+            student?.name,
+            code,
+            studentClass,
+            studentSection,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          return haystack.includes(term);
+        })
+        .map((student) => {
+          const value = String(student?.id ?? student?.studentId ?? "").trim();
+          const code =
+            student?.studentId ??
+            student?.student_id ??
+            student?.school_registration_number ??
+            student?.admission_number;
+          return {
+            value,
+            label: `${student?.student_name ?? student?.name ?? "Unknown"}${
+              code ? ` (${code})` : ""
+            }`,
+          };
+        })
+        .filter((item) => item.value);
+
+      console.log(
+        `[StudentFilter] search "${term}": scanned ${allStudents.length} students (started with ${rosterRef.current.length}) → ${matches.length} match(es)`,
+      );
+      setStudentSearchOptions(matches);
+    },
+    [dispatch, selectedCamp?.id, classFilter, sectionFilter],
   );
 
   const optionStudents = eventStudents.length
     ? eventStudents
     : studentsBySchoolAndYear;
 
-  console.log(optionStudents, "optionStudents");
+  console.log(
+    "[StudentFilter] roster:", eventStudents.length,
+    "| total:", studentTotal,
+    "| page:", studentPage,
+    "| optionStudents:", optionStudents.length,
+    "| source:", eventStudents.length ? "Redux roster" : "filterPayload fallback",
+  );
 
   const academicYearOptions = useMemo(() => {
     const unique = new Set();
@@ -331,12 +457,12 @@ const StudentFilter = ({
   const sectionOptions = useMemo(() => {
     const unique = new Set();
 
-    optionStudents.forEach((student) => {
-      const classValue = getStudentClass(student);
-      if (classFilter !== "all" && classValue !== classFilter) {
-        return;
-      }
-
+    // Derive sections from the FULL roster (eventStudents) so all sections
+    // always appear regardless of the selected class filter. Filtering by
+    // class here would hide sections that don't have students in the selected
+    // class (e.g. picking class "1" would drop sections that only exist in
+    // other classes).
+    eventStudents.forEach((student) => {
       const value = getStudentSection(student);
 
       if (value) {
@@ -350,20 +476,28 @@ const StudentFilter = ({
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
         .map((value) => ({ label: value, value })),
     ];
-  }, [classFilter, optionStudents]);
+  }, [eventStudents]);
 
   const studentOptions = useMemo(() => {
-    const filtered = optionStudents.filter((student) => {
+    const matchesBoth = optionStudents.filter((student) => {
       const studentClass = getStudentClass(student);
       const studentSection = getStudentSection(student);
-
       const classMatch = classFilter === "all" || studentClass === classFilter;
-
-      const sectionMatch =
-        sectionFilter === "all" || studentSection === sectionFilter;
-
+      const sectionMatch = sectionFilter === "all" || studentSection === sectionFilter;
       return classMatch && sectionMatch;
     });
+
+    // Fallback: when no student matches both class AND section (e.g. class 1 +
+    // section A exists but no student is in both), show all students matching the
+    // class filter instead of an empty list.
+    const filtered =
+      matchesBoth.length > 0
+        ? matchesBoth
+        : classFilter !== "all"
+          ? optionStudents.filter((student) => getStudentClass(student) === classFilter)
+          : sectionFilter !== "all"
+            ? optionStudents.filter((student) => getStudentSection(student) === sectionFilter)
+            : optionStudents;
 
     return [
       {
@@ -492,12 +626,16 @@ const StudentFilter = ({
 
         <ReusableSelect
           label="Student"
-          options={studentOptions}
+          options={studentSearchOptions ?? studentOptions}
           value={studentFilter}
           onChange={onStudentFilterChange}
           placeholder="Select student"
           searchPlaceholder="Search student"
           disabled={isLoading}
+          onSearch={handleStudentSearch}
+          onLoadMore={handleLoadMoreStudents}
+          hasMore={hasMoreStudents}
+          isLoadingMore={loadingMoreStudents}
         />
       </div>
     </>

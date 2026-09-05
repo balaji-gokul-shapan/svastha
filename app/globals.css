@@ -603,3 +603,55 @@
 .tooth-tabs [role="tab"][data-state="active"]:hover {
   background-color: color-mix(in oklch, var(--color-primary) 88%, black);
 }
+
+/* Inactive tab: subtle background + muted text, with hover highlight */
+.tooth-tabs [role="tab"][data-state="inactive"] {
+  background-color: transparent;
+  color: var(--color-muted-foreground);
+}
+.tooth-tabs [role="tab"][data-state="inactive"]:hover {
+  background-color: var(--color-muted);
+  color: var(--color-foreground);
+}
+
+/* Responsive tab padding: compact on mobile, roomier on larger screens */
+.tooth-tabs [role="tab"] {
+  padding: 0.375rem 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  gap: 0.375rem;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+@media (min-width: 640px) {
+  .tooth-tabs [role="tab"] {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    gap: 0.5rem;
+  }
+}
+
+/* Icon inherits color from parent tab */
+.tooth-tabs [role="tab"] svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+@media (min-width: 640px) {
+  .tooth-tabs [role="tab"] svg {
+    width: 1.625rem;
+    height: 1.625rem;
+  }
+}
+
+/* Responsive tab list: full-width on mobile, auto on larger screens */
+.tooth-tabs [role="tablist"] {
+  width: 100%;
+  gap: 0.25rem;
+}
+@media (min-width: 640px) {
+  .tooth-tabs [role="tablist"] {
+    width: auto;
+    gap: 0.5rem;
+  }
+}

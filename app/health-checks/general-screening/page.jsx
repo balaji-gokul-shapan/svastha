@@ -9,6 +9,7 @@ import {
   Cross,
   Droplet,
   Heart,
+  Loader2,
   Ruler,
   Save,
   Search,
@@ -516,6 +517,7 @@ export default function GeneralScreeningPage() {
   const [chronicDisease, setChronicDisease] = useState("None");
   const [immunization, setImmunization] = useState("up_to_date");
   const [notes, setNotes] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   // ============================================================
   // CLINICAL SIGNS
@@ -879,34 +881,50 @@ export default function GeneralScreeningPage() {
 
   const selectedStudentFromFilter = useMemo(() => {
     const activeId = studentFilter !== "all" ? studentFilter : studentId;
-    if (activeId && studentsArray.length > 0) {
-      return (
-        studentsArray.find(
-          (student) =>
-            String(student?.id ?? student?.studentId ?? student?.cus_id) ===
-            String(activeId),
-        ) ?? null
-      );
-    }
+    if (!activeId) return null;
+    const roster = Array.isArray(studentsArray) ? studentsArray : [];
+    const found = roster.find(
+      (student) =>
+        String(student?.id ?? student?.studentId ?? student?.cus_id) ===
+        String(activeId),
+    );
+    if (found) return found;
     return null;
   }, [studentsArray, studentFilter, studentId]);
+
+  // Fallback roster from the Redux slice (source of truth for the camp's students).
+  const eventRoster = useAppSelector((state) => state.eventAssign?.students) || [];
 
   const selectedStudent = useMemo(() => {
     if (selectedStudentFromFilter) {
       return selectedStudentFromFilter;
     }
 
-    if (studentId && studentsArray.length > 0) {
+    const activeId = studentFilter !== "all" ? studentFilter : studentId;
+    if (!activeId) return null;
+
+    // Primary lookup in studentsArray (from API response)
+    if (Array.isArray(studentsArray) && studentsArray.length > 0) {
       const match = studentsArray.find(
         (student) =>
           String(student.id ?? student.studentId ?? student.cus_id) ===
-          String(studentId),
+          String(activeId),
+      );
+      if (match) return match;
+    }
+
+    // Fallback: look in the Redux slice roster
+    if (Array.isArray(eventRoster) && eventRoster.length > 0) {
+      const match = eventRoster.find(
+        (student) =>
+          String(student?.id ?? student?.studentId ?? student?.cus_id) ===
+          String(activeId),
       );
       if (match) return match;
     }
 
     return null;
-  }, [studentsArray, selectedStudentFromFilter, studentId]);
+  }, [studentsArray, selectedStudentFromFilter, studentFilter, studentId, eventRoster]);
 
   const classOptions = useMemo(() => {
     if (studentsArray.length === 0) return ["all"];
@@ -1394,10 +1412,11 @@ export default function GeneralScreeningPage() {
             payload,
           })
         : createInitialScreening(payload);
-
+setIsSaving(true);
     dispatch(saveAction)
       .unwrap()
       .then(() => {
+         setIsSaving(false);
         queryClient.invalidateQueries({ queryKey: ["initial-screening"] });
 
         // Reset the form for the next student; the ref guard stops the
@@ -1417,6 +1436,7 @@ export default function GeneralScreeningPage() {
         );
       })
       .catch((error) => {
+         setIsSaving(false);
         console.error("Unable to save general screening:", error);
 
         toast.error("Failed to save initial screening", {
@@ -1727,9 +1747,13 @@ const skinAssessmentToggleOptions = useMemo(
             </div>
           )}
 
-          <Button type="button" onClick={handleSaveAssessment}>
-            <Save className="size-4" />
-            Save & Next
+          <Button type="button" onClick={handleSaveAssessment} disabled={isSaving}>
+            {isSaving ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Save className="size-4" />
+            )}
+            {isSaving ? "Saving..." : "Save assessment"}
           </Button>
         </div>
       </div>

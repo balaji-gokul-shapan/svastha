@@ -9,11 +9,13 @@ import {
   UPPER_TEETH_POSITION,
   PRIMARY_TEETH_LOWER,
   PRIMARY_TEETH_UPPER,
+  UPPER_TEETH_POSITION_PRIMARY,
 } from "../datas/dental-screening-data";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
-
+import ManOutline24pxIcon from "@iconify-react/healthicons/man-outline-24px";
+import Boy0105y24pxIcon from "@iconify-react/healthicons/boy-0105y-24px";
 // Tooth silhouette — FontAwesome "tooth" path (two-rooted molar shape).
 // Reused at both small (chart) and large (detail panel) sizes.
 function ToothShape({ status, className, size = 28 }) {
@@ -32,7 +34,10 @@ function ToothShape({ status, className, size = 28 }) {
       opacity={isMissing ? 0.55 : 1}
     >
       <path d="M0 0h24v24H0z" fill="none" />
-      <path fill="currentColor" d="M241 69.7L320 96l79-26.3c11.3-3.8 23-5.7 34.9-5.7C494.7 64 544 113.3 544 174.1v68.5c0 29.4-9.5 58.1-27.2 81.6l-1.1 1.5c-12.9 17.2-21.3 37.4-24.3 58.7l-21.7 151.5c-3.3 23-23 40.1-46.2 40.1c-22.8 0-42.3-16.5-46-39l-20.2-121.4c-3-18.2-18.8-31.6-37.3-31.6s-34.2 13.4-37.3 31.6L262.5 537c-3.8 22.5-23.2 39-46 39c-23.2 0-42.9-17.1-46.2-40.1l-21.7-151.4c-3-21.3-11.4-41.5-24.3-58.7l-1.1-1.5C105.5 300.7 96 272.1 96 242.7v-68.5C96 113.3 145.3 64 206.1 64c11.9 0 23.6 1.9 34.9 5.7" />
+      <path
+        fill="currentColor"
+        d="M241 69.7L320 96l79-26.3c11.3-3.8 23-5.7 34.9-5.7C494.7 64 544 113.3 544 174.1v68.5c0 29.4-9.5 58.1-27.2 81.6l-1.1 1.5c-12.9 17.2-21.3 37.4-24.3 58.7l-21.7 151.5c-3.3 23-23 40.1-46.2 40.1c-22.8 0-42.3-16.5-46-39l-20.2-121.4c-3-18.2-18.8-31.6-37.3-31.6s-34.2 13.4-37.3 31.6L262.5 537c-3.8 22.5-23.2 39-46 39c-23.2 0-42.9-17.1-46.2-40.1l-21.7-151.4c-3-21.3-11.4-41.5-24.3-58.7l-1.1-1.5C105.5 300.7 96 272.1 96 242.7v-68.5C96 113.3 145.3 64 206.1 64c11.9 0 23.6 1.9 34.9 5.7"
+      />
     </svg>
   );
 }
@@ -117,7 +122,7 @@ function ToothRow({
 
 function NumberRow({ teeth }) {
   return (
-    <div className="flex items-center justify-center gap-1.5 sm:gap-1.5 md:gap-2 lg:gap-2 px-1 my-4">
+    <div className="flex items-center justify-center gap-1.5 sm:gap-1.5 md:gap-2 lg:gap-2 p-2 my-4">
       {/* Values can repeat (e.g. position rows render 8..1,1..8), so suffix the
           index to keep keys unique; lists here are static, so keys stay stable. */}
       {teeth.map((number, index) => (
@@ -151,7 +156,8 @@ export function ToothChartSvg({
   };
 
   // Use parent-managed selection states
-  const selectedPrimaryTooth = activeToothTab === "primary" ? selectedTooth : null;
+  const selectedPrimaryTooth =
+    activeToothTab === "primary" ? selectedTooth : null;
   const selectedAdultTooth = activeToothTab === "adult" ? selectedTooth : null;
 
   const handlePrimarySelect = (number) => {
@@ -172,7 +178,11 @@ export function ToothChartSvg({
       </div> */}
 
       {/* Legend */}
-      <Tabs value={activeToothTab} onValueChange={onToothTabChange} className="tooth-tabs w-full">
+      <Tabs
+        value={activeToothTab}
+        onValueChange={onToothTabChange}
+        className="tooth-tabs w-full"
+      >
         <div className="flex w-full flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2">
             {LEGEND_ITEMS.map((item) => (
@@ -184,91 +194,101 @@ export function ToothChartSvg({
               </div>
             ))}
           </div>
-          <TabsList className="shrink-0 w-1/2 sm:w-1/3 md:w-1/4 lg:w-1/5 xl:w-1/6 2xl:w-1/6">
-            <TabsTrigger value="primary">Primary</TabsTrigger>
-            <TabsTrigger value="adult">Adult</TabsTrigger>
+          <TabsList className="shrink-0 w-full sm:w-auto">
+            <TabsTrigger value="primary" className="flex items-center gap-1.5 px-2 py-1.5 text-xs sm:px-3 sm:text-sm">
+              <Boy0105y24pxIcon className="size-8 shrink-0" />
+              <span className="hidden sm:inline">Primary</span>
+            </TabsTrigger>
+
+            <TabsTrigger value="adult" className="flex items-center gap-1.5 px-2 py-1.5 text-xs sm:px-3 sm:text-sm">
+              <ManOutline24pxIcon className="size-8 shrink-0" />
+              <span className="hidden sm:inline">Adult</span>
+            </TabsTrigger>
           </TabsList>
         </div>
 
-          <TabsContent value="primary">
-            {/* Upper arch — numbers above, teeth below, scrolls horizontally on narrow screens */}
-            <div className="overflow-x-auto pb-2">
-              <p className="py-2 text-center text-xs font-medium text-muted-foreground">
-                Upper (Maxillary)
-              </p>
-
-              <NumberRow teeth={PRIMARY_TEETH_UPPER} />
-              <ToothRow
-                teeth={PRIMARY_TEETH_UPPER}
-                chartByNumber={chartByNumber}
-                selectedTooth={selectedPrimaryTooth}
-                onSelect={handlePrimarySelect}
-                arc="up"
-                flip
-              />
-            </div>
-
-            {/* Occlusal divider — centered, narrower than the card */}
-            <div className="mx-auto w-2/4 my-3 border-t border-dashed border-border" />
-            <div className="relative">
-              <div className="absolute left-1/2 top-1/2 my-3 w-72 border-t border-dashed border-border -translate-x-1/2 -translate-y-[-50%] rotate-90" />
-            </div>
-            {/* Lower arch — teeth above, numbers below */}
-            <div className="overflow-x-auto pt-2">
-              <ToothRow
-                teeth={PRIMARY_TEETH_LOWER}
-                chartByNumber={chartByNumber}
-                selectedTooth={selectedPrimaryTooth}
-                onSelect={handlePrimarySelect}
-                arc="down"
-              />
-              <NumberRow teeth={PRIMARY_TEETH_LOWER} />
-            </div>
-            <p className="pb-2 text-center text-xs font-medium text-muted-foreground">
-              Lower (Mandibular)
+        <TabsContent value="primary">
+          {/* Upper arch — numbers above, teeth below, scrolls horizontally on narrow screens */}
+          <div className="overflow-x-auto pb-2">
+            <p className="py-2 text-center text-xs font-medium text-muted-foreground">
+              Upper (Maxillary)
             </p>
-          </TabsContent>
-          <TabsContent value="adult">
-              {/* Upper arch — numbers above, teeth below, scrolls horizontally on narrow screens */}
-            <div className="overflow-x-auto pb-2">
-              <p className="py-2 text-center text-xs font-medium text-muted-foreground">
-                Upper (Maxillary)
-              </p>
 
-              <NumberRow teeth={UPPER_TEETH} />
-              <ToothRow
-                teeth={UPPER_TEETH}
-                chartByNumber={chartByNumber}
-                selectedTooth={selectedAdultTooth}
-                onSelect={handleAdultSelect}
-                arc="up"
-                flip
-              />
-              <NumberRow teeth={UPPER_TEETH_POSITION} />
-            </div>
+            <NumberRow teeth={PRIMARY_TEETH_UPPER} />
+            <ToothRow
+              teeth={PRIMARY_TEETH_UPPER}
+              chartByNumber={chartByNumber}
+              selectedTooth={selectedPrimaryTooth}
+              onSelect={handlePrimarySelect}
+              arc="up"
+              flip
+            />
+            <NumberRow teeth={UPPER_TEETH_POSITION_PRIMARY} />
+          </div>
 
-            {/* Occlusal divider — centered, narrower than the card */}
-            <div className="mx-auto w-2/3 my-3 border-t border-dashed border-border" />
-            <div className="relative">
-              <div className="absolute left-1/2 top-1/2 my-3 w-72 border-t border-dashed border-border -translate-x-1/2 -translate-y-[-50%] rotate-90" />
-            </div>
-            {/* Lower arch — teeth above, numbers below */}
-            <div className="overflow-x-auto pt-2">
-              <NumberRow teeth={UPPER_TEETH_POSITION} />
+          {/* Occlusal divider — centered, narrower than the card */}
+          <div className="mx-auto w-2/4 my-3 border-t border-dashed border-border" />
+          <div className="relative">
+            <div className="absolute left-1/2 top-1/2 my-3 w-72 border-t border-dashed border-border -translate-x-1/2 -translate-y-[-50%] rotate-90" />
+          </div>
+          {/* Lower arch — teeth above, numbers below */}
+          <div className="overflow-x-auto pt-2">
+            <NumberRow teeth={UPPER_TEETH_POSITION_PRIMARY} />
 
-              <ToothRow
-                teeth={LOWER_TEETH}
-                chartByNumber={chartByNumber}
-                selectedTooth={selectedAdultTooth}
-                onSelect={handleAdultSelect}
-                arc="down"
-              />
-              <NumberRow teeth={LOWER_TEETH} />
-            </div>
-            <p className="pb-2 text-center text-xs font-medium text-muted-foreground">
-              Lower (Mandibular)
+            <ToothRow
+              teeth={PRIMARY_TEETH_LOWER}
+              chartByNumber={chartByNumber}
+              selectedTooth={selectedPrimaryTooth}
+              onSelect={handlePrimarySelect}
+              arc="down"
+            />
+            <NumberRow teeth={PRIMARY_TEETH_LOWER} />
+          </div>
+          <p className="pb-2 text-center text-xs font-medium text-muted-foreground">
+            Lower (Mandibular)
+          </p>
+        </TabsContent>
+        <TabsContent value="adult">
+          {/* Upper arch — numbers above, teeth below, scrolls horizontally on narrow screens */}
+          <div className="overflow-x-auto pb-2">
+            <p className="py-2 text-center text-xs font-medium text-muted-foreground">
+              Upper (Maxillary)
             </p>
-          </TabsContent>
+
+            <NumberRow teeth={UPPER_TEETH} />
+            <ToothRow
+              teeth={UPPER_TEETH}
+              chartByNumber={chartByNumber}
+              selectedTooth={selectedAdultTooth}
+              onSelect={handleAdultSelect}
+              arc="up"
+              flip
+            />
+            <NumberRow teeth={UPPER_TEETH_POSITION} />
+          </div>
+
+          {/* Occlusal divider — centered, narrower than the card */}
+          <div className="mx-auto w-2/3 my-3 border-t border-dashed border-border" />
+          <div className="relative">
+            <div className="absolute left-1/2 top-1/2 my-3 w-72 border-t border-dashed border-border -translate-x-1/2 -translate-y-[-50%] rotate-90" />
+          </div>
+          {/* Lower arch — teeth above, numbers below */}
+          <div className="overflow-x-auto pt-2">
+            <NumberRow teeth={UPPER_TEETH_POSITION} />
+
+            <ToothRow
+              teeth={LOWER_TEETH}
+              chartByNumber={chartByNumber}
+              selectedTooth={selectedAdultTooth}
+              onSelect={handleAdultSelect}
+              arc="down"
+            />
+            <NumberRow teeth={LOWER_TEETH} />
+          </div>
+          <p className="pb-2 text-center text-xs font-medium text-muted-foreground">
+            Lower (Mandibular)
+          </p>
+        </TabsContent>
       </Tabs>
     </div>
   );

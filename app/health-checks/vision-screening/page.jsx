@@ -13,6 +13,7 @@ import {
   Focus,
   Glasses,
   LensConvex,
+  Loader2,
   Save,
   Search,
   Send,
@@ -156,6 +157,8 @@ export default function VisionScreeningPage() {
   const [sectionFilter, setSectionFilter] = useState("all");
   const [studentFilter, setStudentFilter] = useState("all");
   const [getStudentDataByEvent, setGetStudentDataByEvent] = useState([]);
+      const [isSaving, setIsSaving] = useState(false);
+
 
   const authUser = useAppSelector(selectAuthUser);
   //   const { data: filterPayload, isLoading } = useQuery({
@@ -793,34 +796,50 @@ export default function VisionScreeningPage() {
 
   const selectedStudentFromFilter = useMemo(() => {
     const activeId = studentFilter !== "all" ? studentFilter : studentId;
-    if (activeId && Array.isArray(studentsArray)) {
-      return (
-        studentsArray.find(
-          (student) =>
-            String(student?.id ?? student?.studentId ?? student?.cus_id) ===
-            String(activeId),
-        ) ?? null
-      );
-    }
+    if (!activeId) return null;
+    const roster = Array.isArray(studentsArray) ? studentsArray : [];
+    const found = roster.find(
+      (student) =>
+        String(student?.id ?? student?.studentId ?? student?.cus_id) ===
+        String(activeId),
+    );
+    if (found) return found;
     return null;
   }, [studentsArray, studentFilter, studentId]);
+
+  // Fallback roster from the Redux slice (source of truth for the camp's students).
+  const eventRoster = useAppSelector((state) => state.eventAssign?.students) || [];
 
   const selectedStudent = useMemo(() => {
     if (selectedStudentFromFilter) {
       return selectedStudentFromFilter;
     }
 
-    if (studentId && Array.isArray(studentsArray?.items)) {
-      const match = studentsArray.items.find(
+    const activeId = studentFilter !== "all" ? studentFilter : studentId;
+    if (!activeId) return null;
+
+    // Primary lookup in studentsArray (from API response)
+    if (Array.isArray(studentsArray) && studentsArray.length > 0) {
+      const match = studentsArray.find(
         (student) =>
           String(student.id ?? student.studentId ?? student.cus_id) ===
-          String(studentId),
+          String(activeId),
+      );
+      if (match) return match;
+    }
+
+    // Fallback: look in the Redux slice roster
+    if (Array.isArray(eventRoster) && eventRoster.length > 0) {
+      const match = eventRoster.find(
+        (student) =>
+          String(student?.id ?? student?.studentId ?? student?.cus_id) ===
+          String(activeId),
       );
       if (match) return match;
     }
 
     return null;
-  }, [studentsArray, selectedStudentFromFilter, studentId]);
+  }, [studentsArray, selectedStudentFromFilter, studentFilter, studentId, eventRoster]);
 
   const selectedStudentKey = String(
     selectedStudent?.id ?? selectedStudent?.studentId ?? "",
@@ -1044,9 +1063,11 @@ function getBackendErrorMessage(error) {
       advice_suggestions: adviceSuggestions,
       follow_up: followUp,
     };
+     setIsSaving(true);
     dispatch(createVisionScreening(payload))
       .unwrap()
       .then(() => {
+         setIsSaving(false);
         // Refresh the react-query cache; the ["vision-screening"] query's
         // queryFn re-dispatches getVisionScreening, keeping Redux in sync.
         queryClient.invalidateQueries({ queryKey: ["vision-screening"] });
@@ -1058,6 +1079,7 @@ function getBackendErrorMessage(error) {
         });
       })
       .catch((error) => {
+         setIsSaving(false);
         console.error("Unable to save vision screening:", error);
 
         toast.error("Failed to save vision screening", {
@@ -1287,8 +1309,12 @@ function getBackendErrorMessage(error) {
           )}
 
           <Button type="button" onClick={handleSaveAssessment}>
-            <Save className="size-4" />
-            Save & Next
+             {isSaving ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Save className="size-4" />
+            )}
+            {isSaving ? "Saving..." : "Save assessment"}
           </Button>
         </div>
       </div>
