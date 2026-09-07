@@ -7,14 +7,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   AlertTriangle,
-  BookOpen,
-  Calendar,
-  CheckCircle2,
   ChevronDown,
   Circle,
-  CircleCheck,
-  CircleParkingOffIcon,
-  LucidePanelTopBottomDashed,
   Loader2,
   Pencil,
   Plus,
@@ -82,6 +76,7 @@ import {
 import { getDentalCodingScreening } from "@/lib/features/getDentalCodingsSlice";
 import { getDentalConditionsScreening } from "@/lib/features/getDentalConditions";
 import { TextField } from "@/components/ui/text-field";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const DentalSectionLoading = () => (
   <div className="min-h-24 rounded-xl border border-border bg-card p-4" />
@@ -433,6 +428,20 @@ export default function DentalAssessmentPage() {
     .map((item) => String(item?.name ?? "").trim())
     .filter(Boolean);
 
+  // Map a treatment display name → the matching dental-treatments master id
+  // (the dental_codings payload stores foreign keys, not the display label).
+  const getDentalTreatmentId = (treatmentName) =>
+    Number(
+      (Array.isArray(DentalTreatmentsMasterData)
+        ? DentalTreatmentsMasterData
+        : []
+      ).find(
+        (t) =>
+          String(t?.name ?? "").trim() ===
+          String(treatmentName ?? "").trim(),
+      )?.id,
+    ) || 0;
+
   // Coding dropdown: show the human-readable name, store the code as the
   // payload value. Falls back to name if code is missing.
   const getDentalCodingOptions = mapDentalCodingOptions(getDentalCoding);
@@ -462,10 +471,7 @@ export default function DentalAssessmentPage() {
         })
       : plaqueOptions;
 
-  // Dental conditions → gingival health toggle options ({value, label,
-  // tone}) straight from master data. Prefer the dedicated dental-conditions
-  // query (uses each item's severity for the tone) and fall back to the
-  // combined master-data list.
+ 
   const gingivalHealthSource =
     Array.isArray(getDentalCondition) && getDentalCondition.length > 0
       ? getDentalCondition
@@ -533,14 +539,17 @@ export default function DentalAssessmentPage() {
   const [selectedPrimaryTooth, setSelectedPrimaryTooth] = useState(null);
   const [selectedAdultTooth, setSelectedAdultTooth] = useState(null);
   const [activeToothTab, setActiveToothTab] = useState("primary");
-  const [getDentalCodingValue, setDentalCodingValue] = useState("");
-  const [DentalConditionValue, setDentalConditionValue] = useState("");
+  // const [getDentalCodingValue, setDentalCodingValue] = useState("");
+  // const [DentalConditionValue, setDentalConditionValue] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-
+  const [dentalFindingEntries, setDentalFindingEntries] = useState([]);
   const [dentalCodingEntries, setDentalCodingEntries] = useState([]);
   const [isCodingPopupOpen, setIsCodingPopupOpen] = useState(false);
   const [popupCodingValue, setPopupCodingValue] = useState("");
   const [popupConditionValue, setPopupConditionValue] = useState("");
+  const [popupTreatmentValue, setPopupTreatmentValue] = useState("");
+  const [popupSurfaceValue, setPopupSurfaceValue] = useState("");
+
   // When set, the popup is editing an existing entry (chip click); null = add mode.
   const [editingEntryId, setEditingEntryId] = useState(null);
   const [codingSearchTerm, setCodingSearchTerm] = useState("");
@@ -551,7 +560,10 @@ export default function DentalAssessmentPage() {
     surface: 0,
     severity: 0,
     treatment: "",
+    condition: "",
+    risk: "",
   });
+
   // Get the current selected tooth based on active tab
   const selectedTooth =
     activeToothTab === "primary" ? selectedPrimaryTooth : selectedAdultTooth;
@@ -715,9 +727,11 @@ export default function DentalAssessmentPage() {
         map.set(number, {
           number,
           status: "healthy",
-          surface: "—",
-          severity: "—",
+          surface: "",
+          severity: "",
           treatment: "No treatment needed",
+          risk: "",
+          condtion: "",
         });
       }
     });
@@ -729,6 +743,7 @@ export default function DentalAssessmentPage() {
     () => toothMap.get(selectedTooth) || null,
     [toothMap, selectedTooth],
   );
+  console.log(currentTooth, "selectedTeeth");
 
   console.log(popupCodingValue, popupConditionValue, "popupCodingValue");
 
@@ -1109,7 +1124,8 @@ export default function DentalAssessmentPage() {
   }, [studentsArray, studentFilter, studentId]);
 
   // Fallback roster from the Redux slice (source of truth for the camp's students).
-  const eventRoster = useAppSelector((state) => state.eventAssign?.students) || [];
+  const eventRoster =
+    useAppSelector((state) => state.eventAssign?.students) || [];
 
   const selectedStudent = useMemo(() => {
     if (selectedStudentFromFilter) {
@@ -1141,14 +1157,20 @@ export default function DentalAssessmentPage() {
     }
 
     return null;
-  }, [studentsArray, selectedStudentFromFilter, studentFilter, studentId, eventRoster]);
+  }, [
+    studentsArray,
+    selectedStudentFromFilter,
+    studentFilter,
+    studentId,
+    eventRoster,
+  ]);
 
   const selectedStudentKey = String(
     selectedStudent?.id ?? selectedStudent?.studentId ?? "",
   );
   const studentSelectValue = selectedStudentKey || "";
-  console.log(studentSelectValue,"studentSelectValue");
-  
+  console.log(studentSelectValue, "studentSelectValue");
+
   const selectedStudentKeys = useMemo(() => {
     return new Set(
       [
@@ -1204,13 +1226,29 @@ export default function DentalAssessmentPage() {
     getSelectedStudentScreeningData?.updated_at ??
     getSelectedStudentScreeningData?.updatedAt;
 
+  // Count only the teeth belonging to the active tab's dentition.
+  // toothMap (not chart) is the source of truth here: chart only holds teeth
+  // that were explicitly painted, whereas toothMap also seeds every primary
+  // tooth (FDI 51-85) with a default "healthy" status so the primary tab shows
+  // its full 20-tooth complement instead of 0.
+  // Adult = FDI 11-48, Primary = FDI 51-85.
   const summary = useMemo(() => {
-    const counts = { caries: 0, other: 0, healthy: 0, missing: 0 };
-    chart.forEach((t) => {
-      if (counts[t.status] !== undefined) counts[t.status] += 1;
+    const counts = {
+      caries: 0,
+      other: 0,
+      healthy: 0,
+      missing: 0,
+      filled: 0,
+      sealant: 0,
+    };
+    const isPrimary = activeToothTab === "primary";
+    toothMap.forEach((t) => {
+      const n = Number(t.number);
+      const inRange = isPrimary ? n >= 51 && n <= 85 : n >= 11 && n <= 48;
+      if (inRange && counts[t.status] !== undefined) counts[t.status] += 1;
     });
     return counts;
-  }, [chart]);
+  }, [toothMap, activeToothTab]);
 
   const quickFindings = useMemo(
     () => ({
@@ -1218,8 +1256,10 @@ export default function DentalAssessmentPage() {
       other: summary.other,
       healthy: summary.healthy,
       missing: summary.missing,
+      filled: summary.filled,
+      sealant: summary.sealant,
     }),
-    [summary],
+    [summary, activeToothTab],
   );
 
   const calculatedRiskScore = useMemo(() => {
@@ -1285,8 +1325,8 @@ export default function DentalAssessmentPage() {
         toothMap.get(selectedTooth) ?? {
           number: selectedTooth,
           status: "healthy",
-          surface: "—",
-          severity: "—",
+          surface: "",
+          severity: "",
           treatment: "No treatment needed",
         };
       const nextTooth = { ...baseTooth, ...update };
@@ -1337,6 +1377,29 @@ export default function DentalAssessmentPage() {
   const handleSelectedToothTreatmentChange = (value) => {
     updateSelectedTooth({ treatment: value });
   };
+
+  const handleSurfaceChange = (value) => {
+    updateSelectedTooth({ surface: value });
+  };
+  const handleConditionChange = (value) => {
+    // Look up the condition master record so severity / risk ride along onto
+    // the tooth — otherwise the read-only fields display them from the master
+    // but the payload (which reads the tooth object) gets nothing.
+    const conditionRecord = (
+      Array.isArray(getDentalCondition) ? getDentalCondition : []
+    ).find(
+      (item) =>
+        String(item?.name ?? "").trim().toLowerCase() ===
+        String(value ?? "").trim().toLowerCase(),
+    );
+
+    updateSelectedTooth({
+      condition: value,
+      severity: String(conditionRecord?.severity ?? "").trim(),
+      riskScore: String(conditionRecord?.risk_score ?? "").trim(),
+    });
+  };
+
   function getBackendErrorMessage(error) {
     let payload = error;
 
@@ -1389,7 +1452,19 @@ export default function DentalAssessmentPage() {
       }),
     [studentsArray],
   );
+const getDentalConditionValue = (
+  Array.isArray(getDentalCondition) ? getDentalCondition : []
+).find(
+  (item) =>
+    String(item?.name ?? "").trim().toLowerCase() ===
+    String(currentTooth?.condition ?? "").trim().toLowerCase()
+);
 
+console.log("current condition:", currentTooth?.condition);
+console.log("conditions:", getDentalCondition);
+console.log("selectedeee:", getDentalConditionValue);
+
+  
   const handleSaveAssessment = () => {
     const rawStudentId =
       selectedStudent?.id ??
@@ -1435,6 +1510,7 @@ export default function DentalAssessmentPage() {
       toast.error("Select a student before saving the dental screening.");
       return;
     }
+console.log(chart,"chart");
 
     const payload = {
       student_id: Number(rawStudentId) || 0,
@@ -1454,10 +1530,28 @@ export default function DentalAssessmentPage() {
       tooth_wear: otherFindings.toothWear ? "present" : "absent",
       oral_ulcer: otherFindings.oralUlcer ? "present" : "absent",
       trauma: otherFindings.trauma ? "present" : "absent",
-      findings: dentalCodingEntries.map((entry) => ({
+      dental_findings: dentalFindingEntries.map((entry) => ({
+        tooth_number: entry.tooth_number,
+        dental_condition_id: entry.dental_condition_id,
+        surface: entry.surface ?? "",
+        risk: entry.risk ?? "",
+        severity: entry.severity ?? "",
+        treatment_id: getDentalTreatmentId(entry.treatment),
+        treatment: String(entry.treatment ?? ""),
+      })),
+
+      
+      dental_codings: dentalCodingEntries.map((entry) => ({
         code: entry.coding,
         name: entry.condition,
+        tooth_number: entry.tooth,
         dental_condition_id: entry.dentalConditionId,
+        risk: entry.conditionRiskScore || entry?.risk || "",
+
+        severity: entry.conditionSeverity,
+        treatment_id: getDentalTreatmentId(entry.treatment),
+        surface: entry.surface,
+        treatment: String(entry.treatment ?? ""),
       })),
       other_findings: otherFindingsOptions
         .filter(({ id }) => otherFindings[id])
@@ -1480,27 +1574,29 @@ export default function DentalAssessmentPage() {
         treatment: String(tooth.treatment ?? ""),
       })),
     };
+    console.log(payload,"payload");
+    
 
     setIsSaving(true);
 
     dispatch(createDentalScreening(payload))
       .unwrap()
       .then(() => {
-        setIsSaving(false);
-        // Refresh the react-query cache; the ["dental-screening"] query's
-        // queryFn re-dispatches getDentalScreening, keeping Redux in sync.
-        queryClient.invalidateQueries({ queryKey: ["dental-screening"] });
+        // setIsSaving(false);
+        // // Refresh the react-query cache; the ["dental-screening"] query's
+        // // queryFn re-dispatches getDentalScreening, keeping Redux in sync.
+        // queryClient.invalidateQueries({ queryKey: ["dental-screening"] });
 
-        // Reset the form for the next student; the ref guard stops the
-        // auto-apply effect from re-filling the just-saved values.
-        resetAfterSaveRef.current = true;
-        resetFormToDefaults();
+        // // Reset the form for the next student; the ref guard stops the
+        // // auto-apply effect from re-filling the just-saved values.
+        // resetAfterSaveRef.current = true;
+        // resetFormToDefaults();
 
-        toast.success("Dental screening saved successfully", {
-          description: selectedStudent?.name
-            ? `Record saved for ${selectedStudent.name}`
-            : undefined,
-        });
+        // toast.success("Dental screening saved successfully", {
+        //   description: selectedStudent?.name
+        //     ? `Record saved for ${selectedStudent.name}`
+        //     : undefined,
+        // });
       })
       .catch((error) => {
         setIsSaving(false);
@@ -1530,8 +1626,8 @@ export default function DentalAssessmentPage() {
     setFollowUpValue("");
     setCareInstructions("");
     setSidebarNotes("");
-    setDentalCodingValue("");
-    setDentalConditionValue("");
+    // setDentalCodingValue("");
+    // setDentalConditionValue("");
     setDentalCodingEntries([]);
     setSelectedPrimaryTooth(null);
     setSelectedAdultTooth(null);
@@ -1568,6 +1664,8 @@ export default function DentalAssessmentPage() {
         const code = String(item?.code ?? "").trim();
         const id = String(item?.id ?? "").trim();
         const name = String(item?.name ?? item?.code ?? "").trim();
+        console.log({code, id, name});
+        
 
         if (code) {
           map[code] = {
@@ -1581,36 +1679,82 @@ export default function DentalAssessmentPage() {
     return map;
   }, [getDentalCoding]);
 
+  console.log(codingLabelMap,"codingLabelMap");
+  
+
   const conditionLabelMap = useMemo(() => {
     const map = {};
     if (Array.isArray(getDentalCondition)) {
       getDentalCondition.forEach((item) => {
+        console.log(item,"item---");
+        
         const name = String(item?.name ?? "").trim();
         if (!name) return;
         // Keyed by name; the value carries every master field so entries can
         // use severity / risk_score / description later — the displayed label
         // itself remains the name.
         map[name] = {
+          // code: ,
+          // toothNumber: ,
           name,
+          tooth: String(item?.tooth ?? ""),
           dentalConditionId: Number(item?.id ?? ""),
           description: String(item?.description ?? "").trim(),
-          riskScore: String(item?.risk_score ?? "").trim(),
+          risk: String(item?.risk_score ?? item?.risk ?? "").trim(),
+          surface: String(item.surface ?? "").trim(),
           severity: String(item?.severity ?? "").trim(),
+          treatment: "",
         };
       });
     }
     return map;
   }, [getDentalCondition]);
+  console.log(popupConditionValue,"conditionLabelMap");
+
+  // Keep dentalFindingEntries in sync with the tooth chart — every tooth with a
+// condition or marked finding becomes a finding entry (mirrors the manual
+// dentalCodingEntries flow, but derived so saving always reflects the chart).
+useEffect(() => {
+  const entries = (Array.isArray(chart) ? chart : [])
+    .filter((tooth) => tooth.number > 0)
+    .filter((tooth) => {
+      const hasCondition = String(tooth.condition ?? "").trim().length > 0;
+      const hasStatus = String(tooth.status ?? "").trim().length > 0 &&
+        !["healthy", "missing"].includes(String(tooth.status).trim());
+      const hasFinding =
+        hasCondition ||
+        hasStatus ||
+        (String(tooth.surface ?? "").trim() && String(tooth.surface ?? "").trim() !== "—") ||
+        String(tooth.severity ?? "").trim() ||
+        String(tooth.riskScore ?? "").trim();
+      return hasFinding;
+    })
+    .map((tooth) => ({
+      id: tooth.number,
+      tooth_number: tooth.number,
+      condition: String(tooth.condition ?? ""),
+      dental_condition_id: String(tooth.condition ?? ""),
+      surface: tooth.surface && tooth.surface !== "—" ? String(tooth.surface) : "",
+      risk: tooth.riskScore || tooth.risk || "",
+      severity: tooth.severity && tooth.severity !== "—" ? String(tooth.severity) : "",
+      treatment: String(tooth.treatment ?? ""),
+    }));
+  setDentalFindingEntries(entries);
+}, [chart]);
+
+  
 
   // Live condition info for the popup's read-only fields — derived directly
   // from the selection so severity / risk / label update as the user picks.
   const popupConditionInfo = popupConditionValue
     ? (conditionLabelMap[popupConditionValue] ?? null)
     : null;
-  console.log(popupConditionInfo, popupConditionInfo);
+  console.log(popupConditionInfo, "popupConditionInfo");
 
   const handleSaveCodingEntry = () => {
     const coding = String(popupCodingValue ?? "").trim();
+    console.log(coding, "coding---");
+
     const condition = String(popupConditionValue ?? "").trim();
     if (!coding || !condition) {
       toast.error("Please select both coding and condition");
@@ -1632,7 +1776,7 @@ export default function DentalAssessmentPage() {
     // The map value is the full master object — the label is still its name,
     // while severity / risk / description ride along on the entry.
     const conditionInfo = conditionLabelMap[condition];
-    const dentalConditionId = conditionLabelMap[condition];
+    console.log(conditionInfo,"conditionInfo");
     const conditionLabel = conditionInfo?.name ?? condition;
     // Derive the chart status from the condition so the tooth paints itself:
     // Dental Caries → caries (red), No Abnormality → healthy (green),
@@ -1656,11 +1800,14 @@ export default function DentalAssessmentPage() {
       condition,
       conditionLabel,
       conditionSeverity: conditionInfo?.severity ?? "",
-      conditionRiskScore: conditionInfo?.riskScore ?? "",
+      conditionRiskScore: conditionInfo?.risk ?? "",
       conditionDescription: conditionInfo?.description ?? "",
       dentalConditionId: conditionInfo?.dentalConditionId ?? "",
       status,
       tooth: toothNumber,
+      surface: String(popupSurfaceValue ?? "").trim(),   // was: surface: "",
+      risk: conditionInfo?.risk,
+      treatment: String(popupTreatmentValue ?? "").trim(),
       dentition,
     };
     // Edit mode: replace the existing entry in place (keeps its id and order);
@@ -1730,8 +1877,8 @@ export default function DentalAssessmentPage() {
             {
               number: entry.tooth,
               status,
-              surface: "—",
-              severity: entry.conditionSeverity || "—",
+              surface: "",
+              severity: entry.conditionSeverity || "",
               riskScore: entry.conditionRiskScore || "",
               treatment: codingLabel,
             },
@@ -1754,6 +1901,9 @@ export default function DentalAssessmentPage() {
     setEditingEntryId(entry.id);
     setPopupCodingValue(entry.coding ?? "");
     setPopupConditionValue(entry.condition ?? "");
+    setPopupTreatmentValue(entry.treatment ?? "");
+    setPopupSurfaceValue(entry.surface ?? "");
+
     setIsCodingPopupOpen(true);
   };
 
@@ -1763,6 +1913,7 @@ export default function DentalAssessmentPage() {
     editingEntryId != null
       ? (dentalCodingEntries.find((item) => item.id === editingEntryId) ?? null)
       : null;
+  console.log(dentalCodingEntries, "dentalCodingEntries");
 
   const handleRemoveCodingEntry = (id) => {
     const removed = dentalCodingEntries.find((entry) => entry.id === id);
@@ -1775,6 +1926,9 @@ export default function DentalAssessmentPage() {
       setIsCodingPopupOpen(false);
       setPopupCodingValue("");
       setPopupConditionValue("");
+      setPopupTreatmentValue("");
+      setPopupSurfaceValue("");
+
     }
     // Re-paint the tooth: the last remaining entry wins; with no entries left
     // the tooth returns to healthy. (Primary teeth not present in `chart`
@@ -1804,7 +1958,7 @@ export default function DentalAssessmentPage() {
       const search = keyword.trim();
       setCodingSearchTerm(keyword);
       if (!search) {
-        setCodingSearchOptions(null);
+        // setCodingSearchOptions(null);
         await dispatch(getDentalCodingScreening({ page: 1, perPage: 50 }));
         return;
       }
@@ -1844,10 +1998,12 @@ export default function DentalAssessmentPage() {
 
   // Coding options for the popup: use the search results when searching,
   // otherwise fall back to the full (throttled) list.
+  // const popupCodingOptions =
+  //   codingSearchTerm.trim() && codingSearchOptions !== null
+  //     ? codingSearchOptions
+  //     : getDentalCodingOptions;
   const popupCodingOptions =
-    codingSearchTerm.trim() && codingSearchOptions !== null
-      ? codingSearchOptions
-      : getDentalCodingOptions;
+    codingSearchOptions !== null ? codingSearchOptions : getDentalCodingOptions;
 
   // Infinite scroll: load the next page of codings when the dropdown bottom
   // is reached. hasMore is derived from the slice's total vs loaded count.
@@ -1938,7 +2094,7 @@ export default function DentalAssessmentPage() {
 
   return (
     <section className="space-y-4">
-      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between mb-4">
+      <div className="sticky top-18 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between mb-4">
         <div>
           <div className="flex items-center gap-2 py-3">
             <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary aspect-square">
@@ -2178,7 +2334,10 @@ export default function DentalAssessmentPage() {
                   authUser={authUser}
                 />
               </FramerCard>
-              <QuickFindingSummary quickFindings={quickFindings} />
+              <QuickFindingSummary
+                activeToothTab={activeToothTab}
+                quickFindings={quickFindings}
+              />
             </div>
             <div className="min-w-0">
               <ScreeningStepper
@@ -2208,307 +2367,411 @@ export default function DentalAssessmentPage() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-1">
-                    {/* ================= CURRENT TOOTH ================= */}
-                    <FramerCard>
-                      {currentTooth && (
-                        <div className="flex min-w-0 flex-col gap-4 rounded-xl border border-border/70 bg-background p-3 sm:p-4">
-                          {/* Header */}
-                          <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="min-w-0">
-                              <p className="text-xs text-muted-foreground">
-                                Current Tooth
-                              </p>
+                  <Tabs defaultValue="tooth-details" className="w-full">
+                    <TabsList className="w-full sm:w-1/2">
+                      <TabsTrigger
+                        value="tooth-details"
+                        className="gap-2"
+                        title="Clinical Findings"
+                      >
+                        <ToothTabIcon />
 
-                              <p className="mt-1 truncate text-sm font-semibold text-foreground sm:text-base">
-                                Tooth {currentTooth.number}{" "}
-                                <span className="font-normal text-muted-foreground">
-                                  ({getToothName(currentTooth.number)})
-                                </span>
-                              </p>
-                            </div>
+                        <span className="hidden sm:inline">
+                          Clinical Findings
+                        </span>
+                      </TabsTrigger>
 
-                            {/* Tooth graphic */}
-                            <div className="flex shrink-0 justify-center sm:justify-end">
-                              <ToothDetailGraphic
-                                status={currentTooth.status}
-                              />
-                            </div>
-                          </div>
+                      <TabsTrigger
+                        value="dental-info"
+                        className="gap-2"
+                        title="Diagnosis & ICD Codes"
+                      >
+                        <IcdIcon />
 
-                          {/* Fields */}
-                          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-3">
-                            {/* Status */}
-                            <div className="min-w-0">
-                              <FieldLabel>Status</FieldLabel>
+                        <span className="hidden sm:inline">
+                          Diagnosis & ICD Codes
+                        </span>
+                      </TabsTrigger>
+                    </TabsList>
 
-                              <Select
-                                value={String(currentTooth.status ?? "healthy")}
-                                onValueChange={handleSelectedToothStatusChange}
-                              >
-                                <SelectTrigger className="w-full">
-                                  <SelectValue placeholder="Select status" />
-                                </SelectTrigger>
-
-                                <SelectContent>
-                                  {toothChartLegend.map((item) => (
-                                    <SelectItem
-                                      key={item.value}
-                                      value={item.value}
-                                    >
-                                      {item.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            {/* Surface */}
-                            <div className="min-w-0">
-                              <TextField
-                                label="Surface"
-                                value={currentTooth.surface}
-                                readOnly
-                              />
-                            </div>
-
-                            {/* Severity */}
-                            <div className="min-w-0">
-                              <TextField
-                                label="Severity"
-                                value={
-                                  currentTooth.severity ??
-                                  popupConditionInfo?.severity
-                                }
-                                readOnly
-                              />
-                            </div>
-                            {/* Risk score */}
-                            <div className="min-w-0">
-                              <TextField
-                                label="Risk score"
-                                value={
-                                  currentTooth.riskScore ??
-                                  popupConditionInfo?.riskScore
-                                }
-                                readOnly
-                              />
-                            </div>
-
-                            {/* Treatment */}
-                            <div className="min-w-0">
-                              <ReusableSelect
-                                label="Treatment"
-                                options={DentalTreatmentOptionData}
-                                value={String(currentTooth.treatment ?? "")}
-                                onChange={handleSelectedToothTreatmentChange}
-                              />
-                            </div>
-                          </div>
-
-                          {/* Other finding */}
-                          {currentTooth.status === "other" && (
-                            <div className="w-full">
-                              <FieldLabel>Other Finding</FieldLabel>
-
-                              <input
-                                type="text"
-                                value={String(
-                                  currentTooth.otherNote ??
-                                    popupConditionInfo?.name ??
-                                    "",
-                                )}
-                                onChange={(event) =>
-                                  handleSelectedToothOtherNoteChange(
-                                    event.target.value,
-                                  )
-                                }
-                                placeholder="Describe the finding"
-                                className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring/30"
-                              />
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </FramerCard>
-
-                    {/* ================= SECOND CARD ================= */}
-                    <FramerCard>
-                      {currentTooth && (
-                        <div className="flex min-w-0 flex-col rounded-xl border border-border/70 bg-background p-3 sm:p-4">
-                          <div className="min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <div>
+                    {/* ================= TOOTH DETAILS TAB ================= */}
+                    <TabsContent value="tooth-details">
+                      <FramerCard>
+                        {currentTooth ? (
+                          <div className="flex min-w-0 flex-col gap-4 rounded-xl border border-border/70 bg-background p-3 sm:p-4">
+                            {/* Header */}
+                            <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="min-w-0">
                                 <p className="text-xs text-muted-foreground">
-                                  Additional Details
+                                  Current Tooth
                                 </p>
-                                <p className="mt-1 text-sm font-semibold text-foreground">
-                                  Dental Information
+
+                                <p className="mt-1 truncate text-sm font-semibold text-foreground sm:text-base">
+                                  Tooth {currentTooth.number}{" "}
+                                  <span className="font-normal text-muted-foreground">
+                                    ({getToothName(currentTooth.number)})
+                                  </span>
                                 </p>
                               </div>
-                              <Dialog
-                                open={isCodingPopupOpen}
-                                onOpenChange={(open) => {
-                                  setIsCodingPopupOpen(open);
-                                  if (open) {
-                                    // "Add coding" trigger → always start
-                                    // fresh in add mode (a cancelled edit
-                                    // must not leak into the next save).
-                                    setEditingEntryId(null);
-                                    setPopupCodingValue("");
-                                    setPopupConditionValue("");
-                                  }
-                                }}
-                              >
-                                <DialogTrigger className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:opacity-50">
-                                  <Plus className="size-3.5" />
-                                  Add coding
-                                </DialogTrigger>
-                                <DialogContent className="shadow-2xs sm:max-w-max md:max-w-1/2 lg:max-w-1/4">
-                                  <DialogHeader>
-                                    <DialogTitle>
-                                      {editingEntryId != null
-                                        ? "Edit coding entry"
-                                        : "Add coding entry"}
-                                    </DialogTitle>
-                                    <DialogDescription>
-                                      {editingEntryId != null
-                                        ? "Update the dental coding or its associated"
-                                        : "Select a dental coding and its associated"}{" "}
-                                      condition for tooth{" "}
-                                      <span className="font-medium text-foreground">
-                                        {editingEntry?.tooth ??
-                                          currentTooth.number}
-                                      </span>{" "}
-                                      (
-                                      {getToothName(
-                                        editingEntry?.tooth ??
-                                          currentTooth.number,
-                                      )}
-                                      ).
-                                    </DialogDescription>
-                                  </DialogHeader>
-                                  <div className="grid gap-4 py-2">
-                                    <div className="min-w-0">
-                                      <ReusableSelect
-                                        label="Coding"
-                                        options={popupCodingOptions}
-                                        value={popupCodingValue}
-                                        onChange={setPopupCodingValue}
-                                        onSearch={handleCodingSearch}
-                                        onLoadMore={handleLoadMoreCoding}
-                                        hasMore={hasMoreCoding}
-                                        isLoadingMore={
-                                          getDentalCodingLoadingMore
-                                        }
-                                        disabled={getDentalCodingLoading}
-                                      />
-                                    </div>
-                                    <div className="min-w-0">
-                                      <ReusableSelect
-                                        label="Condition"
-                                        options={getDentalCondtionOptions}
-                                        value={popupConditionValue}
-                                        onChange={setPopupConditionValue}
-                                        disabled={
-                                          getDentalConditionLoading ||
-                                          !popupCodingValue
-                                        }
-                                      />
-                                    </div>
-                                    {popupConditionInfo ? (
-                                      <div className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-muted/30 p-3 sm:grid-cols-3">
-                                        <div className="min-w-0">
-                                          <label className="mb-1.5 block text-xs text-muted-foreground">
-                                            Condition
-                                          </label>
-                                          <input
-                                            type="text"
-                                            readOnly
-                                            value={popupConditionInfo.name}
-                                            className="h-9 w-full cursor-default rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none"
-                                          />
-                                        </div>
-                                        <div className="min-w-0">
-                                          <label className="mb-1.5 block text-xs text-muted-foreground">
-                                            Severity
-                                          </label>
-                                          <input
-                                            type="text"
-                                            readOnly
-                                            value={
-                                              popupConditionInfo.severity || "—"
-                                            }
-                                            className="h-9 w-full cursor-default rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none"
-                                          />
-                                        </div>
-                                        <div className="min-w-0">
-                                          <label className="mb-1.5 block text-xs text-muted-foreground">
-                                            Risk score
-                                          </label>
-                                          <input
-                                            type="text"
-                                            readOnly
-                                            value={
-                                              popupConditionInfo.riskScore ||
-                                              "—"
-                                            }
-                                            className="h-9 w-full cursor-default rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none"
-                                          />
-                                        </div>
-                                      </div>
-                                    ) : null}
-                                  </div>
-                                  <DialogFooter>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      onClick={() =>
-                                        setIsCodingPopupOpen(false)
-                                      }
-                                    >
-                                      Cancel
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      onClick={handleSaveCodingEntry}
-                                    >
-                                      {editingEntryId != null
-                                        ? "Update"
-                                        : "Save"}
-                                    </Button>
-                                  </DialogFooter>
-                                </DialogContent>
-                              </Dialog>
+
+                              {/* Tooth graphic */}
+                              <div className="flex shrink-0 justify-center sm:justify-end">
+                                <ToothDetailGraphic
+                                  status={currentTooth.status}
+                                />
+                              </div>
                             </div>
-                            {dentalCodingEntries.length > 0 ? (
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                {dentalCodingEntries.map((entry) => (
-                                  <span
-                                    key={entry.id}
-                                    title={
-                                      entry.conditionDescription
-                                        ? `${entry.conditionLabel}: ${entry.conditionDescription}`
-                                        : undefined
+
+                            {/* Fields */}
+                            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-3">
+                              {/* Status */}
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="min-w-0">
+                                  <TextField
+                                    label="Tooth Number"
+                                    value={currentTooth.number}
+                                    readOnly
+                                  />
+                                </div>
+                                <div className="min-w-0">
+                                  <FieldLabel>Status</FieldLabel>
+
+                                  <Select
+                                    value={String(
+                                      currentTooth.status ?? "healthy",
+                                    )}
+                                    onValueChange={
+                                      handleSelectedToothStatusChange
                                     }
-                                    className="inline-flex items-end gap-1.5 rounded-full border border-border bg-muted/50 py-1 pl-2.5 pr-1 text-xs"
                                   >
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        handleEditCodingEntry(entry)
+                                    <SelectTrigger className="w-full">
+                                      <SelectValue placeholder="Select status" />
+                                    </SelectTrigger>
+
+                                    <SelectContent>
+                                      {toothChartLegend.map((item) => (
+                                        <SelectItem
+                                          key={item.value}
+                                          value={item.value}
+                                        >
+                                          {item.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+
+                              <div className="min-w-0">
+                                <ReusableSelect
+                                  label="Condition"
+                                  options={getDentalCondtionOptions}
+                                  value={currentTooth.condition}
+                                  onChange={handleConditionChange}
+                                />
+                              </div>
+
+                              {/* Surface */}
+                              <div className="min-w-0">
+                                <TextField
+                                  label="Surface"
+                                  value={currentTooth.surface}
+                                  onChange={(e) =>
+                                    handleSurfaceChange(e.target.value)
+                                  }
+                                />
+                              </div>
+
+                              {/* Severity */}
+                              <div className="min-w-0">
+                                <TextField
+                                  label="Severity"
+                                  value={
+                                    getDentalConditionValue?.severity ??
+                                    currentTooth.severity ??
+                                    popupConditionInfo?.severity
+                                  }
+                                  readOnly
+                                />
+                              </div>
+                              {/* Risk score */}
+                              <div className="min-w-0">
+                                <TextField
+                                  label="Risk score"
+                                  value={
+                                      getDentalConditionValue?.risk_score ??
+                                    currentTooth.risk ??
+                                    popupConditionInfo?.risk
+                                  }
+                                  readOnly
+                                />
+                              </div>
+
+                              {/* Treatment */}
+                              <div className="min-w-0">
+                                <ReusableSelect
+                                  label="Treatment"
+                                  options={DentalTreatmentOptionData}
+                                  value={String(currentTooth.treatment ?? "")}
+                                  onChange={handleSelectedToothTreatmentChange}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Other finding */}
+                            {currentTooth.status === "other" && (
+                              <div className="w-full">
+                                <FieldLabel>Other Finding</FieldLabel>
+
+                                <input
+                                  type="text"
+                                  value={String(
+                                    currentTooth.otherNote ??
+                                      popupConditionInfo?.name ??
+                                      "",
+                                  )}
+                                  onChange={(event) =>
+                                    handleSelectedToothOtherNoteChange(
+                                      event.target.value,
+                                    )
+                                  }
+                                  placeholder="Describe the finding"
+                                  className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring/30"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex min-w-0 flex-col rounded-xl border border-border/70 bg-background p-3 sm:p-4">
+                            <div className="min-w-0">
+                              {/* <div className="flex items-center justify-between gap-2">
+                                <div>
+                                  <h5 className="text-sm text-muted-foreground">
+                                    Not
+                                  </h5>
+                                  <p className="mt-1 text-sm font-semibold text-foreground">
+                                    Dental Information
+                                  </p>
+                                </div>
+                              </div> */}
+                              <EmptyState
+                                title="Please Select Tooth"
+                                description=" Please select a tooth from the dental chart to view and enter its clinical findings."
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </FramerCard>
+                    </TabsContent>
+
+                    {/* ================= DENTAL INFORMATION TAB ================= */}
+                    <TabsContent value="dental-info">
+                      <FramerCard>
+                        {
+                          <div className="flex min-w-0 flex-col rounded-xl border border-border/70 bg-background p-3 sm:p-4">
+                            <div className="min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <div>
+                                  <p className="text-xs text-muted-foreground">
+                                    Additional Details
+                                  </p>
+                                  <p className="mt-1 text-sm font-semibold text-foreground">
+                                    Dental Information
+                                  </p>
+                                </div>
+                                <Dialog
+                                  open={isCodingPopupOpen}
+                                  onOpenChange={(open) => {
+                                    setIsCodingPopupOpen(open);
+                                    if (open) {
+                                      // "Add coding" trigger → always start
+                                      // fresh in add mode (a cancelled edit
+                                      // must not leak into the next save).
+                                      setEditingEntryId(null);
+                                      setPopupCodingValue("");
+                                      setPopupConditionValue("");
+                                      setPopupTreatmentValue("");
+                                    }
+                                  }}
+                                >
+                                  <DialogTrigger className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:opacity-50">
+                                    <Plus className="size-3.5" />
+                                    Add coding
+                                  </DialogTrigger>
+                                  <DialogContent className="shadow-2xs sm:max-w-max md:max-w-1/2 lg:max-w-1/4">
+                                    <DialogHeader>
+                                      <DialogTitle>
+                                        {editingEntryId != null
+                                          ? "Edit coding entry"
+                                          : "Add coding entry"}
+                                      </DialogTitle>
+                                      <DialogDescription>
+                                        {editingEntryId != null
+                                          ? "Update the dental coding or its associated"
+                                          : "Select a dental coding and its associated"}{" "}
+                                        condition for tooth{" "}
+                                        <span className="font-medium text-foreground">
+                                          {editingEntry?.tooth ??
+                                            popupCodingValue.slice(-2) ??
+                                            currentTooth?.number}
+                                        </span>{" "}
+                                        (
+                                        {getToothName &&
+                                          getToothName(
+                                            editingEntry?.tooth ??
+                                              currentTooth?.number ??
+                                              "",
+                                          )}
+                                        ).
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="grid gap-4 py-2">
+                                      <div className="min-w-0">
+                                        <ReusableSelect
+                                          label="Coding"
+                                          options={popupCodingOptions}
+                                          value={popupCodingValue}
+                                          onChange={setPopupCodingValue}
+                                          onSearch={handleCodingSearch}
+                                          onLoadMore={handleLoadMoreCoding}
+                                          hasMore={hasMoreCoding}
+                                          isLoadingMore={
+                                            getDentalCodingLoadingMore
+                                          }
+                                          disabled={getDentalCodingLoading}
+                                        />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <ReusableSelect
+                                          label="Condition"
+                                          options={getDentalCondtionOptions}
+                                          value={popupConditionValue}
+                                          onChange={setPopupConditionValue}
+                                          disabled={
+                                            getDentalConditionLoading ||
+                                            !popupCodingValue
+                                          }
+                                        />
+                                      </div>
+                                      {popupConditionInfo ? (
+                                        <div className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-muted/30 p-3 sm:grid-cols-2">
+                                          <div className="min-w-0">
+                                            {/* <label className="mb-1.5 block text-xs text-muted-foreground"></label> */}
+                                            <TextField
+                                              type="text"
+                                              label="Condition"
+                                              readOnly
+                                              value={popupConditionInfo.name}
+                                              // className="h-9 w-full cursor-default rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none"
+                                            />
+                                          </div>
+                                          <div className="min-w-0">
+                                            {/* <label className="mb-1.5 block text-xs text-muted-foreground">
+                                              
+                                            </label> */}
+                                            <TextField
+                                              label="Severity"
+                                              type="text"
+                                              readOnly
+                                              value={
+                                                popupConditionInfo.severity ||
+                                                "—"
+                                              }
+                                              // className="h-9 w-full cursor-default rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none"
+                                            />
+                                          </div>
+                                          <div className="min-w-0">
+                                            {/* <label className="mb-1.5 block text-xs text-muted-foreground">
+                                              
+                                            </label> */}
+                                            <TextField
+                                              label="Risk score"
+                                              type="text"
+                                              readOnly
+                                              value={
+                                                popupConditionInfo.risk ||
+                                                "—"
+                                              }
+                                              // className="h-9 w-full cursor-default rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none"
+                                            />
+                                          </div>
+                                          <div className="min-w-0">
+                                            <ReusableSelect
+                                              label="Treatment"
+                                              options={
+                                                DentalTreatmentOptionData
+                                              }
+                                              value={popupTreatmentValue}
+                                              onChange={setPopupTreatmentValue}
+                                            />
+                                          </div>
+                                           <div className="min-w-0">
+                                           <TextField
+  type="text"
+  label="Surface"
+  value={popupSurfaceValue}
+  onChange={(e) => setPopupSurfaceValue(e.target.value)}
+/>
+
+                                           </div>
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                    <DialogFooter>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() =>
+                                          setIsCodingPopupOpen(false)
+                                        }
+                                      >
+                                        Cancel
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        onClick={handleSaveCodingEntry}
+                                      >
+                                        {editingEntryId != null
+                                          ? "Update"
+                                          : "Save"}
+                                      </Button>
+                                    </DialogFooter>
+                                  </DialogContent>
+                                </Dialog>
+                              </div>
+                              {dentalCodingEntries.length > 0 ? (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  {dentalCodingEntries.map((entry) => (
+                                    <span
+                                      key={entry.id}
+                                      title={
+                                        entry.conditionDescription
+                                          ? `${entry.conditionLabel}: ${entry.conditionDescription}`
+                                          : undefined
                                       }
-                                      aria-label={`Edit coding entry${entry.tooth != null ? ` for tooth ${entry.tooth}` : ""}`}
-                                      title="Click to edit this coding"
-                                      className="inline-flex cursor-pointer items-center gap-1 rounded-full font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                                      className="inline-flex items-end gap-1.5 rounded-full border border-border bg-muted/50 py-1 pl-2.5 pr-1 text-xs"
                                     >
-                                      {entry.codingLabel}
-                                      <Pencil className="size-3 text-muted-foreground/70" />
-                                    </button>
-                                    <span className="text-muted-foreground">
-                                      - {entry.conditionLabel}
-                                    </span>
-                                    {/* {entry.conditionSeverity ? (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleEditCodingEntry(entry)
+                                        }
+                                        aria-label={`Edit coding entry${entry.tooth != null ? ` for tooth ${entry.tooth}` : ""}`}
+                                        title="Click to edit this coding"
+                                        className="inline-flex cursor-pointer items-center gap-1 rounded-full font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                                      >
+                                        {entry.codingLabel}
+                                        <Pencil className="size-3 text-muted-foreground/70" />
+                                      </button>
+                                      <span className="text-muted-foreground">
+                                        - {entry.conditionLabel}
+                                      </span>
+                                      {entry.treatment ? (
+                                        <span className="text-muted-foreground">
+                                          · {entry.treatment}
+                                        </span>
+                                      ) : null}
+                                      {/* {entry.conditionSeverity ? (
                                       <span
                                         className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
                                           entry.conditionSeverity === "High"
@@ -2524,40 +2787,41 @@ export default function DentalAssessmentPage() {
                                           : ""}
                                       </span>
                                     ) : null} */}
-                                    {entry.tooth != null ? (
-                                      <span className="rounded-full bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                        Tooth {entry.tooth}
-                                      </span>
-                                    ) : null}
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        handleRemoveCodingEntry(entry.id)
-                                      }
-                                      aria-label="Remove coding entry"
-                                      className="ml-0.5 inline-flex size-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                                    >
-                                      <X className="size-3" />
-                                    </button>
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="mt-3 text-xs text-muted-foreground">
-                                No coding entries yet. Use "Add coding" to
-                                record findings.
-                              </p>
-                            )}
-                          </div>
+                                      {entry.tooth != null ? (
+                                        <span className="rounded-full bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                          Tooth {entry.tooth}
+                                        </span>
+                                      ) : null}
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleRemoveCodingEntry(entry.id)
+                                        }
+                                        aria-label="Remove coding entry"
+                                        className="ml-0.5 inline-flex size-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                                      >
+                                        <X className="size-3" />
+                                      </button>
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="mt-3 text-xs text-muted-foreground">
+                                  No coding entries yet. Use "Add coding" to
+                                  record findings.
+                                </p>
+                              )}
+                            </div>
 
-                          {/* Your additional fields can go here */}
-                          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            {/* Additional fields */}
+                            {/* Your additional fields can go here */}
+                            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                              {/* Additional fields */}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </FramerCard>
-                  </div>
+                        }
+                      </FramerCard>
+                    </TabsContent>
+                  </Tabs>
                 </div>
                 {/* </FramerCard> */}
 
@@ -2727,3 +2991,51 @@ function DetailField({ label, value, capitalize }) {
 //     </div>
 //   );
 // }
+// ---- Tab icons -------------------------------------------------------------
+// Shared base: strips duplicated svg boilerplate, sizes via the default
+// className (overridable), and colors through global.css tokens via
+// `fill="currentColor"` + text-* utility classes (e.g. text-primary maps to
+// var(--color-primary)). Pass `text-current` in className to inherit the
+// tab trigger's active/inactive color instead.
+
+function TabIconBase({ viewBox, className, children }) {
+  return (
+    <svg
+      viewBox={viewBox}
+      fill="currentColor"
+      aria-hidden="true"
+      className={cn("size-8 shrink-0", className)}
+    >
+      {children}
+    </svg>
+  );
+}
+
+// Clinical Findings tab — brand color (var(--color-primary)).
+const ToothTabIcon = ({ className }) => (
+  <TabIconBase
+    viewBox="0 0 24 24"
+    className={cn("text-primary size-6", className)}
+  >
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M14 13.5c.83 0 1.605-.26 2.245-.695l.005-.005l2.925 2.925a11.5 11.5 0 0 0-.17 2.02v2.08c0 1.195-.975 2.17-2.17 2.17h-.27a2.18 2.18 0 0 1-2.08-1.56l-.95-3.255c-.2-.7-.875-1.185-1.575-1.185s-1.325.445-1.555 1.105L9.22 20.535a2.165 2.165 0 0 1-2.05 1.46A2.174 2.174 0 0 1 5 19.825v-2.08c0-2.44-.61-3.815-1.26-5.27l-.004-.009C3.127 11.099 2.5 9.69 2.5 7.496c0-3.036 2.465-5.5 5.5-5.5c.733 0 1.357.283 1.96.557l.005.002l.016.007c.64.288 1.24.558 2.019.558c.785 0 1.395-.275 2.035-.565l.005-.002c.603-.274 1.227-.558 1.96-.558c3.035 0 5.5 2.465 5.5 5.5c0 2.2-.63 3.615-1.24 4.98l-.022.05c-.222.502-.44.993-.628 1.525l-2.305-2.305c.44-.64.695-1.415.695-2.245c0-2.205-1.795-4-4-4s-4 1.795-4 4s1.795 4 4 4m2.5-4a2.5 2.5 0 1 1-5 0a2.5 2.5 0 0 1 5 0"
+    />
+  </TabIconBase>
+);
+
+// Diagnosis & ICD Codes tab — info color (var(--color-info)).
+const IcdIcon = ({ className }) => (
+  <TabIconBase
+    viewBox="0 0 48 48"
+    className={cn("text-info size-6", className)}
+  >
+    <path d="M32 26v-4h1a2 2 0 1 1 0 4z" />
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M9 6a3 3 0 0 0-3 3v30a3 3 0 0 0 3 3h30a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3zm4 14a1 1 0 1 0 0 2h1v4h-1a1 1 0 1 0 0 2h4a1 1 0 1 0 0-2h-1v-4h1a1 1 0 1 0 0-2zm12.856 2.37a2.2 2.2 0 1 0 0 3.111a1 1 0 0 1 1.414 1.414a4.2 4.2 0 1 1 0-5.94a1 1 0 0 1-1.414 1.415M31 20a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2a4 4 0 0 0 0-8z"
+    />
+  </TabIconBase>
+);

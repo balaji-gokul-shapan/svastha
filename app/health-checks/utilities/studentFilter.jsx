@@ -2,9 +2,10 @@
 
 import ReusableSelect from "@/components/ui/reusable-select";
 import { getStudentByEvent } from "@/lib/features/getEventAssignSlice";
+import { fetchWithAuth } from "@/lib/auth-utils";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useQuery } from "@tanstack/react-query";
 import { findSelectedCamp } from "@/lib/useAssignedEvents";
+import { useQuery } from "@tanstack/react-query";
 import React, {
   useCallback,
   useEffect,
@@ -12,8 +13,10 @@ import React, {
   useRef,
   useState,
 } from "react";
-// import { selectAuthRole } from "@/lib/features/auth-slice";
-// import { useDispatch } from "react-redux";
+
+/* -------------------------------------------------------------------------- */
+/* Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
 
 const getStudentClass = (student) => {
   const classValue = student?.Class ?? student?.class;
@@ -33,7 +36,10 @@ const getStudentClass = (student) => {
 
 const getStudentSection = (student) => {
   const explicitSection = String(student?.sec ?? student?.section ?? "").trim();
-  if (explicitSection) return explicitSection;
+
+  if (explicitSection) {
+    return explicitSection;
+  }
 
   return (
     String(student?.grade ?? "")
@@ -42,152 +48,196 @@ const getStudentSection = (student) => {
   );
 };
 
+const getStudentId = (student) => {
+  return String(
+    student?.id ?? student?.studentId ?? student?.student_id ?? "",
+  ).trim();
+};
+
+const getStudentCode = (student) => {
+  return (
+    student?.studentId ??
+    student?.student_id ??
+    student?.school_registration_number ??
+    student?.admission_number ??
+    ""
+  );
+};
+
+const getStudentName = (student) => {
+  return student?.student_name ?? student?.name ?? "Unknown";
+};
+
+/* -------------------------------------------------------------------------- */
+/* Component                                                                  */
+/* -------------------------------------------------------------------------- */
+
 const StudentFilter = ({
   authUser,
   filterPayload,
   isLoading = false,
+
   schoolName = "all",
   academicYear = "all",
   classFilter = "all",
   sectionFilter = "all",
   studentFilter = "all",
+
   onSchoolNameChange,
   onAcademicYearChange,
   onClassFilterChange,
   onSectionFilterChange,
   onStudentFilterChange,
+
   assignedEvents,
+
   assignEventLoading = false,
   assignEventError = null,
+
   getStudentDataByEvent,
   setGetStudentDataByEvent,
 }) => {
   const dispatch = useAppDispatch();
-  const students = useMemo(
-    () => (Array.isArray(filterPayload?.items) ? filterPayload.items : []),
-    [filterPayload],
-  );
-  console.log(authUser, "authUser");
-  // const getRole=  selectAuthRole
-  // console.log(selectAuthRole,"selectAuthRole");
 
-  const studentsBySchoolAndYear = useMemo(
-    () =>
-      students.filter((student) => {
-        const studentSchool = String(
-          student?.school_name ?? student?.schoolName ?? student?.school ?? "",
-        ).trim();
-        const studentYear = String(
-          student?.academic_year ?? student?.academicYear ?? "",
-        ).trim();
+  /* ------------------------------------------------------------------------ */
+  /* Base students                                                            */
+  /* ------------------------------------------------------------------------ */
 
-        const schoolMatch =
-          schoolName === "all" ||
-          !studentSchool ||
-          studentSchool === schoolName;
-        const yearMatch =
-          academicYear === "all" ||
-          !studentYear ||
-          studentYear === academicYear;
+  const students = useMemo(() => {
+    return Array.isArray(filterPayload?.items) ? filterPayload.items : [];
+  }, [filterPayload]);
 
-        return schoolMatch && yearMatch;
-      }),
-    [academicYear, schoolName],
-  );
+  /* ------------------------------------------------------------------------ */
+  /* Role                                                                     */
+  /* ------------------------------------------------------------------------ */
 
-  // Role gate for the Camp/School selects. Matches checkDoctor in
-  // useStudentData: admins count as doctors.
   const isDoctor =
     authUser?.account_type === "doctor" || authUser?.account_type === "staff";
-  console.log(authUser, "isDoctor");
 
-  // const schoolOptions = useMemo(() => {
-  //   const unique = new Set();
+  const isSuperAdmin =
+    authUser?.account_type === "school" || authUser?.role === "school";
 
-  //   students.forEach((student) => {
-  //     const value = String(
-  //       student?.school_name ?? student?.schoolName ?? student?.school ?? "",
-  //     ).trim();
-  //     if (value) {
-  //       unique.add(value);
-  //     }
-  //   });
+  // Prevent unused-variable lint warning if this role is not currently used.
+  void isSuperAdmin;
 
-  //   return [
-  //     { label: "All Schools", value: "all" },
-  //     ...Array.from(unique)
-  //       .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-  //       .map((value) => ({ label: value, value })),
-  //   ];
-  // }, [students]);
+  /* ------------------------------------------------------------------------ */
+  /* Students filtered by school + academic year                              */
+  /* ------------------------------------------------------------------------ */
+
+  const studentsBySchoolAndYear = useMemo(() => {
+    return students.filter((student) => {
+      const studentSchool = String(
+        student?.school_name ?? student?.schoolName ?? student?.school ?? "",
+      ).trim();
+
+      const studentYear = String(
+        student?.academic_year ?? student?.academicYear ?? "",
+      ).trim();
+
+      const schoolMatch =
+        schoolName === "all" || !studentSchool || studentSchool === schoolName;
+
+      const yearMatch =
+        academicYear === "all" || !studentYear || studentYear === academicYear;
+
+      return schoolMatch && yearMatch;
+    });
+  }, [students, schoolName, academicYear]);
+
+  /* ------------------------------------------------------------------------ */
+  /* Camp options                                                             */
+  /* ------------------------------------------------------------------------ */
 
   const campOptions = useMemo(() => {
     const unique = new Set();
+
     const campList = Array.isArray(assignedEvents) ? assignedEvents : [];
-    console.log(campList, "campList");
 
     campList.forEach((camp) => {
       const value = String(
-        camp.name ?? camp.Name ?? camp.camp_name ?? "",
+        camp?.name ?? camp?.Name ?? camp?.camp_name ?? "",
       ).trim();
+
       if (value) {
         unique.add(value);
       }
     });
 
     return [
-      { label: "All Camps", value: "all" },
+      {
+        label: "All Camps",
+        value: "all",
+      },
+
       ...Array.from(unique)
-        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-        .map((value) => ({ label: value, value })),
+        .sort((a, b) =>
+          a.localeCompare(b, undefined, {
+            numeric: true,
+          }),
+        )
+        .map((value) => ({
+          label: value,
+          value,
+        })),
     ];
   }, [assignedEvents]);
 
-  console.log(campOptions, "campOptions");
+  /* ------------------------------------------------------------------------ */
+  /* Selected camp                                                            */
+  /* ------------------------------------------------------------------------ */
 
-  // Camp shown in the "Camp Name" select is derived from the active
-  // school filter, so the Camp and School selects can never disagree.
-  // Shared helper — same logic AssessmentCard uses. Exposes the camp's
-  // id, name and school: { id: 1, name: "Svastha Health Camp",
-  // schoolName: "Sudarshanam Vidyaashram" } or { id: null, name: "all",
-  // schoolName: "all" } when no camp is selected.
-  console.log(assignedEvents, schoolName, "schoolName");
+  const selectedCamp = useMemo(() => {
+    const result = findSelectedCamp(assignedEvents, schoolName);
 
-  const selectedCamp = useMemo(
-    () => findSelectedCamp(assignedEvents, schoolName),
-    [assignedEvents, schoolName],
-  );
+    return (
+      result ?? {
+        id: null,
+        name: "all",
+        schoolName: "all",
+      }
+    );
+  }, [assignedEvents, schoolName]);
 
-  // Local selection state for the Camp Name dropdown so the dropdown gives
-  // immediate feedback, then snaps in sync with the school-derived camp.
+  /* ------------------------------------------------------------------------ */
+  /* Camp selection                                                           */
+  /* ------------------------------------------------------------------------ */
+
   const [campSelection, setCampSelection] = useState("all");
 
   useEffect(() => {
-    setCampSelection(selectedCamp.name);
-  }, [selectedCamp.name]);
+    setCampSelection(selectedCamp?.name ?? "all");
+  }, [selectedCamp?.name]);
+
+  /* ------------------------------------------------------------------------ */
+  /* School options                                                           */
+  /* ------------------------------------------------------------------------ */
 
   const schoolOptions = useMemo(() => {
     const unique = new Set();
 
     const eventList = Array.isArray(assignedEvents) ? assignedEvents : [];
+
     eventList.forEach((event) => {
       const value = String(
         event?.school?.school_name ??
-          event?.school?.name ??
-          event?.school_name ??
-          event?.schoolName ??
-          "",
+        event?.school?.name ??
+        event?.school_name ??
+        event?.schoolName ??
+        "",
       ).trim();
+
       if (value) {
         unique.add(value);
       }
     });
 
+    // Fallback to students if events don't contain schools.
     if (unique.size === 0) {
       students.forEach((student) => {
         const value = String(
           student?.school_name ?? student?.schoolName ?? student?.school ?? "",
         ).trim();
+
         if (value) {
           unique.add(value);
         }
@@ -195,109 +245,310 @@ const StudentFilter = ({
     }
 
     return [
-      { label: "All Schools", value: "all" },
+      {
+        label: "All Schools",
+        value: "all",
+      },
+
       ...Array.from(unique)
-        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-        .map((value) => ({ label: value, value })),
+        .sort((a, b) =>
+          a.localeCompare(b, undefined, {
+            numeric: true,
+          }),
+        )
+        .map((value) => ({
+          label: value,
+          value,
+        })),
     ];
-  }, [assignedEvents]);
-  console.log(selectedCamp, "selectedCamp");
+  }, [assignedEvents, students]);
+
+  /* ------------------------------------------------------------------------ */
+  /* Get students by selected event                                           */
+  /* ------------------------------------------------------------------------ */
 
   const {
     data: getStundentByEvent,
     isLoading: getStundentByEventLoading,
     error: getStundentByEventError,
   } = useQuery({
-    queryKey: ["get-event-student", selectedCamp.id],
+    queryKey: [
+      "get-event-student",
+      selectedCamp?.id,
+      classFilter,
+      sectionFilter,
+    ],
+
     queryFn: async () => {
-      try {
-        const result = await dispatch(getStudentByEvent({ eventId: selectedCamp.id })).unwrap();
-        console.log("[StudentFilter] Raw thunk result:", result);
-        const items = Array.isArray(result?.items) ? result.items : Array.isArray(result) ? result : [];
-        console.log("[StudentFilter] Extracted items:", items.length, "items");
-        return items;
-      } catch (err) {
-        console.error("[StudentFilter] queryFn error:", err);
-        throw err;
+      if (!selectedCamp?.id) {
+        return [];
       }
+
+      const result = await dispatch(
+        getStudentByEvent({
+          eventId: selectedCamp.id,
+          page: 1,
+          perPage: 1000,
+          studentClass: classFilter === "all" ? "" : classFilter,
+          section: sectionFilter === "all" ? "" : sectionFilter,
+        }),
+      ).unwrap();
+
+      return Array.isArray(result?.items)
+        ? result.items
+        : Array.isArray(result)
+          ? result
+          : [];
     },
-    enabled: Boolean(selectedCamp.id),
+
+    enabled: Boolean(selectedCamp?.id),
+
     staleTime: 5 * 60 * 1000,
+
     refetchOnWindowFocus: false,
   });
 
-  console.log("[StudentFilter] selectedCamp.id:", selectedCamp?.id, "| enabled:", Boolean(selectedCamp?.id), "| loading:", getStundentByEventLoading, "| error:", getStundentByEventError?.message, "| data length:", Array.isArray(getStundentByEvent) ? getStundentByEvent.length : "not array");
+  /*
+   * Fetch ALL students (all pages) for complete class/section dropdown options.
+   *
+   * CRITICAL: Uses fetchWithAuth directly (NOT Redux dispatch) so this query
+   * never touches the shared Redux slice. Previously, dispatching getStudentByEvent
+   * here caused a race condition — the Redux PENDING handler clears state.students,
+   * and FULFILLED overwrites with all students — racing against the filtered query
+   * and causing the student dropdown to show wrong data.
+   */
+  const { data: allStudentsForFilters = [] } = useQuery({
+    queryKey: ["all-event-students-for-filters", selectedCamp?.id],
+    queryFn: async () => {
+      if (!selectedCamp?.id) return [];
 
-  // Update parent state after render to avoid "Cannot update a component while rendering" error
+      const allItems = [];
+      let page = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const params = new URLSearchParams({
+          page: String(page),
+          per_page: "1000",
+        });
+        const endpoint = `/api/medical-event/${encodeURIComponent(selectedCamp.id)}/students?${params.toString()}`;
+
+        try {
+          const { response } = await fetchWithAuth(endpoint, {
+            method: "GET",
+            headers: { Accept: "application/json" },
+          });
+
+          if (!response.ok) break;
+
+          const json = await response.json();
+
+          // Parse the students array from any reasonable response shape.
+          const findItems = (value, depth = 0) => {
+            if (depth > 4 || value == null) return null;
+            if (Array.isArray(value)) return value.length === 0 || typeof value[0] === "object" ? value : null;
+            if (typeof value !== "object") return null;
+            for (const key of ["students", "data", "items", "results", "records"]) {
+              const found = findItems(value[key], depth + 1);
+              if (found) return found;
+            }
+            return null;
+          };
+
+          const items = findItems(json) ?? [];
+          if (items.length === 0) break;
+
+          allItems.push(...items);
+
+          // Check if there are more pages.
+          const total =
+            Number(json?.students?.total) ||
+            Number(json?.data?.total) ||
+            Number(json?.total) ||
+            0;
+
+          if (total > 0 && allItems.length >= total) {
+            break;
+          } else if (items.length < 1000) {
+            // Got a partial page — no more data.
+            break;
+          } else {
+            page++;
+          }
+        } catch (err) {
+          console.warn(`[allStudentsForFilters] Page ${page} failed:`, err);
+          break;
+        }
+      }
+
+      return allItems;
+    },
+    enabled: Boolean(selectedCamp?.id),
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: "always",
+  });
+
+  /* ------------------------------------------------------------------------ */
+  /* Redux event student state                                                */
+  /* ------------------------------------------------------------------------ */
+
+  const eventAssignState = useAppSelector((state) => state.eventAssign);
+
+  /* ------------------------------------------------------------------------ */
+  /* Event students                                                           */
+  /* ------------------------------------------------------------------------ */
+
+  const eventStudents = useMemo(() => {
+    /*
+     * When a camp is selected, PREFER the Redux roster (`eventAssignState.students`)
+     * — it accumulates appended pages from infinite scroll (page 2+). The React
+     * Query result (`getStundentByEvent`) is page 1 ONLY, so preferring it would
+     * cap the dropdown at the first page forever.
+     *
+     * The slice is a reliable source now: the allStudentsForFilters query fetches
+     * via fetchWithAuth directly and never touches Redux, so the roster is written
+     * only by the filtered query + load-more appends.
+     */
+    if (selectedCamp?.id) {
+      const roster = eventAssignState?.students;
+
+      if (Array.isArray(roster) && roster.length > 0) {
+        return roster;
+      }
+
+      // Slice not yet filled (page-1 request still in flight) — fall back to
+      // the query result so the dropdown isn't empty for a frame.
+      if (Array.isArray(getStundentByEvent)) {
+        return getStundentByEvent;
+      }
+
+      return [];
+    }
+
+    // No camp selected: use the Redux roster as a fallback.
+    const roster = eventAssignState?.students;
+    if (Array.isArray(roster)) return roster;
+
+    const legacy = eventAssignState?.fetchedRecord;
+    if (Array.isArray(legacy)) return legacy;
+
+    return [];
+  }, [
+    selectedCamp?.id,
+    getStundentByEvent,
+    eventAssignState?.students,
+    eventAssignState?.fetchedRecord,
+  ]);
+
+  /* ------------------------------------------------------------------------ */
+  /* Send event students to parent                                            */
+  /*                                                                          */
+  /* NOTE: must be declared AFTER the eventStudents memo above — it reads it. */
+  /* ------------------------------------------------------------------------ */
+
   useEffect(() => {
     if (typeof setGetStudentDataByEvent === "function") {
-      setGetStudentDataByEvent(getStundentByEvent);
+      // Send the full accumulated roster (all loaded pages), not just the
+      // page-1 query result — otherwise students picked from page 2+ can't
+      // be resolved by the parent.
+      setGetStudentDataByEvent(eventStudents);
     }
-  }, [getStundentByEvent, setGetStudentDataByEvent]);
+  }, [eventStudents, setGetStudentDataByEvent]);
 
-  console.log(getStudentDataByEvent, "getStudentDataByEvent");
+  /* ------------------------------------------------------------------------ */
+  /* Pagination state                                                         */
+  /* ------------------------------------------------------------------------ */
 
-  // Students belonging to the selected camp/event. Read from the Redux slice's
-  // dedicated `students` field so that infinite-scroll appends (page 2+) are
-  // reflected and the camps query can never clobber the roster.
-  // The useQuery only triggers page 1; subsequent pages dispatch directly.
-  const eventAssignState = useAppSelector((state) => state.eventAssign);
-  const eventStudents = useMemo(() => {
-    // Primary source: slice.students (always a flat array)
-    const roster = eventAssignState?.students;
-    if (Array.isArray(roster) && roster.length) {
-      return roster;
-    }
-    // Legacy fallback: fetchedRecord (may be flat array)
-    const legacy = eventAssignState?.fetchedRecord;
-    if (Array.isArray(legacy) && legacy.length) {
-      return legacy;
-    }
-    // Last resort: the useQuery result (flat array from queryFn)
-    if (Array.isArray(getStundentByEvent)) {
-      return getStundentByEvent;
-    }
-    if (Array.isArray(getStundentByEvent?.items)) {
-      return getStundentByEvent.items;
-    }
-    return [];
-  }, [eventAssignState?.students, eventAssignState?.fetchedRecord, getStundentByEvent]);
-
-  // Pagination metadata from the slice (studentTotal, studentPage, loadingMore).
-  // studentHasMore is computed in the slice (trusts backend total when given,
-  // falls back to "full page = probably more" and dedupe-based bail-out).
   const studentTotal = eventAssignState?.studentTotal ?? 0;
+
   const studentPage = eventAssignState?.studentPage ?? 1;
+
+  // Page size the roster was actually loaded with (set by the fulfilled
+  // handler from the initial query's arg). Load-more MUST reuse it — mixing
+  // page sizes makes backend page N overlap already-loaded records, so the
+  // dedupe appends nothing and infinite scroll looks broken.
+  const studentPerPage = eventAssignState?.studentPerPage ?? 1000;
+
   const studentTotalKnown = eventAssignState?.studentTotalKnown ?? false;
+
   const loadingMoreStudents = eventAssignState?.loadingMore ?? false;
+
   const hasMoreStudents = eventAssignState?.studentHasMore ?? false;
 
-  // Infinite scroll: dispatch the next page when the dropdown bottom is reached.
+  /* ------------------------------------------------------------------------ */
+  /* Load more students                                                       */
+  /*                                                                          */
+  /* IMPORTANT:                                                              */
+  /* This is the ONLY pagination trigger.                                    */
+  /* Do NOT add another useEffect that fetches all pages.                     */
+  /* ------------------------------------------------------------------------ */
+
   const handleLoadMoreStudents = useCallback(() => {
-    if (loadingMoreStudents || !hasMoreStudents) return;
+    if (!selectedCamp?.id) {
+      return;
+    }
+
+    if (loadingMoreStudents) {
+      return;
+    }
+
+    if (!hasMoreStudents) {
+      return;
+    }
+
     const nextPage = studentPage + 1;
-    dispatch(getStudentByEvent({ eventId: selectedCamp.id, page: nextPage, perPage: 50 }));
-  }, [dispatch, selectedCamp?.id, studentPage, loadingMoreStudents, hasMoreStudents]);
 
-  // Search across the FULL camp roster: typing in the Student select first
-  // fetches any not-yet-loaded pages (beyond the initial 50), then filters
-  // every student — so a match on page 7 is found without scrolling.
+    dispatch(
+      getStudentByEvent({
+        eventId: selectedCamp.id,
+        page: nextPage,
+        // Reuse the page size the initial load used — NEVER a different one.
+        perPage: studentPerPage || 1000,
+        studentClass: classFilter === "all" ? "" : classFilter,
+        section: sectionFilter === "all" ? "" : sectionFilter,
+      }),
+    );
+  }, [
+    dispatch,
+    selectedCamp?.id,
+    studentPage,
+    studentPerPage,
+    loadingMoreStudents,
+    hasMoreStudents,
+    classFilter,
+    sectionFilter,
+  ]);
+
+  /* ------------------------------------------------------------------------ */
+  /* Student search                                                           */
+  /* ------------------------------------------------------------------------ */
+
   const [studentSearchOptions, setStudentSearchOptions] = useState(null);
-
-  // Latest-value refs keep handleStudentSearch's identity stable, so the
-  // select's debounce effect doesn't re-fire every time the roster grows.
   const rosterRef = useRef(eventStudents);
   const rosterPageRef = useRef(studentPage);
   const rosterTotalRef = useRef(studentTotal);
   const rosterTotalKnownRef = useRef(studentTotalKnown);
+
   rosterRef.current = eventStudents;
   rosterPageRef.current = studentPage;
   rosterTotalRef.current = studentTotal;
   rosterTotalKnownRef.current = studentTotalKnown;
 
+  /* ------------------------------------------------------------------------ */
+  /* Search students                                                          */
+  /* ------------------------------------------------------------------------ */
+
   const handleStudentSearch = useCallback(
     async (keyword) => {
-      const term = String(keyword ?? "").trim().toLowerCase();
+      const term = String(keyword ?? "")
+        .trim()
+        .toLowerCase();
+
+      /* -------------------------------------------------------------- */
+      /* Clear search                                                    */
+      /* -------------------------------------------------------------- */
+
       if (!term) {
         setStudentSearchOptions(null);
         return;
@@ -305,113 +556,226 @@ const StudentFilter = ({
 
       const seen = new Set();
       const allStudents = [];
+
       const pushAll = (list) => {
-        (list ?? []).forEach((student) => {
-          const key = String(
-            student?.id ?? student?.student_id ?? student?.student_name ?? "",
-          );
-          if (key && !seen.has(key)) {
-            seen.add(key);
+        if (!Array.isArray(list)) {
+          return;
+        }
+
+        list.forEach((student) => {
+          const key = getStudentId(student);
+
+          /*
+           * If ID is unavailable, use a combination
+           * of name + code to prevent duplicate records.
+           */
+          const fallbackKey = [
+            student?.student_name,
+            student?.name,
+            getStudentCode(student),
+          ]
+            .filter(Boolean)
+            .join("-");
+
+          const finalKey = key || fallbackKey;
+
+          if (finalKey && !seen.has(finalKey)) {
+            seen.add(finalKey);
             allStudents.push(student);
           }
         });
       };
+
+      /* -------------------------------------------------------------- */
+      /* Start with already loaded students                             */
+      /* -------------------------------------------------------------- */
+
       pushAll(rosterRef.current);
 
-      // Fetch remaining pages until the roster is complete. Robust against
-      // backend quirks: keep going until an empty page, a page that adds
-      // nothing new (backend repeating itself), or the reported total —
-      // do NOT trust item counts or per_page being honored.
-      let page = rosterPageRef.current;
-      let guard = 60; // ≈ 3000 students max
-      try {
-        while (guard-- > 0) {
-          // Only trust the total when the backend actually reported one.
-          // A faked total (= items.length of the first page) would read as
-          // "all loaded" and abort the search before page 2.
-          const total = rosterTotalRef.current;
-          const totalKnown = rosterTotalKnownRef.current;
-          if (totalKnown && total && allStudents.length >= total) break;
-          const result = await dispatch(
-            getStudentByEvent({
-              eventId: selectedCamp?.id,
-              page: page + 1,
-              perPage: 50,
-            }),
-          ).unwrap();
-          const items = Array.isArray(result?.items) ? result.items : [];
-          if (!items.length) break; // genuine end of data
-          const before = allStudents.length;
-          pushAll(items);
-          page = result?.page ?? page + 1;
-          if (allStudents.length === before) break; // backend repeating a page
-        }
-      } catch {
-        // Page fetch failed — fall back to filtering whatever is loaded.
+      /* -------------------------------------------------------------- */
+      /* Search currently loaded data first                              */
+      /* -------------------------------------------------------------- */
+
+      const createMatches = () => {
+        return allStudents
+          .filter((student) => {
+            const studentClass = getStudentClass(student);
+
+            const studentSection = getStudentSection(student);
+
+            const classMatch =
+              classFilter === "all" ||
+              String(studentClass).trim() === String(classFilter).trim();
+
+            const sectionMatch =
+              sectionFilter === "all" ||
+              String(studentSection).trim() === String(sectionFilter).trim();
+
+            if (!classMatch || !sectionMatch) {
+              return false;
+            }
+
+            const code = getStudentCode(student);
+
+            const haystack = [
+              student?.student_name,
+              student?.name,
+              code,
+              studentClass,
+              studentSection,
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase();
+
+            return haystack.includes(term);
+          })
+          .map((student) => {
+            const value = getStudentId(student);
+
+            const code = getStudentCode(student);
+
+            return {
+              value,
+              label: `${getStudentName(student)}${code ? ` (${code})` : ""}`,
+            };
+          })
+          .filter((item) => item.value);
+      };
+
+      /* -------------------------------------------------------------- */
+      /* If we already found matches, don't unnecessarily fetch pages.  */
+      /* -------------------------------------------------------------- */
+
+      let matches = createMatches();
+
+      if (matches.length > 0) {
+        setStudentSearchOptions(matches);
+        return;
       }
 
-      // Same label/value shape as studentOptions, honoring class/section filters.
-      const matches = allStudents
-        .filter((student) => {
-          const studentClass = getStudentClass(student);
-          const studentSection = getStudentSection(student);
-          const classMatch = classFilter === "all" || studentClass === classFilter;
-          const sectionMatch =
-            sectionFilter === "all" || studentSection === sectionFilter;
-          if (!classMatch || !sectionMatch) return false;
+      /* -------------------------------------------------------------- */
+      /* Fetch remaining pages only while searching                      */
+      /* -------------------------------------------------------------- */
 
-          const code =
-            student?.studentId ??
-            student?.student_id ??
-            student?.school_registration_number ??
-            student?.admission_number;
-          const haystack = [
-            student?.student_name,
-            student?.name,
-            code,
-            studentClass,
-            studentSection,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-          return haystack.includes(term);
-        })
-        .map((student) => {
-          const value = String(student?.id ?? student?.studentId ?? "").trim();
-          const code =
-            student?.studentId ??
-            student?.student_id ??
-            student?.school_registration_number ??
-            student?.admission_number;
-          return {
-            value,
-            label: `${student?.student_name ?? student?.name ?? "Unknown"}${
-              code ? ` (${code})` : ""
-            }`,
-          };
-        })
-        .filter((item) => item.value);
+      let page = rosterPageRef.current;
 
-      console.log(
-        `[StudentFilter] search "${term}": scanned ${allStudents.length} students (started with ${rosterRef.current.length}) → ${matches.length} match(es)`,
-      );
+      let guard = 1000;
+
+      try {
+        while (guard-- > 0) {
+          const total = rosterTotalRef.current;
+
+          const totalKnown = rosterTotalKnownRef.current;
+
+          /*
+           * Stop if backend has told us
+           * the complete total.
+           */
+          if (totalKnown && total > 0 && allStudents.length >= total) {
+            break;
+          }
+
+          const nextPage = page + 1;
+
+        const result = await dispatch(
+  getStudentByEvent({
+    eventId: selectedCamp?.id,
+    page: nextPage,
+    perPage: 1000,
+    studentClass:
+      classFilter === "all" ? "" : classFilter,
+    section:
+      sectionFilter === "all" ? "" : sectionFilter,
+  }),
+).unwrap();
+
+
+          const items = Array.isArray(result?.items)
+            ? result.items
+            : Array.isArray(result)
+              ? result
+              : [];
+
+          /* -------------------------------------------------------- */
+          /* Stop at an empty page                                    */
+          /* -------------------------------------------------------- */
+
+          if (!items.length) {
+            break;
+          }
+
+          const beforeCount = allStudents.length;
+
+          pushAll(items);
+
+          page = result?.page ?? nextPage;
+
+          /*
+           * Backend returned same students again.
+           * Stop to avoid infinite requests.
+           */
+          if (allStudents.length === beforeCount) {
+            break;
+          }
+
+          matches = createMatches();
+
+          /*
+           * Once search finds a result,
+           * stop loading more pages.
+           */
+          if (matches.length > 0) {
+            break;
+          }
+        }
+      } catch (error) {
+        console.error("[StudentFilter] Student search error:", error);
+      }
+
+      /* -------------------------------------------------------------- */
+      /* Final search result                                            */
+      /* -------------------------------------------------------------- */
+
+      matches = createMatches();
+
       setStudentSearchOptions(matches);
     },
     [dispatch, selectedCamp?.id, classFilter, sectionFilter],
   );
 
-  const optionStudents = eventStudents.length
+  /* ------------------------------------------------------------------------ */
+  /* Option students                                                          */
+  /* ------------------------------------------------------------------------ */
+
+  /**
+   * When a camp is selected, prefer the API-filtered result from the useQuery
+   * (`getStundentByEvent`) which already has class/section applied server-side.
+   * Fall back to the Redux roster (eventStudents) or the filterPayload students
+   * when no camp is selected or the query hasn't resolved yet.
+   */
+  const optionStudents = useMemo(() => {
+  if (selectedCamp?.id) {
+    return Array.isArray(getStundentByEvent)
+      ? getStundentByEvent
+      : [];
+  }
+
+  return eventStudents.length > 0
     ? eventStudents
     : studentsBySchoolAndYear;
+}, [
+  selectedCamp?.id,
+  getStundentByEvent,
+  eventStudents,
+  studentsBySchoolAndYear,
+]);
 
-  console.log(
-    "[StudentFilter] roster:", eventStudents.length,
-    "| total:", studentTotal,
-    "| page:", studentPage,
-    "| optionStudents:", optionStudents.length,
-    "| source:", eventStudents.length ? "Redux roster" : "filterPayload fallback",
-  );
+
+
+  /* ------------------------------------------------------------------------ */
+  /* Academic year options                                                    */
+  /* ------------------------------------------------------------------------ */
 
   const academicYearOptions = useMemo(() => {
     const unique = new Set();
@@ -420,25 +784,47 @@ const StudentFilter = ({
       const value = String(
         student?.academic_year ?? student?.academicYear ?? "",
       ).trim();
+
       if (value) {
         unique.add(value);
       }
     });
 
     return [
-      { label: "All Academic Years", value: "all" },
+      {
+        label: "All Academic Years",
+        value: "all",
+      },
+
       ...Array.from(unique)
-        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-        .map((value) => ({ label: value, value })),
+        .sort((a, b) =>
+          a.localeCompare(b, undefined, {
+            numeric: true,
+          }),
+        )
+        .map((value) => ({
+          label: value,
+          value,
+        })),
     ];
   }, [optionStudents]);
 
-  console.log(academicYearOptions, "academicYearOptions");
+  /* ------------------------------------------------------------------------ */
+  /* Class options                                                            */
+  /* ------------------------------------------------------------------------ */
 
   const classOptions = useMemo(() => {
     const unique = new Set();
 
-    optionStudents.forEach((student) => {
+    /*
+     * Use allStudentsForFilters for complete class dropdown options.
+     */
+    const allStudentsForClasses = [
+      ...(Array.isArray(allStudentsForFilters) ? allStudentsForFilters : []),
+      ...(Array.isArray(optionStudents) ? optionStudents : []),
+    ];
+
+    allStudentsForClasses.forEach((student) => {
       const value = getStudentClass(student);
 
       if (value) {
@@ -447,57 +833,124 @@ const StudentFilter = ({
     });
 
     return [
-      { label: "All Classes", value: "all" },
+      {
+        label: "All Classes",
+        value: "all",
+      },
       ...Array.from(unique)
-        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-        .map((value) => ({ label: value, value })),
+        .sort((a, b) =>
+          a.localeCompare(b, undefined, {
+            numeric: true,
+          }),
+        )
+        .map((value) => ({
+          label: value,
+          value,
+        })),
     ];
-  }, [optionStudents]);
+  }, [allStudentsForFilters, optionStudents]);
+
+  /* ------------------------------------------------------------------------ */
+  /* Section options                                                          */
+  /* ------------------------------------------------------------------------ */
+  // useEffect(() => {
+  //   if (classFilter === "all") {
+  //     onSectionFilterChange?.("all");
+  //     onStudentFilterChange?.("all");
+  //     return;
+  //   }
+
+  //   onSectionFilterChange?.("all");
+  //   onStudentFilterChange?.("all");
+  // }, [classFilter, onSectionFilterChange, onStudentFilterChange]);
+  /* ------------------------------------------------------------------------ */
+  /* Section options                                                          */
+  /* ------------------------------------------------------------------------ */
 
   const sectionOptions = useMemo(() => {
     const unique = new Set();
 
-    // Derive sections from the FULL roster (eventStudents) so all sections
-    // always appear regardless of the selected class filter. Filtering by
-    // class here would hide sections that don't have students in the selected
-    // class (e.g. picking class "1" would drop sections that only exist in
-    // other classes).
-    eventStudents.forEach((student) => {
-      const value = getStudentSection(student);
+    /*
+     * Use allStudentsForFilters for complete section dropdown options.
+     * This includes all pages of event students (loaded via useQuery above)
+     * plus any students from filterPayload.
+     */
 
-      if (value) {
-        unique.add(value);
+    const allStudentsForSections = [
+      ...(Array.isArray(allStudentsForFilters) ? allStudentsForFilters : []),
+      ...(Array.isArray(studentsBySchoolAndYear)
+        ? studentsBySchoolAndYear
+        : []),
+    ];
+
+    const seenStudents = new Set();
+
+    allStudentsForSections.forEach((student) => {
+      const studentId = getStudentId(student);
+      const studentCode = getStudentCode(student);
+      const studentName = getStudentName(student);
+
+      const studentClass = getStudentClass(student);
+      const studentSection = getStudentSection(student);
+
+      /*
+       * Prevent duplicate students because the same student can exist
+       * in both arrays.
+       */
+      const uniqueStudentKey =
+        studentId ||
+        `${studentName}-${studentCode}-${studentClass}-${studentSection}`;
+
+      if (seenStudents.has(uniqueStudentKey)) {
+        return;
+      }
+
+      seenStudents.add(uniqueStudentKey);
+
+      /*
+       * Only show sections belonging to selected class.
+       */
+      const classMatch =
+        classFilter === "all" ||
+        String(studentClass).trim().toLowerCase() ===
+        String(classFilter).trim().toLowerCase();
+
+      if (!classMatch) {
+        return;
+      }
+
+      if (studentSection) {
+        unique.add(String(studentSection).trim());
       }
     });
 
     return [
-      { label: "All Sections", value: "all" },
+      {
+        label: "All Sections",
+        value: "all",
+      },
+
       ...Array.from(unique)
-        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-        .map((value) => ({ label: value, value })),
+        .sort((a, b) =>
+          a.localeCompare(b, undefined, {
+            numeric: true,
+            sensitivity: "base",
+          }),
+        )
+        .map((section) => ({
+          label: section,
+          value: section,
+        })),
     ];
-  }, [eventStudents]);
+  }, [allStudentsForFilters, studentsBySchoolAndYear, classFilter]);
 
+  /* ------------------------------------------------------------------------ */
+  /* Student options                                                          */
+  /* ------------------------------------------------------------------------ */
   const studentOptions = useMemo(() => {
-    const matchesBoth = optionStudents.filter((student) => {
-      const studentClass = getStudentClass(student);
-      const studentSection = getStudentSection(student);
-      const classMatch = classFilter === "all" || studentClass === classFilter;
-      const sectionMatch = sectionFilter === "all" || studentSection === sectionFilter;
-      return classMatch && sectionMatch;
-    });
-
-    // Fallback: when no student matches both class AND section (e.g. class 1 +
-    // section A exists but no student is in both), show all students matching the
-    // class filter instead of an empty list.
-    const filtered =
-      matchesBoth.length > 0
-        ? matchesBoth
-        : classFilter !== "all"
-          ? optionStudents.filter((student) => getStudentClass(student) === classFilter)
-          : sectionFilter !== "all"
-            ? optionStudents.filter((student) => getStudentSection(student) === sectionFilter)
-            : optionStudents;
+    const filtered = Array.isArray(optionStudents)
+      ? optionStudents
+      : [];
 
     return [
       {
@@ -507,31 +960,62 @@ const StudentFilter = ({
 
       ...filtered
         .map((student) => {
-          const value = String(student?.id ?? student?.studentId ?? "").trim();
-
-          const code =
-            student?.studentId ??
-            student?.student_id ??
-            student?.school_registration_number ??
-            student?.admission_number;
+          const value = getStudentId(student);
+          const code = getStudentCode(student);
 
           return {
             value,
-            label: `${student?.student_name ?? student?.name ?? "Unknown"}${
-              code ? ` (${code})` : ""
-            }`,
+            label: `${getStudentName(student)}${code ? ` (${code})` : ""
+              }`,
           };
         })
         .filter((item) => item.value),
     ];
-  }, [optionStudents, classFilter, sectionFilter]);
-  console.log(studentOptions, "studentOptions");
+  }, [optionStudents]);
+
+  /* ------------------------------------------------------------------------ */
+  /* Clear search when filters change                                         */
+  /* ------------------------------------------------------------------------ */
+
+  useEffect(() => {
+    setStudentSearchOptions(null);
+  }, [selectedCamp?.id, classFilter, sectionFilter]);
+
+  /* ------------------------------------------------------------------------ */
+  /* Reset search while loading a new page                                    */
+  /* ------------------------------------------------------------------------ */
+
+  useEffect(() => {
+    if (!loadingMoreStudents) {
+      return;
+    }
+
+    /*
+     * Don't clear the search options here.
+     * The select can continue displaying its current results.
+     */
+  }, [loadingMoreStudents]);
+
+  /* ------------------------------------------------------------------------ */
+  /* Loading state                                                            */
+  /* ------------------------------------------------------------------------ */
+
+  const studentLoading = isLoading || getStundentByEventLoading;
+
+  /* ------------------------------------------------------------------------ */
+  /* Render                                                                   */
+  /* ------------------------------------------------------------------------ */
 
   return (
     <>
       <div
-        className={`grid gap-3 sm:grid-cols-2 ${isDoctor ? "xl:grid-cols-5" : "xl:grid-cols-4"}`}
+        className={`grid gap-3 sm:grid-cols-2 ${isDoctor ? "xl:grid-cols-5" : "xl:grid-cols-4"
+          }`}
       >
+        {/* ---------------------------------------------------------------- */}
+        {/* Camp                                                               */}
+        {/* ---------------------------------------------------------------- */}
+
         {isDoctor && (
           <>
             <ReusableSelect
@@ -539,27 +1023,31 @@ const StudentFilter = ({
               options={campOptions}
               value={campSelection}
               onChange={(value) => {
-                // Immediate feedback for the dropdown itself.
                 setCampSelection(value);
 
                 if (value === "all") {
                   onSchoolNameChange?.("all");
+
                   return;
                 }
 
-                // Selecting a camp drives the existing school filter via
-                // that camp's school, so student filtering keeps working
-                // without new parent state.
                 const campList = Array.isArray(assignedEvents)
                   ? assignedEvents
                   : [];
+
                 const selectedEvent = campList.find(
-                  (event) => String(event?.name ?? "").trim() === value,
+                  (event) =>
+                    String(
+                      event?.name ?? event?.Name ?? event?.camp_name ?? "",
+                    ).trim() === String(value).trim(),
                 );
+
                 const eventSchool = String(
                   selectedEvent?.school?.school_name ??
-                    selectedEvent?.school?.name ??
-                    "",
+                  selectedEvent?.school?.name ??
+                  selectedEvent?.school_name ??
+                  selectedEvent?.schoolName ??
+                  "",
                 ).trim();
 
                 onSchoolNameChange?.(eventSchool || "all");
@@ -568,8 +1056,6 @@ const StudentFilter = ({
                 assignEventLoading ? "Loading camps..." : "Select Camp"
               }
               searchPlaceholder="Search Camp"
-              // Disabled only while something is loading — an empty or
-              // errored camp list must not permanently lock the select.
               disabled={isLoading || assignEventLoading}
             />
 
@@ -580,6 +1066,10 @@ const StudentFilter = ({
             ) : null}
           </>
         )}
+
+        {/* ---------------------------------------------------------------- */}
+        {/* School                                                             */}
+        {/* ---------------------------------------------------------------- */}
 
         {isDoctor && (
           <ReusableSelect
@@ -592,6 +1082,11 @@ const StudentFilter = ({
             disabled={isLoading}
           />
         )}
+
+        {/* ---------------------------------------------------------------- */}
+        {/* Academic Year                                                      */}
+        {/* ---------------------------------------------------------------- */}
+
         <ReusableSelect
           label="Academic Year"
           options={academicYearOptions}
@@ -602,12 +1097,23 @@ const StudentFilter = ({
           disabled={isLoading}
         />
 
-        <div className="xl:col-span-1 grid grid-cols-2 gap-3">
+        {/* ---------------------------------------------------------------- */}
+        {/* Class + Section                                                   */}
+        {/* ---------------------------------------------------------------- */}
+
+        <div className="grid grid-cols-2 gap-3 xl:col-span-1">
           <ReusableSelect
             label="Class"
             options={classOptions}
             value={classFilter}
-            onChange={onClassFilterChange}
+            onChange={(value) => {
+              // Change class
+              onClassFilterChange?.(value);
+
+              // Reset dependent filters
+              onSectionFilterChange?.("all");
+              onStudentFilterChange?.("all");
+            }}
             placeholder="Select class"
             searchPlaceholder="Search class"
             disabled={isLoading}
@@ -617,19 +1123,30 @@ const StudentFilter = ({
             label="Section"
             options={sectionOptions}
             value={sectionFilter}
-            onChange={onSectionFilterChange}
+            onChange={(value) => {
+              onSectionFilterChange?.(value);
+
+              // Reset student when section changes
+              onStudentFilterChange?.("all");
+            }}
             placeholder="Select section"
             searchPlaceholder="Search section"
             disabled={isLoading}
           />
         </div>
 
+        {/* ---------------------------------------------------------------- */}
+        {/* Student                                                            */}
+        {/* ---------------------------------------------------------------- */}
+
         <ReusableSelect
           label="Student"
           options={studentSearchOptions ?? studentOptions}
           value={studentFilter}
           onChange={onStudentFilterChange}
-          placeholder="Select student"
+          placeholder={
+            studentLoading ? "Loading students..." : "Select student"
+          }
           searchPlaceholder="Search student"
           disabled={isLoading}
           onSearch={handleStudentSearch}
@@ -642,6 +1159,8 @@ const StudentFilter = ({
   );
 };
 
-// Memoized: prevents re-rendering all five selects (and their option lists)
-// on every keystroke in the parent screening form.
+/* -------------------------------------------------------------------------- */
+/* Memoized component                                                         */
+/* -------------------------------------------------------------------------- */
+
 export default React.memo(StudentFilter);

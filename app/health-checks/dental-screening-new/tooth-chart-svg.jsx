@@ -60,7 +60,7 @@ function ToothRow({ teeth, chartByNumber, selectedTooth, onSelect, arc = "up" })
         {teeth.map((number, index) => {
           const distance = Math.abs(index - midpoint);
           const normalized = midpoint === 0 ? 0 : distance / midpoint;
-          const curveAmount = Math.round((1 - normalized * normalized) * 20);
+          const curveAmount = Math.round((1 - normalized * normalized) * 35);
           const translateY = arc === "up" ? -curveAmount : curveAmount;
 
           return (

@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
 import ManOutline24pxIcon from "@iconify-react/healthicons/man-outline-24px";
 import Boy0105y24pxIcon from "@iconify-react/healthicons/boy-0105y-24px";
+import CodingToothIcon from "./CodingToothIcon";
 // Tooth silhouette — FontAwesome "tooth" path (two-rooted molar shape).
 // Reused at both small (chart) and large (detail panel) sizes.
 function ToothShape({ status, className, size = 28 }) {
@@ -61,8 +62,8 @@ function ToothButton({ tooth, toothNumber, isSelected, onSelect }) {
       )}
     >
       {safeTooth.status === "other" ? (
-        <AlertTriangle
-          className={cn("size-4", colorClass)}
+        <CodingToothIcon
+          className={cn("size-8", colorClass)}
           strokeWidth={2.25}
         />
       ) : (
@@ -77,6 +78,7 @@ function ToothRow({
   chartByNumber,
   selectedTooth,
   onSelect,
+  activeTab,
   arc = "up",
   // Vertical-flip each tooth glyph (crown toward the occlusal divider) — used
   // by the upper arch. Flip per tooth instead of rotating the whole row: a row
@@ -89,15 +91,18 @@ function ToothRow({
 
   return (
     <div
-      className={cn(
-        "mx-auto my-2 md:my-1 flex items-center justify-center gap-1.5 px-1",
-        className,
+       className={cn(
+        "mx-auto my-2 md:my-1 flex items-center justify-center gap-1.5 sm:gap-1.5 md:gap-2 lg:gap-2  px-1",
+        // activeTab === "primary"
+        //   ? "w-[calc(100vw-100%)]"
+        //   : "w-[calc(100vw-85%)]",
+        className
       )}
     >
       {teeth.map((number, index) => {
         const distance = Math.abs(index - midpoint);
         const normalized = midpoint === 0 ? 0 : distance / midpoint;
-        const curveAmount = Math.round((1 - normalized * normalized) * 20);
+        const curveAmount = Math.round((1 - normalized * normalized) * 35);
         const translateY = arc === "up" ? -curveAmount : curveAmount;
 
         return (
@@ -120,9 +125,16 @@ function ToothRow({
   );
 }
 
-function NumberRow({ teeth }) {
+function NumberRow({ teeth, activeTab }) {
   return (
-    <div className="flex items-center justify-center gap-1.5 sm:gap-1.5 md:gap-2 lg:gap-2 p-2 my-4">
+    <div 
+    className={cn(
+        "flex items-center justify-center gap-1.5 sm:gap-1.5 md:gap-2 lg:gap-2 p-4 my-4 mx-auto",
+        // activeTab === "primary"
+        //   ? "w-[calc(100vw-100%)]"
+        //   : "w-[calc(100vw-850%)]"
+      )}
+      >
       {/* Values can repeat (e.g. position rows render 8..1,1..8), so suffix the
           index to keep keys unique; lists here are static, so keys stay stable. */}
       {teeth.map((number, index) => (
@@ -214,16 +226,17 @@ export function ToothChartSvg({
               Upper (Maxillary)
             </p>
 
-            <NumberRow teeth={PRIMARY_TEETH_UPPER} />
+            <NumberRow teeth={PRIMARY_TEETH_UPPER} activeTab={activeToothTab} />
             <ToothRow
               teeth={PRIMARY_TEETH_UPPER}
               chartByNumber={chartByNumber}
               selectedTooth={selectedPrimaryTooth}
               onSelect={handlePrimarySelect}
+              activeTab={activeToothTab}
               arc="up"
               flip
             />
-            <NumberRow teeth={UPPER_TEETH_POSITION_PRIMARY} />
+            <NumberRow teeth={UPPER_TEETH_POSITION_PRIMARY} activeTab={activeToothTab} />
           </div>
 
           {/* Occlusal divider — centered, narrower than the card */}
@@ -233,7 +246,7 @@ export function ToothChartSvg({
           </div>
           {/* Lower arch — teeth above, numbers below */}
           <div className="overflow-x-auto pt-2">
-            <NumberRow teeth={UPPER_TEETH_POSITION_PRIMARY} />
+            <NumberRow teeth={UPPER_TEETH_POSITION_PRIMARY} activeTab={activeToothTab} />
 
             <ToothRow
               teeth={PRIMARY_TEETH_LOWER}
@@ -241,8 +254,9 @@ export function ToothChartSvg({
               selectedTooth={selectedPrimaryTooth}
               onSelect={handlePrimarySelect}
               arc="down"
+              activeTab={activeToothTab}
             />
-            <NumberRow teeth={PRIMARY_TEETH_LOWER} />
+            <NumberRow teeth={PRIMARY_TEETH_LOWER} activeTab={activeToothTab} />
           </div>
           <p className="pb-2 text-center text-xs font-medium text-muted-foreground">
             Lower (Mandibular)
@@ -325,7 +339,7 @@ export function ToothDetailGraphic({ status }) {
   return (
     <div className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-muted/60">
       {status === "other" ? (
-        <AlertTriangle
+        <CodingToothIcon
           className={cn("size-8", colorClass)}
           strokeWidth={1.75}
         />

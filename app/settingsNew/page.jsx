@@ -10,16 +10,17 @@ import MyDetailsPage from "./pages/MyDetailspage";
 import ProfilePage from "./pages/ProfilePage";
 import TeamPage from "./pages/TeamPage";
 import PasswordPage from "./pages/PasswordPage";
-import BillingPage from "./pages/Billingpage";
 import ApplicationsPage from "./pages/ApplicationPage";
 import ApiPage from "./pages/ApiPage";
-import { useAppDispatch } from "@/lib/hooks";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import {
   getAllRegisterSchool,
   getRegisterSchool,
 } from "@/lib/features/registerSchoolSlice";
 import { useQuery } from "@tanstack/react-query";
 import CampDetails from "./pages/CampDetails";
+import Report from "./pages/Report";
+import { selectAuthUser } from "@/lib/features/auth-slice";
 
 const Settings = () => {
   // =========================================================
@@ -68,6 +69,12 @@ const Settings = () => {
     setUsername((prev) => prev || record?.username || record?.email || "");
   }, [schoolProfile]);
   console.log(schoolProfile, "schoolProfile");
+
+  const authUser = useAppSelector(selectAuthUser);
+  console.log("authUser:", authUser);
+  const getRole = authUser?.account_type ?? authUser?.role ?? null;
+
+  console.log("Current Role:", getRole);
 
   // =========================================================
   // TEAM
@@ -405,52 +412,108 @@ const Settings = () => {
   // =========================================================
   // NAVIGATION
   // =========================================================
+ const getVisibleItems = React.useCallback(
+  (items, role) => {
+    if (!Array.isArray(items)) {
+      return [];
+    }
+
+    return items
+      .map((item) => {
+        // Check parent/item role
+        const itemAllowed =
+          !item?.roles?.length ||
+          item.roles.includes(role);
+
+        if (!itemAllowed) {
+          return null;
+        }
+
+        // Handle children if available
+        if (
+          Array.isArray(item?.children) &&
+          item.children.length > 0
+        ) {
+          const children = item.children.filter(
+            (child) =>
+              !child?.roles?.length ||
+              child.roles.includes(role)
+          );
+
+          if (children.length === 0) {
+            return null;
+          }
+
+          return {
+            ...item,
+            children,
+          };
+        }
+
+        return item;
+      })
+      .filter(Boolean);
+  },
+  []
+);
 
   const [activeTab, setActiveTab] = useState("my-details");
-
   const [navQuery, setNavQuery] = useState("");
-
   const settingsNav = [
     {
       id: "my-details",
       label: "My details",
+      roles: [],
     },
     {
       id: "profile",
       label: "Profile",
+      roles: [],
     },
     {
       id: "SchoolDetails",
       label: "School Details",
+      roles: ["admin", "school_admin","school"],
     },
-
-    { id: "campDetails", label: "Campus Details" },
+    {
+      id: "campDetails",
+      label: "Campus Details",
+      roles: ["admin", "school_admin"],
+    },
     {
       id: "appearance",
       label: "Appearance",
+      roles: [],
     },
     {
       id: "team",
       label: "Team",
-      // badge: String(accounts.length),
+      roles: ["admin", "school_admin", "school"],
     },
     {
-      id: "billing",
-      label: "Billing",
+      id: "report",
+      label: "Report",
+      roles: ["admin", "school_admin", "school"],
     },
     {
       id: "applications",
       label: "Applications",
+      roles: ["admin"],
     },
     {
       id: "api",
       label: "API",
+      roles: ["admin"],
     },
   ];
-
-  const visibleSettingsNav = settingsNav.filter((item) =>
+  const visibleNav = React.useMemo(
+    () => getVisibleItems(settingsNav, getRole),
+    [settingsNav, getRole, getVisibleItems],
+  );
+  const visibleSettingsNav = visibleNav.filter((item) =>
     item.label.toLowerCase().includes(navQuery.trim().toLowerCase()),
   );
+  console.log(visibleSettingsNav,"visibleSettingsNav");
 
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
@@ -510,7 +573,7 @@ const Settings = () => {
             setPassword={setPassword}
           />
         );
-        case "campDetails":
+      case "campDetails":
         return (
           <>
             <CampDetails schoolProfile={schoolProfile} />
@@ -551,8 +614,8 @@ const Settings = () => {
       case "SchoolDetails":
         return <PasswordPage />;
 
-      case "billing":
-        return <BillingPage />;
+      case "report":
+        return <Report />;
 
       case "applications":
         return <ApplicationsPage />;

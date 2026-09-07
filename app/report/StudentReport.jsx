@@ -1798,7 +1798,9 @@ export default function HealthOverviewReport() {
         const eventId = String(event?.id ?? "").trim();
         if (!eventId) continue;
         try {
-          const rows = await dispatch(getStudentByEvent({ eventId })).unwrap();
+          const result = await dispatch(getStudentByEvent({ eventId })).unwrap();
+          // New paginated shape: { items: [...], total, page, perPage }
+          const rows = Array.isArray(result?.items) ? result.items : Array.isArray(result) ? result : [];
           const campName = String(event?.name ?? "").trim();
           const campSchool = String(
             event?.school?.school_name ??
@@ -2300,7 +2302,7 @@ export default function HealthOverviewReport() {
 
           <Button type="button">
             {/* <Save className="size-4" /> */}
-            Save & Next
+            Save Report
           </Button>
         </div>
       </div>

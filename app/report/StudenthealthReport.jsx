@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 // import { useState } from "react";
 import { fadeUp, FramerCard } from "@/util/FramerCard";
+import StudentFilter from "../health-checks/utilities/studentFilter";
 import { getFilterStudent } from "@/lib/features/getFilterStudent";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -39,7 +40,6 @@ import { getStudentByEvent } from "@/lib/features/getEventAssignSlice";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas-pro";
 import { toast } from "sonner";
-import StudentFilter from "../utilities/studentFilter";
 
 /* =========================================================
    COMPLETE STUDENT HEALTH PROFILE DATA
@@ -788,13 +788,14 @@ export default function StudenthealthReport() {
             {isExportingPdf ? "Preparing PDF…" : "Download PDF"}
           </Button>
 
-          {/* <Button type="button" variant="outline">
+          <Button type="button" variant="outline">
             Save & Exit
           </Button>
 
           <Button type="button">
+            {/* <Save className="size-4" /> */}
             Save Report
-          </Button> */}
+          </Button>
         </div>
       </div>
       <div className="py-5">

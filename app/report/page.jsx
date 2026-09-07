@@ -1,10 +1,12 @@
 import React from 'react'
 import HealthCheckOverview from './StudentReport'
+import StudenthealthReport from './StudenthealthReport'
 
 const Page = () => {
   return (
     <div>
-      <HealthCheckOverview/>
+      {/* <HealthCheckOverview/> */}
+      <StudenthealthReport/>
     </div>
   )
 }

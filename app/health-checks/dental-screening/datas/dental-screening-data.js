@@ -131,37 +131,16 @@ export const otherFindingsOptions = [
 // ---------------------------------------------------------------------------
 
 const overrides = {
-  18: { status: "missing" },
-  17: { status: "missing" },
-  16: {
-    status: "caries",
-    surface: "Occlusal",
-    severity: "Moderate",
-    treatment: "Restoration",
-  },
-  26: { status: "filled", surface: "Mesial", severity: "—", treatment: "Composite filling placed" },
-  24: { status: "filled", surface: "Occlusal", severity: "—", treatment: "Composite filling placed" },
-  14: { status: "sealant", surface: "Occlusal", severity: "—", treatment: "Sealant applied" },
-  46: {
-    status: "other",
-    surface: "—",
-    severity: "Mild",
-    treatment: "Monitor — fluorosis staining",
-  },
-  36: {
-    status: "caries",
-    surface: "Occlusal",
-    severity: "Moderate",
-    treatment: "Restoration",
-  },
+ 
 };
 
 function buildChart() {
   return [...UPPER_TEETH, ...LOWER_TEETH].map((number) => ({
     number,
     status: "healthy",
-    surface: "—",
-    severity: "—",
+    surface: "",
+    severity: "",
+    risk:"",
     treatment: "No treatment needed",
     ...overrides[number],
   }));
