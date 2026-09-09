@@ -29,6 +29,7 @@ import {
   MaleStudentIcon,
 } from "@/components/assets/image/icon";
 import { Badge } from "@/components/ui/badge";
+import ImageCropper from "@/components/imageCropper";
 
 function statusToneClass(status) {
   const s = (status ?? "").toLowerCase();
@@ -176,57 +177,75 @@ function StudentDetailPageInner() {
   );
   const [erroredImageUrl, setErroredImageUrl] = React.useState("");
   const [uploadedImageFile, setUploadedImageFile] = React.useState(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = React.useState("");
+  const [showCropper, setShowCropper] = React.useState(false);
   const [uploadError, setUploadError] = React.useState("");
   const [isImageModalOpen, setIsImageModalOpen] = React.useState(false);
-  const uploadedImagePreviewUrl = React.useMemo(() => {
-    if (!uploadedImageFile) {
-      return "";
-    }
-
-    return URL.createObjectURL(uploadedImageFile);
-  }, [uploadedImageFile]);
+  const profileInputRef = React.useRef(null);
   const showProfileImage =
-    Boolean(uploadedImagePreviewUrl || profileImageUrl) &&
-    erroredImageUrl !== (uploadedImagePreviewUrl || profileImageUrl);
-  const displayedImageUrl = uploadedImagePreviewUrl || profileImageUrl;
+    Boolean(imagePreviewUrl || profileImageUrl) &&
+    erroredImageUrl !== (imagePreviewUrl || profileImageUrl);
+  const displayedImageUrl = imagePreviewUrl || profileImageUrl;
 
   React.useEffect(() => {
     return () => {
-      if (uploadedImagePreviewUrl) {
-        URL.revokeObjectURL(uploadedImagePreviewUrl);
+      if (imagePreviewUrl) {
+        URL.revokeObjectURL(imagePreviewUrl);
       }
     };
-  }, [uploadedImagePreviewUrl]);
+  }, [imagePreviewUrl]);
 
   const handleProfileImageUpload = (event) => {
     const file = event.target.files?.[0] ?? null;
     setUploadError("");
 
     if (!file) {
-      setUploadedImageFile(null);
       return;
     }
 
     if (!file.type.startsWith("image/")) {
       setUploadError("Please upload a valid image file.");
-      setUploadedImageFile(null);
+      event.target.value = "";
       return;
     }
 
     const maxFileSizeInBytes = 100 * 1024 * 1024;
     if (file.size > maxFileSizeInBytes) {
       setUploadError("Image size must be 100MB or less.");
-      setUploadedImageFile(null);
+      event.target.value = "";
       return;
+    }
+
+    if (imagePreviewUrl) {
+      URL.revokeObjectURL(imagePreviewUrl);
     }
 
     setErroredImageUrl("");
     setUploadedImageFile(file);
+    setImagePreviewUrl(URL.createObjectURL(file));
+    setShowCropper(true);
+    // Allow selecting the same file again
+    event.target.value = "";
+  };
+
+  const handleCroppedImage = (croppedFile) => {
+    if (imagePreviewUrl) {
+      URL.revokeObjectURL(imagePreviewUrl);
+    }
+
+    const croppedUrl = URL.createObjectURL(croppedFile);
+    setUploadedImageFile(croppedFile);
+    setImagePreviewUrl(croppedUrl);
   };
 
   const clearUploadedImage = () => {
+    if (imagePreviewUrl) {
+      URL.revokeObjectURL(imagePreviewUrl);
+    }
     setUploadedImageFile(null);
+    setImagePreviewUrl("");
     setUploadError("");
+    setShowCropper(false);
   };
 
   const updateStudentMutation = useMutation({
@@ -239,6 +258,10 @@ function StudentDetailPageInner() {
       ).unwrap(),
     onSuccess: () => {
       setIsImageModalOpen(false);
+      setShowCropper(false);
+      setImagePreviewUrl("");
+      setUploadedImageFile(null);
+      setUploadError("");
       dispatch(getAllStudent({ page: 1, limit: 1000 }));
     },
   });
@@ -428,12 +451,32 @@ function StudentDetailPageInner() {
             </div>
 
             <div className="space-y-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => profileInputRef.current?.click()}
+              >
+                Choose Image
+              </Button>
               <Input
+                ref={profileInputRef}
                 id="profile-image-upload"
                 name="profileImage"
                 type="file"
                 accept="image/*"
                 onChange={handleProfileImageUpload}
+                className="hidden"
+              />
+              <ImageCropper
+                image={imagePreviewUrl}
+                open={showCropper}
+                onClose={() => setShowCropper(false)}
+                onCrop={handleCroppedImage}
+                aspect={1}
+                cropShape="round"
+                title="Adjust Profile Photo"
+                description="Drag the image and adjust the zoom."
               />
 
               <p className="text-xs text-muted-foreground">

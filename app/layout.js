@@ -1,5 +1,6 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import localFont from "next/font/local";
+import "react-datepicker/dist/react-datepicker.css";
 import "./globals.css";
 import { Footer } from "./components/layout/footer";
 import { Providers } from "./providers";

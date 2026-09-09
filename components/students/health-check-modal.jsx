@@ -18,6 +18,7 @@ import { usePathname } from "next/navigation";
 import html2canvas from "html2canvas-pro";
 import jsPDF from "jspdf";
 import ToothIcon from "@/app/health-checks/dental-screening/asset/toothIcon";
+import { useAppSelector } from "@/lib/hooks";
 
 function Info({ label, value }) {
   return (
@@ -32,7 +33,9 @@ function StatusCard({ icon: Icon, title, status, toneClass, iconClass }) {
   return (
     <div className={`rounded-lg border p-3 ${toneClass}`}>
       <div className="mb-2 flex items-center gap-2">
-        <div className= {`flex h-7 w-7 items-center justify-center rounded-full ${iconClass}`}>
+        <div
+          className={`flex h-7 w-7 items-center justify-center rounded-full ${iconClass}`}
+        >
           <Icon className="size-4" />
         </div>
       </div>
@@ -42,19 +45,30 @@ function StatusCard({ icon: Icon, title, status, toneClass, iconClass }) {
   );
 }
 
-function ReportRow({ area, finding, remark, pdfClass = "" }) {
+function ReportRow({
+  area,
+  finding,
+  remark,
+  pdfClass = "",
+  showRemarks = true,
+  padClass = "py-3",
+}) {
   return (
     <tr data-pdf-section="report-header" data-pdf-row={pdfClass}>
-      <td className="px-4 py-3 text-foreground">{area}</td>
+      <td className={`px-4 ${padClass} text-foreground`}>{area}</td>
 
-      <td className="px-4 py-3 font-medium text-foreground">{finding}</td>
+      <td className={`px-4 ${padClass} font-medium text-foreground`}>
+        {finding}
+      </td>
 
-      <td className="px-4 py-3 text-muted-foreground">{remark}</td>
+      {showRemarks ? (
+        <td className={`px-4 ${padClass} text-muted-foreground`}>{remark}</td>
+      ) : null}
     </tr>
   );
 }
 
-function MobileReportCard({ area, finding, remark }) {
+function MobileReportCard({ area, finding, remark, showRemarks = true }) {
   return (
     <div className="rounded-lg border p-4">
       <div className="flex items-start justify-between gap-3">
@@ -63,7 +77,9 @@ function MobileReportCard({ area, finding, remark }) {
           {finding}
         </span>
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">{remark}</p>
+      {showRemarks ? (
+        <p className="mt-2 text-xs text-muted-foreground">{remark}</p>
+      ) : null}
     </div>
   );
 }
@@ -88,69 +104,84 @@ export default function HealthCheckModal({ student }) {
   const sectionValue = student?.sec ?? student?.section ?? "--";
   const admissionNo = student?.admission_number ?? "--";
   const dobValue = student?.dob ?? "--";
-  console.log(student, "student");
 
   // Use the real student identifier from the record — the URL slug is
   // lowercased by getStudentSlug(), which breaks backend lookups.
   const studentIdentifier = String(
     student?.student_id ??
-    student?.id ??
-    student?.studentId ??
-    student?.cus_id ??
+      student?.id ??
+      student?.studentId ??
+      student?.cus_id ??
       "",
   ).trim();
- const formatDateTime = (date) => {
-  if (!date) return "--";
 
-  return new Date(date).toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-};
+  // Report customisation from Redux (Settings → Report) — controls which
+  // sections render, table density, template detail and the letterhead.
+  const reportSettings = useAppSelector((state) => state.reportSettings);
+  const reportSection = reportSettings?.reportSection ?? {};
 
-const calculateAge = (dob) => {
-  if (!dob) return "--";
+  const showStudentInfo = reportSection.student_info ?? true;
+  const showVitals = reportSection.vitals ?? true;
+  const showVision = reportSection.vision ?? true;
+  const showHearing = reportSection.hearing ?? true;
+  const showDental = reportSection.dental ?? true;
+  const showImmunization = reportSection.immunization ?? true;
+  const showRecommendations = reportSection.recommendations ?? true;
 
-  const birthDate = new Date(dob);
-  const today = new Date();
-  // let age = today.getFullYear() - birthDate.getFullYear();
-  // if (!hasBirthdayPassed) {
-//     age--;
-//   }
+  const reportTemplate = reportSettings?.reportTemplate ?? "detailed";
+  // "summary" drops the quick-glance status cards; "compact" drops remarks.
+  const showStatusCards = reportTemplate !== "summary";
+  const showRemarks = reportTemplate !== "compact";
 
-  let years = today.getFullYear() - birthDate.getFullYear();
-  let months = today.getMonth() - birthDate.getMonth();
+  const tableDensity = reportSettings?.tableDensity ?? "comfortable";
+  const rowPadClass = tableDensity === "compact" ? "py-1.5" : "py-3";
 
-  if (today.getDate() < birthDate.getDate()) {
-    months--;
-  }
+  const showLetterhead = reportSettings?.schoolHead ?? false;
+  const formatDateTime = (date) => {
+    if (!date) return "--";
 
-  if (months < 0) {
-    years--;
-    months += 12;
-  }
+    return new Date(date).toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
 
-  return `${years} Years ${months} Months`;
-};
+  const calculateAge = (dob) => {
+    if (!dob) return "--";
+
+    const birthDate = new Date(dob);
+    const today = new Date();
+    // let age = today.getFullYear() - birthDate.getFullYear();
+    // if (!hasBirthdayPassed) {
+    //     age--;
+    //   }
+
+    let years = today.getFullYear() - birthDate.getFullYear();
+    let months = today.getMonth() - birthDate.getMonth();
+
+    if (today.getDate() < birthDate.getDate()) {
+      months--;
+    }
+
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+
+    return `${years} Years ${months} Months`;
+  };
   const {
     generalScreeningRecord,
     hearingScreeningRecord,
-     dentalScreeningRecord,
+    dentalScreeningRecord,
     visionScreeningRecord,
     isLoading: screeningLoading,
   } = useScreeningRecord({ getId: studentIdentifier });
 
-  console.log(
-    generalScreeningRecord,
-    hearingScreeningRecord,
-     dentalScreeningRecord,
-    visionScreeningRecord,
-    "generalScreeningRecord",
-  );
   const handleDownloadPDF = async () => {
     const element = reportRef.current;
 
@@ -315,11 +346,9 @@ const calculateAge = (dob) => {
               .forEach((child) => {
                 child.style.setProperty("color", "#00a4e3", "important");
               });
-            recommendations
-              .querySelectorAll("p, li, span")
-              .forEach((child) => {
-                child.style.setProperty("color", "#000000", "important");
-              });
+            recommendations.querySelectorAll("p, li, span").forEach((child) => {
+              child.style.setProperty("color", "#000000", "important");
+            });
 
             recommendations.querySelectorAll("svg").forEach((icon) => {
               icon.style.setProperty("color", "#16a34a", "important");
@@ -417,9 +446,11 @@ const calculateAge = (dob) => {
                   </p>
                 </div>
                 <div className="flex flex-row gap-2">
-                  <div className="rounded-lg bg-primary/10 px-3 py-2 text-xs text-primary">
-                    {student?.school_name ?? "SchoolName"}
-                  </div>
+                  {showLetterhead ? (
+                    <div className="rounded-lg bg-primary/10 px-3 py-2 text-xs text-primary">
+                      {student?.school_name ?? "SchoolName"}
+                    </div>
+                  ) : null}
                   <Button
                     type="button"
                     // size="icon"
@@ -438,6 +469,7 @@ const calculateAge = (dob) => {
               data-pdf-report
               className=" space-y-6 px-5 py-5 sm:px-7"
             >
+              {showStudentInfo ? (
               <section className="grid grid-cols-1 gap-5 sm:grid-cols-[1fr_auto]">
                 <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
                   <Info label="Student Name" value={studentName} />
@@ -451,7 +483,9 @@ const calculateAge = (dob) => {
                   />
                   <Info
                     label="Health Check Date"
-                    value={formatDateTime(student?.updated_at ?? student?.updatedAt)}
+                    value={formatDateTime(
+                      student?.updated_at ?? student?.updatedAt,
+                    )}
                   />
                 </div>
 
@@ -472,44 +506,57 @@ const calculateAge = (dob) => {
                   </div>
                 </div>
               </section>
+              ) : null}
 
+              {showStatusCards ? (
               <section className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-                <StatusCard
-                iconClass="text-success bg-success/50"
-                  icon={Activity}
-                  title="Physical Health"
-                  status="Normal"
-                  toneClass="bg-success/10 text-success border-success/30"
-                />
-                <StatusCard
-                iconClass="text-info bg-info/50"
-                  icon={Eye}
-                  title="Vision"
-                  status="Normal"
-                  toneClass="bg-info/10 text-info border-info/30"
-                />
-                <StatusCard
-                iconClass="text-primary bg-primary/50"
-                  icon={Ear}
-                  title="Hearing"
-                  status="Normal"
-                  toneClass="bg-primary/10 text-primary border-primary/30"
-                />
-                <StatusCard
-                iconClass="text-warning bg-warning/50"
-                  icon={ToothIcon}
-                  title="Oral Health"
-                  status="Good"
-                  toneClass="bg-warning/10 text-warning border-warning/30"
-                />
-                <StatusCard
-                iconClass="text-destructive bg-destructive/50"
-                  icon={Syringe}
-                  title="Immunization"
-                  status="Up to Date"
-                  toneClass="bg-destructive/10 text-destructive border-destructive/30"
-                />
+                {showVitals ? (
+                  <StatusCard
+                    iconClass="text-success bg-success/50"
+                    icon={Activity}
+                    title="Physical Health"
+                    status="Normal"
+                    toneClass="bg-success/10 text-success border-success/30"
+                  />
+                ) : null}
+                {showVision ? (
+                  <StatusCard
+                    iconClass="text-info bg-info/50"
+                    icon={Eye}
+                    title="Vision"
+                    status="Normal"
+                    toneClass="bg-info/10 text-info border-info/30"
+                  />
+                ) : null}
+                {showHearing ? (
+                  <StatusCard
+                    iconClass="text-primary bg-primary/50"
+                    icon={Ear}
+                    title="Hearing"
+                    status="Normal"
+                    toneClass="bg-primary/10 text-primary border-primary/30"
+                  />
+                ) : null}
+                {showDental ? (
+                  <StatusCard
+                    iconClass="text-warning bg-warning/50"
+                    icon={ToothIcon}
+                    title="Oral Health"
+                    status="Good"
+                    toneClass="bg-warning/10 text-warning border-warning/30"
+                  />
+                ) : null}
+                {showImmunization ? (
+                  <StatusCard
+                    iconClass="text-destructive bg-destructive/50"
+                    icon={Syringe}
+                    title="Immunization"
+                    status="Up to Date"
+                    toneClass="bg-destructive/10 text-destructive border-destructive/30"
+                  />
+                ) : null}
               </section>
+              ) : null}
 
               <section>
                 <h3 className="mb-3 text-sm font-semibold text-foreground">
@@ -525,78 +572,117 @@ const calculateAge = (dob) => {
                       <tr>
                         <th className="px-4 py-3 font-semibold">Area</th>
                         <th className="px-4 py-3 font-semibold">Findings</th>
-                        <th className="px-4 py-3 font-semibold">Remarks</th>
+                        {showRemarks ? (
+                          <th className="px-4 py-3 font-semibold">Remarks</th>
+                        ) : null}
                       </tr>
                     </thead>
 
                     <tbody className="divide-y">
-                      <ReportRow
-                        area="Physical Examination"
-                        finding="Normal"
-                        remark="No significant abnormalities"
-                        pdfClass="physical"
-                      />
+                      {showVitals ? (
+                        <ReportRow
+                          area="Physical Examination"
+                          finding="Normal"
+                          remark="No significant abnormalities"
+                          pdfClass="physical"
+                          showRemarks={showRemarks}
+                          padClass={rowPadClass}
+                        />
+                      ) : null}
 
-                      <ReportRow
-                        area="Vision Screening"
-                        finding="Normal"
-                        remark="6/6 in both eyes"
-                        pdfClass="vision"
-                      />
+                      {showVision ? (
+                        <ReportRow
+                          area="Vision Screening"
+                          finding="Normal"
+                          remark="6/6 in both eyes"
+                          pdfClass="vision"
+                          showRemarks={showRemarks}
+                          padClass={rowPadClass}
+                        />
+                      ) : null}
 
-                      <ReportRow
-                        area="Hearing Screening"
-                        finding="Normal"
-                        remark="Hearing normal in both ears"
-                        pdfClass="hearing"
-                      />
+                      {showHearing ? (
+                        <ReportRow
+                          area="Hearing Screening"
+                          finding="Normal"
+                          remark="Hearing normal in both ears"
+                          pdfClass="hearing"
+                          showRemarks={showRemarks}
+                          padClass={rowPadClass}
+                        />
+                      ) : null}
 
-                      <ReportRow
-                        area="Dental Check-up"
-                        finding="Good"
-                        remark="Mild plaque deposits. No caries."
-                        pdfClass="dental"
-                      />
+                      {showDental ? (
+                        <ReportRow
+                          area="Dental Check-up"
+                          finding="Good"
+                          remark="Mild plaque deposits. No caries."
+                          pdfClass="dental"
+                          showRemarks={showRemarks}
+                          padClass={rowPadClass}
+                        />
+                      ) : null}
 
-                      <ReportRow
-                        area="Immunization"
-                        finding="Up to Date"
-                        remark="All recommended vaccines completed"
-                        pdfClass="immunization"
-                      />
+                      {showImmunization ? (
+                        <ReportRow
+                          area="Immunization"
+                          finding="Up to Date"
+                          remark="All recommended vaccines completed"
+                          pdfClass="immunization"
+                          showRemarks={showRemarks}
+                          padClass={rowPadClass}
+                        />
+                      ) : null}
                     </tbody>
                   </table>
                 </div>
 
                 <div className="space-y-3 sm:hidden">
-                  <MobileReportCard
-                    area="Physical Examination"
-                    finding="Normal"
-                    remark="No significant abnormalities"
-                  />
-                  <MobileReportCard
-                    area="Vision Screening"
-                    finding="Normal"
-                    remark="6/6 in both eyes"
-                  />
-                  <MobileReportCard
-                    area="Hearing Screening"
-                    finding="Normal"
-                    remark="Hearing normal in both ears"
-                  />
-                  <MobileReportCard
-                    area="Dental Check-up"
-                    finding="Good"
-                    remark="Mild plaque deposits. No caries."
-                  />
-                  <MobileReportCard
-                    area="Immunization"
-                    finding="Up to Date"
-                    remark="All recommended vaccines completed"
-                  />
+                  {showVitals ? (
+                    <MobileReportCard
+                      area="Physical Examination"
+                      finding="Normal"
+                      remark="No significant abnormalities"
+                      showRemarks={showRemarks}
+                    />
+                  ) : null}
+                  {showVision ? (
+                    <MobileReportCard
+                      area="Vision Screening"
+                      finding="Normal"
+                      remark="6/6 in both eyes"
+                      showRemarks={showRemarks}
+                    />
+                  ) : null}
+                  {showHearing ? (
+                    <MobileReportCard
+                      area="Hearing Screening"
+                      finding="Normal"
+                      remark="Hearing normal in both ears"
+                      showRemarks={showRemarks}
+                    />
+                  ) : null}
+                  {showDental ? (
+                    <MobileReportCard
+                      area="Dental Check-up"
+                      finding="Good"
+                      remark="Mild plaque deposits. No caries."
+                      showRemarks={showRemarks}
+                    />
+                  ) : null}
+                  {showImmunization ? (
+                    <MobileReportCard
+                      area="Immunization"
+                      finding="Up to Date"
+                      remark="All recommended vaccines completed"
+                      showRemarks={showRemarks}
+                    />
+                  ) : null}
                 </div>
               </section>
 
+              {showRecommendations ? (
+              <>
               <section
                 data-pdf-section="recommendations"
                 className="rounded-lg border bg-muted/40 p-4"
@@ -650,6 +736,8 @@ const calculateAge = (dob) => {
                   Svastha Health Services
                 </p>
               </section>
+              </>
+              ) : null}
 
               <div data-pdf-hide className="flex justify-end gap-2">
                 <Button

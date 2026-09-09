@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -157,8 +157,10 @@ export default function VisionScreeningPage() {
   const [sectionFilter, setSectionFilter] = useState("all");
   const [studentFilter, setStudentFilter] = useState("all");
   const [getStudentDataByEvent, setGetStudentDataByEvent] = useState([]);
-      const [isSaving, setIsSaving] = useState(false);
-
+  const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
+  const savedStudentKeyRef = useRef(null);
+  const [savedStudentKey, setSavedStudentKey] = useState(null);
 
   const authUser = useAppSelector(selectAuthUser);
   //   const { data: filterPayload, isLoading } = useQuery({
@@ -808,7 +810,8 @@ export default function VisionScreeningPage() {
   }, [studentsArray, studentFilter, studentId]);
 
   // Fallback roster from the Redux slice (source of truth for the camp's students).
-  const eventRoster = useAppSelector((state) => state.eventAssign?.students) || [];
+  const eventRoster =
+    useAppSelector((state) => state.eventAssign?.students) || [];
 
   const selectedStudent = useMemo(() => {
     if (selectedStudentFromFilter) {
@@ -839,7 +842,13 @@ export default function VisionScreeningPage() {
     }
 
     return null;
-  }, [studentsArray, selectedStudentFromFilter, studentFilter, studentId, eventRoster]);
+  }, [
+    studentsArray,
+    selectedStudentFromFilter,
+    studentFilter,
+    studentId,
+    eventRoster,
+  ]);
 
   const selectedStudentKey = String(
     selectedStudent?.id ?? selectedStudent?.studentId ?? "",
@@ -937,41 +946,45 @@ export default function VisionScreeningPage() {
     visionScreeningLoading,
     applyScreeningRecordToForm,
   ]);
-function getBackendErrorMessage(error) {
-  let payload = error;
+  function getBackendErrorMessage(error) {
+    let payload = error;
 
-  if (typeof payload === "string") {
-    try {
-      payload = JSON.parse(payload);
-    } catch {
-       return /<!doctype html|<html[\s>]/i.test(payload) || payload.length > 240
-        ? "Unable to save screening. Please try again."
-        : payload;
+    if (typeof payload === "string") {
+      try {
+        payload = JSON.parse(payload);
+      } catch {
+        return /<!doctype html|<html[\s>]/i.test(payload) ||
+          payload.length > 240
+          ? "Unable to save screening. Please try again."
+          : payload;
+      }
     }
-  }
 
-  if (!payload || typeof payload !== "object") {
-    return "Something went wrong. Please try again.";
-  }
+    if (!payload || typeof payload !== "object") {
+      return "Something went wrong. Please try again.";
+    }
 
-  const fieldMessages = Object.values(payload.errors ?? {})
-    .flatMap((messages) => (Array.isArray(messages) ? messages : [messages]))
-    .filter(Boolean);
+    const fieldMessages = Object.values(payload.errors ?? {})
+      .flatMap((messages) => (Array.isArray(messages) ? messages : [messages]))
+      .filter(Boolean);
 
-  // return (
+    // return (
     const message =
-    fieldMessages[0] ??
-    payload.message ??
-    payload.error ??
-    payload.detail ??
-    "Something went wrong. Please try again."
-  // );
-   return /<!doctype html|<html[\s>]/i.test(String(message)) ||
-    String(message).length > 240
-    ? "Unable to save screening. Please try again."
-    : String(message);
-}
+      fieldMessages[0] ??
+      payload.message ??
+      payload.error ??
+      payload.detail ??
+      "Something went wrong. Please try again.";
+    // );
+    return /<!doctype html|<html[\s>]/i.test(String(message)) ||
+      String(message).length > 240
+      ? "Unable to save screening. Please try again."
+      : String(message);
+  }
   const handleSaveAssessment = useCallback(() => {
+    if (isSavingRef.current) {
+      return;
+    }
     const rawStudentId =
       selectedStudent?.id ??
       selectedStudent?.cus_id ??
@@ -981,6 +994,12 @@ function getBackendErrorMessage(error) {
 
     if (!String(rawStudentId ?? "").trim()) {
       toast.error("Select a student before saving the vision screening.");
+      return;
+    }
+    if (savedStudentKeyRef.current === String(rawStudentId)) {
+      toast.error(
+        "This student's screening has already been saved. Select another student to continue.",
+      );
       return;
     }
 
@@ -1063,11 +1082,17 @@ function getBackendErrorMessage(error) {
       advice_suggestions: adviceSuggestions,
       follow_up: followUp,
     };
-     setIsSaving(true);
+    setIsSaving(true);
+    isSavingRef.current = true;
+
     dispatch(createVisionScreening(payload))
       .unwrap()
       .then(() => {
-         setIsSaving(false);
+        setIsSaving(false);
+        isSavingRef.current = false;
+        savedStudentKeyRef.current = String(rawStudentId);
+        setSavedStudentKey(String(rawStudentId));
+
         // Refresh the react-query cache; the ["vision-screening"] query's
         // queryFn re-dispatches getVisionScreening, keeping Redux in sync.
         queryClient.invalidateQueries({ queryKey: ["vision-screening"] });
@@ -1079,12 +1104,13 @@ function getBackendErrorMessage(error) {
         });
       })
       .catch((error) => {
-         setIsSaving(false);
+        setIsSaving(false);
+        isSavingRef.current = false;
+
         console.error("Unable to save vision screening:", error);
 
         toast.error("Failed to save vision screening", {
-          description:
-           getBackendErrorMessage(error),
+          description: getBackendErrorMessage(error),
         });
       });
   }, [
@@ -1308,13 +1334,37 @@ function getBackendErrorMessage(error) {
             </div>
           )}
 
-          <Button type="button" onClick={handleSaveAssessment}>
-             {isSaving ? (
+          <Button type="button" onClick={handleSaveAssessment} disabled={
+              isSaving ||
+              (selectedStudent &&
+                savedStudentKey ===
+                  String(
+                    selectedStudent?.id ??
+                      selectedStudent?.cus_id ??
+                      selectedStudent?.student_id ??
+                      selectedStudent?.studentId ??
+                      studentId,
+                  ))
+            }>
+            {isSaving ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
               <Save className="size-4" />
             )}
-            {isSaving ? "Saving..." : "Save assessment"}
+            {isSaving
+              ? "Saving..."
+              : savedStudentKey &&
+                  selectedStudent &&
+                  savedStudentKey ===
+                    String(
+                      selectedStudent?.id ??
+                        selectedStudent?.cus_id ??
+                        selectedStudent?.student_id ??
+                        selectedStudent?.studentId ??
+                        studentId,
+                    )
+                ? "Saved ✓"
+                : "Save assessment"}
           </Button>
         </div>
       </div>
@@ -1398,17 +1448,17 @@ function getBackendErrorMessage(error) {
           </article> */}
               <div className="relative md:relative lg:sticky lg:top-24 z-10 self-start space-y-5">
                 <FramerCard>
-                <AssessmentCard
-                  form={{}}
-                  data={getSelectedStudentScreeningData}
-                  studentOptions={assessmentStudentOptions}
-                  studentValue={studentSelectValue}
-                  schoolName={schoolName}
-                  onStudentChange={handleAssessmentStudentChange}
-                  onSave={handleSaveAssessment}
-                  onCancel={handleCancelAssessment}
-                  authUser={authUser}
-                />
+                  <AssessmentCard
+                    form={{}}
+                    data={getSelectedStudentScreeningData}
+                    studentOptions={assessmentStudentOptions}
+                    studentValue={studentSelectValue}
+                    schoolName={schoolName}
+                    onStudentChange={handleAssessmentStudentChange}
+                    onSave={handleSaveAssessment}
+                    onCancel={handleCancelAssessment}
+                    authUser={authUser}
+                  />
                 </FramerCard>
               </div>
 
@@ -1439,100 +1489,102 @@ function getBackendErrorMessage(error) {
                 onSave={handleSaveAssessment}
               >
                 <div className="space-y-4">
-              <VisionSnapshotCard
-                od={od}
-                setOd={setOd}
-                os={os}
-                setOs={setOs}
-                ou={ou}
-                setOu={setOu}
-                getSelectedStudentScreeningData={
-                  getSelectedStudentScreeningData
-                }
-                visionResultData={visionResultData}
-                acuitySeverityMap={acuitySeverityMap}
-              />
+                  <VisionSnapshotCard
+                    od={od}
+                    setOd={setOd}
+                    os={os}
+                    setOs={setOs}
+                    ou={ou}
+                    setOu={setOu}
+                    getSelectedStudentScreeningData={
+                      getSelectedStudentScreeningData
+                    }
+                    visionResultData={visionResultData}
+                    acuitySeverityMap={acuitySeverityMap}
+                  />
                 </div>
 
                 <div className="space-y-4">
-              <RefractiveError
-                muscleBalanceRemarks={muscleBalanceRemarks}
-                setMuscleBalanceRemarks={setMuscleBalanceRemarks}
-                colorVisionData={colorVisionData}
-                colorVisionStatus={colorVisionStatus}
-                colorVisionTestType={colorVisionTestType}
-                colorVisionRemarks={colorVisionRemarks}
-                setColorVisionStatus={setColorVisionStatus}
-                setColorVisionTestType={setColorVisionTestType}
-                setColorVisionRemarks={setColorVisionRemarks}
-                coverTest={coverTest}
-                setCoverTest={setCoverTest}
-                strabismus={strabismus}
-                setStrabismus={setStrabismus}
-                coverTestOptions={coverTestOptions}
-                colorVisionTestTypeOptions={colorVisionTestTypeOptions}
-                yesNoOptions={yesNoOptions}
-              />
+                  <RefractiveError
+                    muscleBalanceRemarks={muscleBalanceRemarks}
+                    setMuscleBalanceRemarks={setMuscleBalanceRemarks}
+                    colorVisionData={colorVisionData}
+                    colorVisionStatus={colorVisionStatus}
+                    colorVisionTestType={colorVisionTestType}
+                    colorVisionRemarks={colorVisionRemarks}
+                    setColorVisionStatus={setColorVisionStatus}
+                    setColorVisionTestType={setColorVisionTestType}
+                    setColorVisionRemarks={setColorVisionRemarks}
+                    coverTest={coverTest}
+                    setCoverTest={setCoverTest}
+                    strabismus={strabismus}
+                    setStrabismus={setStrabismus}
+                    coverTestOptions={coverTestOptions}
+                    colorVisionTestTypeOptions={colorVisionTestTypeOptions}
+                    yesNoOptions={yesNoOptions}
+                  />
                 </div>
 
                 <div className="space-y-4">
-              <VisionExamination
-                lids={lids}
-                conjunctiva={conjunctiva}
-                cornea={cornea}
-                pupil={pupil}
-                externalOtherFindings={externalOtherFindings}
-                setExternalOtherFindings={setExternalOtherFindings}
-                setLids={setLids}
-                setConjunctiva={setConjunctiva}
-                setCornea={setCornea}
-                setPupil={setPupil}
-                lidsOptions={lidsOptions}
-                conjunctivaOptions={conjunctivaOptions}
-                corneaOptions={corneaOptions}
-                pupilOptions={pupilOptions}
-              />
+                  <VisionExamination
+                    lids={lids}
+                    conjunctiva={conjunctiva}
+                    cornea={cornea}
+                    pupil={pupil}
+                    externalOtherFindings={externalOtherFindings}
+                    setExternalOtherFindings={setExternalOtherFindings}
+                    setLids={setLids}
+                    setConjunctiva={setConjunctiva}
+                    setCornea={setCornea}
+                    setPupil={setPupil}
+                    lidsOptions={lidsOptions}
+                    conjunctivaOptions={conjunctivaOptions}
+                    corneaOptions={corneaOptions}
+                    pupilOptions={pupilOptions}
+                  />
                 </div>
 
                 <div className="space-y-4">
-              <VisionRefractiveError
-                refractiveErrorRemarks={refractiveErrorRemarks}
-                refractiveError={refractiveError}
-                setRefractiveError={setRefractiveError}
-                setRefractiveErrorRemarks={setRefractiveErrorRemarks}
-                refractiveErrorOptions={refractiveErrorOptions}
-              />
-              <LensCorrection
-                lensType={lensType}
-                lensPower={lensPower}
-                lensRemarks={lensRemarks}
-                setLensType={setLensType}
-                setLensPower={setLensPower}
-                setLensRemarks={setLensRemarks}
-                yesNoOptions={yesNoOptions}
-                usesGlasses={usesGlasses}
-                setUsesGlasses={setUsesGlasses}
-                getSelectedStudentScreeningData={getSelectedStudentScreeningData}
-                lensTypeOptions={lensTypeOptions}
-              />
+                  <VisionRefractiveError
+                    refractiveErrorRemarks={refractiveErrorRemarks}
+                    refractiveError={refractiveError}
+                    setRefractiveError={setRefractiveError}
+                    setRefractiveErrorRemarks={setRefractiveErrorRemarks}
+                    refractiveErrorOptions={refractiveErrorOptions}
+                  />
+                  <LensCorrection
+                    lensType={lensType}
+                    lensPower={lensPower}
+                    lensRemarks={lensRemarks}
+                    setLensType={setLensType}
+                    setLensPower={setLensPower}
+                    setLensRemarks={setLensRemarks}
+                    yesNoOptions={yesNoOptions}
+                    usesGlasses={usesGlasses}
+                    setUsesGlasses={setUsesGlasses}
+                    getSelectedStudentScreeningData={
+                      getSelectedStudentScreeningData
+                    }
+                    lensTypeOptions={lensTypeOptions}
+                  />
                 </div>
 
                 <div className="space-y-4">
-              <RefferalPlan
-                referral={referral}
-                setReferral={setReferral}
-                referralReason={referralReason}
-                handleReferralReasonChange={handleReferralReasonChange}
-                adviceSuggestions={adviceSuggestions}
-                setAdviceSuggestions={setAdviceSuggestions}
-                followUp={followUp}
-                setFollowUp={setFollowUp}
-                handleFollowUpChange={handleFollowUpChange}
-                followUpOptions={followUpOptions}
-                referralReasons={referralReasons}
-                yesNoOptions={yesNoOptions}
-                formErrors={formErrors}
-              />
+                  <RefferalPlan
+                    referral={referral}
+                    setReferral={setReferral}
+                    referralReason={referralReason}
+                    handleReferralReasonChange={handleReferralReasonChange}
+                    adviceSuggestions={adviceSuggestions}
+                    setAdviceSuggestions={setAdviceSuggestions}
+                    followUp={followUp}
+                    setFollowUp={setFollowUp}
+                    handleFollowUpChange={handleFollowUpChange}
+                    followUpOptions={followUpOptions}
+                    referralReasons={referralReasons}
+                    yesNoOptions={yesNoOptions}
+                    formErrors={formErrors}
+                  />
                 </div>
                 <div className="space-y-4">
                   <QuickSummaryFindings

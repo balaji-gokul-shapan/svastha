@@ -41,7 +41,7 @@ const Aside = ({settings, navQuery, query, activeTab, setActiveTab}) => {
                     : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                 }`}
               >
-                <NavIcon className="size-4" />
+                {NavIcon ? <NavIcon className="size-4" /> : null}
                 <span className="flex-1 text-left">{item.label}</span>
                 {item.badge ? (
                   <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">

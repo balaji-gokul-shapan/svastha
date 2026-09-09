@@ -1,25 +1,13 @@
-"use client";
-
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Check, MoreHorizontal } from "lucide-react";
 import React from "react";
-
 const APPEARANCE_THEMES = [
   { id: "system", label: "System preference" },
   { id: "light", label: "Light" },
   { id: "dark", label: "Dark" },
 ];
-
-const SIDEBAR_FEATURES = ["Recent changes", "Recent activity", "Notifications"];
-
 function SelectableCard({ selected, onClick, label, children }) {
   return (
     <button
@@ -46,7 +34,6 @@ function SelectableCard({ selected, onClick, label, children }) {
     </button>
   );
 }
-
 function MiniDashboardPreview({ variant }) {
   const isDark = variant === "dark";
   const shell = isDark ? "bg-slate-800" : "bg-white";
@@ -73,7 +60,7 @@ function MiniDashboardPreview({ variant }) {
     </span>
   );
 }
-
+const SIDEBAR_FEATURES = ["Recent changes", "Recent activity", "Notifications"];
 function MiniTablePreview({ compact }) {
   const rows = compact ? 5 : 4;
   const rowGap = compact ? "gap-0.5" : "gap-1";
@@ -96,7 +83,7 @@ function MiniTablePreview({ compact }) {
   );
 }
 
-const AppearancePage = ({
+export function AppearanceSettings({
   theme,
   onThemeChange,
   transparentSidebar,
@@ -107,20 +94,8 @@ const AppearancePage = ({
   onTableViewChange,
   onCancel,
   onSave,
-}) => {
+}) {
   
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const prefersDark = window.matchMedia(
-      "(prefers-color-scheme: dark)",
-    ).matches;
-    const dark = theme === "dark" || (theme === "system" && prefersDark);
-
-    document.documentElement.classList.toggle("dark", dark);
-    localStorage.setItem("Svastha-theme", dark ? "dark" : "light");
-  }, [theme]);
-
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-card">
       <div className="flex items-start justify-between gap-4 p-5 pb-4">
@@ -259,6 +234,22 @@ const AppearancePage = ({
         </div>
       </div>
     </section>
+  );
+}
+const AppearancePage = () => {
+  return (
+    <AppearanceSettings
+      theme={theme}
+      onThemeChange={setTheme}
+      transparentSidebar={transparentSidebar}
+      onTransparentSidebarChange={setTransparentSidebar}
+      sidebarFeature={sidebarFeature}
+      onSidebarFeatureChange={setSidebarFeature}
+      tableView={tableView}
+      onTableViewChange={setTableView}
+      onCancel={handleAppearanceCancel}
+      onSave={handleAppearanceSave}
+    />
   );
 };
 

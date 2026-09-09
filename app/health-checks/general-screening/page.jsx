@@ -518,6 +518,17 @@ export default function GeneralScreeningPage() {
   const [immunization, setImmunization] = useState("up_to_date");
   const [notes, setNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  // Synchronous re-entry guard — React state (isSaving) updates async, so a
+  // double-click can read it as false twice and dispatch two saves. The ref is
+  // read/set synchronously, blocking any second click until the first save settles.
+  const isSavingRef = useRef(false);
+  // Tracks the last successfully saved student (create-only flow): once a
+  // student is saved, further save clicks for the SAME student are blocked;
+  // selecting a different student changes the key and unblocks saving.
+  const savedStudentKeyRef = useRef(null);
+  // State mirror of savedStudentKeyRef so the Save button can disable itself
+  // after the current student is saved (refs don't trigger re-renders).
+  const [savedStudentKey, setSavedStudentKey] = useState(null);
 
   // ============================================================
   // CLINICAL SIGNS
@@ -679,7 +690,6 @@ export default function GeneralScreeningPage() {
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
-  
 
   const applyScreeningRecordToForm = (screeningRecord) => {
     const getMetricValue = (value) => {
@@ -821,7 +831,7 @@ export default function GeneralScreeningPage() {
         prev.generalAppearance || "Normal",
       ),
       postureSpine: normalizeChoice(
-       appearanceOptions.find(
+        appearanceOptions.find(
           (item) =>
             String(item.id) === String(screeningRecord?.general_appearance),
         )?.name ??
@@ -893,7 +903,8 @@ export default function GeneralScreeningPage() {
   }, [studentsArray, studentFilter, studentId]);
 
   // Fallback roster from the Redux slice (source of truth for the camp's students).
-  const eventRoster = useAppSelector((state) => state.eventAssign?.students) || [];
+  const eventRoster =
+    useAppSelector((state) => state.eventAssign?.students) || [];
 
   const selectedStudent = useMemo(() => {
     if (selectedStudentFromFilter) {
@@ -924,7 +935,13 @@ export default function GeneralScreeningPage() {
     }
 
     return null;
-  }, [studentsArray, selectedStudentFromFilter, studentFilter, studentId, eventRoster]);
+  }, [
+    studentsArray,
+    selectedStudentFromFilter,
+    studentFilter,
+    studentId,
+    eventRoster,
+  ]);
 
   const classOptions = useMemo(() => {
     if (studentsArray.length === 0) return ["all"];
@@ -1226,6 +1243,13 @@ export default function GeneralScreeningPage() {
   };
 
   const handleSaveAssessment = useCallback(() => {
+    // Block re-entry: if a save is already in flight, ignore the click. This is
+    // the only reliable guard against double-click duplicates — isSaving state
+    // updates async so it can't stop a second click in the same tick.
+    if (isSavingRef.current) {
+      return;
+    }
+
     const rawStudentId =
       selectedStudent?.id ??
       selectedStudent?.cus_id ??
@@ -1235,6 +1259,16 @@ export default function GeneralScreeningPage() {
 
     if (!String(rawStudentId ?? "").trim()) {
       toast.error("Select a student before saving the general screening.");
+      return;
+    }
+
+    // Create-only flow: block re-saving for a student who already has a
+    // screening record saved in this session. Switching to a different
+    // student changes the key and unblocks saving again.
+    if (savedStudentKeyRef.current === String(rawStudentId)) {
+      toast.error(
+        "This student's screening has already been saved. Select another student to continue.",
+      );
       return;
     }
 
@@ -1302,11 +1336,15 @@ export default function GeneralScreeningPage() {
     );
 
     const getExaminationMastersId = (findings, value) => {
-      const normalizedValue = String(value ?? "").trim().toLowerCase();
+      const normalizedValue = String(value ?? "")
+        .trim()
+        .toLowerCase();
 
       return findings.find(
         (item) =>
-          String(item?.name ?? "").trim().toLowerCase() === normalizedValue,
+          String(item?.name ?? "")
+            .trim()
+            .toLowerCase() === normalizedValue,
       );
     };
     // const nutritionEntry = nutritionOptions.find(
@@ -1326,9 +1364,11 @@ export default function GeneralScreeningPage() {
       physicalExamination.generalAppearance,
     );
 
-    const postureAppearanceEntry = getExaminationMastersId( appearanceOptions,
-      physicalExamination.postureSpine,)
-    
+    const postureAppearanceEntry = getExaminationMastersId(
+      appearanceOptions,
+      physicalExamination.postureSpine,
+    );
+
     const skinAssessmentEntry = getExaminationMastersId(
       skinOptions,
       clinicalSigns.skinAssessment,
@@ -1412,11 +1452,17 @@ export default function GeneralScreeningPage() {
             payload,
           })
         : createInitialScreening(payload);
-setIsSaving(true);
+    setIsSaving(true);
+    isSavingRef.current = true;
     dispatch(saveAction)
       .unwrap()
       .then(() => {
-         setIsSaving(false);
+        setIsSaving(false);
+        isSavingRef.current = false;
+        // Mark this student as saved so further save clicks for the SAME
+        // student are blocked (create-only flow — no duplicate records).
+        savedStudentKeyRef.current = String(numericStudentId);
+        setSavedStudentKey(String(numericStudentId));
         queryClient.invalidateQueries({ queryKey: ["initial-screening"] });
 
         // Reset the form for the next student; the ref guard stops the
@@ -1436,7 +1482,8 @@ setIsSaving(true);
         );
       })
       .catch((error) => {
-         setIsSaving(false);
+        setIsSaving(false);
+        isSavingRef.current = false;
         console.error("Unable to save general screening:", error);
 
         toast.error("Failed to save initial screening", {
@@ -1650,65 +1697,61 @@ setIsSaving(true);
       };
     }),
   );
-const generalAppearanceToggleOptions = useMemo(
-  () =>
-    (
-      appearanceOptions.length
+  const generalAppearanceToggleOptions = useMemo(
+    () =>
+      (appearanceOptions.length
         ? appearanceOptions
         : ["Normal", "Needs Attention", "NA"].map((name) => ({
             id: undefined,
             name,
           }))
-    ).map((item) => {
-      const name = item.name ?? item;
+      ).map((item) => {
+        const name = item.name ?? item;
 
-      return {
-        value: name,
-        label: name,
-        tone:
-          name === "Normal"
-            ? "good"
-            : name === "Needs Attention"
-              ? "warn"
-              : name === "NA"
-                ? "neutral"
-                : "neutral",
-      };
-    }),
-  [appearanceOptions]
-);
-
-const skinAssessmentToggleOptions = useMemo(
-  () =>
-    (
-      skinOptions.length
-        ? skinOptions
-        : ["Normal", "Abnormal", "Rashes", "Infection", "NA"].map(
-            (name) => ({
-              id: undefined,
-              name,
-            })
-          )
-    ).map((item) => {
-      const name = item.name ?? item;
-
-      return {
-        value: name,
-        label: name,
-        tone:
-          name === "Normal"
-            ? "good"
-            : name === "Abnormal"
-              ? "warn"
-              : name === "Rashes"
+        return {
+          value: name,
+          label: name,
+          tone:
+            name === "Normal"
+              ? "good"
+              : name === "Needs Attention"
                 ? "warn"
-                : name === "Infection"
-                  ? "warn"
+                : name === "NA"
+                  ? "neutral"
                   : "neutral",
-      };
-    }),
-  [skinOptions]
-);
+        };
+      }),
+    [appearanceOptions],
+  );
+
+  const skinAssessmentToggleOptions = useMemo(
+    () =>
+      (skinOptions.length
+        ? skinOptions
+        : ["Normal", "Abnormal", "Rashes", "Infection", "NA"].map((name) => ({
+            id: undefined,
+            name,
+          }))
+      ).map((item) => {
+        const name = item.name ?? item;
+
+        return {
+          value: name,
+          label: name,
+          tone:
+            name === "Normal"
+              ? "good"
+              : name === "Abnormal"
+                ? "warn"
+                : name === "Rashes"
+                  ? "warn"
+                  : name === "Infection"
+                    ? "warn"
+                    : "neutral",
+        };
+      }),
+    [skinOptions],
+  );
   return (
     <section className="space-y-4">
       <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
@@ -1747,13 +1790,41 @@ const skinAssessmentToggleOptions = useMemo(
             </div>
           )}
 
-          <Button type="button" onClick={handleSaveAssessment} disabled={isSaving}>
+          <Button
+            type="button"
+            onClick={handleSaveAssessment}
+            disabled={
+              isSaving ||
+              (selectedStudent &&
+                savedStudentKey ===
+                  String(
+                    selectedStudent?.id ??
+                      selectedStudent?.cus_id ??
+                      selectedStudent?.student_id ??
+                      selectedStudent?.studentId ??
+                      studentId,
+                  ))
+            }
+          >
             {isSaving ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
               <Save className="size-4" />
             )}
-            {isSaving ? "Saving..." : "Save assessment"}
+            {isSaving
+              ? "Saving..."
+              : savedStudentKey &&
+                  selectedStudent &&
+                  savedStudentKey ===
+                    String(
+                      selectedStudent?.id ??
+                        selectedStudent?.cus_id ??
+                        selectedStudent?.student_id ??
+                        selectedStudent?.studentId ??
+                        studentId,
+                    )
+                ? "Saved ✓"
+                : "Save assessment"}
           </Button>
         </div>
       </div>
@@ -1850,7 +1921,7 @@ const skinAssessmentToggleOptions = useMemo(
                   <ClinicalSignsCard
                     data={clinicalSigns}
                     onChange={handleClinicalSignChange}
-                     skinAssessmentToggleOptions={skinAssessmentToggleOptions}
+                    skinAssessmentToggleOptions={skinAssessmentToggleOptions}
                   />
 
                   <GeneralPhysicalExamination
@@ -1859,8 +1930,9 @@ const skinAssessmentToggleOptions = useMemo(
                     onChange={handlePhysicalExaminationChange}
                     nutritionToggleOptions={nutritionToggleOptions}
                     consciousnessToggleOptions={consciousnessToggleOptions}
-                    generalAppearanceToggleOptions={generalAppearanceToggleOptions}
-                   
+                    generalAppearanceToggleOptions={
+                      generalAppearanceToggleOptions
+                    }
                   />
 
                   {isFemale &&
@@ -1893,83 +1965,83 @@ const skinAssessmentToggleOptions = useMemo(
                         chronicDiseasesOption={chronicDiseasesOption}
                       />
                       {/* <FramerCard> */}
-                        <article className="rounded-xl border border-border bg-card p-4">
-                          <div className="flex items-center gap-2">
-                            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-success/10">
-                              <INoteActionIcon className="size-4 text-info" />
-                            </div>
-                            <h3 className="text-sm font-semibold text-foreground">
-                              Notes
-                            </h3>
+                      <article className="rounded-xl border border-border bg-card p-4">
+                        <div className="flex items-center gap-2">
+                          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-success/10">
+                            <INoteActionIcon className="size-4 text-info" />
                           </div>
-                          <Textarea
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            rows={4}
-                            placeholder="Enter notes"
-                            className="mt-3 w-full resize-none rounded-md border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
-                          />
-                        </article>
+                          <h3 className="text-sm font-semibold text-foreground">
+                            Notes
+                          </h3>
+                        </div>
+                        <Textarea
+                          value={notes}
+                          onChange={(e) => setNotes(e.target.value)}
+                          rows={4}
+                          placeholder="Enter notes"
+                          className="mt-3 w-full resize-none rounded-md border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+                        />
+                      </article>
                       {/* </FramerCard> */}
                     </div>
                   </div>
 
                   <FramerCard>
                     <div className="space-y-4">
-                    <article className="rounded-xl border border-border bg-card p-4">
-                      <h3 className="text-sm font-semibold text-foreground">
-                        Review & Submit
-                      </h3>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        Please review all the information before saving the
-                        screening.
-                      </p>
-                      <div className="mt-4 space-y-2">
-                        <SummaryRow
-                          icon={Ruler}
-                          label="Height"
-                          value={`${height || "—"} cm`}
-                          tone="info"
-                        />
-                        <SummaryRow
-                          icon={Weight}
-                          label="Weight"
-                          value={`${weight || "—"} kg`}
-                          tone="success"
-                        />
-                        <SummaryRow
-                          icon={Activity}
-                          label="BMI"
-                          value={bmi ? bmi.toFixed(1) : "—"}
-                          tone={category.tone}
-                        />
-                        <SummaryRow
-                          icon={Heart}
-                          label="Pulse"
-                          value={pulse || "—"}
-                          tone="info"
-                        />
-                        <SummaryRow
-                          icon={Thermometer}
-                          label="Temperature"
-                          value={temperature ? `${temperature}°C` : "—"}
-                          tone="info"
-                        />
-                        <SummaryRow
-                          icon={Droplet}
-                          label="Blood Pressure"
-                          value={bloodPressure || "—"}
-                          tone="info"
-                        />
-                        <SummaryRow
-                          icon={Wind}
-                          label="SpO2"
-                          value={spo2 ? `${spo2}%` : "—"}
-                          tone="info"
-                        />
-                      </div>
-                    </article>
-                  </div>
+                      <article className="rounded-xl border border-border bg-card p-4">
+                        <h3 className="text-sm font-semibold text-foreground">
+                          Review & Submit
+                        </h3>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          Please review all the information before saving the
+                          screening.
+                        </p>
+                        <div className="mt-4 space-y-2">
+                          <SummaryRow
+                            icon={Ruler}
+                            label="Height"
+                            value={`${height || "—"} cm`}
+                            tone="info"
+                          />
+                          <SummaryRow
+                            icon={Weight}
+                            label="Weight"
+                            value={`${weight || "—"} kg`}
+                            tone="success"
+                          />
+                          <SummaryRow
+                            icon={Activity}
+                            label="BMI"
+                            value={bmi ? bmi.toFixed(1) : "—"}
+                            tone={category.tone}
+                          />
+                          <SummaryRow
+                            icon={Heart}
+                            label="Pulse"
+                            value={pulse || "—"}
+                            tone="info"
+                          />
+                          <SummaryRow
+                            icon={Thermometer}
+                            label="Temperature"
+                            value={temperature ? `${temperature}°C` : "—"}
+                            tone="info"
+                          />
+                          <SummaryRow
+                            icon={Droplet}
+                            label="Blood Pressure"
+                            value={bloodPressure || "—"}
+                            tone="info"
+                          />
+                          <SummaryRow
+                            icon={Wind}
+                            label="SpO2"
+                            value={spo2 ? `${spo2}%` : "—"}
+                            tone="info"
+                          />
+                        </div>
+                      </article>
+                    </div>
                   </FramerCard>
                 </ScreeningStepper>
               </div>

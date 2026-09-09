@@ -479,25 +479,43 @@ export default function DentalAssessmentPage() {
         ? DentalConditionsMasterData
         : [];
 
-  const gingivalHealthToggleOptions = gingivalHealthSource
-    .map((item) => {
-      const label = String(item?.name ?? "").trim();
-      const value = label.toLowerCase();
-      const severity = String(item?.severity ?? "").toLowerCase();
-      const tone = severity.includes("high")
-        ? "bad"
-        : severity.includes("medium")
-          ? "warn"
-          : severity.includes("low") || severity.includes("none")
-            ? "good"
-            : label.includes("healthy")
-              ? "good"
-              : label.includes("abscess") || label.includes("caries")
-                ? "bad"
-                : "warn";
-      return { value, label, tone };
-    })
-    .filter((option) => option.value);
+const gingivalHealthToggleOptions = gingivalHealthOptions
+  .map((item) => {
+    const label = String(item?.label ?? "").trim();
+    const value = String(item?.value ?? "").trim().toLowerCase();
+    const severity = String(item?.severity ?? "").trim().toLowerCase();
+
+    let tone = "neutral";
+
+    if (severity.includes("high")) {
+      tone = "bad";
+    } else if (severity.includes("medium")) {
+      tone = "warn";
+    } else if (
+      severity.includes("low") ||
+      severity.includes("none")
+    ) {
+      tone = "good";
+    } else if (value === "good" || label.toLowerCase() === "good") {
+      tone = "good";
+    } else if (value === "fair" || label.toLowerCase() === "fair") {
+      tone = "warn";
+    } else if (value === "poor" || label.toLowerCase() === "poor") {
+      tone = "bad";
+    }
+
+    return {
+      value,
+      label,
+      tone,
+    };
+  })
+  .filter((option) => option.value);
+
+console.log(
+  gingivalHealthToggleOptions,
+  "gingivalHealthToggleOptions"
+);
 
   // Map master-data oral hygiene records to toggle options ({value, label,
   // tone}) and append them after the built-in ones (deduped by value).
@@ -524,11 +542,11 @@ export default function DentalAssessmentPage() {
       ),
   ];
 
-  const [oralHygiene, setOralHygiene] = useState("fair");
-  const [gingivalHealth, setGingivalHealth] = useState("gingivitis");
+  const [oralHygiene, setOralHygiene] = useState("");
+  const [gingivalHealth, setGingivalHealth] = useState("na");
   const [plaque, setPlaque] = useState("mild");
   const [otherFindings, setOtherFindings] = useState({});
-  const [notes, setNotes] = useState("Mild crowding in lower anterior region.");
+  const [notes, setNotes] = useState("");
   const [referralAction, setReferralAction] = useState("");
   const [referralReason, setReferralReason] = useState("");
   const [followUpValue, setFollowUpValue] = useState("");
@@ -542,6 +560,7 @@ export default function DentalAssessmentPage() {
   // const [getDentalCodingValue, setDentalCodingValue] = useState("");
   // const [DentalConditionValue, setDentalConditionValue] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+   const isSavingRef = useRef(false);
   const [dentalFindingEntries, setDentalFindingEntries] = useState([]);
   const [dentalCodingEntries, setDentalCodingEntries] = useState([]);
   const [isCodingPopupOpen, setIsCodingPopupOpen] = useState(false);
@@ -549,6 +568,13 @@ export default function DentalAssessmentPage() {
   const [popupConditionValue, setPopupConditionValue] = useState("");
   const [popupTreatmentValue, setPopupTreatmentValue] = useState("");
   const [popupSurfaceValue, setPopupSurfaceValue] = useState("");
+   // Tracks the last successfully saved student (create-only flow): once a
+  // student is saved, further save clicks for the SAME student are blocked;
+  // selecting a different student changes the key and unblocks saving.
+  const savedStudentKeyRef = useRef(null);
+  // State mirror of savedStudentKeyRef so the Save button can disable itself
+  // after the current student is saved (refs don't trigger re-renders).
+  const [savedStudentKey, setSavedStudentKey] = useState(null);
 
   // When set, the popup is editing an existing entry (chip click); null = add mode.
   const [editingEntryId, setEditingEntryId] = useState(null);
@@ -1466,6 +1492,11 @@ console.log("selectedeee:", getDentalConditionValue);
 
   
   const handleSaveAssessment = () => {
+
+      if (isSavingRef.current) {
+      return;
+    }
+
     const rawStudentId =
       selectedStudent?.id ??
       selectedStudent?.cus_id ??
@@ -1510,7 +1541,12 @@ console.log("selectedeee:", getDentalConditionValue);
       toast.error("Select a student before saving the dental screening.");
       return;
     }
-console.log(chart,"chart");
+    if (savedStudentKeyRef.current === String(rawStudentId)) {
+          toast.error(
+            "This student's screening has already been saved. Select another student to continue.",
+          );
+          return;
+    }
 
     const payload = {
       student_id: Number(rawStudentId) || 0,
@@ -1578,11 +1614,13 @@ console.log(chart,"chart");
     
 
     setIsSaving(true);
+    isSavingRef.current = true;
 
     dispatch(createDentalScreening(payload))
       .unwrap()
       .then(() => {
-        // setIsSaving(false);
+        setIsSaving(false);
+        isSavingRef.current = false;
         // // Refresh the react-query cache; the ["dental-screening"] query's
         // // queryFn re-dispatches getDentalScreening, keeping Redux in sync.
         // queryClient.invalidateQueries({ queryKey: ["dental-screening"] });
@@ -1591,15 +1629,18 @@ console.log(chart,"chart");
         // // auto-apply effect from re-filling the just-saved values.
         // resetAfterSaveRef.current = true;
         // resetFormToDefaults();
+         savedStudentKeyRef.current = String(rawStudentId);
+        setSavedStudentKey(String(rawStudentId));
 
-        // toast.success("Dental screening saved successfully", {
-        //   description: selectedStudent?.name
-        //     ? `Record saved for ${selectedStudent.name}`
-        //     : undefined,
-        // });
+        toast.success("Dental screening saved successfully", {
+          description: selectedStudent?.name
+            ? `Record saved for ${selectedStudent.name}`
+            : undefined,
+        });
       })
       .catch((error) => {
         setIsSaving(false);
+        isSavingRef.current = false;
         console.error("Unable to save dental screening:", error);
 
         toast.error("Failed to save dental screening", {
@@ -2094,7 +2135,7 @@ useEffect(() => {
 
   return (
     <section className="space-y-4">
-      <div className="sticky top-18 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between mb-4">
+      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between mb-4">
         <div>
           <div className="flex items-center gap-2 py-3">
             <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary aspect-square">
@@ -2204,14 +2245,38 @@ useEffect(() => {
           <Button
             type="button"
             onClick={handleSaveAssessment}
-            disabled={isSaving}
+            disabled={
+              isSaving ||
+              (selectedStudent &&
+                savedStudentKey ===
+                  String(
+                    selectedStudent?.id ??
+                      selectedStudent?.cus_id ??
+                      selectedStudent?.student_id ??
+                      selectedStudent?.studentId ??
+                      studentId,
+                  ))
+            }
           >
             {isSaving ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
               <Save className="size-4" />
             )}
-            {isSaving ? "Saving..." : "Save assessment"}
+            {isSaving
+              ? "Saving..."
+              : savedStudentKey &&
+                  selectedStudent &&
+                  savedStudentKey ===
+                    String(
+                      selectedStudent?.id ??
+                        selectedStudent?.cus_id ??
+                        selectedStudent?.student_id ??
+                        selectedStudent?.studentId ??
+                        studentId,
+                    )
+                ? "Saved ✓"
+                : "Save assessment"}
           </Button>
         </div>
       </div>
@@ -2315,7 +2380,7 @@ useEffect(() => {
             </button>
           </div>
         </div> */}
-            <div className="relative md:relative lg:sticky lg:top-24 z-10 self-start space-y-5">
+            <div className="relative md:relative lg:sticky lg:top-36 z-10 self-start space-y-5">
               <FramerCard>
                 <AssessmentCard
                   // onChange={handleAssessmentChange}
@@ -2826,7 +2891,7 @@ useEffect(() => {
                 {/* </FramerCard> */}
 
                 {/* ---------------- Oral hygiene ---------------- */}
-                <FramerCard>
+                {/* <FramerCard> */}
                   <OralHygenic
                     oralHygiene={oralHygiene}
                     gingivalHealth={gingivalHealth}
@@ -2850,7 +2915,7 @@ useEffect(() => {
                     plaqueToggleOptions={plaqueToggleOptions}
                     formatDate={formatDate}
                   />
-                </FramerCard>
+                {/* </FramerCard> */}
 
                 {/* ---------------- Dental findings ---------------- */}
                 <div className="grid items-start gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-2">

@@ -14,16 +14,29 @@ import ReusableSelect from "@/components/ui/reusable-select";
 import CampDetailsCard from "@/components/ui/camp-details-card";
 import useAssignedEvents from "@/lib/useAssignedEvents";
 import useAuthUser from "@/lib/useAuthUser";
+import { useQuery } from "@tanstack/react-query";
+import { useAppDispatch } from "@/lib/hooks";
+import { getRegisterSchool } from "@/lib/features/registerSchoolSlice";
 
 /**
  * Campus Details - Settings tab that shows the signed-in school's profile and
  * a picker over its assigned camps (health events), with a details card for
  * the selected camp.
  */
-const CampDetails = ({ schoolProfile }) => {
+const CampDetails = () => {
   const { authUser } = useAuthUser();
   const { assignedEvents, assignEventLoading, assignEventError } =
     useAssignedEvents();
+
+  // The school profile is fetched lazily when this tab is opened (not on the
+  // whole settings page mount) so the rest of settings stays instant.
+  const dispatch = useAppDispatch();
+  const schoolId = 3;
+  const { data: schoolProfile, isLoading: schoolLoading } = useQuery({
+    queryKey: ["register-school"],
+    queryFn: () => dispatch(getRegisterSchool({ id: schoolId })).unwrap(),
+    staleTime: 60_000,
+  });
 
   const [selectedCampValue, setSelectedCampValue] = useState("all");
 

@@ -19,7 +19,6 @@ export function useScreeningRecord({ getId } = {}) {
   const dispatch = useAppDispatch();
   const normalizedId = String(getId ?? "").trim();
   const hasStudent = Boolean(normalizedId);
-console.log(getId,"normalizedId");
 
   // Hearing screening for this student.
   const {
@@ -31,8 +30,7 @@ console.log(getId,"normalizedId");
     queryFn: () =>
       dispatch(getHearingScreening({ studentId: normalizedId })).unwrap(),
     enabled: hasStudent,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    staleTime: 60_000,
   });
 
   // Initial (general) screenings — fetched once, then matched by student keys.
@@ -53,8 +51,7 @@ console.log(getId,"normalizedId");
         }),
       ).unwrap(),
     enabled: hasStudent,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    staleTime: 60_000,
   });
 
   // Dental screening for this student.
@@ -67,8 +64,7 @@ console.log(getId,"normalizedId");
     queryFn: () =>
       dispatch(getDentalScreening({ studentId: normalizedId })).unwrap(),
     enabled: hasStudent,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    staleTime: 60_000,
   });
 
   // Vision screening for this student.
@@ -81,10 +77,8 @@ console.log(getId,"normalizedId");
     queryFn: () =>
       dispatch(getVisionScreening({ studentId: normalizedId })).unwrap(),
     enabled: hasStudent,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    staleTime: 60_000,
   });
-  console.log(visionScreeningData,"visionScreeningData");
   
 
   // getInitialScreening resolves to { items: [...], total, page, limit } —

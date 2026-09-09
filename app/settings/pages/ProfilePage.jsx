@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import FormField from "../components/FormField";
 import { Camera, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PasswordStrengthMeter } from "../components/PasswordStrengthMeter";
 
 const ProfilePage = ({
   profileImageFile,
@@ -14,11 +15,9 @@ const ProfilePage = ({
   imagePreviewUrl,
   setImagePreviewUrl,
   name,
-  setName,
   username,
-  setUsername,
   password,
-  setPassword,
+  onChange,
 }) => {
   const [imageError, setImageError] = useState("");
   const [showCropper, setShowCropper] = useState(false);
@@ -174,7 +173,8 @@ const ProfilePage = ({
           label="Name"
           placeholder="Enter your name"
           value={name}
-          onChange={setName}
+          name="name"
+          onChange={(value) => onChange("name", value)}
         />
 
         <FormField
@@ -182,17 +182,21 @@ const ProfilePage = ({
           label="Username"
           placeholder="Enter your username"
           value={username}
-          onChange={setUsername}
+          name="username"
+          onChange={(value) => onChange("username", value)}
         />
 
-        <FormField
+        <div className="flex flex-col gap-4">
+          <FormField
           id="password"
           label="Password"
           placeholder="Enter your password"
           type="password"
+          name="password"
           value={password}
-          onChange={setPassword}
-        />
+          onChange={(value) => onChange("password", value)}
+        /> <PasswordStrengthMeter password={password} />
+        </div>
       </form>
 
       {/* Reusable Image Cropper */}

@@ -220,10 +220,10 @@ const StudentFilter = ({
     eventList.forEach((event) => {
       const value = String(
         event?.school?.school_name ??
-        event?.school?.name ??
-        event?.school_name ??
-        event?.schoolName ??
-        "",
+          event?.school?.name ??
+          event?.school_name ??
+          event?.schoolName ??
+          "",
       ).trim();
 
       if (value) {
@@ -288,7 +288,8 @@ const StudentFilter = ({
         getStudentByEvent({
           eventId: selectedCamp.id,
           page: 1,
-          perPage: 1000,
+          perPage: 50,
+
           studentClass: classFilter === "all" ? "" : classFilter,
           section: sectionFilter === "all" ? "" : sectionFilter,
         }),
@@ -346,9 +347,18 @@ const StudentFilter = ({
           // Parse the students array from any reasonable response shape.
           const findItems = (value, depth = 0) => {
             if (depth > 4 || value == null) return null;
-            if (Array.isArray(value)) return value.length === 0 || typeof value[0] === "object" ? value : null;
+            if (Array.isArray(value))
+              return value.length === 0 || typeof value[0] === "object"
+                ? value
+                : null;
             if (typeof value !== "object") return null;
-            for (const key of ["students", "data", "items", "results", "records"]) {
+            for (const key of [
+              "students",
+              "data",
+              "items",
+              "results",
+              "records",
+            ]) {
               const found = findItems(value[key], depth + 1);
               if (found) return found;
             }
@@ -503,8 +513,7 @@ const StudentFilter = ({
       getStudentByEvent({
         eventId: selectedCamp.id,
         page: nextPage,
-        // Reuse the page size the initial load used — NEVER a different one.
-        perPage: studentPerPage || 1000,
+        perPage: studentPerPage || 50,
         studentClass: classFilter === "all" ? "" : classFilter,
         section: sectionFilter === "all" ? "" : sectionFilter,
       }),
@@ -678,18 +687,15 @@ const StudentFilter = ({
 
           const nextPage = page + 1;
 
-        const result = await dispatch(
-  getStudentByEvent({
-    eventId: selectedCamp?.id,
-    page: nextPage,
-    perPage: 1000,
-    studentClass:
-      classFilter === "all" ? "" : classFilter,
-    section:
-      sectionFilter === "all" ? "" : sectionFilter,
-  }),
-).unwrap();
-
+          const result = await dispatch(
+            getStudentByEvent({
+              eventId: selectedCamp?.id,
+              page: nextPage,
+              perPage: 50,
+              studentClass: classFilter === "all" ? "" : classFilter,
+              section: sectionFilter === "all" ? "" : sectionFilter,
+            }),
+          ).unwrap();
 
           const items = Array.isArray(result?.items)
             ? result.items
@@ -755,23 +761,12 @@ const StudentFilter = ({
    * when no camp is selected or the query hasn't resolved yet.
    */
   const optionStudents = useMemo(() => {
-  if (selectedCamp?.id) {
-    return Array.isArray(getStundentByEvent)
-      ? getStundentByEvent
-      : [];
-  }
+    if (selectedCamp?.id) {
+      return Array.isArray(eventStudents) ? eventStudents : [];
+    }
 
-  return eventStudents.length > 0
-    ? eventStudents
-    : studentsBySchoolAndYear;
-}, [
-  selectedCamp?.id,
-  getStundentByEvent,
-  eventStudents,
-  studentsBySchoolAndYear,
-]);
-
-
+    return eventStudents.length > 0 ? eventStudents : studentsBySchoolAndYear;
+  }, [selectedCamp?.id, eventStudents, studentsBySchoolAndYear]);
 
   /* ------------------------------------------------------------------------ */
   /* Academic year options                                                    */
@@ -913,7 +908,7 @@ const StudentFilter = ({
       const classMatch =
         classFilter === "all" ||
         String(studentClass).trim().toLowerCase() ===
-        String(classFilter).trim().toLowerCase();
+          String(classFilter).trim().toLowerCase();
 
       if (!classMatch) {
         return;
@@ -948,9 +943,7 @@ const StudentFilter = ({
   /* Student options                                                          */
   /* ------------------------------------------------------------------------ */
   const studentOptions = useMemo(() => {
-    const filtered = Array.isArray(optionStudents)
-      ? optionStudents
-      : [];
+    const filtered = Array.isArray(optionStudents) ? optionStudents : [];
 
     return [
       {
@@ -965,8 +958,7 @@ const StudentFilter = ({
 
           return {
             value,
-            label: `${getStudentName(student)}${code ? ` (${code})` : ""
-              }`,
+            label: `${getStudentName(student)}${code ? ` (${code})` : ""}`,
           };
         })
         .filter((item) => item.value),
@@ -1009,8 +1001,9 @@ const StudentFilter = ({
   return (
     <>
       <div
-        className={`grid gap-3 sm:grid-cols-2 ${isDoctor ? "xl:grid-cols-5" : "xl:grid-cols-4"
-          }`}
+        className={`grid gap-3 sm:grid-cols-2 ${
+          isDoctor ? "xl:grid-cols-5" : "xl:grid-cols-4"
+        }`}
       >
         {/* ---------------------------------------------------------------- */}
         {/* Camp                                                               */}
@@ -1044,10 +1037,10 @@ const StudentFilter = ({
 
                 const eventSchool = String(
                   selectedEvent?.school?.school_name ??
-                  selectedEvent?.school?.name ??
-                  selectedEvent?.school_name ??
-                  selectedEvent?.schoolName ??
-                  "",
+                    selectedEvent?.school?.name ??
+                    selectedEvent?.school_name ??
+                    selectedEvent?.schoolName ??
+                    "",
                 ).trim();
 
                 onSchoolNameChange?.(eventSchool || "all");
@@ -1153,6 +1146,7 @@ const StudentFilter = ({
           onLoadMore={handleLoadMoreStudents}
           hasMore={hasMoreStudents}
           isLoadingMore={loadingMoreStudents}
+          // onScroll={handleScroll}
         />
       </div>
     </>

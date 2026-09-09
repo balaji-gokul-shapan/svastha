@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
 
+import { getAllowedRolesForPath } from "./lib/route-roles";
+
 /**
  * AUTH MIDDLEWARE
  * ---------------
  * - /login and /register are PUBLIC (accessible without login).
  * - Every other page requires an authenticated session.
- * - The session flag lives in the "svastha-auth" cookie, which is kept in
- *   sync with the Redux auth state by lib/store.js (sessionStorage alone
- *   cannot be read by middleware because it runs on the server).
+ * - The "svastha-auth" cookie stores the user's effective role (kept in sync
+ *   with Redux auth state by lib/store.js — sessionStorage alone cannot be
+ *   read by middleware because it runs on the server).
+ * - Restricted routes (lib/route-roles.js) are additionally blocked per role,
+ *   so manually typing a URL doesn't bypass the sidebar's role-based menu.
  */
 
 const AUTH_COOKIE_NAME = "svastha-auth";
@@ -25,7 +29,9 @@ const AUTHENTICATED_HOME_PATH = "/";
 
 export function middleware(request) {
   const { pathname, search } = request.nextUrl;
-  const isAuthenticated = Boolean(request.cookies.get(AUTH_COOKIE_NAME)?.value);
+  const rawCookie = request.cookies.get(AUTH_COOKIE_NAME)?.value;
+  const isAuthenticated = Boolean(rawCookie);
+  const role = rawCookie ? decodeURIComponent(rawCookie) : "";
 
   // Already logged in? Keep users away from the auth pages.
   if (isAuthenticated && AUTH_PAGES.has(pathname)) {
@@ -44,6 +50,21 @@ export function middleware(request) {
     if (pathname !== LOGIN_PATH) {
       url.searchParams.set("next", `${pathname}${search}`);
     }
+    return NextResponse.redirect(url);
+  }
+
+  // Logged in but the route is restricted to other roles -> bounce home.
+  const allowedRoles = getAllowedRolesForPath(pathname);
+
+  if (
+    allowedRoles &&
+    allowedRoles.length > 0 &&
+    !allowedRoles.includes(role)
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = AUTHENTICATED_HOME_PATH;
+    url.search = "";
+    url.searchParams.set("denied", "1");
     return NextResponse.redirect(url);
   }
 

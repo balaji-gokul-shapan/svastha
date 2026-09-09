@@ -101,6 +101,8 @@ export default function HearingScreening({ screening = {} }) {
   const dispatch = useAppDispatch();
   const queryClient = useQueryClient();
   const authUser = useAppSelector(selectAuthUser);
+  const isSavingRef = React.useRef(false);
+  
 
   const [form, setForm] = React.useState({
     pta_250hz_re: screening.pta_250hz_re ?? "",
@@ -170,6 +172,10 @@ export default function HearingScreening({ screening = {} }) {
 
     follow_up: screening.follow_up ?? "",
   });
+    const [isSaving, setIsSaving] = React.useState(false);
+      const savedStudentKeyRef = React.useRef(null);
+      const [savedStudentKey, setSavedStudentKey] = React.useState(null);
+
   const {
     data: masterScreeningData = {},
     isLoading: masterScreeningDataLoading,
@@ -325,6 +331,13 @@ export default function HearingScreening({ screening = {} }) {
   const [formErrors, setFormErrors] = React.useState(null);
 
   const handleSave = (e) => {
+    // Block re-entry: if a save is already in flight, ignore the click. This is
+    // the only reliable guard against double-click duplicates — isSaving state
+    // updates async so it can't stop a second click in the same tick.
+    if (isSavingRef.current) {
+      return;
+    }
+
     const rawStudentId =
       selectedStudent?.id ??
       selectedStudent?.cus_id ??
@@ -333,6 +346,15 @@ export default function HearingScreening({ screening = {} }) {
       studentId;
     if (!String(rawStudentId ?? "").trim()) {
       toast.error("Select a student before saving the hearing screening.");
+      return;
+    }
+    // Create-only flow: block re-saving for a student who already has a
+    // screening record saved in this session. Switching to a different
+    // student changes the key and unblocks saving again.
+    if (savedStudentKeyRef.current === String(rawStudentId)) {
+      toast.error(
+        "This student's screening has already been saved. Select another student to continue.",
+      );
       return;
     }
     const result = hearingScreeningSchema.safeParse(form);
@@ -375,12 +397,16 @@ export default function HearingScreening({ screening = {} }) {
       ...form,
     };
  setIsSaving(true);
+ isSavingRef.current = true;
     dispatch(createHearingScreening(data))
       .unwrap()
       .then(() => {
          setIsSaving(false);
+         isSavingRef.current = false;
         // Refresh the react-query cache; the ["hearing-screening"] query's
         // queryFn re-dispatches getHearingScreening, keeping Redux in sync.
+         savedStudentKeyRef.current = String(rawStudentId);
+        setSavedStudentKey(String(rawStudentId));
         queryClient.invalidateQueries({ queryKey: ["hearing-screening"] });
 
         toast.success("Hearing screening saved successfully", {
@@ -391,6 +417,7 @@ export default function HearingScreening({ screening = {} }) {
       })
       .catch((error) => {
          setIsSaving(false);
+         isSavingRef.current = false;
         console.error("Unable to save hearing screening:", error);
 
         toast.error("Failed to save hearing screening", {
@@ -412,7 +439,6 @@ export default function HearingScreening({ screening = {} }) {
   const [sectionFilter, setSectionFilter] = React.useState("all");
   const [studentFilter, setStudentFilter] = React.useState("all");
   const [getStudentDataByEvent, setGetStudentDataByEvent] = React.useState([]);
-    const [isSaving, setIsSaving] = useState(false);
   
   const {
     data: hearingScreeningData = [],
@@ -1063,13 +1089,37 @@ export default function HearingScreening({ screening = {} }) {
             </div>
           )}
 
-          <Button onClick={handleSave} disabled={isSaving}>
+          <Button onClick={handleSave}  disabled={
+              isSaving ||
+              (selectedStudent &&
+                savedStudentKey ===
+                  String(
+                    selectedStudent?.id ??
+                      selectedStudent?.cus_id ??
+                      selectedStudent?.student_id ??
+                      selectedStudent?.studentId ??
+                      studentId,
+                  ))
+            }>
             {isSaving ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
               <Save className="size-4" />
             )}
-            {isSaving ? "Saving..." : "Save assessment"}
+            {isSaving
+              ? "Saving..."
+              : savedStudentKey &&
+                  selectedStudent &&
+                  savedStudentKey ===
+                    String(
+                      selectedStudent?.id ??
+                        selectedStudent?.cus_id ??
+                        selectedStudent?.student_id ??
+                        selectedStudent?.studentId ??
+                        studentId,
+                    )
+                ? "Saved ✓"
+                : "Save assessment"}
           </Button>
         </div>
       </div>

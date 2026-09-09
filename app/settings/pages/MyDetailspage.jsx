@@ -37,7 +37,10 @@ const SECURITY_ITEMS = [
 export default function MyDetailsPage({
   profileImageFile,
   setProfileImageFile,
-  name, setName, username, setUsername, password, setPassword
+  name,
+  username,
+  password,
+  onChange,
 }) {
   const profileInputRef = useRef(null);
   // Preview URL is DERIVED from the parent-owned `profileImageFile` via the
@@ -57,8 +60,6 @@ export default function MyDetailsPage({
     setImagePreviewUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [profileImageFile]);
-
-  
 
   const clearProfileImage = () => {
     setProfileImageFile(null); // effect cleanup revokes the stale URL
@@ -264,7 +265,7 @@ export default function MyDetailsPage({
       </div>
 
       {/* EDIT FORM */}
-      <article className="rounded-lg border border-border bg-card p-5">
+      {/* <article className="rounded-lg border border-border bg-card p-5">
         <h3 className="text-sm font-semibold text-foreground">Edit Details</h3>
         <form className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <FormField
@@ -272,15 +273,17 @@ export default function MyDetailsPage({
             label="Name"
             placeholder="Enter your name"
             value={name}
-            onChange={setName}
+            onChange={(value) => onChange("name", value)}
           />
+
           <FormField
             id="username"
             label="Username"
             placeholder="Enter your username"
             value={username}
-            onChange={setUsername}
+            onChange={(value) => onChange("username", value)}
           />
+
           <div className="space-y-1.5">
             <FormField
               id="password"
@@ -288,8 +291,9 @@ export default function MyDetailsPage({
               placeholder="Enter your password"
               type="password"
               value={password}
-              onChange={setPassword}
+              onChange={(value) => onChange("password", value)}
             />
+
             <PasswordStrengthMeter password={password} />
           </div>
         </form>
@@ -308,7 +312,7 @@ export default function MyDetailsPage({
             Save Changes
           </button>
         </div>
-      </article>
+      </article> */}
     </section>
   );
 }

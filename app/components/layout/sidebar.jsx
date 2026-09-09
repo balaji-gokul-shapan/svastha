@@ -193,7 +193,7 @@ export function Sidebar() {
   const bottomItems = [
     {
       label: "Settings",
-      href: "/settingsNew",
+      href: "/settings",
       icon: Settings,
 
       roles: [

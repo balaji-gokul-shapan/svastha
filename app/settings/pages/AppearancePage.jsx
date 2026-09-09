@@ -1,13 +1,25 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Check, MoreHorizontal } from "lucide-react";
 import React from "react";
+
 const APPEARANCE_THEMES = [
   { id: "system", label: "System preference" },
   { id: "light", label: "Light" },
   { id: "dark", label: "Dark" },
 ];
+
+const SIDEBAR_FEATURES = ["Recent changes", "Recent activity", "Notifications"];
+
 function SelectableCard({ selected, onClick, label, children }) {
   return (
     <button
@@ -34,6 +46,7 @@ function SelectableCard({ selected, onClick, label, children }) {
     </button>
   );
 }
+
 function MiniDashboardPreview({ variant }) {
   const isDark = variant === "dark";
   const shell = isDark ? "bg-slate-800" : "bg-white";
@@ -60,22 +73,50 @@ function MiniDashboardPreview({ variant }) {
     </span>
   );
 }
-const SIDEBAR_FEATURES = ["Recent changes", "Recent activity", "Notifications"];
-function MiniTablePreview({ compact }) {
+
+// function MiniTablePreview({ compact }) {
+//   const rows = compact ? 5 : 4;
+//   const rowGap = compact ? "gap-1.5" : "gap-1";
+
+//   return (
+//     <span className="flex h-20 w-full flex-col gap-1 bg-white p-1.5 dark:bg-slate-800">
+//       <span className="flex items-center justify-between">
+//         <span className="h-1.5 w-1/2 rounded bg-slate-300 dark:bg-slate-600" />
+//         <span className="h-2 w-6 rounded bg-slate-800 dark:bg-slate-500" />
+//       </span>
+//       <span className={`flex flex-col ${rowGap}`}>
+//         {Array.from({ length: rows }).map((_, index) => (
+//           <span key={index} className="flex items-center gap-1">
+//             <span className="size-2 rounded-full bg-slate-300 dark:bg-slate-600" />
+//             <span className="h-1.5 flex-1 rounded bg-slate-200 dark:bg-slate-700" />
+//           </span>
+//         ))}
+//       </span>
+//     </span>
+//   );
+// }
+function MiniTablePreview({ compact = false }) {
   const rows = compact ? 5 : 4;
-  const rowGap = compact ? "gap-0.5" : "gap-1";
+  const rowGap = compact ? "gap-1" : "gap-1.5";
 
   return (
-    <span className="flex h-20 w-full flex-col gap-1 bg-white p-1.5 dark:bg-slate-800">
-      <span className="flex items-center justify-between">
-        <span className="h-1.5 w-1/2 rounded bg-slate-300 dark:bg-slate-600" />
-        <span className="h-2 w-6 rounded bg-slate-800 dark:bg-slate-500" />
+    <span className="flex h-20 w-full flex-col overflow-hidden rounded-md bg-white p-1.5 dark:bg-slate-800">
+      {/* Table header */}
+      <span className="grid grid-cols-4 gap-1 border-b border-slate-200 pb-1 dark:border-slate-700">
+        <span className="h-1.5 rounded bg-slate-400 dark:bg-slate-500" />
+        <span className="h-1.5 rounded bg-slate-300 dark:bg-slate-600" />
+        <span className="h-1.5 rounded bg-slate-300 dark:bg-slate-600" />
+        <span className="h-1.5 rounded bg-slate-300 dark:bg-slate-600" />
       </span>
-      <span className={`flex flex-col ${rowGap}`}>
+
+      {/* Table rows */}
+      <span className={`mt-1 flex flex-col ${rowGap}`}>
         {Array.from({ length: rows }).map((_, index) => (
-          <span key={index} className="flex items-center gap-1">
-            <span className="size-2 rounded-full bg-slate-300 dark:bg-slate-600" />
-            <span className="h-1.5 flex-1 rounded bg-slate-200 dark:bg-slate-700" />
+          <span key={index} className="grid grid-cols-4 items-center gap-1">
+            <span className="h-1.5 rounded bg-slate-300 dark:bg-slate-600" />
+            <span className="h-1.5 rounded bg-slate-200 dark:bg-slate-700" />
+            <span className="h-1.5 rounded bg-slate-200 dark:bg-slate-700" />
+            <span className="h-1.5 rounded bg-slate-200 dark:bg-slate-700" />
           </span>
         ))}
       </span>
@@ -83,7 +124,46 @@ function MiniTablePreview({ compact }) {
   );
 }
 
-export function AppearanceSettings({
+function MiniCardPreview({ compact = false }) {
+  const cards = compact ? 4 : 3;
+
+  return (
+    <span className="flex h-20 w-full flex-col gap-1.5 rounded-md bg-white p-1.5 dark:bg-slate-800">
+      {/* Card heading */}
+      <span className="flex items-center justify-between">
+        <span className="h-1.5 w-2/5 rounded bg-slate-400 dark:bg-slate-500" />
+        <span className="h-2 w-5 rounded-full bg-slate-200 dark:bg-slate-700" />
+      </span>
+
+      {/* Cards */}
+      <span
+        className={`grid flex-1 ${
+          compact ? "grid-cols-4 gap-1" : "grid-cols-3 gap-1.5"
+        }`}
+      >
+        {Array.from({ length: cards }).map((_, index) => (
+          <span
+            key={index}
+            className="flex min-w-0 flex-col rounded border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-900"
+          >
+            {/* Icon */}
+            <span className="mb-1 flex size-3 items-center justify-center rounded bg-primary/10">
+              <span className="size-1.5 rounded-full bg-primary/50" />
+            </span>
+
+            {/* Title */}
+            <span className="h-1 w-4/5 rounded bg-slate-300 dark:bg-slate-600" />
+
+            {/* Content */}
+            <span className="mt-1 h-1 w-full rounded bg-slate-200 dark:bg-slate-700" />
+            <span className="mt-0.5 h-1 w-3/4 rounded bg-slate-200 dark:bg-slate-700" />
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
+const AppearancePage = ({
   theme,
   onThemeChange,
   transparentSidebar,
@@ -94,8 +174,10 @@ export function AppearanceSettings({
   onTableViewChange,
   onCancel,
   onSave,
-}) {
-  
+}) => {
+  // Theme is applied app-wide by <AppearanceWatcher /> in providers.jsx —
+  // keeping this effect here only duplicated the DOM/localStorage writes each
+  // time this tab was opened.
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-card">
       <div className="flex items-start justify-between gap-4 p-5 pb-4">
@@ -208,8 +290,8 @@ export function AppearanceSettings({
           </div>
           <div className="flex flex-wrap gap-4">
             {[
-              { id: "default", label: "Default", compact: false },
-              { id: "compact", label: "Compact", compact: true },
+              { id: "table", label: "Table", compact: false },
+              { id: "card", label: "Card", compact: true },
             ].map((option) => (
               <SelectableCard
                 key={option.id}
@@ -217,7 +299,12 @@ export function AppearanceSettings({
                 onClick={() => onTableViewChange(option.id)}
                 label={option.label}
               >
-                <MiniTablePreview compact={option.compact} />
+                {option.id === "table" ? (
+                  <MiniTablePreview />
+                ) : (
+                  <MiniCardPreview />
+                )}
+                {/* <MiniTablePreview compact={option.compact} /> */}
               </SelectableCard>
             ))}
           </div>
@@ -234,22 +321,6 @@ export function AppearanceSettings({
         </div>
       </div>
     </section>
-  );
-}
-const AppearancePage = () => {
-  return (
-    <AppearanceSettings
-      theme={theme}
-      onThemeChange={setTheme}
-      transparentSidebar={transparentSidebar}
-      onTransparentSidebarChange={setTransparentSidebar}
-      sidebarFeature={sidebarFeature}
-      onSidebarFeatureChange={setSidebarFeature}
-      tableView={tableView}
-      onTableViewChange={setTableView}
-      onCancel={handleAppearanceCancel}
-      onSave={handleAppearanceSave}
-    />
   );
 };
 

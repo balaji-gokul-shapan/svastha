@@ -53,9 +53,16 @@ function StudentsList() {
   const studentFilter = searchParams.get("student") ?? "all";
   const sortBy = searchParams.get("sortBy") ?? "name";
   const sortOrder = searchParams.get("sortOrder") ?? "asc";
+     const appearanceSettings = useAppSelector(
+       (state) => state.appearanceSettings,
+     );
+     const { theme, transparentSidebar, sidebarFeature, tableView } =
+       appearanceSettings ?? {};
+console.log(tableView,"tableView");
   const viewMode = searchParams.get("view") ?? "card";
-  const limit = viewMode === "card" ? 9 : 10;
+  const limit = tableView === "card" ? 9 : 10;
    const { studentData, total, loading, error } = useAppSelector((state) => state.getAllStudent);
+ 
 
   // Merge a patch of filter changes into the current query string.
   // Filters reset to their default are removed from the URL entirely.
@@ -274,10 +281,10 @@ function StudentsList() {
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
           <FileUploadModal onSuccess={() => refetchStudents()} />
-          <div className="inline-flex items-center rounded-md border border-border p-1">
+          {/* <div className="inline-flex items-center rounded-md border border-border p-1">
             <Button
               type="button"
-              variant={viewMode === "table" ? "default" : "ghost"}
+              variant={tableView === "table" ? "default" : "ghost"}
               size="sm"
               onClick={() => setViewMode("table")}
               className="h-8 px-2"
@@ -287,7 +294,7 @@ function StudentsList() {
             </Button>
             <Button
               type="button"
-              variant={viewMode === "card" ? "default" : "ghost"}
+              variant={tableView === "card" ? "default" : "ghost"}
               size="sm"
               onClick={() => setViewMode("card")}
               className="h-8 px-2"
@@ -295,7 +302,7 @@ function StudentsList() {
               <LayoutGrid className="mr-1 size-4" />
               Cards
             </Button>
-          </div>
+          </div> */}
 
           <Link href="/students/add" className="w-full sm:w-auto">
             <Button variant="default" size="lg" className="w-auto">
@@ -448,7 +455,7 @@ function StudentsList() {
       <div className="relative min-h-90 mb-0">
         {isInitialLoading ? (
           <TableSkeleton rows={limit} cols={8} />
-        ) : viewMode === "table" ? (
+        ) : tableView === "table" ? (
           <StudentsDataTable
             data={rows}
             backQuery={searchParams.toString()}

@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "../../lib/utils"; 
+import { cn } from "../../lib/utils";
 
 function toIsoDate(date) {
   const year = date.getFullYear();
@@ -51,12 +51,14 @@ function toDateOnly(date) {
 
 export function Calendar({ mode, selected, onSelect, defaultMonth, maxDate }) {
   const [currentMonth, setCurrentMonth] = React.useState(
-    startOfMonth(defaultMonth ?? selected ?? new Date())
+    startOfMonth(defaultMonth ?? selected ?? new Date()),
   );
 
   const maxDateOnly = maxDate ? toDateOnly(maxDate) : null;
   const minDateOnly = null;
-  const maxYear = maxDateOnly ? maxDateOnly.getFullYear() : new Date().getFullYear();
+  const maxYear = maxDateOnly
+    ? maxDateOnly.getFullYear()
+    : new Date().getFullYear();
   const minYear = maxYear - 120;
 
   const monthStart = startOfMonth(currentMonth);
@@ -70,7 +72,8 @@ export function Calendar({ mode, selected, onSelect, defaultMonth, maxDate }) {
     return day;
   });
 
-  const canGoNext = !maxDateOnly || addMonths(currentMonth, 1) <= startOfMonth(maxDateOnly);
+  const canGoNext =
+    !maxDateOnly || addMonths(currentMonth, 1) <= startOfMonth(maxDateOnly);
 
   const weekDayLabels = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
   const monthLabels = [
@@ -87,7 +90,10 @@ export function Calendar({ mode, selected, onSelect, defaultMonth, maxDate }) {
     "November",
     "December",
   ];
-  const years = Array.from({ length: maxYear - minYear + 1 }, (_, index) => minYear + index);
+  const years = Array.from(
+    { length: maxYear - minYear + 1 },
+    (_, index) => minYear + index,
+  );
 
   return (
     <div className="w-70 p-3">
@@ -100,8 +106,9 @@ export function Calendar({ mode, selected, onSelect, defaultMonth, maxDate }) {
         >
           <ChevronLeft className="size-4" />
         </Button>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 !z-100">
           <Select
+            className="!z-100"
             value={String(currentMonth.getMonth())}
             onValueChange={(value) => {
               const nextMonth = Number(value);
@@ -127,6 +134,7 @@ export function Calendar({ mode, selected, onSelect, defaultMonth, maxDate }) {
           </Select>
 
           <Select
+            className="!z-100"
             value={String(currentMonth.getFullYear())}
             onValueChange={(value) => {
               const nextYear = Number(value);
@@ -164,7 +172,10 @@ export function Calendar({ mode, selected, onSelect, defaultMonth, maxDate }) {
 
       <div className="grid grid-cols-7 gap-1">
         {weekDayLabels.map((label) => (
-          <div key={label} className="py-1 text-center text-xs text-muted-foreground">
+          <div
+            key={label}
+            className="py-1 text-center text-xs text-muted-foreground"
+          >
             {label}
           </div>
         ))}
@@ -189,7 +200,8 @@ export function Calendar({ mode, selected, onSelect, defaultMonth, maxDate }) {
                   ? "bg-primary text-primary-foreground"
                   : "hover:bg-muted text-foreground",
                 outside && !selectedDay && "text-muted-foreground",
-                disabled && "cursor-not-allowed opacity-40 hover:bg-transparent"
+                disabled &&
+                  "cursor-not-allowed opacity-40 hover:bg-transparent",
               )}
             >
               {day.getDate()}

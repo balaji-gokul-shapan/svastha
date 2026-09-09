@@ -160,6 +160,9 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
   const [academicYear, setAcademicYear] = React.useState("2026-2027");
   const [getStudentDataByEvent, setGetStudentDataByEvent] = React.useState([]);
   const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = React.useRef(false);
+  const savedStudentKeyRef = React.useRef(null);
+  const [savedStudentKey, setSavedStudentKey] = useState(null);
 
   // Assigned camps/events power the Camp Name select in StudentFilter.
   const { assignedEvents, assignEventLoading, assignEventError } =
@@ -216,6 +219,9 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
   }
 
   const handleSubmit = async (e) => {
+    if (isSavingRef.current) {
+      return;
+    }
     e.preventDefault();
 
     const rawStudentId =
@@ -229,6 +235,13 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
       toast.error("Select a student before saving the ENT screening");
       return;
     }
+    
+    if (savedStudentKeyRef.current === String(rawStudentId)) {
+      toast.error(
+        "This student's screening has already been saved. Select another student to continue.",
+      );
+      return;
+    }
 
     const payload = {
       student_id: Number(rawStudentId) || 0,
@@ -237,9 +250,14 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
       ...form,
     };
     setIsSaving(true);
+    isSavingRef.current = true;
     try {
-      setIsSaving(false);
       await dispatch(createEntScreening(payload)).unwrap();
+
+      // Mark this student as saved only AFTER a successful save so further
+      // save clicks for the SAME student are blocked (create-only flow).
+      savedStudentKeyRef.current = String(rawStudentId);
+      setSavedStudentKey(String(rawStudentId));
 
       toast.success("ENT screening saved successfully", {
         description: selectedStudent?.name
@@ -249,10 +267,12 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
 
       refetchEntScreening();
     } catch (error) {
-      setIsSaving(false);
       toast.error("Failed to save ENT screening", {
         description: getBackendErrorMessage(error),
       });
+    } finally {
+      setIsSaving(false);
+      isSavingRef.current = false;
     }
   };
 
@@ -301,15 +321,17 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
     const roster = Array.isArray(studentsArray) ? studentsArray : [];
     const found = roster.find(
       (studentItem) =>
-        String(studentItem?.id ?? studentItem?.studentId ?? studentItem?.cus_id) ===
-        String(activeId),
+        String(
+          studentItem?.id ?? studentItem?.studentId ?? studentItem?.cus_id,
+        ) === String(activeId),
     );
     if (found) return found;
     return null;
   }, [studentsArray, studentFilter, studentId]);
 
   // Fallback roster from the Redux slice (source of truth for the camp's students).
-  const eventRoster = useAppSelector((state) => state.eventAssign?.students) || [];
+  const eventRoster =
+    useAppSelector((state) => state.eventAssign?.students) || [];
 
   const selectedStudent = React.useMemo(() => {
     if (selectedStudentFromFilter) {
@@ -323,8 +345,9 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
     if (Array.isArray(studentsArray) && studentsArray.length > 0) {
       const match = studentsArray.find(
         (studentItem) =>
-          String(studentItem?.id ?? studentItem?.studentId ?? studentItem?.cus_id) ===
-          String(activeId),
+          String(
+            studentItem?.id ?? studentItem?.studentId ?? studentItem?.cus_id,
+          ) === String(activeId),
       );
       if (match) return match;
     }
@@ -333,14 +356,21 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
     if (Array.isArray(eventRoster) && eventRoster.length > 0) {
       const match = eventRoster.find(
         (studentItem) =>
-          String(studentItem?.id ?? studentItem?.studentId ?? studentItem?.cus_id) ===
-          String(activeId),
+          String(
+            studentItem?.id ?? studentItem?.studentId ?? studentItem?.cus_id,
+          ) === String(activeId),
       );
       if (match) return match;
     }
 
     return null;
-  }, [studentsArray, selectedStudentFromFilter, studentFilter, studentId, eventRoster]);
+  }, [
+    studentsArray,
+    selectedStudentFromFilter,
+    studentFilter,
+    studentId,
+    eventRoster,
+  ]);
 
   const selectedStudentKey = String(
     selectedStudent?.id ?? selectedStudent?.studentId ?? "",
@@ -490,13 +520,37 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
             Save & Exit
           </Button>
 
-          <Button type="button" onClick={handleSubmit}>
+          <Button type="button" onClick={handleSubmit} disabled={
+              isSaving ||
+              (selectedStudent &&
+                savedStudentKey ===
+                  String(
+                    selectedStudent?.id ??
+                      selectedStudent?.cus_id ??
+                      selectedStudent?.student_id ??
+                      selectedStudent?.studentId ??
+                      studentId,
+                  ))
+            }>
             {isSaving ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
               <Save className="size-4" />
             )}
-            {isSaving ? "Saving..." : "Save assessment"}
+            {isSaving
+              ? "Saving..."
+              : savedStudentKey &&
+                  selectedStudent &&
+                  savedStudentKey ===
+                    String(
+                      selectedStudent?.id ??
+                        selectedStudent?.cus_id ??
+                        selectedStudent?.student_id ??
+                        selectedStudent?.studentId ??
+                        studentId,
+                    )
+                ? "Saved ✓"
+                : "Save assessment"}
           </Button>
         </div>
         {/* <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between w-full">

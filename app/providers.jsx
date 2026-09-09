@@ -7,6 +7,8 @@ import { Provider } from "react-redux";
 import { store } from "@/lib/store";
 import { Toaster } from "@/components/ui/sonner";
 import { GlobalLoader } from "@/components/ui/global-loader";
+import { AppearanceWatcher } from "@/app/components/layout/AppearanceWatcher";
+import { RoleGuard } from "@/app/components/layout/role-guard";
 
 export function Providers({ children }) {
   const [queryClient] = React.useState(
@@ -24,7 +26,8 @@ export function Providers({ children }) {
   return (
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>
-        {children}
+        <AppearanceWatcher />
+        <RoleGuard>{children}</RoleGuard>
         <GlobalLoader />
         <Toaster position="top-right" richColors headless />
       </QueryClientProvider>

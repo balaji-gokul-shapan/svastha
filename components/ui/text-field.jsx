@@ -53,7 +53,7 @@ const TextField = React.forwardRef(function TextField(
   return (
     <div className={cn("space-y-1.5", className)}>
       {label ? (
-        <Label htmlFor={fieldId} className={cn("mb-1.5 block text-xs text-muted-foreground", labelClassName)}>
+        <Label htmlFor={fieldId} className={cn("mb-1.5 block text-xs text-muted-foreground ", labelClassName)}>
           {label}
           {required ? (
             <span className="ml-0.5 text-destructive">*</span>

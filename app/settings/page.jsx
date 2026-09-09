@@ -1,133 +1,900 @@
 "use client";
-import React, { useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Switch } from "@/components/ui/switch";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu";
-import {
-  Camera,
-  UserRound,
-  X,
-  MoreHorizontal,
-  Pencil,
-  Copy,
-  Eye,
-  EyeOff,
-  Trash2,
-  Search,
-  Contact,
-  KeyRound,
-  Palette,
-  Users,
-  CreditCard,
-  LayoutGrid,
-  Braces,
-  Check,
-} from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
-import Aside from "./pages/aside";
-import { AppearanceSettings } from "./pages/AppearancePage";
-import ProfilePreview from "./pages/ProfilePreview";
-import OverAllPreview from "./pages/OverAllPreview";
-import FormField from "./components/FormField";
-import Avatar from "./components/Avatar";
 
-const Settings = () => {
+// import React, { useMemo, useRef, useState } from "react";
+// import { toast } from "sonner";
+// import dynamic from "next/dynamic";
+
+// import Aside from "./pages/aside";
+
+// import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+// import { selectAuthUser } from "@/lib/features/auth-slice";
+// import { settingsNav } from "./datas/settingsData";
+// import { setReportField } from "@/lib/features/reportSettingsSlice";
+// import {
+//   setAppearanceField,
+//   resetAppearanceSettings,
+// } from "@/lib/features/appearanceSettingSlice";
+
+// // Lazy-loaded per tab so opening Settings only loads the active tab's code.
+// // (Report drags in the PDF/cropper libs; Profile drags in the image cropper.)
+// const AppearancePage = dynamic(() => import("./pages/AppearancePage"));
+// const MyDetailsPage = dynamic(() => import("./pages/MyDetailspage"));
+// const ProfilePage = dynamic(() => import("./pages/ProfilePage"));
+// const CampDetails = dynamic(() => import("./pages/CampDetails"));
+// const TeamPage = dynamic(() => import("./pages/TeamPage"));
+// const PasswordPage = dynamic(() => import("./pages/PasswordPage"));
+// const ReportPage = dynamic(() => import("./pages/Report"));
+// const ApplicationsPage = dynamic(() => import("./pages/ApplicationPage"));
+// const ApiPage = dynamic(() => import("./pages/ApiPage"));
+
+// const Settings = () => {
+//   // =========================================================
+//   // PROFILE
+//   // =========================================================
+//   const dispatch = useAppDispatch();
+//   const profileInputRef = useRef(null);
+
+//   const [profileImageFile, setProfileImageFile] = useState(null);
+//   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
+
+//   const clearProfileImage = () => {
+//     if (imagePreviewUrl) {
+//       URL.revokeObjectURL(imagePreviewUrl);
+//     }
+
+//     setProfileImageFile(null);
+//     setImagePreviewUrl("");
+
+//     if (profileInputRef.current) {
+//       profileInputRef.current.value = "";
+//     }
+//   };
+
+//   const [reportPreviewStudent] = useState({
+//     id: 1,
+//     name: "Sample Student",
+//     class: "5",
+//     sec: "A",
+//     section: "A",
+//     admission_number: "ADM-0001",
+//     dob: "2015-06-15",
+//     gender: "Male",
+//     academic_year: "2026-2027",
+//     school_name: "Svastha School",
+//   });
+
+//   const authUser = useAppSelector(selectAuthUser);
+//   const getRole = authUser?.account_type ?? authUser?.role ?? null;
+
+//   // =========================================================
+//   // TEAM
+//   // =========================================================
+
+//   const initialAccounts = [
+//     {
+//       id: 1,
+//       name: "Arjun Kumar",
+//       designation: "School Administrator",
+//       status: "active",
+//     },
+//     {
+//       id: 2,
+//       name: "Priya Sharma",
+//       designation: "Medical Officer",
+//       status: "active",
+//     },
+//     {
+//       id: 3,
+//       name: "Rahul Verma",
+//       designation: "Teacher",
+//       status: "inactive",
+//     },
+//     {
+//       id: 4,
+//       name: "Kavin S",
+//       designation: "Lab Technician",
+//       status: "active",
+//     },
+//     {
+//       id: 5,
+//       name: "Meera Joshi",
+//       designation: "Counselor",
+//       status: "inactive",
+//     },
+//   ];
+
+//   const [accounts, setAccounts] = useState(initialAccounts);
+//   const [selectedIds, setSelectedIds] = useState([]);
+
+//   // // Select row
+//   const toggleRow = (id) => {
+//     setSelectedIds((prev) =>
+//       prev.includes(id) ? prev.filter((rowId) => rowId !== id) : [...prev, id],
+//     );
+//   };
+
+//   // Select all
+//   const toggleAll = () => {
+//     const isAllSelected =
+//       accounts.length > 0 && selectedIds.length === accounts.length;
+
+//     setSelectedIds(isAllSelected ? [] : accounts.map((account) => account.id));
+//   };
+
+//   // Toggle active/inactive
+//   const toggleStatus = (id) => {
+//     setAccounts((prev) =>
+//       prev.map((account) =>
+//         account.id === id
+//           ? {
+//               ...account,
+//               status: account.status === "active" ? "inactive" : "active",
+//             }
+//           : account,
+//       ),
+//     );
+//   };
+
+//   // Duplicate
+//   const duplicateAccount = (id) => {
+//     setAccounts((prev) => {
+//       const source = prev.find((account) => account.id === id);
+
+//       if (!source) return prev;
+
+//       const nextId = Math.max(...prev.map((account) => account.id)) + 1;
+
+//       return [
+//         ...prev,
+//         {
+//           ...source,
+//           id: nextId,
+//           name: `${source.name} (copy)`,
+//         },
+//       ];
+//     });
+//   };
+
+//   // Delete
+//   const deleteAccount = (id) => {
+//     const target = accounts.find((account) => account.id === id);
+
+//     setAccounts((prev) => prev.filter((account) => account.id !== id));
+
+//     setSelectedIds((prev) => prev.filter((selectedId) => selectedId !== id));
+
+//     if (target) {
+//       toast.success(`Deleted "${target.name}"`);
+//     }
+//   };
+
+//   // Bulk delete
+//   const deleteSelectedAccounts = () => {
+//     const count = selectedIds.length;
+
+//     if (count === 0) return;
+
+//     setAccounts((prev) =>
+//       prev.filter((account) => !selectedIds.includes(account.id)),
+//     );
+
+//     setSelectedIds([]);
+
+//     toast.success(
+//       count === 1 ? "Deleted 1 account" : `Deleted ${count} accounts`,
+//     );
+//   };
+
+//   // =========================================================
+//   // ACCOUNT FORM
+//   // =========================================================
+
+//   const [isAddOpen, setIsAddOpen] = useState(false);
+
+//   const [showPassword, setShowPassword] = useState(false);
+
+//   const [formErrors, setFormErrors] = useState({});
+
+//   const [deleteTarget, setDeleteTarget] = useState(null);
+
+//   const [editingAccount, setEditingAccount] = useState(null);
+
+//   // Reset form
+//   const resetAddForm = () => {
+//     setNewName("");
+//     setNewUsername("");
+//     setNewPassword("");
+//     setShowPassword(false);
+//     setFormErrors({});
+//     setEditingAccount(null);
+//   };
+
+//   // Edit
+//   const handleEditAccount = (account) => {
+//     setEditingAccount(account);
+
+//     setNewName(account.name || "");
+//     setNewUsername(account.username || "");
+//     setNewPassword("");
+
+//     setShowPassword(false);
+//     setFormErrors({});
+
+//     setIsAddOpen(true);
+//   };
+
+//   // Dialog open/close
+//   const handleAddOpenChange = (open) => {
+//     setIsAddOpen(open);
+
+//     if (!open) {
+//       resetAddForm();
+//     }
+//   };
+
+//   // Create / update
+//   const handleCreateAccount = (event) => {
+//     event.preventDefault();
+
+//     const errors = {};
+
+//     if (!newName.trim()) {
+//       errors.name = "Name is required.";
+//     }
+
+//     if (!newUsername.trim()) {
+//       errors.username = "Username is required.";
+//     } else {
+//       const usernameTaken = accounts.some(
+//         (account) =>
+//           account.id !== editingAccount?.id &&
+//           (account.username || "").toLowerCase() ===
+//             newUsername.trim().toLowerCase(),
+//       );
+
+//       if (usernameTaken) {
+//         errors.username = "This username is already taken.";
+//       }
+//     }
+
+//     if (!editingAccount && !newPassword) {
+//       errors.password = "Password is required.";
+//     } else if (newPassword && newPassword.length < 6) {
+//       errors.password = "Use at least 6 characters.";
+//     }
+
+//     setFormErrors(errors);
+
+//     if (Object.keys(errors).length > 0) {
+//       return;
+//     }
+
+//     // Update
+//     if (editingAccount) {
+//       setAccounts((prev) =>
+//         prev.map((account) =>
+//           account.id === editingAccount.id
+//             ? {
+//                 ...account,
+//                 name: newName.trim(),
+//                 username: newUsername.trim(),
+//                 ...(newPassword ? { password: newPassword } : {}),
+//               }
+//             : account,
+//         ),
+//       );
+
+//       toast.success("Account updated");
+//     }
+
+//     // Create
+//     else {
+//       const nextId =
+//         accounts.reduce((max, account) => Math.max(max, account.id), 0) + 1;
+
+//       setAccounts((prev) => [
+//         ...prev,
+//         {
+//           id: nextId,
+//           name: newName.trim(),
+//           username: newUsername.trim(),
+//           password: newPassword,
+//           designation: "",
+//           status: "active",
+//         },
+//       ]);
+
+//       toast.success("Account created");
+//     }
+
+//     setIsAddOpen(false);
+//     resetAddForm();
+//   };
+
+//   // =========================================================
+//   // DELETE
+//   // =========================================================
+
+//   const handleConfirmDelete = () => {
+//     if (deleteTarget === "bulk") {
+//       deleteSelectedAccounts();
+//     } else if (deleteTarget) {
+//       deleteAccount(deleteTarget.id);
+//     }
+
+//     setDeleteTarget(null);
+//   };
+
+//   // =========================================================
+//   // APPEARANCE
+//   // =========================================================
+
+//   // Appearance customisation lives in Redux (appearanceSettings slice) and is
+//   // applied app-wide by <AppearanceWatcher />; localStorage
+//   // ("Svastha-appearance") is written on save and rehydrated by the watcher.
+//   const appearanceSettings = useAppSelector(
+//     (state) => state.appearanceSettings,
+//   );
+//   const { theme, transparentSidebar, sidebarFeature, tableView } =
+//     appearanceSettings ?? {};
+
+//   const handleAppearanceChange = (field, value) => {
+//     dispatch(setAppearanceField({ field, value }));
+//   };
+
+//   const handleAppearanceCancel = () => {
+//     dispatch(resetAppearanceSettings());
+
+//     toast.success("Appearance changes discarded");
+//   };
+
+//   const handleAppearanceSave = () => {
+//     try {
+//       localStorage.setItem(
+//         "Svastha-appearance",
+//         JSON.stringify({
+//           theme,
+//           transparentSidebar,
+//           sidebarFeature,
+//           tableView,
+//         }),
+//       );
+//     } catch {
+//       // Ignore storage failures — the toast still confirms the action.
+//     }
+
+//     toast.success("Appearance settings saved");
+//   };
+
+//   // =========================================================
+//   // NAVIGATION
+//   // =========================================================
+//   const getVisibleItems = React.useCallback((items, role) => {
+//     if (!Array.isArray(items)) {
+//       return [];
+//     }
+
+//     return items
+//       .map((item) => {
+//         // Check parent/item role
+//         const itemAllowed = !item?.roles?.length || item.roles.includes(role);
+
+//         if (!itemAllowed) {
+//           return null;
+//         }
+
+//         // Handle children if available
+//         if (Array.isArray(item?.children) && item.children.length > 0) {
+//           const children = item.children.filter(
+//             (child) => !child?.roles?.length || child.roles.includes(role),
+//           );
+
+//           if (children.length === 0) {
+//             return null;
+//           }
+
+//           return {
+//             ...item,
+//             children,
+//           };
+//         }
+
+//         return item;
+//       })
+//       .filter(Boolean);
+//   }, []);
+
+//   const [activeTab, setActiveTab] = useState("my-details");
+//   const [navQuery, setNavQuery] = useState("");
+
+//   const visibleNav = React.useMemo(
+//     () => getVisibleItems(settingsNav, getRole),
+//     [settingsNav, getRole, getVisibleItems],
+//   );
+//   const visibleSettingsNav = visibleNav.filter((item) =>
+//     item.label.toLowerCase().includes(navQuery.trim().toLowerCase()),
+//   );
+
+//   const [settingsFormData, setSettingsFormData] = useState({
+//     name: "",
+//     username: "",
+//     password: "",
+//   });
+
+//   // Report customisation lives in Redux (reportSettings slice) so the
+//   // HealthCheckModal on any page applies the same configuration.
+//   const reportFormData = useAppSelector((state) => state.reportSettings);
+
+//   const handleReportChange = (field, value) => {
+//     dispatch(setReportField({ field, value }));
+//   };
+//   const handleSettingsChange = (field, value) => {
+//     setSettingsFormData((prev) => ({
+//       ...prev,
+//       [field]: value,
+//     }));
+//   };
+
+//   // =========================================================
+//   // ACTIVE TAB
+//   // =========================================================
+
+//   const renderActiveTab = () => {
+//     switch (activeTab) {
+//       case "appearance":
+//         return (
+//           <AppearancePage
+//             theme={theme}
+//             onThemeChange={(value) => handleAppearanceChange("theme", value)}
+//             transparentSidebar={transparentSidebar}
+//             onTransparentSidebarChange={(value) =>
+//               handleAppearanceChange("transparentSidebar", value)
+//             }
+//             sidebarFeature={sidebarFeature}
+//             onSidebarFeatureChange={(value) =>
+//               handleAppearanceChange("sidebarFeature", value)
+//             }
+//             tableView={tableView}
+//             onTableViewChange={(value) =>
+//               handleAppearanceChange("tableView", value)
+//             }
+//             onCancel={handleAppearanceCancel}
+//             onSave={handleAppearanceSave}
+//           />
+//         );
+
+//       case "my-details":
+//         return (
+//           <MyDetailsPage
+//             profileImageFile={profileImageFile}
+//             setProfileImageFile={setProfileImageFile}
+//             clearProfileImage={clearProfileImage}
+//             name={settingsFormData.name}
+//             username={settingsFormData.username}
+//             password={settingsFormData.password}
+//             onChange={handleSettingsChange}
+//           />
+//         );
+
+//       case "profile":
+//         return (
+//           <ProfilePage
+//             profileImageFile={profileImageFile}
+//             setProfileImageFile={setProfileImageFile}
+//             profileInputRef={profileInputRef}
+//             imagePreviewUrl={imagePreviewUrl}
+//             setImagePreviewUrl={setImagePreviewUrl}
+//             clearProfileImage={clearProfileImage}
+//             name={settingsFormData.name}
+//             username={settingsFormData.username}
+//             password={settingsFormData.password}
+//             onChange={handleSettingsChange}
+//           />
+//         );
+//       case "campDetails":
+//         return (
+//           <>
+//             <CampDetails />
+//           </>
+//         );
+//       case "team":
+//         return (
+//           <TeamPage
+//             accounts={accounts}
+//             selectedIds={selectedIds}
+//             onToggleRow={toggleRow}
+//             onToggleAll={toggleAll}
+//             onToggleStatus={toggleStatus}
+//             onDuplicate={duplicateAccount}
+//             onDelete={deleteAccount}
+//             onBulkDelete={() => setDeleteTarget("bulk")}
+//             onEdit={handleEditAccount}
+//             onAdd={() => setIsAddOpen(true)}
+//             isAddOpen={isAddOpen}
+//             onAddOpenChange={handleAddOpenChange}
+//             newName={newName}
+//             setNewName={setNewName}
+//             newUsername={newUsername}
+//             setNewUsername={setNewUsername}
+//             newPassword={newPassword}
+//             setNewPassword={setNewPassword}
+//             showPassword={showPassword}
+//             setShowPassword={setShowPassword}
+//             formErrors={formErrors}
+//             onSubmit={handleCreateAccount}
+//             editingAccount={editingAccount}
+//             deleteTarget={deleteTarget}
+//             setDeleteTarget={setDeleteTarget}
+//             onConfirmDelete={handleConfirmDelete}
+//           />
+//         );
+
+//       case "SchoolDetails":
+//         return <PasswordPage />;
+
+//       case "report":
+//         return (
+//           <ReportPage
+//             report={reportFormData.reportType}
+//             reportTemplate={reportFormData.reportTemplate}
+//             reportSection={reportFormData.reportSection}
+//             schoolHead={reportFormData.schoolHead}
+//             includeLetterhead={reportFormData.includeLetterhead}
+//             tableDensity={reportFormData.tableDensity}
+//             autoGenerate={reportFormData.autoGenerate}
+//             onChange={handleReportChange}
+//             student={reportPreviewStudent}
+//           />
+//         );
+
+//       case "applications":
+//         return <ApplicationsPage />;
+
+//       case "api":
+//         return <ApiPage />;
+
+//       default:
+//         return <AppearancePage />;
+//     }
+//   };
+
+//   // =========================================================
+//   // RETURN
+//   // =========================================================
+
+//   return (
+//     <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
+//       {/* SIDEBAR */}
+
+//       <Aside
+//         settings={visibleSettingsNav}
+//         navQuery={setNavQuery}
+//         query={navQuery}
+//         activeTab={activeTab}
+//         setActiveTab={setActiveTab}
+//       />
+
+//       {/* CONTENT */}
+
+//       <div className="min-w-0 flex-1 space-y-6">
+//         <div className="flex items-center gap-2">
+//           <Settings size={5} />
+//           {/* <span className="size-2 rounded-full bg-foreground" /> */}
+
+//           <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+//         </div>
+
+//         {/* {renderActiveTab()} */}
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default Settings;
+import React, { useRef, useState } from "react";
+import Aside from "./pages/aside";
+import { initialAccounts, settingsNav } from "./datas/settingsData";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { selectAuthUser } from "@/lib/features/auth-slice";
+import {
+  resetAppearanceSettings,
+  setAppearanceField,
+} from "@/lib/features/appearanceSettingSlice";
+import dynamic from "next/dynamic";
+
+import { toast } from "sonner";
+import { Settings } from "lucide-react";
+// import SchoolDetails from "./pages/SchoolDetails";
+import {
+  createSchoolBranches,
+  getAllSchoolBranches,
+} from "@/lib/features/registerSchoolBranchSlice";
+import {
+  createSubAccount,
+  deleteSubAccount,
+  getAllSubAccount,
+} from "@/lib/features/registerStaffAccount";
+import { useQuery } from "@tanstack/react-query";
+const AppearancePage = dynamic(() => import("./pages/AppearancePage"));
+const MyDetailsPage = dynamic(() => import("./pages/MyDetailspage"));
+const ProfilePage = dynamic(() => import("./pages/ProfilePage"));
+const SchoolDetails = dynamic(() => import("./pages/SchoolDetails"));
+const ScreeningPage = dynamic(() => import("./pages/ScreeningPage"));
+// const CampDetails = dynamic(() => import("./pages/CampDetails"));
+const TeamPage = dynamic(() => import("./pages/TeamPage"));
+// const PasswordPage = dynamic(() => import("./pages/PasswordPage"));
+const ReportPage = dynamic(() => import("./pages/Report"));
+// const ApplicationsPage = dynamic(() => import("./pages/ApplicationPage"));
+// const ApiPage = dynamic(() => import("./pages/ApiPage"));
+
+// import MyDetailsPage from "./pages/MyDetailspage";
+// import ProfilePage from "./pages/ProfilePage";
+// import AppearancePage from "./pages/AppearancePage";
+
+const page = () => {
+  const [activeTab, setActiveTab] = useState("my-details");
+  const [navQuery, setNavQuery] = useState("");
+  const dispatch = useAppDispatch();
+
+  const authUser = useAppSelector(selectAuthUser);
+  const getRole = authUser?.account_type ?? authUser?.role ?? null;
+  const [isAddOpen, setIsAddOpen] = useState(false);
+
+  const getVisibleItems = React.useCallback((items, role) => {
+    if (!Array.isArray(items)) {
+      return [];
+    }
+
+    return items
+      .map((item) => {
+        // Check parent/item role
+        const itemAllowed = !item?.roles?.length || item.roles.includes(role);
+
+        if (!itemAllowed) {
+          return null;
+        }
+
+        // Handle children if available
+        if (Array.isArray(item?.children) && item.children.length > 0) {
+          const children = item.children.filter(
+            (child) => !child?.roles?.length || child.roles.includes(role),
+          );
+
+          if (children.length === 0) {
+            return null;
+          }
+
+          return {
+            ...item,
+            children,
+          };
+        }
+
+        return item;
+      })
+      .filter(Boolean);
+  }, []);
   const profileInputRef = useRef(null);
+
   const [profileImageFile, setProfileImageFile] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
+
+  const [settingsFormData, setSettingsFormData] = useState({
+    name: "",
+    username: "",
+    password: "",
+  });
+
+  const handleSettingsChange = (field, value) => {
+    setSettingsFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
   const clearProfileImage = () => {
     if (imagePreviewUrl) {
       URL.revokeObjectURL(imagePreviewUrl);
     }
+
     setProfileImageFile(null);
     setImagePreviewUrl("");
+
     if (profileInputRef.current) {
       profileInputRef.current.value = "";
     }
   };
 
-  // Optional — the student can be registered without a photo.
+  const reportFormData = useAppSelector((state) => state.reportSettings);
 
-  // ---------------------------------------------------------------------
-  // Accounts table (demo data — replace with real API data as needed)
-  // ---------------------------------------------------------------------
-  const initialAccounts = [
-    {
-      id: 1,
-      name: "Arjun Kumar",
-      designation: "School Administrator",
-      status: "active",
-    },
-    {
-      id: 2,
-      name: "Priya Sharma",
-      designation: "Medical Officer",
-      status: "active",
-    },
-    { id: 3, name: "Rahul Verma", designation: "Teacher", status: "inactive" },
-    { id: 4, name: "Kavin S", designation: "Lab Technician", status: "active" },
-    {
-      id: 5,
-      name: "Meera Joshi",
-      designation: "Counselor",
-      status: "inactive",
-    },
-  ];
+  const handleReportChange = (field, value) => {
+    dispatch(setReportField({ field, value }));
+  };
+
+  const visibleNav = React.useMemo(
+    () => getVisibleItems(settingsNav, getRole),
+    [settingsNav, getRole, getVisibleItems],
+  );
+  const visibleSettingsNav = visibleNav.filter((item) =>
+    item.label.toLowerCase().includes(navQuery.trim().toLowerCase()),
+  );
+  const appearanceSettings = useAppSelector(
+    (state) => state.appearanceSettings,
+  );
+  const { theme, transparentSidebar, sidebarFeature, tableView } =
+    appearanceSettings ?? {};
+
+  const handleAppearanceChange = (field, value) => {
+    dispatch(setAppearanceField({ field, value }));
+  };
+
+  const handleAppearanceCancel = () => {
+    dispatch(resetAppearanceSettings());
+    toast.success("Appearance changes discarded");
+  };
+
+  //   const { theme, transparentSidebar, sidebarFeature, tableView } =
+  //     appearanceSettings ?? {};
+
+  const handleAppearanceSave = () => {
+    try {
+      localStorage.setItem(
+        "Svastha-appearance",
+        JSON.stringify({
+          theme,
+          transparentSidebar,
+          sidebarFeature,
+          tableView,
+        }),
+      );
+    } catch {
+      // Ignore storage failures — the toast still confirms the action.
+    }
+
+    toast.success("Appearance settings saved");
+  };
+
+  const {
+    data: getAllSchoolBranch = {},
+    isLoading: getAllSchoolBranchLoading,
+    error: getAllSchoolBranchError,
+  } = useQuery({
+    queryKey: ["getSchoolAllBranch"],
+    queryFn: () => dispatch(getAllSchoolBranches()).unwrap(),
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  console.log(getAllSchoolBranch, "getAllSchoolBranch");
+
+  // Branch options for the team-account form, derived from the fetched
+  // school branches. Tolerates both a raw array and a wrapped { data: [...] }.
+  const branchOptions = (
+    Array.isArray(getAllSchoolBranch)
+      ? getAllSchoolBranch
+      : (getAllSchoolBranch?.data ?? [])
+  )
+    .map((branch) => ({
+      value: String(branch?.id ?? branch?.branch_id ?? ""),
+      label: branch?.branch_name ?? branch?.name ?? "",
+    }))
+    .filter((option) => option.value && option.label);
 
   const [accounts, setAccounts] = useState(initialAccounts);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [isSavingAccount, setIsSavingAccount] = useState(false);
 
-  const isAllSelected =
-    accounts.length > 0 && selectedIds.length === accounts.length;
-  const isIndeterminate =
-    selectedIds.length > 0 && selectedIds.length < accounts.length;
+  // ---- Sub-account (team) API wiring ----
+  // Maps a backend sub-account record into the shape the TeamPage table
+  // expects. Tolerates snake_case/camelCase and differing id/name keys.
+  const mapSubAccountRecord = (record = {}, index = 0) => ({
+    id: record?.id ?? record?.sub_acc_id ?? `local-${index}`,
+    apiId: record?.id ?? record?.sub_acc_id ?? null,
+    name: record?.name ?? record?.full_name ?? "",
+    phoneNumber:
+      record?.phone_number ?? record?.phoneNumber ?? record?.phone ?? "",
+    userName: record?.user_name ?? record?.username ?? record?.userName ?? "",
+    usertypeId: String(record?.usertype_id ?? record?.usertypeId ?? ""),
+    branchId: String(record?.branch_id ?? record?.branchId ?? ""),
+    previleges: record?.privileges ?? record?.previleges ?? "",
+    designation: record?.designation ?? record?.user_type ?? "",
+    class: record?.class ?? record?.class_id ?? "",
+    section: record?.section ?? record?.section_id ?? "",
+    status: record?.status ?? "active",
+  });
 
+  const fetchSubAccounts = React.useCallback(async () => {
+    try {
+      const result = await dispatch(getAllSubAccount()).unwrap();
+      console.log(result,"result");
+      
+      const list = Array.isArray(result) ? result : (result?.data ?? []);
+      setAccounts(Array.isArray(list) ? list.map(mapSubAccountRecord) : []);
+    } catch (error) {
+      toast.error("Failed to load team accounts", {
+        description:
+          typeof error === "string" ? error : (error?.message ?? undefined),
+      });
+    }
+  }, [dispatch]);
+
+  React.useEffect(() => {
+    fetchSubAccounts();
+  }, [fetchSubAccounts]);
+
+  const [subAccount, setSubAccount] = useState({
+    name: "",
+    phoneNumber: "",
+    userName: "",
+    password: "",
+    usertypeId: "",
+    branchId: "",
+    previleges: "",
+  });
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [editingAccount, setEditingAccount] = useState(null);
+
+  // Reset form
+  const resetAddForm = () => {
+    setSubAccount({
+      name: "",
+      phoneNumber: "",
+      userName: "",
+      password: "",
+      usertypeId: "",
+      branchId: "",
+      previleges: "",
+    });
+    setShowPassword(false);
+    setFormErrors({});
+    setEditingAccount(null);
+  };
+
+  // Edit
+  const handleEditAccount = (account) => {
+    setEditingAccount(account);
+    setSubAccount({
+      name: account.name || "",
+      phoneNumber: account.phoneNumber || "",
+      userName: account.userName || account.username || "",
+      password: "",
+      usertypeId: account.usertypeId || "",
+      branchId: account.branchId || "",
+      previleges: account.previleges || "",
+    });
+    setShowPassword(false);
+    setFormErrors({});
+    setIsAddOpen(true);
+  };
+
+  // Dialog open/close
+  const handleAddOpenChange = (open) => {
+    setIsAddOpen(open);
+
+    if (!open) {
+      resetAddForm();
+    }
+  };
+
+  // // Select row
   const toggleRow = (id) => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((rowId) => rowId !== id) : [...prev, id],
     );
   };
 
+  // Select all
   const toggleAll = () => {
-    setSelectedIds((prev) =>
-      isAllSelected ? [] : accounts.map((account) => account.id),
-    );
+    const isAllSelected =
+      accounts.length > 0 && selectedIds.length === accounts.length;
+
+    setSelectedIds(isAllSelected ? [] : accounts.map((account) => account.id));
   };
 
+  // Toggle active/inactive
   const toggleStatus = (id) => {
     setAccounts((prev) =>
       prev.map((account) =>
@@ -141,11 +908,15 @@ const Settings = () => {
     );
   };
 
+  // Duplicate
   const duplicateAccount = (id) => {
     setAccounts((prev) => {
       const source = prev.find((account) => account.id === id);
+
       if (!source) return prev;
+
       const nextId = Math.max(...prev.map((account) => account.id)) + 1;
+
       return [
         ...prev,
         {
@@ -157,97 +928,100 @@ const Settings = () => {
     });
   };
 
+  // Delete
   const deleteAccount = (id) => {
     const target = accounts.find((account) => account.id === id);
+
     setAccounts((prev) => prev.filter((account) => account.id !== id));
+
     setSelectedIds((prev) => prev.filter((selectedId) => selectedId !== id));
+
     if (target) {
-      toast.success(`Deleted "${target.name}"`);
+      // Remove locally, then best-effort delete on the backend when the row
+      // is API-backed (seed/demo rows have no apiId and stay local-only).
+      if (target.apiId) {
+        dispatch(deleteSubAccount(target.apiId))
+          .unwrap()
+          .then(() => toast.success(`Deleted "${target.name}"`))
+          .catch((error) => {
+            toast.error("Failed to delete account", {
+              description:
+                typeof error === "string"
+                  ? error
+                  : (error?.message ?? undefined),
+            });
+            fetchSubAccounts();
+          });
+      } else {
+        toast.success(`Deleted "${target.name}"`);
+      }
     }
   };
 
+  // Bulk delete
   const deleteSelectedAccounts = () => {
     const count = selectedIds.length;
+
     if (count === 0) return;
+
+    const selected = accounts.filter((account) =>
+      selectedIds.includes(account.id),
+    );
+
     setAccounts((prev) =>
       prev.filter((account) => !selectedIds.includes(account.id)),
     );
+
     setSelectedIds([]);
+
+    // Best-effort backend delete for API-backed rows only.
+    selected
+      .filter((account) => account.apiId)
+      .forEach((account) => {
+        dispatch(deleteSubAccount(account.apiId))
+          .unwrap()
+          .catch((error) => {
+            toast.error(`Failed to delete "${account.name}"`, {
+              description:
+                typeof error === "string"
+                  ? error
+                  : (error?.message ?? undefined),
+            });
+          });
+      });
+
+    fetchSubAccounts();
+
     toast.success(
       count === 1 ? "Deleted 1 account" : `Deleted ${count} accounts`,
     );
   };
-
-  const handleConfirmDelete = () => {
-    if (deleteTarget === "bulk") {
-      deleteSelectedAccounts();
-    } else if (deleteTarget) {
-      deleteAccount(deleteTarget.id);
-    }
-    setDeleteTarget(null);
-  };
-  const deleteSelectedAccount = (id) => {
-    console.log(id, "deleteSelectedAccount");
-
-    // setAccounts((prev) => prev.filter((account) => account.id !== id));
-    // setSelectedIds((prev) => prev.filter((selectedId) => selectedId !== id));
-  };
-
-  // ---------------------------------------------------------------------
-  // Create Account modal state + handlers
-  // ---------------------------------------------------------------------
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newUsername, setNewUsername] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [formErrors, setFormErrors] = useState({});
-
-  // Account(s) pending deletion — object = single row, "bulk" = all selected.
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [editingAccount, setEditingAccount] = useState(null);
-
-  const resetAddForm = () => {
-    setNewName("");
-    setNewUsername("");
-    setNewPassword("");
-    setShowPassword(false);
-    setFormErrors({});
-    setEditingAccount(null);
-  };
-
-  const handleEditAccount = (account) => {
-    setEditingAccount(account);
-    setNewName(account.name || "");
-    setNewUsername(account.username || "");
-    setNewPassword("");
-    setShowPassword(false);
-    setFormErrors({});
-    setIsAddOpen(true);
-  };
-
-  const handleAddOpenChange = (open) => {
-    setIsAddOpen(open);
-    if (!open) resetAddForm();
-  };
-
-  const handleCreateAccount = (event) => {
+  // Create / update
+  const handleCreateAccount = async (event) => {
     event.preventDefault();
 
     const errors = {};
+    const name = (subAccount.name || "").trim();
+    const userName = (subAccount.userName || "").trim();
+    const phoneNumber = (subAccount.phoneNumber || "").trim();
+    const password = subAccount.password || "";
 
-    if (!newName.trim()) {
+    if (!name) {
       errors.name = "Name is required.";
     }
 
-    if (!newUsername.trim()) {
+    if (!phoneNumber) {
+      errors.phoneNumber = "Phone number is required.";
+    }
+
+    if (!userName) {
       errors.username = "Username is required.";
     } else {
       const usernameTaken = accounts.some(
         (account) =>
           account.id !== editingAccount?.id &&
-          (account.username || "").toLowerCase() ===
-            newUsername.trim().toLowerCase(),
+          (account.userName || account.username || "").toLowerCase() ===
+            userName.toLowerCase(),
       );
 
       if (usernameTaken) {
@@ -255,100 +1029,216 @@ const Settings = () => {
       }
     }
 
-    // Password is required only when creating a new account
-    if (!editingAccount && !newPassword) {
+    if (!editingAccount && !password) {
       errors.password = "Password is required.";
-    } else if (newPassword && newPassword.length < 6) {
+    } else if (password && password.length < 6) {
       errors.password = "Use at least 6 characters.";
+    }
+
+    if (!subAccount.usertypeId) {
+      errors.usertypeId = "User type is required.";
+    }
+
+    if (!subAccount.branchId) {
+      errors.branchId = "Branch is required.";
+    }
+
+    if (!subAccount.previleges) {
+      errors.previleges = "Privileges are required.";
     }
 
     setFormErrors(errors);
 
-    if (Object.keys(errors).length > 0) return;
-
-    if (editingAccount) {
-      // Update existing account
-      setAccounts((prev) =>
-        prev.map((account) =>
-          account.id === editingAccount.id
-            ? {
-                ...account,
-                name: newName.trim(),
-                username: newUsername.trim(),
-                ...(newPassword ? { password: newPassword } : {}),
-              }
-            : account,
-        ),
-      );
-    } else {
-      // Create new account
-      const nextId =
-        accounts.reduce((max, account) => Math.max(max, account.id), 0) + 1;
-
-      setAccounts((prev) => [
-        ...prev,
-        {
-          id: nextId,
-          name: newName.trim(),
-          username: newUsername.trim(),
-          password: newPassword,
-          designation: "",
-          status: "active",
-        },
-      ]);
+    if (Object.keys(errors).length > 0) {
+      return;
     }
 
-    setIsAddOpen(false);
-    resetAddForm();
+    // Update
+    if (editingAccount) {
+      try {
+        setIsSavingAccount(true);
+        await dispatch(
+          createSubAccount({
+            ...(editingAccount.apiId ? { id: editingAccount.apiId } : {}),
+            name,
+            phone_number: phoneNumber,
+            user_name: userName,
+            ...(password ? { password } : {}),
+            usertype_id: subAccount.usertypeId,
+            branch_id: subAccount.branchId,
+            privileges: subAccount.previleges,
+          }),
+        ).unwrap();
+
+        toast.success("Account updated");
+        await fetchSubAccounts();
+        setIsAddOpen(false);
+        resetAddForm();
+      } catch (error) {
+        toast.error("Failed to update account", {
+          description:
+            typeof error === "string" ? error : (error?.message ?? undefined),
+        });
+      } finally {
+        setIsSavingAccount(false);
+      }
+      return;
+    }
+
+    // Create
+    try {
+      setIsSavingAccount(true);
+      await dispatch(
+        createSubAccount({
+          name,
+          phone_number: phoneNumber,
+          user_name: userName,
+          password,
+          usertype_id: subAccount.usertypeId,
+          branch_id: subAccount.branchId,
+          privileges: subAccount.previleges,
+        }),
+      ).unwrap();
+
+      toast.success("Account created");
+      await fetchSubAccounts();
+      setIsAddOpen(false);
+      resetAddForm();
+    } catch (error) {
+      toast.error("Failed to create account", {
+        description:
+          typeof error === "string" ? error : (error?.message ?? undefined),
+      });
+    } finally {
+      setIsSavingAccount(false);
+    }
   };
 
-  // ---------------------------------------------------------------------
-  // Settings layout: sidebar navigation + active section
-  // ---------------------------------------------------------------------
-  const [activeTab, setActiveTab] = useState("appearance");
-  const [navQuery, setNavQuery] = useState("");
-  const SIDEBAR_FEATURES = [
-    "Recent changes",
-    "Recent activity",
-    "Notifications",
-  ];
+  // =========================================================
+  // DELETE
+  // =========================================================
 
-  const [theme, setTheme] = useState("system");
-  const [transparentSidebar, setTransparentSidebar] = useState(true);
-  const [sidebarFeature, setSidebarFeature] = useState(SIDEBAR_FEATURES[0]);
-  const [tableView, setTableView] = useState("default");
+  const handleConfirmDelete = () => {
+    if (deleteTarget === "bulk") {
+      deleteSelectedAccounts();
+    } else if (deleteTarget) {
+      deleteAccount(deleteTarget.id);
+    }
 
-  const settingsNav = [
-    { id: "my-details", label: "My details", icon: Contact },
-    { id: "profile", label: "Profile", icon: UserRound },
-    { id: "password", label: "Password", icon: KeyRound },
-    { id: "appearance", label: "Appearance", icon: Palette },
-    { id: "team", label: "Team", icon: Users, badge: String(accounts.length) },
-    { id: "billing", label: "Billing", icon: CreditCard },
-    { id: "applications", label: "Applications", icon: LayoutGrid },
-    { id: "api", label: "API", icon: Braces },
-  ];
-
-  const visibleSettingsNav = settingsNav.filter((item) =>
-    item.label.toLowerCase().includes(navQuery.trim().toLowerCase()),
-  );
-
-  const handleAppearanceCancel = () => {
-    setTheme("system");
-    setTransparentSidebar(true);
-    onSidebarFeatureChange(SIDEBAR_FEATURES[0]);
-    setTableView("default");
-    toast.success("Appearance changes discarded");
+    setDeleteTarget(null);
   };
 
-  const handleAppearanceSave = () => {
-    toast.success("Appearance settings saved");
+  const renderActiveTab = () => {
+    switch (activeTab) {
+      case "appearance":
+        return (
+          <AppearancePage
+            theme={theme}
+            onThemeChange={(value) => handleAppearanceChange("theme", value)}
+            transparentSidebar={transparentSidebar}
+            onTransparentSidebarChange={(value) =>
+              handleAppearanceChange("transparentSidebar", value)
+            }
+            sidebarFeature={sidebarFeature}
+            onSidebarFeatureChange={(value) =>
+              handleAppearanceChange("sidebarFeature", value)
+            }
+            tableView={tableView}
+            onTableViewChange={(value) =>
+              handleAppearanceChange("tableView", value)
+            }
+            onCancel={handleAppearanceCancel}
+            onSave={handleAppearanceSave}
+          />
+        );
+      case "my-details":
+        return (
+          <MyDetailsPage
+            profileImageFile={profileImageFile}
+            setProfileImageFile={setProfileImageFile}
+            clearProfileImage={clearProfileImage}
+            name={settingsFormData.name}
+            username={settingsFormData.username}
+            password={settingsFormData.password}
+            onChange={handleSettingsChange}
+          />
+        );
+
+      case "profile":
+        return (
+          <ProfilePage
+            profileImageFile={profileImageFile}
+            setProfileImageFile={setProfileImageFile}
+            profileInputRef={profileInputRef}
+            imagePreviewUrl={imagePreviewUrl}
+            setImagePreviewUrl={setImagePreviewUrl}
+            clearProfileImage={clearProfileImage}
+            name={settingsFormData.name}
+            username={settingsFormData.username}
+            password={settingsFormData.password}
+            onChange={handleSettingsChange}
+          />
+        );
+
+      case "report":
+        return (
+          <ReportPage
+            report={reportFormData.reportType}
+            reportTemplate={reportFormData.reportTemplate}
+            reportSection={reportFormData.reportSection}
+            schoolHead={reportFormData.schoolHead}
+            includeLetterhead={reportFormData.includeLetterhead}
+            tableDensity={reportFormData.tableDensity}
+            autoGenerate={reportFormData.autoGenerate}
+            onChange={handleReportChange}
+            // student={reportPreviewStudent}
+          />
+        );
+      case "SchoolDetails":
+        return <SchoolDetails getAllSchoolBranch={getAllSchoolBranch} />;
+        case "screening":
+        return <ScreeningPage  />;
+      case "team":
+        return (
+          <TeamPage
+            accounts={accounts}
+            selectedIds={selectedIds}
+            onToggleRow={toggleRow}
+            onToggleAll={toggleAll}
+            onToggleStatus={toggleStatus}
+            onDuplicate={duplicateAccount}
+            onDelete={deleteAccount}
+            onBulkDelete={() => setDeleteTarget("bulk")}
+            onEdit={handleEditAccount}
+            onAdd={() => setIsAddOpen(true)}
+            isAddOpen={isAddOpen}
+            onAddOpenChange={handleAddOpenChange}
+            subAccount={subAccount}
+            setSubAccount={setSubAccount}
+            branches={branchOptions}
+            isSaving={isSavingAccount}
+            // newName={newName}
+            // setNewName={setNewName}
+            // newUsername={newUsername}
+            // setNewUsername={setNewUsername}
+            // newPassword={newPassword}
+            // setNewPassword={setNewPassword}
+            showPassword={showPassword}
+            setShowPassword={setShowPassword}
+            formErrors={formErrors}
+            onSubmit={handleCreateAccount}
+            editingAccount={editingAccount}
+            deleteTarget={deleteTarget}
+            setDeleteTarget={setDeleteTarget}
+            onConfirmDelete={handleConfirmDelete}
+          />
+        );
+    }
   };
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
-      {/* ------------------------- Sidebar ------------------------- */}
-
+      {/* SIDEBAR */}
       <Aside
         settings={visibleSettingsNav}
         navQuery={setNavQuery}
@@ -356,372 +1246,19 @@ const Settings = () => {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
       />
-      {/* ------------------------- Content ------------------------- */}
       <div className="min-w-0 flex-1 space-y-6">
         <div className="flex items-center gap-2">
-          <span className="size-2 rounded-full bg-foreground" />
+          <Settings size={24} />
+          {/* <span className="size-2 rounded-full bg-foreground" /> */}
+
           <h1 className="text-2xl font-bold text-foreground">Settings</h1>
         </div>
 
-        {activeTab === "appearance" ? (
-          <AppearanceSettings
-            theme={theme}
-            onThemeChange={setTheme}
-            transparentSidebar={transparentSidebar}
-            onTransparentSidebarChange={setTransparentSidebar}
-            sidebarFeature={sidebarFeature}
-            onSidebarFeatureChange={setSidebarFeature}
-            tableView={tableView}
-            onTableViewChange={setTableView}
-            onCancel={handleAppearanceCancel}
-            onSave={handleAppearanceSave}
-          />
-        ) : null}
-        {activeTab === "my-details" ? (
-          <OverAllPreview
-            profileImageFile={profileImageFile}
-            setProfileImageFile={setProfileImageFile}
-          />
-        ) : null}
-
-        {activeTab === "profile" ? (
-          <ProfilePreview
-            profileImageFile={profileImageFile}
-            setProfileImageFile={setProfileImageFile}
-            profileInputRef={profileInputRef}
-            imagePreviewUrl={imagePreviewUrl}
-            setImagePreviewUrl={setImagePreviewUrl}
-          />
-        ) : null}
-
-        {["password", "billing", "applications", "api"].includes(activeTab) ? (
-          <section className="rounded-xl border border-dashed border-border bg-card p-10 text-center">
-            <p className="text-sm font-medium text-foreground">
-              {settingsNav.find((item) => item.id === activeTab)?.label}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              This section is coming soon.
-            </p>
-          </section>
-        ) : null}
-
-        {activeTab === "team" ? (
-          <>
-            <article className="rounded-lg border border-border bg-card p-4 sm:p-5">
-              <div className="flex flex-row items-center justify-between gap-2">
-                <div className="flex flex-col items-start">
-                  <h3 className="text-lg font-semibold text-foreground">
-                    Accounts
-                  </h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Manage team members, their designations, and access status.
-                  </p>
-                </div>
-                {selectedIds.length > 0 ? (
-                  <div className="ml-auto flex shrink-0 items-center gap-3">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {selectedIds.length} of {accounts.length} selected
-                    </span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setDeleteTarget("bulk")}
-                      className="gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      <Trash2 className="size-4" />
-                      Delete
-                      {selectedIds.length > 1 ? ` (${selectedIds.length})` : ""}
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="ml-auto shrink-0"
-                    onClick={() => setIsAddOpen(true)}
-                  >
-                    Add New Account
-                  </Button>
-                )}
-              </div>
-
-              <div className="mt-4 overflow-x-auto rounded-md border border-border">
-                <table className="w-full min-w-[640px] text-left text-sm">
-                  <thead className="bg-muted/50 text-muted-foreground">
-                    <tr>
-                      <th className="w-12 px-4 py-3 font-medium">
-                        <Checkbox
-                          checked={isAllSelected}
-                          indeterminate={isIndeterminate}
-                          onCheckedChange={toggleAll}
-                          aria-label="Select all accounts"
-                        />
-                      </th>
-                      <th className="px-4 py-3 font-medium">Name</th>
-                      <th className="px-4 py-3 font-medium">Status</th>
-                      <th className="w-20 px-4 py-3 text-right font-medium">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border bg-card">
-                    {accounts.map((account) => {
-                      const isSelected = selectedIds.includes(account.id);
-                      const isActive = account.status === "active";
-                      return (
-                        <tr
-                          key={account.id}
-                          className={isSelected ? "bg-muted/40" : undefined}
-                        >
-                          <td className="px-4 py-3">
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={() => toggleRow(account.id)}
-                              aria-label={`Select ${account.name}`}
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <Avatar name={account.name} id={account.id} />
-                              <div className="min-w-0">
-                                <p className="truncate font-medium text-foreground">
-                                  {account.name}
-                                </p>
-                                {account.designation ? (
-                                  <p className="truncate text-xs text-muted-foreground">
-                                    {account.designation}
-                                  </p>
-                                ) : null}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <Switch
-                                checked={isActive}
-                                onCheckedChange={() => toggleStatus(account.id)}
-                                aria-label={`Toggle status for ${account.name}`}
-                              />
-                              <span
-                                className={`text-xs font-medium ${
-                                  isActive
-                                    ? "text-success"
-                                    : "text-muted-foreground"
-                                }`}
-                              >
-                                {isActive ? "Active" : "Inactive"}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger
-                                aria-label={`Actions for ${account.name}`}
-                                className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
-                              >
-                                <MoreHorizontal className="size-4" />
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-36">
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    (setIsAddOpen(true),
-                                      handleEditAccount(account),
-                                      console.log("Edit account:", account.id));
-                                  }}
-                                >
-                                  <Pencil />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => duplicateAccount(account.id)}
-                                >
-                                  <Copy />
-                                  Copy
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => setDeleteTarget(account)}
-                                  className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                                >
-                                  <Trash2 />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {accounts.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={4}
-                          className="px-4 py-10 text-center text-sm text-muted-foreground"
-                        >
-                          No accounts yet. Click “Add New Account” to create
-                          one.
-                        </td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
-              </div>
-            </article>
-
-            <div className="sm:col-span-2 lg:col-span-3 flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline">
-                Cancel
-              </Button>
-              <Button type="submit">Save Changes</Button>
-            </div>
-          </>
-        ) : null}
-
-        <Dialog open={isAddOpen} onOpenChange={handleAddOpenChange}>
-          <DialogContent className="shadow-2xs sm:max-w-max md:max-w-1/2 lg:max-w-1/4">
-            <DialogHeader>
-              <DialogTitle>
-                {editingAccount ? "Edit Account" : "Create Account"}
-              </DialogTitle>
-              <DialogDescription>
-                {editingAccount
-                  ? "Update this team member's account details"
-                  : "Add a team member and set their sign-in credentials."}
-              </DialogDescription>
-            </DialogHeader>
-
-            <form
-              onSubmit={handleCreateAccount}
-              noValidate
-              className="mt-4 space-y-4"
-            >
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="account-name"
-                  className="text-sm font-medium text-foreground"
-                >
-                  Name
-                </label>
-                <Input
-                  id="account-name"
-                  value={newName}
-                  onChange={(event) => setNewName(event.target.value)}
-                  placeholder="e.g. Priya Sharma"
-                  autoComplete="off"
-                />
-                {formErrors.name ? (
-                  <p className="text-xs text-destructive">{formErrors.name}</p>
-                ) : null}
-              </div>
-
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="account-username"
-                  className="text-sm font-medium text-foreground"
-                >
-                  Username
-                </label>
-                <Input
-                  id="account-username"
-                  value={newUsername}
-                  onChange={(event) => setNewUsername(event.target.value)}
-                  placeholder="e.g. priya.sharma"
-                  autoComplete="off"
-                />
-                {formErrors.username ? (
-                  <p className="text-xs text-destructive">
-                    {formErrors.username}
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="account-password"
-                  className="text-sm font-medium text-foreground"
-                >
-                  Password
-                </label>
-                <div className="relative">
-                  <Input
-                    id="account-password"
-                    type={showPassword ? "text" : "password"}
-                    value={newPassword}
-                    onChange={(event) => setNewPassword(event.target.value)}
-                    placeholder={
-                      editingAccount
-                        ? "Leave blank to keep current password"
-                        : "Minimum 6 characters"
-                    }
-                    autoComplete="new-password"
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((s) => !s)}
-                    aria-label={
-                      showPassword ? "Hide password" : "Show password"
-                    }
-                    className="absolute right-2 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="size-4" />
-                    ) : (
-                      <Eye className="size-4" />
-                    )}
-                  </button>
-                </div>
-                {formErrors.password ? (
-                  <p className="text-xs text-destructive">
-                    {formErrors.password}
-                  </p>
-                ) : null}
-              </div>
-
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsAddOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {editingAccount ? "Save Changes" : "Create"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        <AlertDialog
-          open={deleteTarget !== null}
-          onOpenChange={(open) => {
-            if (!open) setDeleteTarget(null);
-          }}
-        >
-          <AlertDialogContent className="max-w-[90%] sm:max-w-[50%] md:max-w-[35%]">
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                Delete account{deleteTarget === "bulk" ? "s" : ""}?
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {deleteTarget === "bulk"
-                  ? `This will permanently delete ${selectedIds.length} selected account${selectedIds.length === 1 ? "" : "s"}. This action cannot be undone.`
-                  : `This will permanently delete "${deleteTarget?.name}". This action cannot be undone.`}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>No, keep it</AlertDialogCancel>
-              <AlertDialogAction onClick={handleConfirmDelete}>
-                Yes, Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {renderActiveTab()}
       </div>
+      {/* {renderActiveTab()} */}
     </div>
   );
 };
 
-export default Settings;
+export default page;

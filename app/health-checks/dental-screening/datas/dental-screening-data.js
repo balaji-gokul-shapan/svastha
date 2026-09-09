@@ -105,9 +105,11 @@ export const oralHygieneOptions = [
 ];
 
 export const gingivalHealthOptions = [
-  { value: "healthy", label: "Healthy", tone: "good" },
-  { value: "gingivitis", label: "Gingivitis", tone: "warn" },
-  { value: "periodontitis", label: "Periodontitis", tone: "bad" },
+  { value: "Healthy", label: "Healthy", tone: "good", severity: "low" },
+  { value: "Gingivitis", label: "Gingivitis", tone: "warn", severity: "medium" },
+  { value: "Moderate Gum Disease", label: "Moderate Gum Disease", tone: "warn", severity: "medium" },
+  { value: "Severe / Acute Periodontal Infection", label: "Severe / Acute Periodontal Infection", tone: "bad", severity: "high" },
+  { value: "NA", label: "Not Applicable", tone: "netural", severity: "none" },
 ];
 
 export const plaqueOptions = [

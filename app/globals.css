@@ -649,3 +649,76 @@
     gap: 0.5rem;
   }
 }
+
+/* react-datepicker — themed to match shadcn/ui design tokens */
+.react-datepicker {
+  font-family: var(--font-body, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.875rem !important;
+  background-color: var(--color-popover, #ffffff) !important;
+  color: var(--color-popover-foreground, #111827) !important;
+  border: 1px solid var(--color-border, #e5e7eb) !important;
+  border-radius: var(--radius-md, 0.375rem) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+.react-datepicker__header {
+  background-color: var(--color-muted, #f3f4f6) !important;
+  border-bottom: 1px solid var(--color-border, #e5e7eb) !important;
+  padding: 0.5rem !important;
+}
+
+.react-datepicker__navigation {
+  color: var(--color-muted-foreground, #6b7280) !important;
+}
+
+.react-datepicker__navigation:hover {
+  color: var(--color-foreground, #111827) !important;
+}
+
+.react-datepicker__year-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 0.25rem !important;
+  padding: 0.5rem !important;
+}
+
+.react-datepicker__year-text {
+  border-radius: 0.25rem !important;
+  padding: 0.5rem !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  color: var(--color-foreground, #111827) !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s !important;
+}
+
+.react-datepicker__year-text:hover {
+  background-color: var(--color-accent, #f3f4f6) !important;
+}
+
+.react-datepicker__year-text--selected,
+.react-datepicker__year-text--keyboard-selected {
+  background-color: var(--color-primary, #2563eb) !important;
+  color: var(--color-primary-foreground, #ffffff) !important;
+}
+
+.react-datepicker__year-text--now {
+  font-weight: 600 !important;
+}
+
+.react-datepicker-popper {
+  z-index: 9999 !important;
+}
+
+.react-datepicker__year-wrapper {
+    flex-wrap: wrap;
+    max-width: 150px !important;
+    display: flex;
+}
+
+/* Ensure year picker elements are always clickable */
+.react-datepicker__year-text,
+.react-datepicker__navigation,
+.react-datepicker__navigation:hover {
+  pointer-events: auto !important;
+}
