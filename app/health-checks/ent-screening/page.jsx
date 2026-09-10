@@ -41,7 +41,7 @@ import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import StudentFilter from "../utilities/studentFilter";
 import CampDetailsCard from "@/components/ui/camp-details-card";
-import StudentProfileCard from "@/app/students/studentProfileCard";
+import StudentProfileCard from "@/app/students/utilities/studentProfileCard";
 import { EmptyState } from "@/components/ui/empty-state";
 import AssessmentCard from "@/app/ui/AssessmentCard";
 import { getAllMasterScreening } from "@/lib/features/masterScreeningSlice";

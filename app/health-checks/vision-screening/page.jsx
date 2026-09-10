@@ -46,7 +46,7 @@ import { createVisionScreening } from "@/lib/features/registerVisionScreening";
 import useStudentData from "@/components/health-checks/getStudentData";
 import AssessmentCard from "@/app/ui/AssessmentCard";
 import { EmptyState } from "@/components/ui/empty-state";
-import StudentProfileCard from "@/app/students/studentProfileCard";
+import StudentProfileCard from "@/app/students/utilities/studentProfileCard";
 import { getFilterStudent } from "@/lib/features/getFilterStudent";
 import StudentFilter from "../utilities/studentFilter";
 import { visionScreeningSchema } from "./datas/vision-screening-schema";
@@ -907,12 +907,13 @@ export default function VisionScreeningPage() {
     () => (Array.isArray(visionScreeningData) ? visionScreeningData : []),
     [visionScreeningData],
   );
+    console.log(visionScreeningData,"students");
 
   const getSelectedStudentScreeningData = useMemo(() => {
     if (!selectedStudentKeys.size || !students.length) {
       return null;
     }
-
+    
     return (
       students.find((data) => {
         const dataKeys = [

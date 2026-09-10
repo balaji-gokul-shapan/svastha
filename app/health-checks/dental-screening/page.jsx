@@ -52,7 +52,6 @@ import AssessmentCard from "@/app/ui/AssessmentCard";
 import { ScoreMeter } from "./utilities/scoreMeter";
 import { EmptyState } from "@/components/ui/empty-state";
 import ToothIcon from "./asset/toothIcon";
-import StudentProfileCard from "@/app/students/utilities/studentProfileCard";
 import { cn } from "@/lib/utils";
 import StudentFilter from "../utilities/studentFilter";
 import { getFilterStudent } from "@/lib/features/getFilterStudent";
@@ -77,6 +76,7 @@ import { getDentalCodingScreening } from "@/lib/features/getDentalCodingsSlice";
 import { getDentalConditionsScreening } from "@/lib/features/getDentalConditions";
 import { TextField } from "@/components/ui/text-field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import StudentProfileCard from "@/app/students/utilities/studentProfileCard";
 
 const DentalSectionLoading = () => (
   <div className="min-h-24 rounded-xl border border-border bg-card p-4" />
