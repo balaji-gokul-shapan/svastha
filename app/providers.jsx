@@ -12,7 +12,7 @@ import { RoleGuard } from "@/app/components/layout/role-guard";
 import {
   scheduleProactiveRefresh,
   cancelProactiveRefresh,
-} from "@/lib/auth-utils";
+} from "../lib/auth-utils";
 
 export function Providers({ children }) {
   const [queryClient] = React.useState(
