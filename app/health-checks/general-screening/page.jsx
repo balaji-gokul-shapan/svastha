@@ -1,10 +1,10 @@
 ﻿"use client";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   Activity,
   AlertCircle,
-  Calendar,
   ChevronDown,
   Cross,
   Droplet,
@@ -30,9 +30,11 @@ import {
   GROWTH_STANDARD_BANDS,
   VITALS_STANDARD_BANDS,
 } from "./datas/general-screening-data";
+
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+
 import { getInitialScreening } from "@/lib/features/getInitialScreening";
 import { getAssignEvent } from "@/lib/features/getEventAssignSlice";
 
@@ -40,18 +42,25 @@ import {
   createInitialScreening,
   updateInitialScreening,
 } from "@/lib/features/registerGeneralScreening";
+
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import StudentProfileCard from "@/app/students/studentProfileCard";
 import StudentFilter from "../utilities/studentFilter";
 import { FramerCard } from "@/util/FramerCard";
 import AssessmentCard from "@/app/ui/AssessmentCard";
+
 import { getAllMasterScreening } from "@/lib/features/masterScreeningSlice";
 import { getMasterData } from "@/util/masterData";
+
 import { generalScreeningSchema } from "./datas/general-screening-schema";
 import { Textarea } from "@/components/ui/textarea";
 import { selectAuthUser } from "@/lib/features/auth-slice";
 import ScreeningStepper from "@/components/ScreeningStepper";
+
+/* ============================================================
+   Loading
+============================================================ */
 
 const GeneralSectionLoading = () => (
   <div className="min-h-24 rounded-xl border border-border bg-card p-4" />
@@ -59,25 +68,40 @@ const GeneralSectionLoading = () => (
 
 const ClinicalSignsCard = dynamic(
   () => import("./components/ClinicalSignCard"),
-  { loading: GeneralSectionLoading },
+  {
+    loading: GeneralSectionLoading,
+  },
 );
+
 const FemaleStudentsCard = dynamic(
   () => import("./components/FemaleStudentsCard"),
-  { loading: GeneralSectionLoading },
+  {
+    loading: GeneralSectionLoading,
+  },
 );
+
 const GeneralPhysicalExamination = dynamic(
   () => import("./components/GeneralPhysicalExamination"),
-  { loading: GeneralSectionLoading },
+  {
+    loading: GeneralSectionLoading,
+  },
 );
+
 const GrowthVitals = dynamic(() => import("./components/GrowthVitals"), {
   loading: GeneralSectionLoading,
 });
+
 const BloodGroup = dynamic(() => import("./components/BloodGroup"), {
   loading: GeneralSectionLoading,
 });
+
 const HealthHistory = dynamic(() => import("./components/HealthHistory"), {
   loading: GeneralSectionLoading,
 });
+
+/* ============================================================
+   Small reusable components
+============================================================ */
 
 function FieldLabel({ children }) {
   return (
@@ -91,11 +115,14 @@ function SelectField({ label, options, value, onChange, icon: Icon, error }) {
   return (
     <div>
       <FieldLabel>{label}</FieldLabel>
+
       <div className="relative">
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className={`h-10 w-full appearance-none rounded-md border border-input bg-background pl-3 pr-9 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30 ${error ? "border-destructive focus:ring-destructive/30" : ""}`}
+          className={`h-10 w-full appearance-none rounded-md border border-input bg-background pl-3 pr-9 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30 ${
+            error ? "border-destructive focus:ring-destructive/30" : ""
+          }`}
         >
           {options.map((opt) => (
             <option key={opt} value={opt}>
@@ -103,12 +130,14 @@ function SelectField({ label, options, value, onChange, icon: Icon, error }) {
             </option>
           ))}
         </select>
+
         {Icon ? (
           <Icon className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         ) : (
           <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         )}
       </div>
+
       {error ? (
         <p className="mt-1.5 text-xs text-destructive">{error}</p>
       ) : null}
@@ -120,17 +149,22 @@ function NumberField({ label, value, onChange, unit, error }) {
   return (
     <div>
       <FieldLabel>{label}</FieldLabel>
+
       <div className="relative">
         <input
           type="number"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className={`h-10 w-full rounded-md border border-input bg-background pl-3 pr-12 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30 ${error ? "border-destructive focus:ring-destructive/30" : ""}`}
+          className={`h-10 w-full rounded-md border border-input bg-background pl-3 pr-12 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30 ${
+            error ? "border-destructive focus:ring-destructive/30" : ""
+          }`}
         />
+
         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
           {unit}
         </span>
       </div>
+
       {error ? (
         <p className="mt-1.5 text-xs text-destructive">{error}</p>
       ) : null}
@@ -151,30 +185,66 @@ function SummaryRow({ icon: Icon, label, value, tone = "muted" }) {
     <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
       <div className="flex items-center gap-2">
         <span
-          className={`flex size-7 items-center justify-center rounded-md ${toneStyles[tone] ?? toneStyles.muted}`}
+          className={`flex size-7 items-center justify-center rounded-md ${
+            toneStyles[tone] ?? toneStyles.muted
+          }`}
         >
           <Icon className="size-3.5" />
         </span>
+
         <span className="text-sm text-muted-foreground">{label}</span>
       </div>
+
       <span className="text-sm font-medium text-foreground">{value}</span>
     </div>
   );
 }
 
+/* ============================================================
+   FIX #1
+   ONE helper for identifying a student.
+
+   IMPORTANT:
+   Screening record ID and student ID are NOT necessarily the same.
+============================================================ */
+
+function getStudentKey(student) {
+  if (!student) {
+    return "";
+  }
+
+  return String(
+    student?.id ??
+      student?.studentId ??
+      student?.student_id ??
+      student?.cus_id ??
+      student?.school_registration_number ??
+      student?.admission_number ??
+      "",
+  ).trim();
+}
+
+/* ============================================================
+   Age
+============================================================ */
+
 export function getAgeInYearsFromDob(dobValue) {
   const dobString = String(dobValue ?? "").trim();
+
   if (!dobString) {
     return null;
   }
 
   const dob = new Date(dobString);
+
   if (Number.isNaN(dob.getTime())) {
     return null;
   }
 
   const today = new Date();
+
   let age = today.getFullYear() - dob.getFullYear();
+
   const hadBirthdayThisYear =
     today.getMonth() > dob.getMonth() ||
     (today.getMonth() === dob.getMonth() && today.getDate() >= dob.getDate());
@@ -185,6 +255,10 @@ export function getAgeInYearsFromDob(dobValue) {
 
   return age >= 0 ? age : null;
 }
+
+/* ============================================================
+   Growth standard
+============================================================ */
 
 function evaluateGrowthStandard(metric, value, ageYears) {
   if (!Number.isFinite(value) || value <= 0) {
@@ -216,6 +290,7 @@ function evaluateGrowthStandard(metric, value, ageYears) {
   }
 
   const min = metric === "height" ? band.heightMin : band.weightMin;
+
   const max = metric === "height" ? band.heightMax : band.weightMax;
 
   if (value < min) {
@@ -241,8 +316,23 @@ function evaluateGrowthStandard(metric, value, ageYears) {
   };
 }
 
-const IMMUNIZATION_MAP = { up_to_date: 1, partial: 2, overdue: 3, na: 4 };
-const STANDARD_MAP = { "Below Average": 1, Average: 2, "Above Average": 3 };
+/* ============================================================
+   Constants
+============================================================ */
+
+const IMMUNIZATION_MAP = {
+  up_to_date: 1,
+  partial: 2,
+  overdue: 3,
+  na: 4,
+};
+
+const STANDARD_MAP = {
+  "Below Average": 1,
+  Average: 2,
+  "Above Average": 3,
+};
+
 const BMI_CATEGORY_MAP = {
   Underweight: 1,
   Normal: 2,
@@ -250,6 +340,10 @@ const BMI_CATEGORY_MAP = {
   Obese: 4,
   severeObesse: 5,
 };
+
+/* ============================================================
+   Parse metric
+============================================================ */
 
 function parseMetricValue(rawValue) {
   if (typeof rawValue === "number") {
@@ -264,8 +358,13 @@ function parseMetricValue(rawValue) {
     .trim();
 
   const parsed = Number.parseFloat(value);
+
   return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
+
+/* ============================================================
+   Backend error
+============================================================ */
 
 function getBackendErrorMessage(error) {
   let payload = error;
@@ -301,7 +400,10 @@ function getBackendErrorMessage(error) {
     : String(message);
 }
 
-// Parses "120/80" (or "120/80 mmHg") into { systolic, diastolic } or null.
+/* ============================================================
+   Blood pressure
+============================================================ */
+
 function parseBloodPressure(rawValue) {
   const [systolic, diastolic] = String(rawValue ?? "")
     .trim()
@@ -318,16 +420,22 @@ function parseBloodPressure(rawValue) {
     return null;
   }
 
-  return { systolic, diastolic };
+  return {
+    systolic,
+    diastolic,
+  };
 }
 
-// Age-based health-standard evaluation for vitals — same shape as
-// evaluateGrowthStandard so the result feeds straight into StandardStatus.
+/* ============================================================
+   Vitals standard
+============================================================ */
+
 function evaluateVitalsStandard(metric, rawValue, ageYears) {
   const parsed =
     metric === "bloodPressure"
       ? parseBloodPressure(rawValue)
       : Number.parseFloat(String(rawValue ?? ""));
+
   const hasValue =
     metric === "bloodPressure"
       ? parsed !== null
@@ -361,14 +469,15 @@ function evaluateVitalsStandard(metric, rawValue, ageYears) {
     };
   }
 
-  // Blood pressure compares systolic AND diastolic independently.
   if (metric === "bloodPressure") {
     const below =
       parsed.systolic < band.bpSystolicMin ||
       parsed.diastolic < band.bpDiastolicMin;
+
     const above =
       parsed.systolic > band.bpSystolicMax ||
       parsed.diastolic > band.bpDiastolicMax;
+
     const rangeText = `(${band.bpSystolicMin}-${band.bpSystolicMax}/${band.bpDiastolicMin}-${band.bpDiastolicMax} mmHg)`;
 
     if (below) {
@@ -378,6 +487,7 @@ function evaluateVitalsStandard(metric, rawValue, ageYears) {
         tone: "destructive",
       };
     }
+
     if (above) {
       return {
         standard: "Above Average",
@@ -385,6 +495,7 @@ function evaluateVitalsStandard(metric, rawValue, ageYears) {
         tone: "warning",
       };
     }
+
     return {
       standard: "Average",
       status: `Within range ${rangeText}`,
@@ -398,6 +509,7 @@ function evaluateVitalsStandard(metric, rawValue, ageYears) {
       : metric === "temperature"
         ? band.tempMin
         : band.spo2Min;
+
   const max =
     metric === "pulse"
       ? band.pulseMax
@@ -412,6 +524,7 @@ function evaluateVitalsStandard(metric, rawValue, ageYears) {
       tone: "destructive",
     };
   }
+
   if (parsed > max) {
     return {
       standard: "Above Average",
@@ -419,6 +532,7 @@ function evaluateVitalsStandard(metric, rawValue, ageYears) {
       tone: "warning",
     };
   }
+
   return {
     standard: "Average",
     status: `Within range (${min}-${max})`,
@@ -426,14 +540,29 @@ function evaluateVitalsStandard(metric, rawValue, ageYears) {
   };
 }
 
+/* ============================================================
+   PAGE
+============================================================ */
+
 export default function GeneralScreeningPage() {
   const dispatch = useAppDispatch();
   const queryClient = useQueryClient();
+
+  /* ============================================================
+     Redux
+  ============================================================ */
+
   const {
     studentData = [],
     loading: studentsLoading,
     error: studentsError,
   } = useAppSelector((state) => state.getInitialScreening);
+
+  const authUser = useAppSelector(selectAuthUser);
+
+  /* ============================================================
+     Master data
+  ============================================================ */
 
   const {
     data: masterScreeningData = {},
@@ -444,16 +573,10 @@ export default function GeneralScreeningPage() {
 
     queryFn: () => dispatch(getAllMasterScreening()).unwrap(),
 
-    // Master data doesn't normally need to be
-    // requested again immediately.
     staleTime: 5 * 60 * 1000,
 
     refetchOnWindowFocus: false,
   });
-
-  // ---------------------------------------------------------
-  // Required master data for THIS module
-  // ---------------------------------------------------------
 
   const requiredMasterData = useMemo(
     () =>
@@ -466,18 +589,8 @@ export default function GeneralScreeningPage() {
         "nutrition-masters",
         "consciousness-masters",
         "appearance-masters",
-        // "color-vision-statuses",
-        // "dental-conditions",
-        // "dental-treatments",
-        // "ear-examinations",
-        // "hearing-classifications",
-        // "hearing-referral-reasons",
         "height-weight-standards",
         "immunizations",
-        // "oral-hygiene-statuses",
-        // "plaque-scores",
-        // "vision-referral-reasons",
-        // "vision-results",
         "vital-signs",
       ]),
     [masterScreeningData],
@@ -488,51 +601,76 @@ export default function GeneralScreeningPage() {
   const chronicDiseasesOption = requiredMasterData["chronic-diseases"] ?? [];
 
   const bloodGroupOption = requiredMasterData["blood-groups"] ?? [];
+
   const bmiCategories = requiredMasterData["bmi-categories"] ?? [];
+
   const nutritionOptions = requiredMasterData["nutrition-masters"] ?? [];
+
   const consciousnessOptions =
     requiredMasterData["consciousness-masters"] ?? [];
+
   const appearanceOptions = requiredMasterData["appearance-masters"] ?? [];
+
   const skinOptions = requiredMasterData["skin-masters"] ?? [];
-  const vitalOptions = requiredMasterData["vital-signs"] ?? [];
-  const authUser = useAppSelector(selectAuthUser);
+
+  /* ============================================================
+     Filters / selection
+  ============================================================ */
+
   const academicYearOptions = ["2026-2027", "2025-2026", "2024-2025"];
+
   const [isCaDrawerOpen, setIsCaDrawerOpen] = useState(false);
+
   const [activeStep, setActiveStep] = useState("growth");
+
   const [selectedCampId, setSelectedCampId] = useState("");
+
   const [studentId, setStudentId] = useState("");
+
   const [academicYear, setAcademicYear] = useState(academicYearOptions[0]);
+
   const [selectedClassFilter, setSelectedClassFilter] = useState("all");
+
   const [getStudentDataByEvent, setGetStudentDataByEvent] = useState([]);
+
+  /* ============================================================
+     Form state
+  ============================================================ */
+
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
   const [pulse, setPulse] = useState("");
   const [temperature, setTemperature] = useState("");
   const [bloodPressure, setBloodPressure] = useState("");
   const [spo2, setSpo2] = useState("");
+
   const [bloodGroup, setBloodGroup] = useState(
     bloodGroupOption?.[0]?.name ?? "",
   );
+
   const [allergy, setAllergy] = useState("None");
+
   const [chronicDisease, setChronicDisease] = useState("None");
+
   const [immunization, setImmunization] = useState("up_to_date");
+
   const [notes, setNotes] = useState("");
+
   const [isSaving, setIsSaving] = useState(false);
-  // Synchronous re-entry guard — React state (isSaving) updates async, so a
-  // double-click can read it as false twice and dispatch two saves. The ref is
-  // read/set synchronously, blocking any second click until the first save settles.
+
+  /* ============================================================
+     Save protection
+  ============================================================ */
+
   const isSavingRef = useRef(false);
-  // Tracks the last successfully saved student (create-only flow): once a
-  // student is saved, further save clicks for the SAME student are blocked;
-  // selecting a different student changes the key and unblocks saving.
+
   const savedStudentKeyRef = useRef(null);
-  // State mirror of savedStudentKeyRef so the Save button can disable itself
-  // after the current student is saved (refs don't trigger re-renders).
+
   const [savedStudentKey, setSavedStudentKey] = useState(null);
 
-  // ============================================================
-  // CLINICAL SIGNS
-  // ============================================================
+  /* ============================================================
+     Clinical signs
+  ============================================================ */
 
   const [clinicalSigns, setClinicalSigns] = useState({
     pallor: "",
@@ -547,10 +685,6 @@ export default function GeneralScreeningPage() {
     regularMedication: "",
   });
 
-  // The useState initializer above runs BEFORE the master query resolves, so
-  // it can see an empty skinOptions list and leave the field blank. Re-default
-  // the skin assessment once masters arrive (or guarantee the static "Normal"
-  // fallback is pre-selected) — without clobbering a value already picked.
   useEffect(() => {
     setClinicalSigns((prev) => {
       if (
@@ -571,9 +705,9 @@ export default function GeneralScreeningPage() {
     });
   }, [skinOptions]);
 
-  // ============================================================
-  // GENERAL PHYSICAL EXAMINATION
-  // ============================================================
+  /* ============================================================
+     Physical examination
+  ============================================================ */
 
   const [physicalExamination, setPhysicalExamination] = useState({
     generalAppearance: appearanceOptions?.[0]?.name ?? "",
@@ -586,6 +720,11 @@ export default function GeneralScreeningPage() {
     neurology: "",
     referral: "",
   });
+
+  /* ============================================================
+     Female screening
+  ============================================================ */
+
   const [femaleScreening, setFemaleScreening] = useState({
     menstrualCycle: "",
     excessiveBleeding: "",
@@ -593,62 +732,24 @@ export default function GeneralScreeningPage() {
     otherConcerns: "",
     referral: "",
   });
-  // { fieldName: "message" } — populated when zod validation fails.
+
   const [formErrors, setFormErrors] = useState(null);
-  // When true, the auto-apply effect (below) skips re-populating the form —
-  // set right before a post-save reset so the refetched record can't restore
-  // the values we just cleared.
-  const resetAfterSaveRef = useRef(false);
 
-  const clearFormError = (field) =>
-    setFormErrors((prev) =>
-      prev && prev[field] ? { ...prev, [field]: undefined } : prev,
-    );
-
-  // Wrapped setters so a field's error clears the moment the user edits it.
-  const handleHeightChange = (value) => {
-    setHeight(value);
-    clearFormError("height");
-  };
-  const handleWeightChange = (value) => {
-    setWeight(value);
-    clearFormError("weight");
-  };
-  const handleBloodGroupChange = (value) => {
-    setBloodGroup(value);
-    clearFormError("bloodGroup");
-  };
-  const handleAllergyChange = (value) => {
-    setAllergy(value);
-    clearFormError("allergy");
-  };
-  const handleChronicDiseaseChange = (value) => {
-    setChronicDisease(value);
-    clearFormError("chronicDisease");
-  };
+  /* ============================================================
+     Filters
+  ============================================================ */
 
   const [schoolName, setSchoolName] = useState("all");
+
   const [classFilter, setClassFilter] = useState("all");
+
   const [sectionFilter, setSectionFilter] = useState("all");
+
   const [studentFilter, setStudentFilter] = useState("all");
 
-  // const { data: filterPayload, isLoading } = useQuery({
-  //   queryKey: ["filter-student", schoolName, academicYear, "options"],
-  //   queryFn: () =>
-  //     dispatch(
-  //       getFilterStudent({
-  //         all: true,
-  //         status: "all",
-  //         schoolName,
-  //         academicYear,
-  //         sortBy: "name",
-  //         sortOrder: "asc",
-  //         search: "",
-  //       }),
-  //     ).unwrap(),
-  //   staleTime: 0,
-  //   refetchOnWindowFocus: true,
-  // });
+  /* ============================================================
+     Screening query
+  ============================================================ */
 
   useQuery({
     queryKey: [
@@ -659,6 +760,7 @@ export default function GeneralScreeningPage() {
       sectionFilter,
       studentFilter,
     ],
+
     queryFn: () =>
       dispatch(
         getInitialScreening({
@@ -669,9 +771,14 @@ export default function GeneralScreeningPage() {
           sortOrder: "asc",
         }),
       ).unwrap(),
+
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
+
+  /* ============================================================
+     Assigned events
+  ============================================================ */
 
   const {
     data: assignedEvents,
@@ -679,232 +786,417 @@ export default function GeneralScreeningPage() {
     error: assignEventError,
   } = useQuery({
     queryKey: ["get-event", authUser?.id ?? authUser?.Id ?? null],
+
     queryFn: () => {
       const userId = authUser?.id ?? authUser?.Id;
+
       if (!userId) {
         throw new Error("Signed-in user not available yet");
       }
-      return dispatch(getAssignEvent({ id: userId })).unwrap();
+
+      return dispatch(getAssignEvent()).unwrap();
     },
+
     enabled: Boolean(authUser?.id ?? authUser?.Id),
+
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
 
-  const applyScreeningRecordToForm = (screeningRecord) => {
-    const getMetricValue = (value) => {
-      const normalizedValue = String(value ?? "").trim();
-      return normalizedValue || "0";
-    };
+  /* ============================================================
+     FIX #2
+     RESET FUNCTION
 
-    const normalizeText = (value, fallback = "") => {
-      const normalized = String(value ?? "").trim();
-      return normalized || fallback;
-    };
+     This clears EVERYTHING.
+  ============================================================ */
 
-    const normalizeChoice = (value, validOptions, fallback = "") => {
-      const text = String(value ?? "").trim();
-      if (!text) return fallback;
+  const resetFormToDefaults = useCallback(() => {
+    setHeight("");
+    setWeight("");
+    setPulse("");
+    setTemperature("");
+    setBloodPressure("");
+    setSpo2("");
 
-      const exactMatch = validOptions.find(
-        (option) => option.toLowerCase() === text.toLowerCase(),
+    setBloodGroup(bloodGroupOption?.[0]?.name ?? "");
+
+    setAllergy("None");
+    setChronicDisease("None");
+    setImmunization("up_to_date");
+    setNotes("");
+
+    setClinicalSigns({
+      pallor: "",
+      clubbing: "",
+      edema: "",
+      skinAssessment:
+        skinOptions.find((item) => item.name === "Normal")?.name ??
+        skinOptions?.[0]?.name ??
+        "Normal",
+      medicalCondition: "",
+      currentComplaints: "",
+      regularMedication: "",
+    });
+
+    setPhysicalExamination({
+      generalAppearance: appearanceOptions?.[0]?.name ?? "",
+      postureSpine: appearanceOptions?.[0]?.name ?? "",
+      nutritionalStatus: nutritionOptions?.[0]?.name ?? "",
+      consciousness: consciousnessOptions?.[0]?.name ?? "",
+      cvs: "",
+      respiratorySystem: "",
+      abdomen: "",
+      neurology: "",
+      referral: "",
+    });
+
+    setFemaleScreening({
+      menstrualCycle: "",
+      excessiveBleeding: "",
+      menstrualPain: "",
+      otherConcerns: "",
+      referral: "",
+    });
+
+    setFormErrors(null);
+    setActiveStep("growth");
+  }, [
+    bloodGroupOption,
+    skinOptions,
+    appearanceOptions,
+    nutritionOptions,
+    consciousnessOptions,
+  ]);
+
+  /* ============================================================
+     FIX #3
+     Apply saved screening to form.
+
+     Notice that missing values become "" instead of "0".
+  ============================================================ */
+
+  const applyScreeningRecordToForm = useCallback(
+    (screeningRecord) => {
+      const getMetricValue = (value) => {
+        const normalizedValue = String(value ?? "").trim();
+
+        return normalizedValue || "";
+      };
+
+      const normalizeText = (value, fallback = "") => {
+        const normalized = String(value ?? "").trim();
+
+        return normalized || fallback;
+      };
+
+      const normalizeChoice = (value, validOptions, fallback = "") => {
+        const text = String(value ?? "").trim();
+
+        if (!text) {
+          return fallback;
+        }
+
+        const exactMatch = validOptions.find(
+          (option) => option.toLowerCase() === text.toLowerCase(),
+        );
+
+        if (exactMatch) {
+          return exactMatch;
+        }
+
+        if (["1", "true", "yes", "y"].includes(text.toLowerCase())) {
+          return validOptions[1] ?? fallback;
+        }
+
+        if (["0", "false", "no", "n"].includes(text.toLowerCase())) {
+          return validOptions[0] ?? fallback;
+        }
+
+        return fallback;
+      };
+
+      const normalizeBinary = (value, fallback = "0") => {
+        const text = String(value ?? "").trim();
+
+        if (!text) {
+          return fallback;
+        }
+
+        if (["1", "true", "yes", "y"].includes(text.toLowerCase())) {
+          return "1";
+        }
+
+        if (["0", "false", "no", "n"].includes(text.toLowerCase())) {
+          return "0";
+        }
+
+        return text;
+      };
+
+      /* -------------------------
+         Growth / vitals
+      ------------------------- */
+
+      setHeight(getMetricValue(screeningRecord?.height));
+
+      setWeight(getMetricValue(screeningRecord?.weight));
+
+      setPulse(getMetricValue(screeningRecord?.pulse));
+
+      setTemperature(getMetricValue(screeningRecord?.temperature));
+
+      setBloodPressure(
+        String(
+          screeningRecord?.blood_pressure ?? screeningRecord?.bp ?? "",
+        ).trim(),
       );
-      if (exactMatch) return exactMatch;
 
-      if (["1", "true", "yes", "y"].includes(text.toLowerCase())) {
-        return validOptions[1] ?? fallback;
-      }
+      setSpo2(getMetricValue(screeningRecord?.spo2));
 
-      if (["0", "false", "no", "n"].includes(text.toLowerCase())) {
-        return validOptions[0] ?? fallback;
-      }
+      /* -------------------------
+         Notes
+      ------------------------- */
 
-      return fallback;
-    };
+      setNotes(
+        String(
+          screeningRecord?.notes ??
+            screeningRecord?.remark ??
+            screeningRecord?.remarks ??
+            "",
+        ),
+      );
 
-    const normalizeBinary = (value, fallback = "0") => {
-      const text = String(value ?? "").trim();
-      if (!text) return fallback;
-      if (["1", "true", "yes", "y"].includes(text.toLowerCase())) return "1";
-      if (["0", "false", "no", "n"].includes(text.toLowerCase())) return "0";
-      return text;
-    };
+      /* -------------------------
+         Health history
+      ------------------------- */
 
-    setHeight(getMetricValue(screeningRecord?.height));
-    setWeight(getMetricValue(screeningRecord?.weight));
-    setPulse(getMetricValue(screeningRecord?.pulse) || "");
-    setTemperature(getMetricValue(screeningRecord?.temperature) || "");
-    setBloodPressure(
-      String(screeningRecord?.blood_pressure ?? "").trim() || "",
-    );
-    setSpo2(getMetricValue(screeningRecord?.spo2) || "");
-    setNotes(
-      String(
-        screeningRecord?.notes ??
-          screeningRecord?.remark ??
-          screeningRecord?.remarks ??
+      setAllergy(
+        screeningRecord?.allergy?.name ??
+          screeningRecord?.allergy_name ??
+          allergies[0]?.name ??
+          "None",
+      );
+
+      setChronicDisease(
+        screeningRecord?.chronic_disease?.name ??
+          screeningRecord?.chronic_disease_name ??
+          chronicDiseasesOption[0]?.name ??
+          "None",
+      );
+
+      setBloodGroup(
+        screeningRecord?.blood_group?.name ??
+          screeningRecord?.blood_group_name ??
+          screeningRecord?.bloodGroup ??
+          bloodGroupOption[0]?.name ??
           "",
-      ),
-    );
-    setAllergy(
-      screeningRecord?.allergy?.name ??
-        screeningRecord?.allergy_name ??
-        allergies[0]?.name ??
-        "",
-    );
-    setChronicDisease(
-      screeningRecord?.chronic_disease?.name ??
-        screeningRecord?.chronic_disease_name ??
-        chronicDiseasesOption[0]?.name ??
-        "",
-    );
-    setBloodGroup(
-      screeningRecord?.blood_group?.name ??
-        screeningRecord?.blood_group_name ??
-        screeningRecord?.bloodGroup ??
-        bloodGroupOption[0]?.name ??
-        "",
-    );
+      );
 
-    setClinicalSigns((prev) => ({
-      ...prev,
-      pallor: normalizeBinary(
-        screeningRecord?.pallor ?? screeningRecord?.clinical_signs?.pallor,
-        prev.pallor || "0",
-      ),
-      clubbing: normalizeBinary(
-        screeningRecord?.clubbing ?? screeningRecord?.clinical_signs?.clubbing,
-        prev.clubbing || "0",
-      ),
-      edema: normalizeBinary(
-        screeningRecord?.edema ?? screeningRecord?.clinical_signs?.edema,
-        prev.edema || "0",
-      ),
-      skinAssessment: normalizeChoice(
-        // Saved payloads carry the master id in `skin` — map it back to the
-        // name for the toggle; fall through for records stored as a name.
-        skinOptions.find(
-          (item) =>
-            String(item.id) ===
-            String(screeningRecord?.skin ?? screeningRecord?.skin_assessment),
-        )?.name ??
+      /* -------------------------
+         Clinical signs
+      ------------------------- */
+
+      setClinicalSigns((prev) => ({
+        ...prev,
+
+        pallor: normalizeBinary(
+          screeningRecord?.pallor ?? screeningRecord?.clinical_signs?.pallor,
+          "0",
+        ),
+
+        clubbing: normalizeBinary(
+          screeningRecord?.clubbing ??
+            screeningRecord?.clinical_signs?.clubbing,
+          "0",
+        ),
+
+        edema: normalizeBinary(
+          screeningRecord?.edema ?? screeningRecord?.clinical_signs?.edema,
+          "0",
+        ),
+
+        skinAssessment:
+          skinOptions.find(
+            (item) =>
+              String(item.id) ===
+              String(screeningRecord?.skin ?? screeningRecord?.skin_assessment),
+          )?.name ??
           screeningRecord?.skin ??
-          screeningRecord?.skin_assessment,
-        [
-          ...skinOptions.map((item) => item.name),
+          screeningRecord?.skin_assessment ??
           "Normal",
-          "Abnormal",
-          "Rashes",
-          "Infection",
-          "NA",
-        ],
-        prev.skinAssessment || "Normal",
-      ),
-      medicalCondition: normalizeText(
-        screeningRecord?.medical_condition ??
-          screeningRecord?.medicalCondition ??
-          screeningRecord?.known_medical_condition,
-        prev.medicalCondition || "",
-      ),
-      currentComplaints: normalizeText(
-        screeningRecord?.current_complaints ??
-          screeningRecord?.currentComplaints,
-        prev.currentComplaints || "",
-      ),
-      regularMedication: normalizeText(
-        screeningRecord?.regular_medication ??
-          screeningRecord?.regularMedication,
-        prev.regularMedication || "",
-      ),
-    }));
 
-    setPhysicalExamination((prev) => ({
-      ...prev,
-      generalAppearance: normalizeChoice(
-        appearanceOptions.find(
-          (item) =>
-            String(item.id) === String(screeningRecord?.general_appearance),
-        )?.name ??
-          screeningRecord?.general_appearance ??
-          screeningRecord?.generalAppearance,
-        ["Normal", "Needs attention"],
-        prev.generalAppearance || "Normal",
-      ),
-      postureSpine: normalizeChoice(
-        appearanceOptions.find(
-          (item) =>
-            String(item.id) === String(screeningRecord?.general_appearance),
-        )?.name ??
-          screeningRecord?.general_appearance ??
-          screeningRecord?.generalAppearance,
-        ["Normal", "Needs attention"],
-        prev.generalAppearance || "Normal",
-      ),
-      nutritionalStatus: normalizeChoice(
-        nutritionOptions.find(
-          (item) =>
-            String(item.id) === String(screeningRecord?.nutritional_status),
-        )?.name ??
-          screeningRecord?.nutritional_status ??
-          screeningRecord?.nutritionalStatus,
-        ["Normal", "Underweight", "Overweight"],
-        prev.nutritionalStatus || "Normal",
-      ),
-      consciousness: normalizeChoice(
-        consciousnessOptions.find(
-          (item) => String(item.id) === String(screeningRecord?.consciousness),
-        )?.name ?? screeningRecord?.consciousness,
-        ["Alert", "Drowsy", "Unresponsive"],
-        prev.consciousness || "",
-      ),
-      cvs: normalizeText(screeningRecord?.cvs, prev.cvs || ""),
-      respiratorySystem: normalizeText(
-        screeningRecord?.rs ?? screeningRecord?.respiratory_system,
-        prev.respiratorySystem || "",
-      ),
-      abdomen: normalizeText(screeningRecord?.abdomen, prev.abdomen || ""),
-      neurology: normalizeText(
-        screeningRecord?.neurology,
-        prev.neurology || "",
-      ),
-      referral: normalizeText(screeningRecord?.referral, prev.referral || ""),
-    }));
-  };
+        medicalCondition: normalizeText(
+          screeningRecord?.medical_condition ??
+            screeningRecord?.medicalCondition ??
+            screeningRecord?.known_medical_condition,
+          "",
+        ),
 
-  // Helper to extract students array from API response
-  // API returns: { event: {...}, students: { data: [...], current_page: 1, ... } }
+        currentComplaints: normalizeText(
+          screeningRecord?.current_complaints ??
+            screeningRecord?.currentComplaints,
+          "",
+        ),
+
+        regularMedication: normalizeText(
+          screeningRecord?.regular_medication ??
+            screeningRecord?.regularMedication,
+          "",
+        ),
+      }));
+
+      /* -------------------------
+         Physical examination
+      ------------------------- */
+
+      setPhysicalExamination({
+        generalAppearance: normalizeChoice(
+          appearanceOptions.find(
+            (item) =>
+              String(item.id) === String(screeningRecord?.general_appearance),
+          )?.name ??
+            screeningRecord?.general_appearance ??
+            screeningRecord?.generalAppearance,
+          appearanceOptions.map((item) => item.name).length
+            ? appearanceOptions.map((item) => item.name)
+            : ["Normal", "Needs Attention", "NA"],
+          "Normal",
+        ),
+
+        postureSpine: normalizeChoice(
+          appearanceOptions.find(
+            (item) =>
+              String(item.id) === String(screeningRecord?.posture_spine),
+          )?.name ??
+            screeningRecord?.posture_spine ??
+            screeningRecord?.postureSpine,
+          appearanceOptions.map((item) => item.name).length
+            ? appearanceOptions.map((item) => item.name)
+            : ["Normal", "Needs Attention", "NA"],
+          "Normal",
+        ),
+
+        nutritionalStatus: normalizeChoice(
+          nutritionOptions.find(
+            (item) =>
+              String(item.id) === String(screeningRecord?.nutritional_status),
+          )?.name ??
+            screeningRecord?.nutritional_status ??
+            screeningRecord?.nutritionalStatus,
+          nutritionOptions.map((item) => item.name).length
+            ? nutritionOptions.map((item) => item.name)
+            : ["Normal", "Underweight", "Overweight"],
+          "Normal",
+        ),
+
+        consciousness: normalizeChoice(
+          consciousnessOptions.find(
+            (item) =>
+              String(item.id) === String(screeningRecord?.consciousness),
+          )?.name ?? screeningRecord?.consciousness,
+          consciousnessOptions.map((item) => item.name).length
+            ? consciousnessOptions.map((item) => item.name)
+            : ["Alert", "Drowsy", "Unresponsive"],
+          "Alert",
+        ),
+
+        cvs: normalizeText(screeningRecord?.cvs, ""),
+
+        respiratorySystem: normalizeText(
+          screeningRecord?.rs ?? screeningRecord?.respiratory_system,
+          "",
+        ),
+
+        abdomen: normalizeText(screeningRecord?.abdomen, ""),
+
+        neurology: normalizeText(screeningRecord?.neurology, ""),
+
+        referral: normalizeText(screeningRecord?.referral, ""),
+      });
+
+      /* -------------------------
+         Female screening
+      ------------------------- */
+
+      setFemaleScreening({
+        menstrualCycle: normalizeText(screeningRecord?.menstrual_cycle, ""),
+
+        excessiveBleeding: normalizeText(
+          screeningRecord?.excessive_bleeding,
+          "",
+        ),
+
+        menstrualPain: normalizeText(screeningRecord?.menstrual_pain, ""),
+
+        otherConcerns: normalizeText(
+          screeningRecord?.other_concern ?? screeningRecord?.other_concerns,
+          "",
+        ),
+
+        referral: normalizeText(screeningRecord?.female_referral, ""),
+      });
+    },
+    [
+      allergies,
+      chronicDiseasesOption,
+      bloodGroupOption,
+      skinOptions,
+      appearanceOptions,
+      nutritionOptions,
+      consciousnessOptions,
+    ],
+  );
+
+  /* ============================================================
+     Student response array
+  ============================================================ */
+
   const studentsArray = useMemo(() => {
     if (Array.isArray(getStudentDataByEvent?.students?.data)) {
       return getStudentDataByEvent.students.data;
     }
+
     if (Array.isArray(getStudentDataByEvent?.students)) {
       return getStudentDataByEvent.students;
     }
+
     if (Array.isArray(getStudentDataByEvent?.data)) {
       return getStudentDataByEvent.data;
     }
+
     if (Array.isArray(getStudentDataByEvent)) {
       return getStudentDataByEvent;
     }
+
     return [];
   }, [getStudentDataByEvent]);
 
-  const selectedStudentFromFilter = useMemo(() => {
-    const activeId = studentFilter !== "all" ? studentFilter : studentId;
-    if (!activeId) return null;
-    const roster = Array.isArray(studentsArray) ? studentsArray : [];
-    const found = roster.find(
-      (student) =>
-        String(student?.id ?? student?.studentId ?? student?.cus_id) ===
-        String(activeId),
-    );
-    if (found) return found;
-    return null;
-  }, [studentsArray, studentFilter, studentId]);
+  /* ============================================================
+     Event roster
+  ============================================================ */
 
-  // Fallback roster from the Redux slice (source of truth for the camp's students).
   const eventRoster =
     useAppSelector((state) => state.eventAssign?.students) || [];
+
+  /* ============================================================
+     Selected student
+  ============================================================ */
+
+  const selectedStudentFromFilter = useMemo(() => {
+    const activeId = studentFilter !== "all" ? studentFilter : studentId;
+
+    if (!activeId) {
+      return null;
+    }
+
+    const normalizedId = String(activeId).trim();
+
+    return (
+      studentsArray.find(
+        (student) => getStudentKey(student) === normalizedId,
+      ) ?? null
+    );
+  }, [studentsArray, studentFilter, studentId]);
 
   const selectedStudent = useMemo(() => {
     if (selectedStudentFromFilter) {
@@ -912,134 +1204,46 @@ export default function GeneralScreeningPage() {
     }
 
     const activeId = studentFilter !== "all" ? studentFilter : studentId;
-    if (!activeId) return null;
 
-    // Primary lookup in studentsArray (from API response)
-    if (Array.isArray(studentsArray) && studentsArray.length > 0) {
-      const match = studentsArray.find(
-        (student) =>
-          String(student.id ?? student.studentId ?? student.cus_id) ===
-          String(activeId),
-      );
-      if (match) return match;
+    if (!activeId) {
+      return null;
     }
 
-    // Fallback: look in the Redux slice roster
-    if (Array.isArray(eventRoster) && eventRoster.length > 0) {
-      const match = eventRoster.find(
-        (student) =>
-          String(student?.id ?? student?.studentId ?? student?.cus_id) ===
-          String(activeId),
-      );
-      if (match) return match;
-    }
+    const normalizedId = String(activeId).trim();
 
-    return null;
-  }, [
-    studentsArray,
-    selectedStudentFromFilter,
-    studentFilter,
-    studentId,
-    eventRoster,
-  ]);
+    return (
+      eventRoster.find((student) => getStudentKey(student) === normalizedId) ??
+      null
+    );
+  }, [selectedStudentFromFilter, studentFilter, studentId, eventRoster]);
 
-  const classOptions = useMemo(() => {
-    if (studentsArray.length === 0) return ["all"];
-    const classSet = new Set();
-    studentsArray.forEach((student) => {
-      const cls = String(
-        student?.Class ?? student?.class ?? student?.grade ?? "",
-      )
-        .split("-")[0]
-        .trim();
-      if (cls) classSet.add(cls);
-    });
-    return [
-      "all",
-      ...Array.from(classSet).sort((a, b) =>
-        a.localeCompare(b, undefined, { numeric: true }),
-      ),
-    ];
-  }, [studentsArray]);
-
-  const sectionOptions = useMemo(() => {
-    if (studentsArray.length === 0) return ["all"];
-    const sectionSet = new Set();
-    studentsArray.forEach((student) => {
-      const cls = String(
-        student?.Class ?? student?.class ?? student?.grade ?? "",
-      )
-        .split("-")[0]
-        .trim();
-      if (selectedClassFilter !== "all" && cls !== selectedClassFilter) return;
-      const sec = String(student?.sec ?? student?.section ?? "").trim();
-      if (sec) sectionSet.add(sec);
-    });
-    return [
-      "all",
-      ...Array.from(sectionSet).sort((a, b) =>
-        a.localeCompare(b, undefined, { numeric: true }),
-      ),
-    ];
-  }, [studentsArray, selectedClassFilter]);
-
-  const selectedStudentKey = String(
-    selectedStudent?.id ??
-      selectedStudent?.studentId ??
-      selectedStudent?.cus_id ??
-      "",
-  );
-  const studentSelectValue = selectedStudentKey;
-  const hasSelectedStudent = Boolean(
-    selectedStudent ||
-    selectedStudentKey ||
-    (studentFilter && studentFilter !== "all") ||
-    studentId,
-  );
+  /* ============================================================
+     Female
+  ============================================================ */
 
   const isFemale = useMemo(
     () => selectedStudent?.gender?.toLowerCase() === "female",
     [selectedStudent],
   );
+  /* ============================================================
+     FIX #4
+     Canonical selected student key
+  ============================================================ */
 
-  const assessmentStudentOptions = useMemo(() => {
-    return studentsArray.map((student) => {
-      const value = String(
-        student.id ?? student.studentId ?? student.cus_id ?? "",
-      );
-      const studentCode =
-        student.studentId ??
-        student.student_id ??
-        student.school_registration_number ??
-        student.admission_number;
+  const selectedStudentKey = useMemo(() => {
+    return getStudentKey(selectedStudent);
+  }, [selectedStudent]);
 
-      return {
-        value,
-        label: `${student.name || student.student_name || "Unknown"}${studentCode ? ` (${studentCode})` : ""}`,
-      };
-    });
-  }, [studentsArray]);
-  const selectedStudentKeys = useMemo(() => {
-    if (selectedStudent) {
-      return new Set(
-        [
-          selectedStudent?.id,
-          selectedStudent?.studentId,
-          selectedStudent?.student_id,
-          selectedStudent?.school_registration_number,
-          selectedStudent?.admission_number,
-        ]
-          .map((value) => String(value ?? "").trim())
-          .filter(Boolean),
-      );
-    }
+  const studentSelectValue = selectedStudentKey;
 
-    return new Set(
-      [studentSelectValue, studentId, studentFilter]
-        .map((value) => String(value ?? "").trim())
-        .filter((val) => val && val !== "all"),
-    );
-  }, [selectedStudent, studentFilter, studentId, studentSelectValue]);
+  const hasSelectedStudent = Boolean(selectedStudentKey);
+
+  /* ============================================================
+     FIX #5
+     Find screening ONLY by student_id
+
+     DO NOT use record.id here.
+  ============================================================ */
 
   const students = useMemo(
     () => (Array.isArray(studentData) ? studentData : []),
@@ -1047,42 +1251,78 @@ export default function GeneralScreeningPage() {
   );
 
   const getSelectedStudentScreeningData = useMemo(() => {
-    if (!selectedStudentKeys.size || !students.length) {
+    if (!selectedStudentKey || students.length === 0) {
       return null;
     }
 
-    return (
-      students.find((data) => {
-        const dataKeys = [
-          data?.id,
-          data?.studentId,
-          data?.student_id,
-          data?.school_registration_number,
-          data?.admission_number,
-        ]
-          .map((value) => String(value ?? "").trim())
-          .filter(Boolean);
+    const record = students.find((screeningRecord) => {
+      const recordStudentKey = String(
+        screeningRecord?.student_id ??
+          screeningRecord?.studentId ??
+          screeningRecord?.student?.id ??
+          screeningRecord?.student?.student_id ??
+          screeningRecord?.cus_id ??
+          "",
+      ).trim();
 
-        return dataKeys.some((key) => selectedStudentKeys.has(key));
-      }) ?? null
-    );
-  }, [selectedStudentKeys, students]);
+      return recordStudentKey === selectedStudentKey;
+    });
+
+    return record ?? null;
+  }, [selectedStudentKey, students]);
+
+  /* ============================================================
+     FIX #6
+     THIS is the important effect.
+
+     Every time student changes:
+       1. Clear old student data.
+       2. Check whether new student has saved data.
+       3. If yes, load ONLY that student's data.
+       4. If no, leave blank.
+  ============================================================ */
+
   useEffect(() => {
-    // After a save we reset the form; skip re-applying the just-saved record
-    // when the queries invalidate/refetch and this memo gets a new identity.
-    if (resetAfterSaveRef.current) {
-      resetAfterSaveRef.current = false;
+    if (!selectedStudentKey) {
+      resetFormToDefaults();
       return;
     }
 
-    if (getSelectedStudentScreeningData) {
-      applyScreeningRecordToForm(getSelectedStudentScreeningData);
+    // ALWAYS clear previous student's values first.
+    resetFormToDefaults();
+
+    // New student does not have saved screening.
+    if (!getSelectedStudentScreeningData) {
       return;
     }
 
-    setHeight("0");
-    setWeight("0");
-  }, [getSelectedStudentScreeningData]);
+    const recordStudentKey = String(
+      getSelectedStudentScreeningData?.student_id ??
+        getSelectedStudentScreeningData?.studentId ??
+        getSelectedStudentScreeningData?.student?.id ??
+        getSelectedStudentScreeningData?.student?.student_id ??
+        getSelectedStudentScreeningData?.cus_id ??
+        "",
+    ).trim();
+
+    // SAFETY:
+    // Never apply a record belonging to another student.
+    if (!recordStudentKey || recordStudentKey !== selectedStudentKey) {
+      return;
+    }
+
+    // This is definitely the selected student's record.
+    applyScreeningRecordToForm(getSelectedStudentScreeningData);
+  }, [
+    selectedStudentKey,
+    getSelectedStudentScreeningData,
+    resetFormToDefaults,
+    applyScreeningRecordToForm,
+  ]);
+
+  /* ============================================================
+     Student DOB / age
+  ============================================================ */
 
   const studentDob = useMemo(
     () =>
@@ -1093,13 +1333,17 @@ export default function GeneralScreeningPage() {
       getSelectedStudentScreeningData?.date_of_birth ??
       getSelectedStudentScreeningData?.dateOfBirth ??
       "",
-    [getSelectedStudentScreeningData, selectedStudent],
+    [selectedStudent, getSelectedStudentScreeningData],
   );
 
   const studentAgeYears = useMemo(
     () => getAgeInYearsFromDob(studentDob),
     [studentDob],
   );
+
+  /* ============================================================
+     Standards
+  ============================================================ */
 
   const heightStandardResult = useMemo(
     () =>
@@ -1118,7 +1362,7 @@ export default function GeneralScreeningPage() {
         parseMetricValue(weight),
         studentAgeYears,
       ),
-    [studentAgeYears, weight],
+    [weight, studentAgeYears],
   );
 
   const pulseStandardResult = useMemo(
@@ -1142,41 +1386,35 @@ export default function GeneralScreeningPage() {
     [temperature, studentAgeYears],
   );
 
+  /* ============================================================
+     BMI
+  ============================================================ */
+
   const bmi = useMemo(() => calcBmi(height, weight), [height, weight]);
 
-  // Single source of truth for every BMI readout on the screen (category
-  // pill, gauge, details grid, assessment payload): the live height/weight
-  // calculation wins while it produces a valid value, otherwise we show the
-  // student's saved screening record. Mirrors the `live || saved` order the
-  // rest of this page uses.
   const selectedScreeningRecord = getSelectedStudentScreeningData;
 
   const displayBmi = useMemo(() => {
-    if (bmi != null) return bmi;
+    if (bmi != null) {
+      return bmi;
+    }
+
     const saved = parseMetricValue(selectedScreeningRecord?.bmi);
+
     return saved > 0 ? saved : null;
   }, [bmi, selectedScreeningRecord]);
 
-  // const displayHeightCm = useMemo(() => {
-  //   const live = parseMetricValue(height);
-  //   if (live > 0) return live;
-  //   const saved = parseMetricValue(selectedScreeningRecord?.height);
-  //   return saved > 0 ? saved : null;
-  // }, [height, selectedScreeningRecord]);
-
-  // const displayWeightKg = useMemo(() => {
-  //   const live = parseMetricValue(weight);
-  //   if (live > 0) return live;
-  //   const saved = parseMetricValue(selectedScreeningRecord?.weight);
-  //   return saved > 0 ? saved : null;
-  // }, [weight, selectedScreeningRecord]);
-
   const category = useMemo(() => bmiCategory(displayBmi), [displayBmi]);
+
+  /* ============================================================
+     Assessment form
+  ============================================================ */
+
   const assessmentForm = useMemo(
     () => ({
       height,
       weight,
-      bmi: displayBmi ? displayBmi.toFixed(1) : "",
+      bmi: displayBmi != null ? displayBmi.toFixed(1) : "",
       bloodPressure,
       pulse,
       temperature,
@@ -1184,17 +1422,75 @@ export default function GeneralScreeningPage() {
       bloodGroup,
     }),
     [
-      bmi,
-      displayBmi,
-      temperature,
       height,
-      pulse,
-      bloodPressure,
-      spo2,
       weight,
+      displayBmi,
+      bloodPressure,
+      pulse,
+      temperature,
+      spo2,
       bloodGroup,
     ],
   );
+
+  /* ============================================================
+     Error handlers
+  ============================================================ */
+
+  const clearFormError = useCallback((field) => {
+    setFormErrors((prev) =>
+      prev && prev[field]
+        ? {
+            ...prev,
+            [field]: undefined,
+          }
+        : prev,
+    );
+  }, []);
+
+  const handleHeightChange = useCallback(
+    (value) => {
+      setHeight(value);
+      clearFormError("height");
+    },
+    [clearFormError],
+  );
+
+  const handleWeightChange = useCallback(
+    (value) => {
+      setWeight(value);
+      clearFormError("weight");
+    },
+    [clearFormError],
+  );
+
+  const handleBloodGroupChange = useCallback(
+    (value) => {
+      setBloodGroup(value);
+      clearFormError("bloodGroup");
+    },
+    [clearFormError],
+  );
+
+  const handleAllergyChange = useCallback(
+    (value) => {
+      setAllergy(value);
+      clearFormError("allergy");
+    },
+    [clearFormError],
+  );
+
+  const handleChronicDiseaseChange = useCallback(
+    (value) => {
+      setChronicDisease(value);
+      clearFormError("chronicDisease");
+    },
+    [clearFormError],
+  );
+
+  /* ============================================================
+     Child component handlers
+  ============================================================ */
 
   const handleClinicalSignChange = useCallback((field, value) => {
     setClinicalSigns((prev) => ({
@@ -1217,35 +1513,59 @@ export default function GeneralScreeningPage() {
     }));
   }, []);
 
-  const handleAssessmentChange = useCallback((field, value) => {
-    if (field === "height") {
-      setHeight(value);
-      return;
+  const handleAssessmentChange = useCallback(
+    (field, value) => {
+      if (field === "height") {
+        handleHeightChange(value);
+        return;
+      }
+
+      if (field === "weight") {
+        handleWeightChange(value);
+        return;
+      }
+
+      if (field === "bloodGroup") {
+        handleBloodGroupChange(value);
+      }
+    },
+    [handleHeightChange, handleWeightChange, handleBloodGroupChange],
+  );
+
+  /* ============================================================
+     Blood group formatter
+  ============================================================ */
+
+  const formatBloodGroup = useCallback((value) => {
+    if (!value) {
+      return "--";
     }
 
-    if (field === "weight") {
-      setWeight(value);
-      return;
-    }
-
-    if (field === "bmi") {
-      setNotes(value);
-    }
-    if (field === "bloodGroup") {
-      setBloodGroup(value);
-    }
+    return value.replace(/\s*Positive/i, "+").replace(/\s*Negative/i, "-");
   }, []);
 
-  const formatBloodGroup = (bloodGroup) => {
-    if (!bloodGroup) return "--";
+  /* ============================================================
+     FIX #7
+     Student change
+  ============================================================ */
 
-    return bloodGroup.replace(/\s*Positive/i, "+").replace(/\s*Negative/i, "-");
-  };
+  const handleAssessmentStudentChange = useCallback((value) => {
+    const nextStudentId = String(value ?? "").trim();
+
+    setStudentId(nextStudentId);
+
+    setStudentFilter(nextStudentId || "all");
+  }, []);
+
+  /* ============================================================
+     Save assessment
+  ============================================================ */
 
   const handleSaveAssessment = useCallback(() => {
-    // Block re-entry: if a save is already in flight, ignore the click. This is
-    // the only reliable guard against double-click duplicates — isSaving state
-    // updates async so it can't stop a second click in the same tick.
+    /* -------------------------
+         Prevent double click
+      ------------------------- */
+
     if (isSavingRef.current) {
       return;
     }
@@ -1259,20 +1579,26 @@ export default function GeneralScreeningPage() {
 
     if (!String(rawStudentId ?? "").trim()) {
       toast.error("Select a student before saving the general screening.");
+
       return;
     }
 
-    // Create-only flow: block re-saving for a student who already has a
-    // screening record saved in this session. Switching to a different
-    // student changes the key and unblocks saving again.
+    /* -------------------------
+         Prevent duplicate save
+      ------------------------- */
+
     if (savedStudentKeyRef.current === String(rawStudentId)) {
       toast.error(
         "This student's screening has already been saved. Select another student to continue.",
       );
+
       return;
     }
 
-    // --- Validate editable fields with zod -------------------------
+    /* -------------------------
+         Validate
+      ------------------------- */
+
     const formValues = {
       height,
       weight,
@@ -1299,6 +1625,7 @@ export default function GeneralScreeningPage() {
 
     if (!result.success) {
       const errors = result.error.flatten().fieldErrors;
+
       const firstPerField = Object.fromEntries(
         Object.entries(errors)
           .map(([field, messages]) => [field, messages?.[0]])
@@ -1306,23 +1633,29 @@ export default function GeneralScreeningPage() {
       );
 
       setFormErrors(firstPerField);
+
       toast.error(
         Object.values(firstPerField).find(Boolean) ||
           "Please fill all required fields.",
       );
+
       return;
     }
 
     setFormErrors(null);
 
-    if (!String(rawStudentId ?? "").trim()) {
-      toast.error("Select a student before saving the General screening");
-      return;
-    }
+    /* -------------------------
+         IDs
+      ------------------------- */
 
     const numericStudentId = Number(rawStudentId) || 0;
+
     const numericCampId =
       Number(selectedCampId) || Number(selectedStudent?.camp_id) || 1;
+
+    /* -------------------------
+         Master entries
+      ------------------------- */
 
     const bloodGroupEntry = bloodGroupOption.find(
       (item) =>
@@ -1331,6 +1664,7 @@ export default function GeneralScreeningPage() {
     );
 
     const allergyEntry = allergies.find((item) => item.name === allergy);
+
     const chronicDiseaseEntry = chronicDiseasesOption.find(
       (item) => item.name === chronicDisease,
     );
@@ -1347,18 +1681,17 @@ export default function GeneralScreeningPage() {
             .toLowerCase() === normalizedValue,
       );
     };
-    // const nutritionEntry = nutritionOptions.find(
-    //   (item) => item.name === physicalExamination.nutritionalStatus,
-    // );
 
     const consciousnessEntry = getExaminationMastersId(
       consciousnessOptions,
       physicalExamination.consciousness,
     );
+
     const nutritionEntry = getExaminationMastersId(
       nutritionOptions,
       physicalExamination.nutritionalStatus,
     );
+
     const generalAppearanceEntry = getExaminationMastersId(
       appearanceOptions,
       physicalExamination.generalAppearance,
@@ -1373,50 +1706,92 @@ export default function GeneralScreeningPage() {
       skinOptions,
       clinicalSigns.skinAssessment,
     );
-    // const consciousnessEntry = consciousnessOptions.find((item) => item.name === physicalExamination.consciousness)
+
+    /* -------------------------
+         Payload
+      ------------------------- */
 
     const payload = {
       student_id: numericStudentId,
+
       camp_id: numericCampId,
+
       blood_group_id: bloodGroupEntry?.id ?? 0,
+
       allergy_id: allergyEntry?.id ?? null,
+
       chronic_disease_id: chronicDiseaseEntry?.id ?? null,
+
       immunization_id: IMMUNIZATION_MAP[immunization] || 1,
+
       height: Number(height) || 0,
+
       weight: Number(weight) || 0,
+
       pulse: pulse ? Number(pulse) : 0,
+
       temperature: temperature ? Number(temperature) : 0,
+
       bp: bloodPressure || "",
+
       spo2: spo2 ? Number(spo2) : 0,
+
       height_standard_id: STANDARD_MAP[heightStandardResult?.standard] || 2,
+
       weight_standard_id: STANDARD_MAP[weightStandardResult?.standard] || 2,
+
       bmi_category_id: BMI_CATEGORY_MAP[category?.label] || 2,
+
       pallor: clinicalSigns.pallor || "0",
+
       skin: skinAssessmentEntry?.id || null,
+
       clubbing: clinicalSigns.clubbing || "0",
+
       edema: clinicalSigns.edema || "0",
+
       regular_medication: clinicalSigns.regularMedication || "",
+
       current_complaints: clinicalSigns.currentComplaints || "",
+
       general_appearance: generalAppearanceEntry?.id || "",
+
       posture_spine: postureAppearanceEntry?.id || "",
+
       nutritional_status: nutritionEntry?.id ?? null,
+
       consciousness: consciousnessEntry?.id || null,
+
       cvs: physicalExamination.cvs || "",
+
       rs: physicalExamination.respiratorySystem || "",
+
       abdomen: physicalExamination.abdomen || "",
+
       neurology: physicalExamination.neurology || "",
+
       referral: physicalExamination.referral || "",
+
       remarks: notes || "",
+
       ...(isFemale
         ? {
             menstrual_cycle: femaleScreening.menstrualCycle || "",
+
             menstrual_pain: femaleScreening.menstrualPain || "",
+
             excessive_bleeding: femaleScreening.excessiveBleeding || "",
+
             other_concern: femaleScreening.otherConcerns || "",
+
             female_referral: femaleScreening.referral || "",
           }
         : {}),
     };
+
+    /* -------------------------
+         Save
+      ------------------------- */
 
     const existingRecordId =
       getSelectedStudentScreeningData?.id ??
@@ -1425,23 +1800,28 @@ export default function GeneralScreeningPage() {
 
     const hasSavedMeasurements = (() => {
       const record = getSelectedStudentScreeningData;
-      if (!record) return false;
+
+      if (!record) {
+        return false;
+      }
 
       const parseMetric = (value) => {
         const parsed = Number.parseFloat(
           String(value ?? "").replace(/[^0-9.-]/g, ""),
         );
+
         return Number.isFinite(parsed) && parsed > 0;
       };
 
       return parseMetric(record.height) || parseMetric(record.weight);
     })();
-    // const saveAction = existingRecordId
-    //   ? updateInitialScreening({ id: existingRecordId, payload })
-    //   : createInitialScreening(payload);
 
-    // TEMP: update flow hidden — saves always create a new screening record.
-    // Flip to true to restore update-on-resave behaviour.
+    /*
+     * Create-only flow.
+     *
+     * Change to true if you later want
+     * update-on-resave.
+     */
     const ALLOW_SCREENING_UPDATE = false;
 
     const saveAction =
@@ -1452,22 +1832,41 @@ export default function GeneralScreeningPage() {
             payload,
           })
         : createInitialScreening(payload);
+
     setIsSaving(true);
     isSavingRef.current = true;
+
     dispatch(saveAction)
       .unwrap()
+
       .then(() => {
         setIsSaving(false);
         isSavingRef.current = false;
-        // Mark this student as saved so further save clicks for the SAME
-        // student are blocked (create-only flow — no duplicate records).
-        savedStudentKeyRef.current = String(numericStudentId);
-        setSavedStudentKey(String(numericStudentId));
-        queryClient.invalidateQueries({ queryKey: ["initial-screening"] });
 
-        // Reset the form for the next student; the ref guard stops the
-        // auto-apply effect from re-filling the just-saved values.
-        resetAfterSaveRef.current = true;
+        /* -------------------------
+             Mark student saved
+          ------------------------- */
+
+        savedStudentKeyRef.current = String(numericStudentId);
+
+        setSavedStudentKey(String(numericStudentId));
+
+        /* -------------------------
+             Refresh screening list
+          ------------------------- */
+
+        queryClient.invalidateQueries({
+          queryKey: ["initial-screening"],
+        });
+
+        /*
+         * Clear the form.
+         *
+         * IMPORTANT:
+         * We no longer use resetAfterSaveRef.
+         * When the query refetches, the student
+         * record will be matched by student_id.
+         */
         resetFormToDefaults();
 
         toast.success(
@@ -1481,9 +1880,11 @@ export default function GeneralScreeningPage() {
           },
         );
       })
+
       .catch((error) => {
         setIsSaving(false);
         isSavingRef.current = false;
+
         console.error("Unable to save general screening:", error);
 
         toast.error("Failed to save initial screening", {
@@ -1491,106 +1892,64 @@ export default function GeneralScreeningPage() {
         });
       });
   }, [
-    allergies,
-    allergy,
-    bloodGroup,
-    bloodGroupOption,
-    category?.label,
-    chronicDiseasesOption,
-    chronicDisease,
-    clinicalSigns,
-    femaleScreening,
-    getSelectedStudentScreeningData,
-    height,
-    heightStandardResult?.standard,
-    immunization,
-    notes,
-    physicalExamination,
-    pulse,
-    pulseStandardResult?.standard,
-    queryClient,
-    selectedCampId,
     selectedStudent,
-    spo2,
     studentId,
-    temperature,
+    height,
     weight,
+    bloodGroup,
+    allergy,
+    chronicDisease,
+    immunization,
+    clinicalSigns,
+    physicalExamination,
+    femaleScreening,
+    notes,
+    selectedCampId,
+    bloodGroupOption,
+    allergies,
+    chronicDiseasesOption,
+    consciousnessOptions,
+    nutritionOptions,
+    appearanceOptions,
+    skinOptions,
+    heightStandardResult?.standard,
     weightStandardResult?.standard,
-    bloodPressure,
-    bloodPressureStandardResult?.standard,
-    spo2StandardResult?.standard,
+    category?.label,
+    getSelectedStudentScreeningData,
+    isFemale,
+    dispatch,
+    queryClient,
+    resetFormToDefaults,
+    formatBloodGroup,
   ]);
+
+  /* ============================================================
+     Save wrapper
+  ============================================================ */
 
   const handleSaveScreening = useCallback(() => {
     handleSaveAssessment();
   }, [handleSaveAssessment]);
 
-  // Clears all screening values back to their defaults so the next student can
-  // be assessed. Called after a successful save (with the auto-apply guard set).
-  const resetFormToDefaults = useCallback(() => {
-    setHeight("");
-    setWeight("");
-    setPulse("");
-    setTemperature("");
-    setBloodPressure("");
-    setSpo2("");
-    setBloodGroup(bloodGroupOption?.[0]?.name ?? "");
-    setAllergy("None");
-    setChronicDisease("None");
-    setImmunization("up_to_date");
-    setNotes("");
-    setClinicalSigns({
-      pallor: "",
-      clubbing: "",
-      edema: "",
-      skinAssessment:
-        skinOptions.find((item) => item.name === "Normal")?.name ??
-        skinOptions?.[0]?.name ??
-        "Normal",
-      medicalCondition: "",
-      currentComplaints: "",
-      regularMedication: "",
-    });
-    setPhysicalExamination({
-      generalAppearance: appearanceOptions?.[0]?.name ?? "",
-      postureSpine: appearanceOptions?.[0]?.name ?? "",
-      nutritionalStatus: nutritionOptions?.[0]?.name ?? "",
-      consciousness: consciousnessOptions?.[0]?.name ?? "",
-      cvs: "",
-      respiratorySystem: "",
-      abdomen: "",
-      neurology: "",
-      referral: "",
-    });
-    setFemaleScreening({
-      menstrualCycle: "",
-      excessiveBleeding: "",
-      menstrualPain: "",
-      otherConcerns: "",
-      referral: "",
-    });
-    setFormErrors(null);
-    setActiveStep("growth");
-  }, [
-    bloodGroupOption,
-    skinOptions,
-    appearanceOptions,
-    nutritionOptions,
-    consciousnessOptions,
-  ]);
+  /* ============================================================
+     Cancel
+  ============================================================ */
 
   const handleCancelAssessment = useCallback(() => {
-    applyScreeningRecordToForm(getSelectedStudentScreeningData);
-  }, [getSelectedStudentScreeningData]);
+    if (getSelectedStudentScreeningData) {
+      applyScreeningRecordToForm(getSelectedStudentScreeningData);
+    } else {
+      resetFormToDefaults();
+    }
+  }, [
+    getSelectedStudentScreeningData,
+    applyScreeningRecordToForm,
+    resetFormToDefaults,
+  ]);
 
-  // Keep studentFilter in sync: selectedStudentFromFilter gives
-  // studentFilter precedence over studentId, so without this the
-  // assessment-card selection would be ignored once a student has
-  // been picked in the filter dropdown.
-  const handleAssessmentStudentChange = useCallback((value) => {
-    setStudentId(value);
-    setStudentFilter(value);
-  }, []);
+  /* ============================================================
+     Filter handlers
+  ============================================================ */
 
   const resetDependentFilters = useCallback(() => {
     setClassFilter("all");
@@ -1629,15 +1988,119 @@ export default function GeneralScreeningPage() {
   }, []);
 
   const handleStudentFilterChange = useCallback((value) => {
+    const nextStudentId = value === "all" ? "" : String(value).trim();
+
     setStudentFilter(value);
-    setStudentId(value === "all" ? "" : value);
+    setStudentId(nextStudentId);
   }, []);
+
+  /* ============================================================
+     Class options
+  ============================================================ */
+
+  const classOptions = useMemo(() => {
+    if (studentsArray.length === 0) {
+      return ["all"];
+    }
+
+    const classSet = new Set();
+
+    studentsArray.forEach((student) => {
+      const cls = String(
+        student?.Class ?? student?.class ?? student?.grade ?? "",
+      )
+        .split("-")[0]
+        .trim();
+
+      if (cls) {
+        classSet.add(cls);
+      }
+    });
+
+    return [
+      "all",
+      ...Array.from(classSet).sort((a, b) =>
+        a.localeCompare(b, undefined, {
+          numeric: true,
+        }),
+      ),
+    ];
+  }, [studentsArray]);
+
+  /* ============================================================
+     Section options
+  ============================================================ */
+
+  const sectionOptions = useMemo(() => {
+    if (studentsArray.length === 0) {
+      return ["all"];
+    }
+
+    const sectionSet = new Set();
+
+    studentsArray.forEach((student) => {
+      const cls = String(
+        student?.Class ?? student?.class ?? student?.grade ?? "",
+      )
+        .split("-")[0]
+        .trim();
+
+      if (selectedClassFilter !== "all" && cls !== selectedClassFilter) {
+        return;
+      }
+
+      const sec = String(student?.sec ?? student?.section ?? "").trim();
+
+      if (sec) {
+        sectionSet.add(sec);
+      }
+    });
+
+    return [
+      "all",
+      ...Array.from(sectionSet).sort((a, b) =>
+        a.localeCompare(b, undefined, {
+          numeric: true,
+        }),
+      ),
+    ];
+  }, [studentsArray, selectedClassFilter]);
+
+  /* ============================================================
+     Assessment student options
+  ============================================================ */
+
+  const assessmentStudentOptions = useMemo(() => {
+    return studentsArray.map((student) => {
+      const value = getStudentKey(student);
+
+      const studentCode =
+        student.studentId ??
+        student.student_id ??
+        student.school_registration_number ??
+        student.admission_number;
+
+      return {
+        value,
+        label: `${student.name || student.student_name || "Unknown"}${
+          studentCode ? ` (${studentCode})` : ""
+        }`,
+      };
+    });
+  }, [studentsArray]);
+
+  /* ============================================================
+     Toggle options
+  ============================================================ */
 
   const bloodGroupToggleOptions = useMemo(
     () =>
       (bloodGroupOption.length
         ? bloodGroupOption
-        : bloodGroupOptions.map((g) => ({ id: undefined, name: g }))
+        : bloodGroupOptions.map((g) => ({
+            id: undefined,
+            name: g,
+          }))
       ).map((g) => ({
         value: g.name ?? g,
         label: g.name ?? g,
@@ -1673,30 +2136,33 @@ export default function GeneralScreeningPage() {
     [nutritionOptions],
   );
 
-  const consciousnessToggleOptions = useMemo(() =>
-    (consciousnessOptions.length
-      ? consciousnessOptions
-      : ["Alert", "Drowsy", "Unresponsive"].map((name) => ({
-          id: undefined,
-          name,
-        }))
-    ).map((item) => {
-      const name = item.name ?? item;
+  const consciousnessToggleOptions = useMemo(
+    () =>
+      (consciousnessOptions.length
+        ? consciousnessOptions
+        : ["Alert", "Drowsy", "Unresponsive"].map((name) => ({
+            id: undefined,
+            name,
+          }))
+      ).map((item) => {
+        const name = item.name ?? item;
 
-      return {
-        value: name,
-        label: name,
-        tone:
-          name === "Alert"
-            ? "good"
-            : name === "Drowsy"
-              ? "warn"
-              : name === "Unresponsive"
-                ? "bad"
-                : "neutral",
-      };
-    }),
+        return {
+          value: name,
+          label: name,
+          tone:
+            name === "Alert"
+              ? "good"
+              : name === "Drowsy"
+                ? "warn"
+                : name === "Unresponsive"
+                  ? "bad"
+                  : "neutral",
+        };
+      }),
+    [consciousnessOptions],
   );
+
   const generalAppearanceToggleOptions = useMemo(
     () =>
       (appearanceOptions.length
@@ -1716,9 +2182,7 @@ export default function GeneralScreeningPage() {
               ? "good"
               : name === "Needs Attention"
                 ? "warn"
-                : name === "NA"
-                  ? "neutral"
-                  : "neutral",
+                : "neutral",
         };
       }),
     [appearanceOptions],
@@ -1741,23 +2205,28 @@ export default function GeneralScreeningPage() {
           tone:
             name === "Normal"
               ? "good"
-              : name === "Abnormal"
+              : name === "Abnormal" || name === "Rashes" || name === "Infection"
                 ? "warn"
-                : name === "Rashes"
-                  ? "warn"
-                  : name === "Infection"
-                    ? "warn"
-                    : "neutral",
+                : "neutral",
         };
       }),
     [skinOptions],
   );
+
+  /* ============================================================
+     RENDER
+  ============================================================ */
+
   return (
     <section className="space-y-4">
+      {/* ========================================================
+          HEADER
+      ======================================================== */}
+
       <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="flex items-center gap-2 py-3">
-            <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary aspect-square">
+            <div className="flex size-12 aspect-square items-center justify-center rounded-xl bg-primary/10 text-primary">
               <Cross className="size-6" />
             </div>
 
@@ -1795,15 +2264,9 @@ export default function GeneralScreeningPage() {
             onClick={handleSaveAssessment}
             disabled={
               isSaving ||
-              (selectedStudent &&
-                savedStudentKey ===
-                  String(
-                    selectedStudent?.id ??
-                      selectedStudent?.cus_id ??
-                      selectedStudent?.student_id ??
-                      selectedStudent?.studentId ??
-                      studentId,
-                  ))
+              Boolean(
+                selectedStudentKey && savedStudentKey === selectedStudentKey,
+              )
             }
           >
             {isSaving ? (
@@ -1811,23 +2274,19 @@ export default function GeneralScreeningPage() {
             ) : (
               <Save className="size-4" />
             )}
+
             {isSaving
               ? "Saving..."
-              : savedStudentKey &&
-                  selectedStudent &&
-                  savedStudentKey ===
-                    String(
-                      selectedStudent?.id ??
-                        selectedStudent?.cus_id ??
-                        selectedStudent?.student_id ??
-                        selectedStudent?.studentId ??
-                        studentId,
-                    )
+              : savedStudentKey && savedStudentKey === selectedStudentKey
                 ? "Saved ✓"
                 : "Save assessment"}
           </Button>
         </div>
       </div>
+
+      {/* ========================================================
+          CONTENT
+      ======================================================== */}
 
       <div className="space-y-4">
         <StudentFilter
@@ -1854,6 +2313,10 @@ export default function GeneralScreeningPage() {
             <StudentProfileCard student={selectedStudent} />
 
             <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)] xl:items-start">
+              {/* ==================================================
+                  LEFT
+              ================================================== */}
+
               <div className="relative md:relative lg:sticky top-0 lg:top-36 z-10 self-start">
                 <FramerCard>
                   <AssessmentCard
@@ -1874,6 +2337,10 @@ export default function GeneralScreeningPage() {
                 </FramerCard>
               </div>
 
+              {/* ==================================================
+                  RIGHT
+              ================================================== */}
+
               <div className="min-w-0">
                 <ScreeningStepper
                   activeStep={activeStep}
@@ -1881,17 +2348,9 @@ export default function GeneralScreeningPage() {
                   isFemale={isFemale}
                   onSave={handleSaveScreening}
                 >
-                  {/* <div className="grid gap-4 lg:grid-cols-2">
-                  <article className="rounded-xl border border-border bg-card p-4">
-                    <h3 className="text-sm font-semibold text-foreground">Growth Summary</h3>
-                    <div className="mt-3 space-y-2">
-                      <SummaryRow icon={Ruler} label="Height" value={`${height || "—"} cm`} tone="info" />
-                      <SummaryRow icon={Weight} label="Weight" value={`${weight || "—"} kg`} tone="success" />
-                      <SummaryRow icon={Activity} label="BMI" value={bmi ? bmi.toFixed(1) : "—"} tone={category.tone} />
-                      <SummaryRow icon={Droplet} label="Category" value={category.label} tone={category.tone} />
-                    </div>
-                  </article>
-                </div> */}
+                  {/* ==================================================
+                      GROWTH + VITALS
+                  ================================================== */}
 
                   <GrowthVitals
                     height={height}
@@ -1918,11 +2377,19 @@ export default function GeneralScreeningPage() {
                     displayBmi={displayBmi}
                   />
 
+                  {/* ==================================================
+                      CLINICAL SIGNS
+                  ================================================== */}
+
                   <ClinicalSignsCard
                     data={clinicalSigns}
                     onChange={handleClinicalSignChange}
                     skinAssessmentToggleOptions={skinAssessmentToggleOptions}
                   />
+
+                  {/* ==================================================
+                      PHYSICAL EXAMINATION
+                  ================================================== */}
 
                   <GeneralPhysicalExamination
                     data={physicalExamination}
@@ -1935,13 +2402,20 @@ export default function GeneralScreeningPage() {
                     }
                   />
 
-                  {isFemale &&
-                    selectedStudent?.gender?.toLowerCase() === "female" && (
-                      <FemaleStudentsCard
-                        data={femaleScreening}
-                        onChange={handleFemaleScreeningChange}
-                      />
-                    )}
+                  {/* ==================================================
+                      FEMALE
+                  ================================================== */}
+
+                  {isFemale && (
+                    <FemaleStudentsCard
+                      data={femaleScreening}
+                      onChange={handleFemaleScreeningChange}
+                    />
+                  )}
+
+                  {/* ==================================================
+                      BLOOD GROUP / HEALTH HISTORY
+                  ================================================== */}
 
                   <div className="grid gap-4 lg:grid-cols-2">
                     <BloodGroup
@@ -1964,16 +2438,22 @@ export default function GeneralScreeningPage() {
                         allergies={allergies}
                         chronicDiseasesOption={chronicDiseasesOption}
                       />
-                      {/* <FramerCard> */}
+
+                      {/* ==================================================
+                          NOTES
+                      ================================================== */}
+
                       <article className="rounded-xl border border-border bg-card p-4">
                         <div className="flex items-center gap-2">
                           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-success/10">
                             <INoteActionIcon className="size-4 text-info" />
                           </div>
+
                           <h3 className="text-sm font-semibold text-foreground">
                             Notes
                           </h3>
                         </div>
+
                         <Textarea
                           value={notes}
                           onChange={(e) => setNotes(e.target.value)}
@@ -1982,9 +2462,12 @@ export default function GeneralScreeningPage() {
                           className="mt-3 w-full resize-none rounded-md border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
                         />
                       </article>
-                      {/* </FramerCard> */}
                     </div>
                   </div>
+
+                  {/* ==================================================
+                      REVIEW
+                  ================================================== */}
 
                   <FramerCard>
                     <div className="space-y-4">
@@ -1992,10 +2475,12 @@ export default function GeneralScreeningPage() {
                         <h3 className="text-sm font-semibold text-foreground">
                           Review & Submit
                         </h3>
+
                         <p className="mt-2 text-sm text-muted-foreground">
                           Please review all the information before saving the
                           screening.
                         </p>
+
                         <div className="mt-4 space-y-2">
                           <SummaryRow
                             icon={Ruler}
@@ -2003,36 +2488,42 @@ export default function GeneralScreeningPage() {
                             value={`${height || "—"} cm`}
                             tone="info"
                           />
+
                           <SummaryRow
                             icon={Weight}
                             label="Weight"
                             value={`${weight || "—"} kg`}
                             tone="success"
                           />
+
                           <SummaryRow
                             icon={Activity}
                             label="BMI"
                             value={bmi ? bmi.toFixed(1) : "—"}
                             tone={category.tone}
                           />
+
                           <SummaryRow
                             icon={Heart}
                             label="Pulse"
                             value={pulse || "—"}
                             tone="info"
                           />
+
                           <SummaryRow
                             icon={Thermometer}
                             label="Temperature"
                             value={temperature ? `${temperature}°C` : "—"}
                             tone="info"
                           />
+
                           <SummaryRow
                             icon={Droplet}
                             label="Blood Pressure"
                             value={bloodPressure || "—"}
                             tone="info"
                           />
+
                           <SummaryRow
                             icon={Wind}
                             label="SpO2"
