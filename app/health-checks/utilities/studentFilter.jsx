@@ -267,47 +267,63 @@ const StudentFilter = ({
   /* Get students by selected event                                           */
   /* ------------------------------------------------------------------------ */
 
-  const {
-    data: getStundentByEvent,
-    isLoading: getStundentByEventLoading,
-    error: getStundentByEventError,
-  } = useQuery({
-    queryKey: [
-      "get-event-student",
-      selectedCamp?.id,
-      classFilter,
-      sectionFilter,
-    ],
+ const {
+  data: getStundentByEvent,
+  isLoading: getStundentByEventLoading,
+  isFetching: getStundentByEventFetching,
+  error: getStundentByEventError,
+  refetch: refetchStudentsByFilter,
+} = useQuery({
+  queryKey: [
+    "get-event-student",
+    selectedCamp?.id,
+    String(classFilter ?? "all"),
+    String(sectionFilter ?? "all"),
+  ],
 
-    queryFn: async () => {
-      if (!selectedCamp?.id) {
-        return [];
-      }
+  queryFn: async () => {
+    if (!selectedCamp?.id) {
+      return [];
+    }
 
-      const result = await dispatch(
-        getStudentByEvent({
-          eventId: selectedCamp.id,
-          page: 1,
-          perPage: 50,
+    const result = await dispatch(
+      getStudentByEvent({
+        eventId: selectedCamp.id,
+        page: 1,
+        perPage: 50,
 
-          studentClass: classFilter === "all" ? "" : classFilter,
-          section: sectionFilter === "all" ? "" : sectionFilter,
-        }),
-      ).unwrap();
+        studentClass:
+          classFilter === "all" ? "" : String(classFilter),
 
-      return Array.isArray(result?.items)
-        ? result.items
-        : Array.isArray(result)
-          ? result
-          : [];
-    },
+        section:
+          sectionFilter === "all" ? "" : String(sectionFilter),
+      }),
+    ).unwrap();
 
-    enabled: Boolean(selectedCamp?.id),
+    return Array.isArray(result?.items)
+      ? result.items
+      : Array.isArray(result)
+        ? result
+        : [];
+  },
 
-    staleTime: 5 * 60 * 1000,
+  enabled: Boolean(selectedCamp?.id),
 
-    refetchOnWindowFocus: false,
-  });
+  // IMPORTANT:
+  // Do not keep filtered student combinations fresh for 5 minutes.
+  // When the user goes back to "All Classes", the API should run again.
+  staleTime: 0,
+
+  // IMPORTANT:
+  // Always refetch when this query becomes active.
+  refetchOnMount: "always",
+
+  refetchOnWindowFocus: false,
+
+  // This makes the query run immediately whenever the query key changes.
+  refetchOnReconnect: true,
+});
+
 
   /*
    * Fetch ALL students (all pages) for complete class/section dropdown options.

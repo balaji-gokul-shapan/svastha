@@ -52,7 +52,7 @@ import AssessmentCard from "@/app/ui/AssessmentCard";
 import { ScoreMeter } from "./utilities/scoreMeter";
 import { EmptyState } from "@/components/ui/empty-state";
 import ToothIcon from "./asset/toothIcon";
-import StudentProfileCard from "@/app/students/studentProfileCard";
+import StudentProfileCard from "@/app/students/utilities/studentProfileCard";
 import { cn } from "@/lib/utils";
 import StudentFilter from "../utilities/studentFilter";
 import { getFilterStudent } from "@/lib/features/getFilterStudent";
@@ -430,17 +430,18 @@ export default function DentalAssessmentPage() {
 
   // Map a treatment display name → the matching dental-treatments master id
   // (the dental_codings payload stores foreign keys, not the display label).
-  const getDentalTreatmentId = (treatmentName) =>
-    Number(
-      (Array.isArray(DentalTreatmentsMasterData)
-        ? DentalTreatmentsMasterData
-        : []
-      ).find(
-        (t) =>
-          String(t?.name ?? "").trim() ===
-          String(treatmentName ?? "").trim(),
-      )?.id,
-    ) || 0;
+ const getDentalTreatmentId = (treatmentName) =>
+  String(
+    (Array.isArray(DentalTreatmentsMasterData)
+      ? DentalTreatmentsMasterData
+      : []
+    ).find(
+      (t) =>
+        String(t?.name ?? "").trim() ===
+        String(treatmentName ?? "").trim()
+    )?.id ?? ""
+  );
+
 
   // Coding dropdown: show the human-readable name, store the code as the
   // payload value. Falls back to name if code is missing.
@@ -1567,12 +1568,12 @@ console.log("selectedeee:", getDentalConditionValue);
       oral_ulcer: otherFindings.oralUlcer ? "present" : "absent",
       trauma: otherFindings.trauma ? "present" : "absent",
       dental_findings: dentalFindingEntries.map((entry) => ({
-        tooth_number: entry.tooth_number,
+        tooth_number: String(entry.tooth_number),
         dental_condition_id: entry.dental_condition_id,
         surface: entry.surface ?? "",
         risk: entry.risk ?? "",
         severity: entry.severity ?? "",
-        treatment_id: getDentalTreatmentId(entry.treatment),
+        treatment_id: getDentalTreatmentId(String(entry.treatment)),
         treatment: String(entry.treatment ?? ""),
       })),
 
@@ -1580,12 +1581,12 @@ console.log("selectedeee:", getDentalConditionValue);
       dental_codings: dentalCodingEntries.map((entry) => ({
         code: entry.coding,
         name: entry.condition,
-        tooth_number: entry.tooth,
+        tooth_number: String(entry.tooth),
         dental_condition_id: entry.dentalConditionId,
         risk: entry.conditionRiskScore || entry?.risk || "",
 
         severity: entry.conditionSeverity,
-        treatment_id: getDentalTreatmentId(entry.treatment),
+        treatment_id: getDentalTreatmentId(String(entry.treatment)),
         surface: entry.surface,
         treatment: String(entry.treatment ?? ""),
       })),
@@ -1621,15 +1622,15 @@ console.log("selectedeee:", getDentalConditionValue);
       .then(() => {
         setIsSaving(false);
         isSavingRef.current = false;
-        // // Refresh the react-query cache; the ["dental-screening"] query's
-        // // queryFn re-dispatches getDentalScreening, keeping Redux in sync.
-        // queryClient.invalidateQueries({ queryKey: ["dental-screening"] });
+        // Refresh the react-query cache; the ["dental-screening"] query's
+        // queryFn re-dispatches getDentalScreening, keeping Redux in sync.
+        queryClient.invalidateQueries({ queryKey: ["dental-screening"] });
 
-        // // Reset the form for the next student; the ref guard stops the
-        // // auto-apply effect from re-filling the just-saved values.
-        // resetAfterSaveRef.current = true;
-        // resetFormToDefaults();
-         savedStudentKeyRef.current = String(rawStudentId);
+        // Reset the form for the next student; the ref guard stops the
+        // auto-apply effect from re-filling the just-saved values.
+        resetAfterSaveRef.current = true;
+        resetFormToDefaults();
+        savedStudentKeyRef.current = String(rawStudentId);
         setSavedStudentKey(String(rawStudentId));
 
         toast.success("Dental screening saved successfully", {
@@ -1770,19 +1771,36 @@ useEffect(() => {
         String(tooth.riskScore ?? "").trim();
       return hasFinding;
     })
+    
     .map((tooth) => ({
+      
       id: tooth.number,
       tooth_number: tooth.number,
       condition: String(tooth.condition ?? ""),
-      dental_condition_id: String(tooth.condition ?? ""),
+      dental_condition_id: (() => {
+        // Resolve the condition NAME to its master ID — the backend expects the
+        // ID, not the display name. Mirrors the lookup in handleConditionChange.
+        const conditionName = String(tooth.condition ?? "")
+          .trim()
+          .toLowerCase();
+        const conditionRecord = (
+          Array.isArray(getDentalCondition) ? getDentalCondition : []
+        ).find(
+          (item) =>
+            String(item?.name ?? "").trim().toLowerCase() === conditionName,
+        );
+        return String(conditionRecord?.id ?? tooth.condition ?? "");
+      })(),
       surface: tooth.surface && tooth.surface !== "—" ? String(tooth.surface) : "",
       risk: tooth.riskScore || tooth.risk || "",
       severity: tooth.severity && tooth.severity !== "—" ? String(tooth.severity) : "",
       treatment: String(tooth.treatment ?? ""),
     }));
-  setDentalFindingEntries(entries);
-}, [chart]);
-
+    
+    setDentalFindingEntries(entries);
+  }, [chart]);
+  
+  console.log(dentalFindingEntries,"entries");
   
 
   // Live condition info for the popup's read-only fields — derived directly
