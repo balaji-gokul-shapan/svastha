@@ -19,6 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import HealthCheckModal from "@/components/students/health-check-modal";
 import { useAppDispatch } from "@/lib/hooks";
 import { REPORT_SECTIONS } from "../datas/settingsData";
+import { toast } from "sonner";
 
 function SelectableCard({
   selected,
@@ -192,6 +193,10 @@ const Report = ({
       ...reportSection,
       [id]: value === "include",
     });
+  };
+
+  const handleSave = () => {
+    toast.success("Report settings saved successfully");
   };
 
   // setSections((prev) => ({ ...prev, [id]: value === "include" }));
@@ -493,7 +498,7 @@ const Report = ({
           <Button type="button" variant="outline">
             Cancel
           </Button>
-          <Button type="button">Save changes</Button>
+          <Button type="button" onClick={handleSave}>Save changes</Button>
         </div>
       </div>
     </article>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Check,
   ChevronDown,
@@ -79,14 +80,18 @@ export default function ReusableMultiSelect({
   onCreate = null,
   onEdit = null,   // optional callback fired after a rename: (option) => void
   onDelete = null, // optional callback fired after a deletion: (option) => void
+  withPortal = false,
 }) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [dropDirection, setDropDirection] = useState("down");
+  const [portalEl, setPortalEl] = useState(null);
+  const [triggerRect, setTriggerRect] = useState(null);
 
   const containerRef = useRef(null);
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
+  const dropdownContainerRef = useRef(null);
   const searchDebounceRef = useRef(null);
   const editInputRef = useRef(null);
 
@@ -281,7 +286,12 @@ export default function ReusableMultiSelect({
     setDropDirection(shouldOpenUp ? "up" : "down");
 
     const onPointerDown = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
+      const clickedInsideTrigger =
+        containerRef.current && containerRef.current.contains(e.target);
+      const clickedInsideDropdown =
+        dropdownContainerRef.current &&
+        dropdownContainerRef.current.contains(e.target);
+      if (!clickedInsideTrigger && !clickedInsideDropdown) {
         setOpen(false);
         setSearchTerm("");
         setEditingValue(null);
@@ -295,6 +305,38 @@ export default function ReusableMultiSelect({
   useEffect(() => {
     if (open) requestAnimationFrame(() => inputRef.current?.focus());
   }, [open]);
+
+  // ─── portal element (lazy, appended to body) ─────────────────────────────
+  useLayoutEffect(() => {
+    if (!withPortal) return;
+    const el = document.createElement("div");
+    el.id = "rms-portal";
+    el.style.position = "fixed";
+    el.style.zIndex = "9999";
+    el.style.top = "0";
+    el.style.left = "0";
+    el.style.width = "0";
+    el.style.height = "0";
+    document.body.appendChild(el);
+    setPortalEl(el);
+    return () => {
+      document.body.removeChild(el);
+      setPortalEl(null);
+    };
+  }, [withPortal]);
+
+  // ─── track trigger rect for portal positioning ───────────────────────────
+  useLayoutEffect(() => {
+    if (!open || !withPortal || !containerRef.current) return;
+    const update = () => setTriggerRect(containerRef.current.getBoundingClientRect());
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [open, withPortal]);
 
   // ─── select all ───────────────────────────────────────────────────────────
   const selectAllVisible = useCallback(() => {
@@ -416,201 +458,243 @@ export default function ReusableMultiSelect({
         </div>
 
         {/* Dropdown */}
-        {open ? (
-          <div
-            className={cn(
-              "absolute left-0 right-0 z-[70] rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md",
-              dropDirection === "up" ? "bottom-full mb-0.5" : "top-full mt-0",
-            )}
-          >
-            {/* Search input */}
-            <div className="relative mb-2">
-              <input
-                ref={inputRef}
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    setOpen(false);
-                    setSearchTerm("");
-                  }
-                }}
-                placeholder={searchPlaceholder}
-                className="h-9 w-full rounded-md border border-input bg-background px-2 pr-8 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
-              />
-              {isSearching ? (
-                <Loader2 className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-              ) : null}
-            </div>
+        {open
+          ? (() => {
+              const dropdownBody = (
+                <>
+                  {/* Search input */}
+                  <div className="relative mb-2">
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          setOpen(false);
+                          setSearchTerm("");
+                        }
+                      }}
+                      placeholder={searchPlaceholder}
+                      className="h-9 w-full rounded-md border border-input bg-background px-2 pr-8 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+                    />
+                    {isSearching ? (
+                      <Loader2 className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                    ) : null}
+                  </div>
 
-            {/* Options list */}
-            <div ref={dropdownRef} className="max-h-60 space-y-0.5 overflow-y-auto">
+                  {/* Options list */}
+                  <div ref={dropdownRef} className="max-h-60 space-y-0.5 overflow-y-auto">
               {filteredOptions.length ? (
                 filteredOptions.map((option) => {
-                  const isSelected = selectedValues.has(option.value);
-                  const isEditing = editingValue === option.value;
-                  const isDeleting = deletingValue === option.value;
+                        const isSelected = selectedValues.has(option.value);
+                        const isEditing = editingValue === option.value;
+                        const isDeleting = deletingValue === option.value;
 
-                  return (
-                    <div key={option.value} className="w-full">
+                        return (
+                          <div key={option.value} className="w-full">
 
-                      {isEditing ? (
+                            {isEditing ? (
                         /* ── Edit row ───────────────────────────────── */
-                        <div
-                          className="flex items-center gap-1 rounded-sm bg-accent px-1.5 py-1"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <input
-                            ref={editInputRef}
-                            type="text"
-                            value={editDraft}
-                            onChange={(e) => setEditDraft(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") commitEdit(e);
-                              if (e.key === "Escape") cancelEdit(e);
-                            }}
-                            className="h-7 min-w-0 flex-1 rounded border border-primary bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring/30"
-                          />
-                          <button
-                            type="button"
-                            onClick={commitEdit}
-                            className="rounded p-1 text-primary hover:bg-primary/10"
-                            aria-label="Save"
-                          >
-                            <Save className="size-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={cancelEdit}
-                            className="rounded p-1 text-muted-foreground hover:bg-background"
-                            aria-label="Cancel"
-                          >
-                            <X className="size-3.5" />
-                          </button>
-                        </div>
-                      ) : isDeleting ? (
-                        /* ── Delete confirm row ─────────────────────── */
-                        <div
-                          className="flex items-center gap-2 rounded-sm border border-destructive/30 bg-destructive/5 px-2 py-1.5"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <span className="min-w-0 flex-1 truncate text-xs text-destructive">
-                            Delete &ldquo;{option.label}&rdquo;?
-                          </span>
-                          <button
-                            type="button"
-                            onClick={confirmDelete}
-                            className="shrink-0 rounded px-2 py-0.5 text-xs font-medium text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                          >
-                            Yes
-                          </button>
-                          <button
-                            type="button"
-                            onClick={cancelDelete}
-                            className="shrink-0 rounded px-2 py-0.5 text-xs font-medium text-muted-foreground hover:bg-muted"
-                          >
-                            No
-                          </button>
-                        </div>
-                      ) : (
-                        /* ── Normal option row ──────────────────────── */
-                        <div className="group flex w-full items-center rounded-sm hover:bg-accent">
-                          <button
-                            type="button"
-                            onClick={() => toggleValue(option.value)}
-                            aria-pressed={isSelected}
-                            className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-sm"
-                          >
-                            <span
-                              className={cn(
-                                "flex size-4 shrink-0 items-center justify-center rounded border",
-                                isSelected
-                                  ? "border-primary bg-primary text-primary-foreground"
-                                  : "border-input",
-                              )}
-                            >
-                              {isSelected ? <Check className="size-3" /> : null}
-                            </span>
-                            <span className="truncate">{option.label}</span>
-                          </button>
+                                <div
+                                  className="flex items-center gap-1 rounded-sm bg-accent px-1.5 py-1"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <input
+                                    ref={editInputRef}
+                                    type="text"
+                                    value={editDraft}
+                                    onChange={(e) => setEditDraft(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") commitEdit(e);
+                                      if (e.key === "Escape") cancelEdit(e);
+                                    }}
+                                    className="h-7 min-w-0 flex-1 rounded border border-primary bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring/30"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={commitEdit}
+                                    className="rounded p-1 text-primary hover:bg-primary/10"
+                                    aria-label="Save"
+                                  >
+                                    <Save className="size-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelEdit}
+                                    className="rounded p-1 text-muted-foreground hover:bg-background"
+                                    aria-label="Cancel"
+                                  >
+                                    <X className="size-3.5" />
+                                  </button>
+                                </div>
+                              ) : isDeleting ? (
+                                /* ── Delete confirm row ─────────────────────── */
+                                <div
+                                  className="flex items-center gap-2 rounded-sm border border-destructive/30 bg-destructive/5 px-2 py-1.5"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <span className="min-w-0 flex-1 truncate text-xs text-destructive">
+                                    Delete &ldquo;{option.label}&rdquo;?
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={confirmDelete}
+                                    className="shrink-0 rounded px-2 py-0.5 text-xs font-medium text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                                  >
+                                    Yes
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelDelete}
+                                    className="shrink-0 rounded px-2 py-0.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+                                  >
+                                    No
+                                  </button>
+                                </div>
+                              ) : (
+                                /* ── Normal option row ──────────────────────── */
+                                <div className="group flex w-full items-center rounded-sm hover:bg-accent">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleValue(option.value)}
+                                    aria-pressed={isSelected}
+                                    className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-sm"
+                                  >
+                                    <span
+                                      className={cn(
+                                        "flex size-4 shrink-0 items-center justify-center rounded border",
+                                        isSelected
+                                          ? "border-primary bg-primary text-primary-foreground"
+                                          : "border-input",
+                                      )}
+                                    >
+                                      {isSelected ? <Check className="size-3" /> : null}
+                                    </span>
+                                    <span className="truncate">{option.label}</span>
+                                  </button>
 
-                          {(allowEdit || allowDelete) && (
-                            <div className="mr-1 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                              {allowEdit && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => startEdit(e, option)}
-                                  className="rounded p-1.5 text-muted-foreground hover:bg-background hover:text-primary"
-                                  aria-label={`Edit ${option.label}`}
-                                >
-                                  <Pencil className="size-3.5 !bg-primary hover:bg-background hover:bg-primary" />
-                                </button>
-                              )}
-                              {allowDelete && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => startDelete(e, option)}
-                                  className="rounded p-1.5 text-muted-foreground hover:bg-background hover:text-destructive"
-                                  aria-label={`Delete ${option.label}`}
-                                >
-                                  <Trash2 className="size-3.5 !bg-primary hover:bg-background hover:bg-primary" />
-                                </button>
+                                  {(allowEdit || allowDelete) && (
+                                    <div className="mr-1 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                                      {allowEdit && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => startEdit(e, option)}
+                                          className="rounded p-1.5 text-muted-foreground hover:bg-background hover:text-primary"
+                                          aria-label={`Edit ${option.label}`}
+                                        >
+                                          <Pencil className="size-3.5" />
+                                        </button>
+                                      )}
+                                      {allowDelete && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => startDelete(e, option)}
+                                          className="rounded p-1.5 text-muted-foreground hover:bg-background hover:text-destructive"
+                                          aria-label={`Delete ${option.label}`}
+                                        >
+                                          <Trash2 className="size-3.5" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               )}
                             </div>
-                          )}
+                          );
+                        })
+                      ) : isSearching ? (
+                        <div className="flex items-center justify-center gap-2 px-2 py-3 text-sm text-muted-foreground">
+                          <Loader2 className="size-4 animate-spin" />
+                          <span>Searching...</span>
                         </div>
+                      ) : (
+                        <p className="px-2 py-1.5 text-sm text-muted-foreground">
+                          No results found
+                        </p>
                       )}
+
+                      {/* Create new option */}
+                      {allowCreate &&
+                        searchTerm.trim() &&
+                        !filteredOptions.some(
+                          (o) =>
+                            o.label.trim().toLowerCase() ===
+                            searchTerm.trim().toLowerCase(),
+                        ) && (
+                          <button
+                            type="button"
+                            onClick={() => addNewOption(searchTerm)}
+                            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm text-primary hover:bg-accent hover:text-accent-foreground"
+                          >
+                            <span className="flex size-4 shrink-0 items-center justify-center rounded border border-primary text-primary">
+                              <Plus className="size-3" />
+                            </span>
+                            <span className="truncate">
+                              Add &ldquo;{searchTerm.trim()}&rdquo;
+                            </span>
+                          </button>
+                        )}
+
+                      {/* Loading more */}
+                      {isLoadingMore ? (
+                        <div className="flex items-center justify-center gap-2 px-2 py-3 text-sm text-muted-foreground">
+                          <Loader2 className="size-4 animate-spin" />
+                          <span>Loading more...</span>
+                        </div>
+                      ) : hasMore && filteredOptions.length > 0 ? (
+                        <p className="px-2 py-2 text-center text-xs text-muted-foreground">
+                          Scroll for more
+                        </p>
+                      ) : null}
                     </div>
-                  );
-                })
-              ) : isSearching ? (
-                <div className="flex items-center justify-center gap-2 px-2 py-3 text-sm text-muted-foreground">
-                  <Loader2 className="size-4 animate-spin" />
-                  <span>Searching...</span>
-                </div>
-              ) : (
-                <p className="px-2 py-1.5 text-sm text-muted-foreground">
-                  No results found
-                </p>
-              )}
+                  </>
+              );
 
-              {/* Create new option */}
-              {allowCreate &&
-                searchTerm.trim() &&
-                !filteredOptions.some(
-                  (o) =>
-                    o.label.trim().toLowerCase() ===
-                    searchTerm.trim().toLowerCase(),
-                ) && (
-                  <button
-                    type="button"
-                    onClick={() => addNewOption(searchTerm)}
-                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm text-primary hover:bg-accent hover:text-accent-foreground"
+              return withPortal
+                ? portalEl && triggerRect
+                  ? createPortal(
+                      <div
+                        ref={dropdownContainerRef}
+                        style={{
+                          position: "absolute",
+                          left: triggerRect.left,
+                          width: triggerRect.width,
+                          top:
+                            dropDirection === "up"
+                              ? triggerRect.top -
+                                Math.min(
+                                  320,
+                                  Math.max(
+                                    220,
+                                    filteredOptions.length * 34 + 90,
+                                  ),
+                                ) -
+                                4
+                              : triggerRect.bottom,
+                        }}
+                        className="z-[9999] rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md"
+                      >
+                        {dropdownBody}
+                      </div>,
+                      portalEl,
+                    )
+                  : null
+                : (
+                  <div
+                    ref={dropdownContainerRef}
+                    className={cn(
+                      "absolute left-0 right-0 z-[70] rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md",
+                      dropDirection === "up"
+                        ? "bottom-full mb-0.5"
+                        : "top-full mt-0",
+                    )}
                   >
-                    <span className="flex size-4 shrink-0 items-center justify-center rounded border border-primary text-primary">
-                      <Plus className="size-3" />
-                    </span>
-                    <span className="truncate">
-                      Add &ldquo;{searchTerm.trim()}&rdquo;
-                    </span>
-                  </button>
-                )}
-
-              {/* Loading more */}
-              {isLoadingMore ? (
-                <div className="flex items-center justify-center gap-2 px-2 py-3 text-sm text-muted-foreground">
-                  <Loader2 className="size-4 animate-spin" />
-                  <span>Loading more...</span>
-                </div>
-              ) : hasMore && filteredOptions.length > 0 ? (
-                <p className="px-2 py-2 text-center text-xs text-muted-foreground">
-                  Scroll for more
-                </p>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
+                    {dropdownBody}
+                  </div>
+                );
+            })()
+          : null}
       </div>
     </TooltipProvider>
   );

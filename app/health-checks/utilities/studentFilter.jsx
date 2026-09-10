@@ -1017,7 +1017,7 @@ const StudentFilter = ({
   return (
     <>
       <div
-        className={`grid gap-3 sm:grid-cols-2 ${
+        className={`grid gap-3 sm:grid-cols-2 py-5 ${
           isDoctor ? "xl:grid-cols-5" : "xl:grid-cols-4"
         }`}
       >

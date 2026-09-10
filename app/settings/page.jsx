@@ -595,26 +595,30 @@ import React, { useRef, useState } from "react";
 import Aside from "./pages/aside";
 import { initialAccounts, settingsNav } from "./datas/settingsData";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { selectAuthUser } from "@/lib/features/auth-slice";
+import {
+  selectAuthUser,
+  selectUserAccount,
+} from "@/lib/features/auth-slice";
 import {
   resetAppearanceSettings,
   setAppearanceField,
 } from "@/lib/features/appearanceSettingSlice";
+import { setReportField } from "@/lib/features/reportSettingsSlice";
 import dynamic from "next/dynamic";
 
 import { toast } from "sonner";
 import { Settings } from "lucide-react";
-// import SchoolDetails from "./pages/SchoolDetails";
 import {
-  createSchoolBranches,
   getAllSchoolBranches,
 } from "@/lib/features/registerSchoolBranchSlice";
 import {
   createSubAccount,
   deleteSubAccount,
   getAllSubAccount,
+  updateSubAccount,
 } from "@/lib/features/registerStaffAccount";
 import { useQuery } from "@tanstack/react-query";
+import { buildSubAccountSchema } from "./validation/sub-account-validation-schema";
 const AppearancePage = dynamic(() => import("./pages/AppearancePage"));
 const MyDetailsPage = dynamic(() => import("./pages/MyDetailspage"));
 const ProfilePage = dynamic(() => import("./pages/ProfilePage"));
@@ -638,6 +642,9 @@ const page = () => {
 
   const authUser = useAppSelector(selectAuthUser);
   const getRole = authUser?.account_type ?? authUser?.role ?? null;
+  const account = useAppSelector(selectUserAccount);
+  console.log(account, "accountee");
+
   const [isAddOpen, setIsAddOpen] = useState(false);
 
   const getVisibleItems = React.useCallback((items, role) => {
@@ -794,7 +801,7 @@ const page = () => {
     phoneNumber:
       record?.phone_number ?? record?.phoneNumber ?? record?.phone ?? "",
     userName: record?.user_name ?? record?.username ?? record?.userName ?? "",
-    usertypeId: String(record?.usertype_id ?? record?.usertypeId ?? ""),
+    user_type_id: String(record?.usertype_id ?? record?.usertypeId ?? ""),
     branchId: String(record?.branch_id ?? record?.branchId ?? ""),
     previleges: record?.privileges ?? record?.previleges ?? "",
     designation: record?.designation ?? record?.user_type ?? "",
@@ -803,31 +810,39 @@ const page = () => {
     status: record?.status ?? "active",
   });
 
-  const fetchSubAccounts = React.useCallback(async () => {
-    try {
-      const result = await dispatch(getAllSubAccount()).unwrap();
-      console.log(result,"result");
-      
-      const list = Array.isArray(result) ? result : (result?.data ?? []);
-      setAccounts(Array.isArray(list) ? list.map(mapSubAccountRecord) : []);
-    } catch (error) {
-      toast.error("Failed to load team accounts", {
-        description:
-          typeof error === "string" ? error : (error?.message ?? undefined),
-      });
-    }
-  }, [dispatch]);
+  const {
+    data: subAccountsData = [],
+    isLoading: subAccountsLoading,
+    refetch: refetchSubAccounts,
+  } = useQuery({
+    queryKey: ["getAllSubAccount"],
+    queryFn: () => dispatch(getAllSubAccount()).unwrap(),
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  console.log(subAccountsData,"subAccountsData");
+
+  const subAccountsRef = React.useRef(null);
 
   React.useEffect(() => {
-    fetchSubAccounts();
-  }, [fetchSubAccounts]);
+    const list = Array.isArray(subAccountsData)
+      ? subAccountsData
+      : (subAccountsData?.data?.data ?? []);
+    // Only update accounts when the actual data changes (not just reference)
+    const serialized = JSON.stringify(list);
+    if (subAccountsRef.current !== serialized) {
+      subAccountsRef.current = serialized;
+      setAccounts(Array.isArray(list) ? list.map(mapSubAccountRecord) : []);
+    }
+  }, [subAccountsData]);
 
   const [subAccount, setSubAccount] = useState({
     name: "",
     phoneNumber: "",
     userName: "",
     password: "",
-    usertypeId: "",
+    user_type_id: "",
     branchId: "",
     previleges: "",
   });
@@ -844,7 +859,7 @@ const page = () => {
       phoneNumber: "",
       userName: "",
       password: "",
-      usertypeId: "",
+      user_type_id: "",
       branchId: "",
       previleges: "",
     });
@@ -861,7 +876,7 @@ const page = () => {
       phoneNumber: account.phoneNumber || "",
       userName: account.userName || account.username || "",
       password: "",
-      usertypeId: account.usertypeId || "",
+      user_type_id: account.user_type_id || "",
       branchId: account.branchId || "",
       previleges: account.previleges || "",
     });
@@ -930,8 +945,11 @@ const page = () => {
 
   // Delete
   const deleteAccount = (id) => {
+    console.log(id,"id");
+    
     const target = accounts.find((account) => account.id === id);
-
+    console.log(target,"target");
+    
     setAccounts((prev) => prev.filter((account) => account.id !== id));
 
     setSelectedIds((prev) => prev.filter((selectedId) => selectedId !== id));
@@ -950,7 +968,7 @@ const page = () => {
                   ? error
                   : (error?.message ?? undefined),
             });
-            fetchSubAccounts();
+            refetchSubAccounts();
           });
       } else {
         toast.success(`Deleted "${target.name}"`);
@@ -990,7 +1008,7 @@ const page = () => {
           });
       });
 
-    fetchSubAccounts();
+    refetchSubAccounts();
 
     toast.success(
       count === 1 ? "Deleted 1 account" : `Deleted ${count} accounts`,
@@ -1000,115 +1018,173 @@ const page = () => {
   const handleCreateAccount = async (event) => {
     event.preventDefault();
 
-    const errors = {};
     const name = (subAccount.name || "").trim();
     const userName = (subAccount.userName || "").trim();
     const phoneNumber = (subAccount.phoneNumber || "").trim();
     const password = subAccount.password || "";
+    // Keep RAW for zod validation — Number("") becomes 0, which slips past
+    // the "required" refine and reaches the backend as undefined.
+    const usertypeId = subAccount.user_type_id ?? "";
+    const branchId = subAccount.branchId ?? "";
+    const previleges = subAccount.previleges ?? "";
+    console.log(
+      name,
+      userName,
+      phoneNumber,
+      password,
+      usertypeId,
+      branchId,
+      previleges,
+    "dsssss");
 
-    if (!name) {
-      errors.name = "Name is required.";
-    }
+    const formValues = {
+      name,
+      userName,
+      phoneNumber,
+      password,
+      branchId,
+      // Schema key is `user_type_id` (matches the form-state key).
+      user_type_id: usertypeId,
+      previleges,
+    };
 
-    if (!phoneNumber) {
-      errors.phoneNumber = "Phone number is required.";
-    }
+    const schema = buildSubAccountSchema({
+      isEditing: !!editingAccount,
+      accounts,
+      editingAccountId: editingAccount?.id,
+    });
 
-    if (!userName) {
-      errors.username = "Username is required.";
-    } else {
-      const usernameTaken = accounts.some(
-        (account) =>
-          account.id !== editingAccount?.id &&
-          (account.userName || account.username || "").toLowerCase() ===
-            userName.toLowerCase(),
+    const result = schema.safeParse(formValues);
+    console.log({result});
+    
+
+    if (!result.success) {
+      const errors = result.error.flatten().fieldErrors;
+
+      const firstPerField = Object.fromEntries(
+        Object.entries(errors)
+          .map(([field, messages]) => [field, messages?.[0]])
+          .filter(([, message]) => Boolean(message)),
       );
 
-      if (usernameTaken) {
-        errors.username = "This username is already taken.";
-      }
-    }
+      setFormErrors(firstPerField);
 
-    if (!editingAccount && !password) {
-      errors.password = "Password is required.";
-    } else if (password && password.length < 6) {
-      errors.password = "Use at least 6 characters.";
-    }
+      const firstError = Object.values(firstPerField).find(Boolean);
+      toast.error(firstError || "Please fill all required fields.");
 
-    if (!subAccount.usertypeId) {
-      errors.usertypeId = "User type is required.";
-    }
-
-    if (!subAccount.branchId) {
-      errors.branchId = "Branch is required.";
-    }
-
-    if (!subAccount.previleges) {
-      errors.previleges = "Privileges are required.";
-    }
-
-    setFormErrors(errors);
-
-    if (Object.keys(errors).length > 0) {
       return;
     }
 
-    // Update
-    if (editingAccount) {
-      try {
-        setIsSavingAccount(true);
-        await dispatch(
-          createSubAccount({
-            ...(editingAccount.apiId ? { id: editingAccount.apiId } : {}),
-            name,
-            phone_number: phoneNumber,
-            user_name: userName,
-            ...(password ? { password } : {}),
-            usertype_id: subAccount.usertypeId,
-            branch_id: subAccount.branchId,
-            privileges: subAccount.previleges,
-          }),
-        ).unwrap();
+    setFormErrors({});
+    // if (Object.keys(errors).length > 0) {
+    //   return;
+    // }
 
-        toast.success("Account updated");
-        await fetchSubAccounts();
-        setIsAddOpen(false);
-        resetAddForm();
-      } catch (error) {
-        toast.error("Failed to update account", {
-          description:
-            typeof error === "string" ? error : (error?.message ?? undefined),
-        });
-      } finally {
-        setIsSavingAccount(false);
-      }
-      return;
-    }
+    // // Update
+    // if (editingAccount) {
+    //   const apiId = editingAccount?.apiId ?? editingAccount?.id ?? null;
+
+    //   // Local-only (seed/demo) rows have no API id - update locally, skip API.
+    //   if (apiId == null || apiId === "") {
+    //     setAccounts((prev) =>
+    //       prev.map((account) =>
+    //         String(account.id) === String(editingAccount.id)
+    //           ? {
+    //               ...account,
+    //               name,
+    //               phoneNumber,
+    //               userName,
+    //               usertypeId: subAccount.usertypeId,
+    //               branchId,
+    //               previleges: subAccount.previleges,
+    //             }
+    //           : account,
+    //       ),
+    //     );
+    //     toast.success("Account updated");
+    //     setIsAddOpen(false);
+    //     resetAddForm();
+    //     return;
+    //   }
+
+    //   try {
+    //     setIsSavingAccount(true);
+    //     await dispatch(
+    //       updateSubAccount({
+    //         id: apiId,
+    //         name,
+    //         phone_number: phoneNumber,
+    //         user_name: userName,
+    //         ...(password ? { password } : {}),
+    //         usertype_id: subAccount.usertypeId,
+    //         branch_id: subAccount.branchId,
+    //         privileges: subAccount.previleges,
+    //       }),
+    //     ).unwrap();
+
+    //     toast.success("Account updated");
+    //     await refetchSubAccounts();
+    //     setIsAddOpen(false);
+    //     resetAddForm();
+    //   } catch (error) {
+    //     toast.error("Failed to update account", {
+    //       description:
+    //         typeof error === "string" ? error : (error?.message ?? undefined),
+    //     });
+    //   } finally {
+    //     setIsSavingAccount(false);
+    //   }
+    //   return;
+    // }
+    // console.log(subAccount, "subAccount333333");
 
     // Create
     try {
       setIsSavingAccount(true);
+      // Privileges are optional — only include `privileges` in the payload
+      // when the user actually picked one, so the backend never receives an
+      // empty value that would trigger "invalid input".
+      const hasPrivileges =
+        String(subAccount.previleges ?? "").trim() !== "";
+
       await dispatch(
         createSubAccount({
           name,
           phone_number: phoneNumber,
           user_name: userName,
           password,
-          usertype_id: subAccount.usertypeId,
-          branch_id: subAccount.branchId,
-          privileges: subAccount.previleges,
+          user_type_id: Number(usertypeId) || undefined,
+          branch_id: Number(branchId) || undefined,
+          ...(hasPrivileges
+            ? { privileges: previleges }
+            : {}),
         }),
       ).unwrap();
 
       toast.success("Account created");
-      await fetchSubAccounts();
+      await refetchSubAccounts();
       setIsAddOpen(false);
       resetAddForm();
     } catch (error) {
-      toast.error("Failed to create account", {
-        description:
-          typeof error === "string" ? error : (error?.message ?? undefined),
-      });
+      // Log the raw backend rejection so the exact 422 field errors are
+      // visible in the console during debugging.
+      console.error("createSubAccount rejected:", error);
+
+      const description =
+        typeof error === "string"
+          ? error
+          : error?.errors && typeof error.errors === "object"
+            ? Object.entries(error.errors)
+                .map(
+                  ([field, messages]) =>
+                    `${field}: ${
+                      Array.isArray(messages) ? messages[0] : messages
+                    }`,
+                )
+                .join(" · ")
+            : (error?.message ?? undefined);
+
+      toast.error("Failed to create account", { description });
     } finally {
       setIsSavingAccount(false);
     }
@@ -1196,8 +1272,8 @@ const page = () => {
         );
       case "SchoolDetails":
         return <SchoolDetails getAllSchoolBranch={getAllSchoolBranch} />;
-        case "screening":
-        return <ScreeningPage  />;
+      case "screening":
+        return <ScreeningPage />;
       case "team":
         return (
           <TeamPage
@@ -1217,6 +1293,7 @@ const page = () => {
             setSubAccount={setSubAccount}
             branches={branchOptions}
             isSaving={isSavingAccount}
+            authAccName={account}
             // newName={newName}
             // setNewName={setNewName}
             // newUsername={newUsername}

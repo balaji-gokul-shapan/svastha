@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import AnimatedModal from "@/components/ui/AnimatedModal";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/text-field";
+import { TextField } from "@/components/ui/text-field";
+import { toast } from "sonner";
 
 import {
   Activity,
@@ -13,6 +14,8 @@ import {
   Ear,
   Eye,
   HeartPlus,
+  Loader2,
+  ScanHeart,
   Send,
   Smile,
   SquareActivity,
@@ -20,74 +23,15 @@ import {
   X,
 } from "lucide-react";
 import ReusableSelect from "@/components/ui/reusable-select";
-
-const SCREENING_TYPES = [
-  {
-    id: 1,
-    name: "General Screening",
-    description: "General health and physical assessment",
-    className: {
-      border: "border-domain-physical",
-      selectedBg: "bg-domain-physical/5",
-      ring: "ring-domain-physical",
-      iconBg: "bg-domain-physical",
-      iconText: "text-domain-physical-foreground",
-    },
-    icon: Activity,
-  },
-  {
-    id: 2,
-    name: "ENT",
-    description: "Ear, nose and throat assessment",
-    className: {
-      border: "border-domain-vision",
-      selectedBg: "bg-domain-vision/5",
-      ring: "ring-domain-vision",
-      iconBg: "bg-domain-vision",
-      iconText: "text-domain-vision-foreground",
-    },
-    icon: Stethoscope,
-  },
-  {
-    id: 3,
-    name: "Dental",
-    description: "Oral and dental health assessment",
-    className: {
-      border: "border-domain-hearing",
-      selectedBg: "bg-domain-hearing/5",
-      ring: "ring-domain-hearing",
-      iconBg: "bg-domain-hearing",
-      iconText: "text-domain-hearing-foreground",
-    },
-    icon: Smile,
-  },
-  {
-    id: 4,
-    name: "Hearing",
-    description: "Hearing ability assessment",
-    className: {
-      border: "border-domain-oral",
-      selectedBg: "bg-domain-oral/5",
-      ring: "ring-domain-oral",
-      iconBg: "bg-domain-oral",
-      iconText: "text-domain-oral-foreground",
-    },
-    icon: Ear,
-  },
-  {
-    id: 5,
-    name: "Vision",
-    description: "Eye and vision assessment",
-    className: {
-      border: "border-domain-immunization",
-      selectedBg: "bg-domain-immunization/5",
-      ring: "ring-domain-immunization",
-      iconBg: "bg-domain-immunization",
-      iconText: "text-domain-immunization-foreground",
-    },
-    icon: Eye,
-  },
-];
+import { useQuery } from "@tanstack/react-query";
+import { useDispatch } from "react-redux";
+import { getAllScreeningTypes } from "@/lib/features/getAllScreeningTypes";
+import ToothIcon from "@/app/health-checks/dental-screening/asset/toothIcon";
+import {
+  createScreening,
+  getAllScreening,
+} from "@/lib/features/registerScreeningSlice";
+import { screeningSchema } from "../validation/screening-validation-schema";
 
 const SCHOOL_OPTIONS = [
   {
@@ -113,6 +57,120 @@ const BRANCH_OPTIONS = [
 
 const ScreeningPage = () => {
   const [open, setOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
+  const dispatch = useDispatch();
+  const {
+    data: masterScreeningData = [],
+    isLoading: masterScreeningDataLoading,
+    error: masterScreeningQueryError,
+  } = useQuery({
+    queryKey: ["masterScreeningData"],
+    queryFn: () => dispatch(getAllScreeningTypes()).unwrap(),
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: getAllScreeningData = [] } = useQuery({
+    queryKey: ["getAllScreening"],
+    queryFn: () => dispatch(getAllScreening()).unwrap(),
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  console.log(getAllScreeningData, "getAllScreeningData");
+
+  //   const {
+  //   data: createScreeningData = [],
+  //   isLoading: createScreeningLoading,
+  //   error: createScreeningError,
+  // } = useQuery({
+  //   queryKey: ["createScreening"],
+  //   queryFn: () =>
+  //     dispatch(
+  //       createScreening
+  //     ).unwrap(),
+  //   enabled: false,
+  // });
+
+  const SCREENING_STYLES = {
+    "General Screening": {
+      border: "border-domain-physical",
+      selectedBg: "bg-domain-physical/5",
+      ring: "ring-domain-physical",
+      iconBg: "bg-domain-physical",
+      iconText: "text-domain-physical-foreground",
+    },
+
+    "ENT Screening": {
+      border: "border-domain-vision",
+      selectedBg: "bg-domain-vision/5",
+      ring: "ring-domain-vision",
+      iconBg: "bg-domain-vision",
+      iconText: "text-domain-vision-foreground",
+    },
+
+    "Dental Screening": {
+      border: "border-domain-hearing",
+      selectedBg: "bg-domain-hearing/5",
+      ring: "ring-domain-hearing",
+      iconBg: "bg-domain-hearing",
+      iconText: "text-domain-hearing-foreground",
+    },
+
+    "Hear Screening": {
+      border: "border-domain-oral",
+      selectedBg: "bg-domain-oral/5",
+      ring: "ring-domain-oral",
+      iconBg: "bg-domain-oral",
+      iconText: "text-domain-oral-foreground",
+    },
+
+    "Vision Screening": {
+      border: "border-domain-immunization",
+      selectedBg: "bg-domain-immunization/5",
+      ring: "ring-domain-immunization",
+      iconBg: "bg-domain-immunization",
+      iconText: "text-domain-immunization-foreground",
+    },
+  };
+  const SCREENING_ICONS = {
+    "General Screening": Activity,
+    "ENT Screening": Stethoscope,
+    "Dental Screening": ToothIcon,
+    "Hear Screening": Ear,
+    "Vision Screening": Eye,
+  };
+
+  const SCREENING_DESCRIPTION = {
+    "General Screening":
+      "Assess overall health, physical condition, growth, and general well-being of students",
+    "ENT Screening":
+      "Evaluate ear, nose, and throat health to identify common ENT-related concerns.",
+    "Dental Screening":
+      "Check oral health, dental hygiene, and identify common dental conditions or concerns.",
+    "Hear Screening":
+      "Screen students for hearing difficulties and identify potential hearing-related concerns.",
+    "Vision Screening":
+      "Assess visual acuity and identify possible vision problems that may affect students' learning.",
+  };
+
+  const rawScreeningTypes = Array.isArray(masterScreeningData)
+    ? masterScreeningData
+    : (masterScreeningData?.data ?? masterScreeningData?.screeningTypes ?? []);
+
+  const SCREENING_TYPES = rawScreeningTypes.map((screening) => ({
+    ...screening,
+    icon: SCREENING_ICONS[screening.screening_type],
+    description: SCREENING_DESCRIPTION[screening.screening_type],
+    className: SCREENING_STYLES[screening.screening_type] ?? {
+      border: "border-border",
+      selectedBg: "bg-card",
+      ring: "ring-border",
+      iconBg: "bg-muted",
+      iconText: "text-muted-foreground",
+    },
+  }));
 
   const [formData, setFormData] = useState({
     school_id: "",
@@ -150,8 +208,14 @@ const ScreeningPage = () => {
     }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
+
+    // Block re-entry: if a save is already in flight, ignore the click.
+    // isSaving state updates async so it can't stop a second click in the same tick.
+    if (isSavingRef.current) {
+      return;
+    }
 
     const newErrors = {};
 
@@ -189,20 +253,76 @@ const ScreeningPage = () => {
       screening_type_ids: formData.screening_type_ids,
     };
 
-    console.log("Screening Request Payload:", payload);
+    const formValues = {
+      school_id,
+      branch_id,
+      total_classes,
+      total_sections,
+      screening_type_ids,
+    };
 
-    // API call here
-    // dispatch(createScreeningRequest(payload));
+    const result = screeningSchema.safeParse(formValues);
+    if (!result.success) {
+      const errors = result.error.flatten().fieldErrors;
 
-    setOpen(false);
+      // Reduce to { fieldName: firstMessage } for inline display.
+      const firstPerField = Object.fromEntries(
+        Object.entries(errors)
+          .map(([field, messages]) => [field, messages?.[0]])
+          .filter(([, message]) => Boolean(message)),
+      );
 
-    setFormData({
-      school_id: "",
-      branch_id: "",
-      total_classes: "",
-      total_sections: "",
-      screening_type_ids: [],
-    });
+      setErrors(firstPerField);
+
+      const firstError = Object.values(firstPerField).find(Boolean);
+      toast.error(firstError || "Please fill all required fields.");
+
+      return;
+    }
+
+    setIsSaving(true);
+    isSavingRef.current = true;
+
+    try {
+      await dispatch(createScreening(payload)).unwrap();
+
+      toast.success("Screening request created successfully", {
+        description: "Your screening request has been submitted.",
+      });
+
+      setOpen(false);
+
+      setFormData({
+        school_id: "",
+        branch_id: "",
+        total_classes: "",
+        total_sections: "",
+        screening_type_ids: [],
+      });
+      setErrors({});
+    } catch (error) {
+      console.error("Failed to create screening request:", error);
+
+      // Extract backend error message for the toast.
+      let message = "Failed to create screening request. Please try again.";
+      if (typeof error === "string") {
+        message = error;
+      } else if (error && typeof error === "object") {
+        const fieldMessages = Object.values(error.errors ?? {})
+          .flatMap((messages) =>
+            Array.isArray(messages) ? messages : [messages],
+          )
+          .filter(Boolean);
+        message = fieldMessages[0] ?? error.message ?? error.error ?? message;
+      }
+
+      toast.error("Failed to create screening request", {
+        description: message,
+      });
+    } finally {
+      setIsSaving(false);
+      isSavingRef.current = false;
+    }
   };
 
   return (
@@ -370,9 +490,10 @@ const ScreeningPage = () => {
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {/* Total Classes */}
                   <div className="space-y-1.5">
-                    <Label htmlFor="total_classes">Total Classes</Label>
+                    {/* <Label htmlFor="total_classes">Total Classes</Label> */}
 
-                    <Input
+                    <TextField
+                    label="Total Classes"
                       id="total_classes"
                       type="number"
                       min="1"
@@ -392,9 +513,10 @@ const ScreeningPage = () => {
 
                   {/* Total Sections */}
                   <div className="space-y-1.5">
-                    <Label htmlFor="total_sections">Total Sections</Label>
+                    {/* <Label htmlFor="total_sections">Total Sections</Label> */}
 
-                    <Input
+                    <TextField
+                    label="Total Sections"
                       id="total_sections"
                       type="number"
                       min="1"
@@ -429,67 +551,73 @@ const ScreeningPage = () => {
 
                 {/* Screening Type Cards */}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {SCREENING_TYPES.map((screening) => {
-                    const Icon = screening.icon;
+                  {masterScreeningDataLoading ? (
+                    <div className="flex min-h-28 items-center justify-center rounded-xl border border-border bg-card">
+                      <Loader2 className="size-6 animate-spin text-primary" />
+                    </div>
+                  ) : (
+                    SCREENING_TYPES.map((screening) => {
+                      const Icon = screening.icon ?? ScanHeart;
+                      const isSelected = formData.screening_type_ids.includes(
+                        screening.id,
+                      );
 
-                    const isSelected = formData.screening_type_ids.includes(
-                      screening.id,
-                    );
-
-                    return (
-                      <button
-                        key={screening.id}
-                        type="button"
-                        onClick={() => toggleScreeningType(screening.id)}
-                        className={[
-                          "group relative flex min-h-28 items-start gap-3 rounded-xl border p-4 text-left transition-all",
-                          "hover:border-primary/50 hover:bg-primary/5",
-
-                          isSelected
-                            ? [
-                                screening.className.border,
-                                screening.className.selectedBg,
-                                "ring-1",
-                                screening.className.ring,
-                              ].join(" ")
-                            : "border-border bg-card",
-                        ].join(" ")}
-                      >
-                        {/* Icon */}
-                        <div
+                      return (
+                        <button
+                          key={screening.id}
+                          type="button"
+                          onClick={() => toggleScreeningType(screening.id)}
                           className={[
-                            "flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors",
+                            "group relative flex min-h-28 items-start gap-3 rounded-xl border p-4 text-left transition-all",
+                            "hover:border-primary/50 hover:bg-primary/5",
 
                             isSelected
                               ? [
-                                  screening.className.iconBg,
-                                  screening.className.iconText,
+                                  screening.className.border,
+                                  screening.className.selectedBg,
+                                  "ring-1",
+                                  screening.className.ring,
                                 ].join(" ")
-                              : "bg-muted text-muted-foreground group-hover:text-primary",
+                              : "border-border bg-card",
                           ].join(" ")}
                         >
-                          <Icon className="size-4" />
-                        </div>
-                        {/* Content */}
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-foreground">
-                            {screening.name}
-                          </p>
+                          {/* Icon */}
+                          <div
+                            className={[
+                              "flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors",
 
-                          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                            {screening.description}
-                          </p>
-                        </div>
-
-                        {/* Selected */}
-                        {isSelected ? (
-                          <div className="absolute right-3 top-3 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                            <Check className="size-3" />
+                              isSelected
+                                ? [
+                                    screening.className.iconBg,
+                                    screening.className.iconText,
+                                  ].join(" ")
+                                : "bg-muted text-muted-foreground group-hover:text-primary",
+                            ].join(" ")}
+                          >
+                            <Icon className="size-4" />
                           </div>
-                        ) : null}
-                      </button>
-                    );
-                  })}
+
+                          {/* Content */}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-foreground">
+                              {screening.screening_type}
+                            </p>
+
+                            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                              {screening.description}
+                            </p>
+                          </div>
+
+                          {/* Selected */}
+                          {isSelected && (
+                            <div className="absolute right-3 top-3 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                              <Check className="size-3" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
 
                 {errors.screening_type_ids ? (
@@ -521,9 +649,18 @@ const ScreeningPage = () => {
                 Cancel
               </Button>
 
-              <Button type="submit">
-                <Send className="size-4" />
-                Submit Request
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Send className="size-4" />
+                    Submit Request
+                  </>
+                )}
               </Button>
             </div>
           </form>

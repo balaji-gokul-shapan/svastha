@@ -29,14 +29,11 @@ import { Separator } from "@/components/ui/separator";
 // import { useState } from "react";
 import { fadeUp, FramerCard } from "@/util/FramerCard";
 import StudentFilter from "../health-checks/utilities/studentFilter";
-import { getFilterStudent } from "@/lib/features/getFilterStudent";
-import { useCallback, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import useStudentFilter from "../report/utilities/useStudentFilter";
+import { useMemo, useRef, useState } from "react";
+import { useAppSelector } from "@/lib/hooks";
 import { EmptyState } from "@/components/ui/empty-state";
 import { selectAuthUser } from "@/lib/features/auth-slice";
-import useAssignedEvents, { findSelectedCamp } from "@/lib/useAssignedEvents";
-import { getStudentByEvent } from "@/lib/features/getEventAssignSlice";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas-pro";
 import { toast } from "sonner";
@@ -244,173 +241,22 @@ const HEALTH_PROFILE_TEMPLATE = {
 ========================================================= */
 
 export default function StudenthealthReport() {
-  const dispatch = useAppDispatch();
-  const [academicYear, setAcademicYear] = useState("2026-2027");
-  const [schoolName, setSchoolName] = useState("all");
-  const [classFilter, setClassFilter] = useState("all");
-  const [sectionFilter, setSectionFilter] = useState("all");
-  const [studentFilter, setStudentFilter] = useState("all");
-  const [studentId, setStudentId] = useState("");
   // PDF export — ref points at the report body, html2canvas-pro captures it
   // and jsPDF paginates the render into a downloadable A4 document.
   const reportRef = useRef(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
+  const {
+    filterProps,
+    selectedStudent,
+    selectedCamp,
+    schoolName,
+    students,
+    campStudentMap,
+    assignedEvents,
+  } = useStudentFilter();
+
   const authUser = useAppSelector(selectAuthUser);
-  const { assignedEvents, assignEventLoading, assignEventError } =
-    useAssignedEvents();
-  // Resolve the camp linked to the currently selected school filter. The
-  // shared helper returns { id, name, schoolName } (name/schoolName are "all"
-  // when no specific camp/school is selected).
-  const selectedCamp = useMemo(
-    () => findSelectedCamp(assignedEvents, schoolName),
-    [assignedEvents, schoolName],
-  );
-
-  // Reverse lookup for the report: general screening knows a student's camp
-  // because its roster comes FROM the camp (getStudentByEvent). Here students
-  // are listed across all camps, so fetch every assigned camp's roster and
-  // index it by each student identifier. Any selected student then resolves
-  // to its camp + school even when the school filter is still "all" — the
-  // /students/filter rows don't carry camp/school fields.
-  const assignedEventIds = useMemo(
-    () =>
-      (Array.isArray(assignedEvents) ? assignedEvents : [])
-        .map((event) => String(event?.id ?? "").trim())
-        .filter(Boolean)
-        .sort(),
-    [assignedEvents],
-  );
-
-  const { data: campStudentMap } = useQuery({
-    queryKey: ["report-camp-rosters", assignedEventIds],
-    queryFn: async () => {
-      const map = {};
-      for (const event of Array.isArray(assignedEvents) ? assignedEvents : []) {
-        const eventId = String(event?.id ?? "").trim();
-        if (!eventId) continue;
-        try {
-          const result = await dispatch(getStudentByEvent({ eventId })).unwrap();
-          // New paginated shape: { items: [...], total, page, perPage }
-          const rows = Array.isArray(result?.items) ? result.items : Array.isArray(result) ? result : [];
-          const campName = String(event?.name ?? "").trim();
-          const campSchool = String(
-            event?.school?.school_name ??
-              event?.school?.name ??
-              event?.school_name ??
-              event?.schoolName ??
-              "",
-          ).trim();
-          for (const row of Array.isArray(rows) ? rows : []) {
-            const keys = [
-              row?.id,
-              row?.studentId,
-              row?.student_id,
-              row?.cus_id,
-              row?.school_registration_number,
-              row?.admission_number,
-            ]
-              .map((value) => String(value ?? "").trim())
-              .filter(Boolean);
-            for (const key of keys) {
-              if (!map[key]) {
-                map[key] = { campId: eventId, campName, schoolName: campSchool };
-              }
-            }
-          }
-        } catch {
-          // One failed roster must not break the remaining camps.
-        }
-      }
-      return map;
-    },
-    enabled: assignedEventIds.length > 0,
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
-
-  const resetDependentFilters = useCallback(() => {
-    setClassFilter("all");
-    setSectionFilter("all");
-    setStudentFilter("all");
-    setStudentId("");
-  }, []);
-
-  const handleSchoolFilterChange = useCallback(
-    (value) => {
-      setSchoolName(value);
-      resetDependentFilters();
-    },
-    [resetDependentFilters],
-  );
-
-  const handleAcademicYearFilterChange = useCallback(
-    (value) => {
-      setAcademicYear(value);
-      resetDependentFilters();
-    },
-    [resetDependentFilters],
-  );
-
-  const handleClassFilterChange = useCallback((value) => {
-    setClassFilter(value);
-    setSectionFilter("all");
-    setStudentFilter("all");
-    setStudentId("");
-  }, []);
-
-  const handleSectionFilterChange = useCallback((value) => {
-    setSectionFilter(value);
-    setStudentFilter("all");
-    setStudentId("");
-  }, []);
-
-  const handleStudentFilterChange = useCallback((value) => {
-    setStudentFilter(value);
-    setStudentId(value === "all" ? "" : value);
-  }, []);
-
-  const { data: filterPayload, isLoading } = useQuery({
-    queryKey: ["filter-student", schoolName, academicYear, "options"],
-    queryFn: () =>
-      dispatch(
-        getFilterStudent({
-          all: true,
-          status: "all",
-          schoolName,
-          academicYear,
-          sortBy: "name",
-          sortOrder: "asc",
-          search: "",
-        }),
-      ).unwrap(),
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-  });
-
-  // Students for the dropdown + the one currently selected//
-  const students = useMemo(
-    () => (Array.isArray(filterPayload?.items) ? filterPayload.items : []),
-    [filterPayload],
-  );
-
-  const selectedStudent = useMemo(() => {
-    if (!studentId) return null;
-    return (
-      students.find((student) => {
-        const ids = [
-          student?.id,
-          student?.studentId,
-          student?.cus_id,
-          student?.school_registration_number,
-          student?.admission_number,
-        ]
-          .map((value) => String(value ?? "").trim())
-          .filter(Boolean);
-        return ids.includes(String(studentId).trim());
-      }) ?? null
-    );
-  }, [students, studentId]);
   console.log(selectedStudent, "selectedStudent");
 
   // Real identity from the selected student //.
@@ -799,24 +645,7 @@ export default function StudenthealthReport() {
         </div>
       </div>
       <div className="py-5">
-        <StudentFilter
-          filterPayload={filterPayload}
-          isLoading={isLoading}
-          schoolName={schoolName}
-          academicYear={academicYear}
-          classFilter={classFilter}
-          sectionFilter={sectionFilter}
-          studentFilter={studentFilter}
-          onSchoolNameChange={handleSchoolFilterChange}
-          onAcademicYearChange={handleAcademicYearFilterChange}
-          onClassFilterChange={handleClassFilterChange}
-          onSectionFilterChange={handleSectionFilterChange}
-          onStudentFilterChange={handleStudentFilterChange}
-          assignedEvents={assignedEvents}
-          assignEventLoading={assignEventLoading}
-          assignEventError={assignEventError}
-          authUser={authUser}
-        />
+        <StudentFilter {...filterProps} />
       </div>
       {/* HEADER */}
       {/* <header className="sticky top-0 z-20 border-b border-border bg-card/95 backdrop-blur">

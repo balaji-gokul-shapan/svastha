@@ -4,7 +4,6 @@ import { BadgeCheck, Clock3, Mars, ShieldAlert, Venus } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { EmptyState } from "@/components/ui/empty-state";
-import { getStudentSlug } from "./student-data";
 import Image from "next/image";
 import {
   FemaleStudentIcon,
@@ -28,6 +27,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { deleteStudent } from "@/lib/features/DeleteStudentSlice";
+import { getStudentSlug } from "../datas/student-data";
 
 const statusStyles = {
   Active: "bg-success/15 text-success",

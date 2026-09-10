@@ -1,11 +1,16 @@
-"use client";
+﻿"use client";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingOverlay, TableSkeleton } from "@/components/ui/loading-state";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { StudentsDataTable } from "./students-data-table";
-import { StudentsCards } from "./students-cards";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { StudentsDataTable } from "./utilities/students-data-table";
 import { Pagination } from "@/components/ui/pagination";
 import { LayoutGrid, List, PlusCircle } from "lucide-react";
 import Link from "next/link";
@@ -17,8 +22,10 @@ import { getFilterStudent } from "@/lib/features/getFilterStudent";
 import FileUploadModal from "@/components/students/fileUploadModal";
 import StudentFilter from "../health-checks/utilities/studentFilter";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import SchoolStudentFilter from "./utilities/SchoolStudentFilter";
+import { selectUserAccount } from "@/lib/features/auth-slice";
 
-// Default value for every filter — values equal to these are kept out of
+// Default value for every filter â€” values equal to these are kept out of
 // the URL so links stay tidy.
 const FILTER_DEFAULTS = {
   search: "",
@@ -38,31 +45,29 @@ function StudentsList() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-
-  // All list state (filters + page) lives in the URL query string so it
-  // survives opening a student profile and coming back via
-  // "Back to Students" or the browser back button.
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
   const search = searchParams.get("search") ?? "";
   const status = searchParams.get("status") ?? "all";
   const classFilter = searchParams.get("class") ?? "all";
   const sectionFilter = searchParams.get("section") ?? "all";
   const schoolName = searchParams.get("school") ?? "all";
-  const academicYear =
-    searchParams.get("academicYear") ?? "2026-2027";
+  const academicYear = searchParams.get("academicYear") ?? "2026-2027";
   const studentFilter = searchParams.get("student") ?? "all";
   const sortBy = searchParams.get("sortBy") ?? "name";
   const sortOrder = searchParams.get("sortOrder") ?? "asc";
-     const appearanceSettings = useAppSelector(
-       (state) => state.appearanceSettings,
-     );
-     const { theme, transparentSidebar, sidebarFeature, tableView } =
-       appearanceSettings ?? {};
-console.log(tableView,"tableView");
+  const appearanceSettings = useAppSelector(
+    (state) => state.appearanceSettings,
+  );
+  const { theme, transparentSidebar, sidebarFeature, tableView } =
+    appearanceSettings ?? {};
+  console.log(tableView, "tableView");
   const viewMode = searchParams.get("view") ?? "card";
   const limit = tableView === "card" ? 9 : 10;
-   const { studentData, total, loading, error } = useAppSelector((state) => state.getAllStudent);
- 
+  const { studentData, total, loading, error } = useAppSelector(
+    (state) => state.getAllStudent,
+  );
+  const selectUser = useAppSelector(selectUserAccount);
+  console.log(selectUser, "selectUserAccount");
 
   // Merge a patch of filter changes into the current query string.
   // Filters reset to their default are removed from the URL entirely.
@@ -94,7 +99,7 @@ console.log(tableView,"tableView");
     [updateParams],
   );
 
-  // Debounced search box — local input state committed to the URL.
+  // Debounced search box â€” local input state committed to the URL.
   const [searchInput, setSearchInput] = React.useState(search);
   React.useEffect(() => {
     setSearchInput(search);
@@ -192,7 +197,10 @@ console.log(tableView,"tableView");
       unique.push(student);
     });
 
-    if (process.env.NODE_ENV !== "production" && unique.length !== list.length) {
+    if (
+      process.env.NODE_ENV !== "production" &&
+      unique.length !== list.length
+    ) {
       console.warn(
         `[StudentsPage] Removed ${list.length - unique.length} duplicate student row(s) from the API response.`,
       );
@@ -203,53 +211,76 @@ console.log(tableView,"tableView");
   const isInitialLoading = loading && rows.length === 0;
   const isRefreshing = isFetching && rows.length > 0;
   const totalPages = Math.max(1, Math.ceil((total || 0) / limit));
+ const [filterFormData, setFilterFormData] = React.useState({
+  branchName: "",
+  AcademicYear: "",
+  classes: "",
+  section: "",
+  BeneficiaryId: "",
+});
 
-  const classOptions = React.useMemo(() => {
-    const classSet = new Set([
-      "Pre-KG",
-      "LKG",
-      "UKG",
-      "1",
-      "2",
-      "3",
-      "4",
-      "5",
-      "6",
-      "7",
-      "8",
-      "9",
-      "10",
-      "11",
-      "12",
-    ]);
+  // const classOptions = React.useMemo(() => {
+  //   const classSet = new Set([
+  //     "Pre-KG",
+  //     "LKG",
+  //     "UKG",
+  //     "1",
+  //     "2",
+  //     "3",
+  //     "4",
+  //     "5",
+  //     "6",
+  //     "7",
+  //     "8",
+  //     "9",
+  //     "10",
+  //     "11",
+  //     "12",
+  //   ]);
 
-    rows.forEach((student) => {
-      const classValue = String(student?.Class ?? student?.class ?? student?.grade ?? "").trim();
-      if (classValue) {
-        classSet.add(classValue);
-      }
-    });
+  //   rows.forEach((student) => {
+  //     const classValue = String(
+  //       student?.Class ?? student?.class ?? student?.grade ?? "",
+  //     ).trim();
+  //     if (classValue) {
+  //       classSet.add(classValue);
+  //     }
+  //   });
 
-    return ["all", ...Array.from(classSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))];
-  }, [rows]);
+  //   return [
+  //     "all",
+  //     ...Array.from(classSet).sort((a, b) =>
+  //       a.localeCompare(b, undefined, { numeric: true }),
+  //     ),
+  //   ];
+  // }, [rows]);
 
-  const sectionOptions = React.useMemo(() => {
-    const sectionSet = new Set(["A", "B", "C", "D", "E", "F"]);
+  // const sectionOptions = React.useMemo(() => {
+  //   const sectionSet = new Set(["A", "B", "C", "D", "E", "F"]);
 
-    rows.forEach((student) => {
-      const classValue = String(student?.Class ?? student?.class ?? student?.grade ?? "").trim();
-      if (classFilter !== "all" && classValue !== classFilter) {
-        return;
-      }
+  //   rows.forEach((student) => {
+  //     const classValue = String(
+  //       student?.Class ?? student?.class ?? student?.grade ?? "",
+  //     ).trim();
+  //     if (classFilter !== "all" && classValue !== classFilter) {
+  //       return;
+  //     }
 
-      const sectionValue = String(student?.sec ?? student?.section ?? "").trim();
-      if (sectionValue) {
-        sectionSet.add(sectionValue);
-      }
-    });
+  //     const sectionValue = String(
+  //       student?.sec ?? student?.section ?? "",
+  //     ).trim();
+  //     if (sectionValue) {
+  //       sectionSet.add(sectionValue);
+  //     }
+  //   });
 
-    return ["all", ...Array.from(sectionSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))];
-  }, [classFilter, rows]);
+  //   return [
+  //     "all",
+  //     ...Array.from(sectionSet).sort((a, b) =>
+  //       a.localeCompare(b, undefined, { numeric: true }),
+  //     ),
+  //   ];
+  // }, [classFilter, rows]);
 
   const { data: filterPayload, isLoading } = useQuery({
     queryKey: ["filter-student", schoolName, academicYear, "options"],
@@ -269,12 +300,13 @@ console.log(tableView,"tableView");
     refetchOnWindowFocus: true,
   });
 
-
   return (
     <section className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="">
-          <h2 className="font-sf text-2xl font-bold text-foreground">Students</h2>
+          <h2 className="font-sf text-2xl font-bold text-foreground">
+            Students
+          </h2>
           <p className="text-sm text-muted-foreground">
             View student records, grade section, and follow-up status.
           </p>
@@ -312,7 +344,6 @@ console.log(tableView,"tableView");
           </Link>
         </div>
       </div>
-
 
       {/* <div className="grid gap-3 rounded-xl border border-border bg-card p-3 sm:grid-cols-2 lg:grid-cols-4">
         <Input
@@ -403,7 +434,51 @@ console.log(tableView,"tableView");
         </Select>
         
       </div> */}
-      <StudentFilter
+      {/* <StudentFilter
+        filterPayload={filterPayload}
+        isLoading={isLoading}
+        schoolName={schoolName}
+        academicYear={academicYear}
+        classFilter={classFilter}
+        sectionFilter={sectionFilter}
+        studentFilter={studentFilter}
+        onSchoolNameChange={(value) => {
+          updateParams({
+            school: value,
+            class: "all",
+            section: "all",
+            student: "all",
+            page: 1,
+          });
+        }}
+        onAcademicYearChange={(value) => {
+          updateParams({
+            academicYear: value,
+            class: "all",
+            section: "all",
+            student: "all",
+            page: 1,
+          });
+        }}
+        onClassFilterChange={(value) => {
+          updateParams({
+            class: value,
+            section: "all",
+            student: "all",
+            page: 1,
+          });
+        }}
+        onSectionFilterChange={(value) => {
+          updateParams({ section: value, student: "all", page: 1 });
+        }}
+        onStudentFilterChange={(value) => {
+          updateParams({ student: value });
+        }}
+      /> */}
+      <SchoolStudentFilter
+        formData={filterFormData}
+        setFormData={setFilterFormData}
+        selectRole={selectUser.user_type_id}
         filterPayload={filterPayload}
         isLoading={isLoading}
         schoolName={schoolName}
@@ -491,3 +566,8 @@ export default function StudentsPage() {
     </React.Suspense>
   );
 }
+
+
+
+
+

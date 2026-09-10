@@ -13,7 +13,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { getStudentSlug } from "./student-data";
+import { getStudentSlug } from "../datas/student-data";
 import { getNormaliseName } from "./students-cards";
 import { Button } from "@/components/ui/button";
 import { useDispatch } from "react-redux";

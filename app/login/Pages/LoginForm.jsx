@@ -59,6 +59,7 @@ const LoginForm = () => {
           token_type: result.token_type,
           expires_in: result.expires_in,
           loginAt: result.loginAt,
+          account: result.account ?? {},
         }),
       );
 

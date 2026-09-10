@@ -538,6 +538,298 @@
       color-mix(in oklch, var(--color-border) 60%, transparent);
     font-size: 0.9375rem;
   }
+
+  /* ---------- Shared form-field primitives ----------
+     Used by TextField / ScreeningInput / YearPicker / selects so every
+     form (incl. SchoolDetails stepper) shares one label / input /
+     error language driven by theme tokens. */
+  .field-label {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--color-foreground);
+    margin-bottom: 0.375rem;
+  }
+
+  .field-required {
+    margin-left: 0.125rem;
+    color: var(--color-destructive);
+  }
+
+  .field-hint {
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--color-muted-foreground);
+  }
+
+  .field-error {
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--color-destructive);
+    margin-top: 0.25rem;
+  }
+
+  .input-field {
+    display: flex;
+    height: 2.5rem;
+    width: 100%;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-input);
+    background-color: var(--color-background);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--color-foreground);
+    box-shadow: 0 1px 2px color-mix(in oklch, var(--shadow-color) 6%, transparent);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .input-field::placeholder {
+    color: var(--color-muted-foreground);
+  }
+
+  .input-field:focus-visible {
+    outline: none;
+    border-color: var(--color-ring);
+    box-shadow: 0 0 0 2px color-mix(in oklch, var(--color-ring) 30%, transparent);
+  }
+
+  .input-field:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .input-field[aria-invalid="true"] {
+    border-color: var(--color-destructive);
+    box-shadow: 0 0 0 2px color-mix(in oklch, var(--color-destructive) 18%, transparent);
+  }
+
+  .textarea-field {
+    width: 100%;
+    min-height: 5.5rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-input);
+    background-color: var(--color-background);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--color-foreground);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .textarea-field::placeholder {
+    color: var(--color-muted-foreground);
+  }
+
+  .textarea-field:focus-visible {
+    outline: none;
+    border-color: var(--color-ring);
+    box-shadow: 0 0 0 2px color-mix(in oklch, var(--color-ring) 30%, transparent);
+  }
+
+  /* Segmented Yes/No-style picker (screening-fields.jsx) */
+  .segmented {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    background-color: color-mix(in oklch, var(--color-muted) 45%, transparent);
+    padding: 0.25rem;
+  }
+
+  .segmented__btn {
+    border-radius: calc(var(--radius-md) - 2px);
+    padding: 0.375rem 0.875rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--color-muted-foreground);
+    border: 1px solid transparent;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .segmented__btn:hover {
+    color: var(--color-foreground);
+    background-color: color-mix(in oklch, var(--color-muted) 70%, transparent);
+  }
+
+  .segmented__btn[aria-pressed="true"] {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--color-primary-foreground);
+  }
+
+  .segmented__btn[data-tone="good"][aria-pressed="true"] {
+    background-color: var(--color-success);
+    border-color: var(--color-success);
+    color: var(--color-success-foreground);
+  }
+
+  .segmented__btn[data-tone="warn"][aria-pressed="true"] {
+    background-color: var(--color-warning);
+    border-color: var(--color-warning);
+    color: var(--color-warning-foreground);
+  }
+
+  .segmented__btn[data-tone="bad"][aria-pressed="true"] {
+    background-color: var(--color-destructive);
+    border-color: var(--color-destructive);
+    color: var(--color-destructive-foreground);
+  }
+
+  /* SchoolDetails stepper section headings */
+  .form-section-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-foreground);
+    margin-bottom: 0.75rem;
+  }
+
+  /* ---------- SchoolDetails stepper / branch-list skin ----------
+     All SchoolDetails coloring lives here (theme tokens only) so the
+     page itself stays free of hardcoded color utilities. */
+  .sd-icon-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    background-color: color-mix(in oklch, var(--color-primary) 10%, transparent);
+    color: var(--color-primary);
+  }
+
+  .sd-progress-track {
+    height: 0.375rem;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 999px;
+    background-color: var(--color-muted);
+  }
+
+  .sd-progress-bar {
+    height: 100%;
+    border-radius: 999px;
+    background-color: var(--color-primary);
+    transition: width 0.3s ease;
+  }
+
+  .sd-step-pill {
+    display: inline-flex;
+    height: 2rem;
+    width: 2rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .sd-step-pill--done,
+  .sd-step-pill--active {
+    background-color: var(--color-primary);
+    color: var(--color-primary-foreground);
+  }
+
+  .sd-step-pill--active {
+    outline: 2px solid color-mix(in oklch, var(--color-primary) 30%, transparent);
+    outline-offset: 2px;
+  }
+
+  .sd-step-pill--idle {
+    background-color: var(--color-muted);
+    color: var(--color-muted-foreground);
+  }
+
+  .sd-step-connector {
+    margin-inline: 0.25rem;
+    height: 0.125rem;
+    width: 3rem;
+    border-radius: 999px;
+    transition: background-color 0.15s ease;
+  }
+
+  .sd-step-connector--done {
+    background-color: var(--color-primary);
+  }
+
+  .sd-step-connector--idle {
+    background-color: var(--color-muted);
+  }
+
+  .sd-form-scroll {
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+
+  .sd-stat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  @media (max-width: 640px) {
+    .sd-stat-grid {
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+  }
+
+  .sd-icon-btn {
+    flex-shrink: 0;
+    border-radius: var(--radius-md);
+  }
+
+  .sd-icon-btn:hover {
+    background-color: color-mix(in oklch, var(--color-muted) 70%, transparent);
+    color: var(--color-foreground);
+  }
+
+  .sd-section-accent {
+    border-left: 2px solid color-mix(in oklch, var(--color-primary) 60%, transparent);
+    padding-left: 0.75rem;
+  }
+
+  /* Active-step micro meter (current pill progress) */
+  .sd-active-step-meter {
+    margin-inline: 0.5rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background-color: color-mix(in oklch, var(--color-primary) 15%, transparent);
+  }
+
+  .sd-active-step-meter__fill {
+    height: 0.25rem;
+    width: 2rem;
+    border-radius: 999px;
+    background-color: color-mix(in oklch, var(--color-primary) 40%, transparent);
+    transition: width 0.3s ease-out;
+  }
+
+  /* Branch list rows — layout stays in JSX, coloring lives here */
+  .sd-branch-meta {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    color: var(--color-muted-foreground);
+  }
+
+  .sd-branch-meta__row {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .sd-branch-meta__value {
+    font-weight: 500;
+    color: var(--color-foreground);
+  }
+
+  .sd-branch-empty {
+    border-radius: var(--radius-md);
+    border: 1px dashed var(--color-border);
+    background-color: var(--color-card);
+    padding: 1.5rem;
+  }
 }
 
 @layer utilities {
@@ -721,4 +1013,30 @@
 .react-datepicker__navigation,
 .react-datepicker__navigation:hover {
   pointer-events: auto !important;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  opacity: 1;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  height: 1.25rem;
+  width: 1rem;
+}
+
+input[type="number"]::-webkit-inner-spin-button:hover {
+  /* background: color-mix(in oklch, var(--color-primary) 80%, black); */
+}
+
+
+/* input[type="number"]::-webkit-inner-spin-button:hover,
+input[type="number"]::-webkit-outer-spin-button:hover {
+  background: color-mix(in oklch, var(--color-primary) 80%, black) !important;
+  background-color: color-mix(in oklch, var(--color-primary) 80%, black);
+} */
+
+/* Number input spinner — Firefox */
+input[type="number"] {
+  -moz-appearance: textfield;
 }

@@ -10,9 +10,10 @@ import {
   UserRound,
   Venus,
 } from "lucide-react";
-import { getNormaliseName } from "./students-cards";
+// import { getNormaliseName } from "../students-cards";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
+import { getNormaliseName } from "./students-cards";
 
 function formatDob(value) {
   if (!value) {

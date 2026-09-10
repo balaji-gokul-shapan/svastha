@@ -25,6 +25,8 @@ const YearPicker = React.forwardRef(function YearPicker(
     minYear = 1900,
     inputClassName,
     allowFutureYears = true,
+    withPortal = false,
+    portalId = "sd-yearpicker-portal",
     ...props
   },
   ref,
@@ -37,14 +39,11 @@ const YearPicker = React.forwardRef(function YearPicker(
     : undefined;
 
   return (
-    <div className={cn("relative text-indent-[40px]", className)}>
+    <div className={cn("relative", className)}>
       {label ? (
         <label
           htmlFor={id}
-          className={cn(
-            "block text-sm font-medium text-foreground mb-1",
-            labelClassName,
-          )}
+          className={cn("field-label", labelClassName)}
         >
           {label}
         </label>
@@ -72,9 +71,11 @@ const YearPicker = React.forwardRef(function YearPicker(
           inputClassName,
         )}
         wrapperClassName="w-full block"
+        withPortal={withPortal}
+        portalId={portalId}
         renderCustomHeader={({
           value,
-          changeYear,https://svastha-api.sms24hrs.org/api/v1/refresh
+          changeYear,
           decreaseYear,
           increaseYear,
         }) => (

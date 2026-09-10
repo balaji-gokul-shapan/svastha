@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Check, ChevronDown, Loader2 } from "lucide-react";
 
 import { cn } from "../../lib/utils";
@@ -39,15 +40,53 @@ export default function ReusableSelect({
   hasMore = false,
   isLoadingMore = false,
   onSearch = null,
+  withPortal=false
 }) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [dropDirection, setDropDirection] = useState("down");
   const [isSearching, setIsSearching] = useState(false);
+  const [portalEl, setPortalEl] = useState(null);
+  const [triggerRect, setTriggerRect] = useState(null);
   const containerRef = useRef(null);
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
   const searchTimerRef = useRef(null);
+    const dropdownContainerRef = useRef(null);
+  
+
+  // ─── portal element (lazy, appended to body) ─────────────────────────────
+  useLayoutEffect(() => {
+    if (!withPortal) return;
+    const el = document.createElement("div");
+    el.id = "rms-portal";
+    el.style.position = "fixed";
+    el.style.zIndex = "9999";
+    el.style.top = "0";
+    el.style.left = "0";
+    el.style.width = "0";
+    el.style.height = "0";
+    document.body.appendChild(el);
+    setPortalEl(el);
+    return () => {
+      document.body.removeChild(el);
+      setPortalEl(null);
+    };
+  }, [withPortal]);
+
+  // ─── track trigger rect for portal positioning ───────────────────────────
+  useLayoutEffect(() => {
+    if (!open || !withPortal || !containerRef.current) return;
+    const update = () => setTriggerRect(containerRef.current.getBoundingClientRect());
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [open, withPortal]);
+
 
   // Debounced server search: when the parent supplies onSearch, forward the
   // keyword so it can query the backend and swap the options list. Falls back
@@ -134,7 +173,7 @@ export default function ReusableSelect({
     }
   }, [open, hasMore, isLoadingMore, onLoadMore, filteredOptions.length]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) {
       return;
     }
@@ -154,20 +193,21 @@ export default function ReusableSelect({
       spaceAbove > estimatedDropdownHeight;
     setDropDirection(shouldOpenUp ? "up" : "down");
 
-    const onPointerDown = (event) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target)
-      ) {
+    const onPointerDown = (e) => {
+      const clickedInsideTrigger =
+        containerRef.current && containerRef.current.contains(e.target);
+      const clickedInsideDropdown =
+        dropdownContainerRef.current &&
+        dropdownContainerRef.current.contains(e.target);
+      if (!clickedInsideTrigger && !clickedInsideDropdown) {
         setOpen(false);
         setSearchTerm("");
+        setEditingValue(null);
+        setDeletingValue(null);
       }
     };
-
     document.addEventListener("mousedown", onPointerDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-    };
+    return () => document.removeEventListener("mousedown", onPointerDown);
   }, [open, filteredOptions.length]);
 
   useEffect(() => {
@@ -225,86 +265,133 @@ export default function ReusableSelect({
           ) : null}
         </Tooltip>
 
-        {open ? (
-          <div
-            className={cn(
-              "absolute left-0 right-0 z-[70] rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md",
-              dropDirection === "up" ? "bottom-full mb-0.5" : "top-full mt-0",
-            )}
-          >
-            <input
-              ref={inputRef}
-              type="text"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  setOpen(false);
-                  setSearchTerm("");
-                }
-              }}
-              placeholder={searchPlaceholder}
-              className="mb-2 h-9 w-full rounded-md border border-input bg-background px-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
-            />
+        {open
+          ? (() => {
+              const dropdownBody = (
+                <>
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        setOpen(false);
+                        setSearchTerm("");
+                      }
+                    }}
+                    placeholder={searchPlaceholder}
+                    className="mb-2 h-9 w-full rounded-md border border-input bg-background px-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  />
 
-            <div
-              ref={dropdownRef}
-              className="max-h-60 space-y-1 overflow-y-auto"
-            >
-              {isSearching ? (
-                <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground">
-                  <Loader2 className="size-3.5 animate-spin" />
-                  Searching…
-                </div>
-              ) : filteredOptions.length ? (
-                filteredOptions.map((option) => {
-                  const isSelected = option.value === String(value ?? "");
-                  return (
-                    <Tooltip key={option.value}>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onChange?.(option.value);
-                            setOpen(false);
-                            setSearchTerm("");
-                          }}
-                          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground"
-                        >
-                          <span className="inline-flex w-4 items-center justify-center">
-                            {isSelected ? <Check className="size-3.5" /> : null}
-                          </span>
-                          <span className="truncate">{option.label}</span>
-                        </button>
-                      </TooltipTrigger>
-                      {option.label.trim().length >= MIN_TOOLTIP_LENGTH ? (
-                        <TooltipContent side="right">
-                          {option.label}
-                        </TooltipContent>
-                      ) : null}
-                    </Tooltip>
-                  );
-                })
-              ) : (
-                <p className="px-2 py-1.5 text-sm text-muted-foreground">
-                  No results found
-                </p>
-              )}
+                  <div
+                    ref={dropdownRef}
+                    className="max-h-60 space-y-1 overflow-y-auto"
+                  >
+                    {isSearching ? (
+                      <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground">
+                        <Loader2 className="size-3.5 animate-spin" />
+                        Searching…
+                      </div>
+                    ) : filteredOptions.length ? (
+                      filteredOptions.map((option) => {
+                        const isSelected =
+                          option.value === String(value ?? "");
+                        return (
+                          <Tooltip key={option.value}>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  onChange?.(option.value);
+                                  setOpen(false);
+                                  setSearchTerm("");
+                                }}
+                                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                              >
+                                <span className="inline-flex w-4 items-center justify-center">
+                                  {isSelected ? (
+                                    <Check className="size-3.5" />
+                                  ) : null}
+                                </span>
+                                <span className="truncate">
+                                  {option.label}
+                                </span>
+                              </button>
+                            </TooltipTrigger>
+                            {option.label.trim().length >= MIN_TOOLTIP_LENGTH ? (
+                              <TooltipContent side="right">
+                                {option.label}
+                              </TooltipContent>
+                            ) : null}
+                          </Tooltip>
+                        );
+                      })
+                    ) : (
+                      <p className="px-2 py-1.5 text-sm text-muted-foreground">
+                        No results found
+                      </p>
+                    )}
 
-              {/* Loading indicator for infinite scroll */}
-              {isLoadingMore ? (
-                <div className="flex items-center justify-center gap-2 px-2 py-3 text-sm text-muted-foreground">
-                  <Loader2 className="size-4 animate-spin" />
-                  <span>Loading more...</span>
-                </div>
-              ) : hasMore && filteredOptions.length > 0 ? (
-                <p className="px-2 py-2 text-center text-xs text-muted-foreground">
-                  Scroll for more
-                </p>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
+                    {/* Loading indicator for infinite scroll */}
+                    {isLoadingMore ? (
+                      <div className="flex items-center justify-center gap-2 px-2 py-3 text-sm text-muted-foreground">
+                        <Loader2 className="size-4 animate-spin" />
+                        <span>Loading more...</span>
+                      </div>
+                    ) : hasMore && filteredOptions.length > 0 ? (
+                      <p className="px-2 py-2 text-center text-xs text-muted-foreground">
+                        Scroll for more
+                      </p>
+                    ) : null}
+                  </div>
+                </>
+              );
+
+              return withPortal
+                ? portalEl && triggerRect
+                  ? createPortal(
+                      <div
+                       ref={dropdownContainerRef}
+                        style={{
+                          position: "absolute",
+                          left: triggerRect.left,
+                          width: triggerRect.width,
+                          top:
+                            dropDirection === "up"
+                              ? triggerRect.top -
+                                Math.min(
+                                  320,
+                                  Math.max(
+                                    220,
+                                    filteredOptions.length * 34 + 90,
+                                  ),
+                                ) -
+                                4
+                              : triggerRect.bottom,
+                        }}
+                        className="z-[9999] rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md"
+                      >
+                        {dropdownBody}
+                      </div>,
+                      portalEl,
+                    )
+                  : null
+                : (
+                  <div
+                   ref={dropdownContainerRef}
+                    className={cn(
+                      "absolute left-0 right-0 z-[70] rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md",
+                      dropDirection === "up"
+                        ? "bottom-full mb-0.5"
+                        : "top-full mt-0",
+                    )}
+                  >
+                    {dropdownBody}
+                  </div>
+                );
+            })()
+          : null}
       </div>
     </TooltipProvider>
   );

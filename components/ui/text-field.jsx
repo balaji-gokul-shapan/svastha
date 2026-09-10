@@ -45,27 +45,29 @@ const TextField = React.forwardRef(function TextField(
     required = false,
     inputClassName,
     labelClassName,
+    error,
     ...props
   },
   ref,
 ) {
   const fieldId = id;
+  const hasError = Boolean(error);
   return (
     <div className={cn("space-y-1.5", className)}>
       {label ? (
-        <Label htmlFor={fieldId} className={cn("mb-1.5 block text-xs text-muted-foreground ", labelClassName)}>
+        <Label htmlFor={fieldId} className={cn("field-label", labelClassName)}>
           {label}
-          {required ? (
-            <span className="ml-0.5 text-destructive">*</span>
-          ) : null}
+          {required ? <span className="field-required">*</span> : null}
         </Label>
       ) : null}
       <Input
         ref={ref}
         id={fieldId}
-        className={inputClassName}
+        aria-invalid={hasError || undefined}
+        className={cn(hasError && "border-destructive", inputClassName)}
         {...props}
       />
+      {hasError ? <p className="field-error">{error}</p> : null}
     </div>
   );
 });

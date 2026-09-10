@@ -41,7 +41,7 @@ export const settingsNav = [
   },
   {
     id: "team",
-    label: "Team",
+    label: "Teams",
     roles: ["admin", "school_admin", "school"],
   },
   {
@@ -101,9 +101,9 @@ export const initialAccounts = [
 
 // Team account options.
 export const USER_TYPE_OPTIONS = [
-  { value: "1", label: "Admin" },
-  { value: "2", label: "Staff" },
-  { value: "3", label: "Teacher" },
+  { value: "2", label: "Admin" },
+  { value: "3", label: "Staff" },
+  // { value: "3", label: "Teacher" },
   { value: "4", label: "Accountant" },
 ];
 

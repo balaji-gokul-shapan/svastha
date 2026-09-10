@@ -10,7 +10,7 @@ import { ClipboardList, FileText } from "lucide-react";
 import HealthWorkerFormOutlineIcon from "@iconify-react/healthicons/health-worker-form-outline";
 import useAssignedEvents, { findSelectedCamp } from "@/lib/useAssignedEvents";
 import { TextField } from "@/components/ui/text-field";
-import { getNormaliseName } from "../students/students-cards";
+import { getNormaliseName } from "../students/utilities/students-cards";
 
 const AssessmentCard = ({
   form,
@@ -241,8 +241,31 @@ const AssessmentCard = ({
     </div>
   );
 };
+  // const assessmentForm = useCallback(
+  //   () => ({
+  //     height,
+  //     weight,
+  //     bmi: displayBmi ? displayBmi.toFixed(1) : "",
+  //     bloodPressure,
+  //     pulse,
+  //     temperature,
+  //     spo2,
+  //     bloodGroup,
+  //   }),
+  //   [
+  //     bmi,
+  //     displayBmi,
+  //     temperature,
+  //     height,
+  //     pulse,
+  //     bloodPressure,
+  //     spo2,
+  //     weight,
+  //     bloodGroup,
+  //   ],
+  // );
 
-export default React.memo(AssessmentCard);
+export default AssessmentCard;
 
 function SummaryItem({ label, value, unit, status }) {
   return (

@@ -80,7 +80,7 @@ const getInitials = (name = "") => {
 const TeamPage = ({
   accounts,
   selectedIds,
-
+  authAccName,
   onToggleRow,
   onToggleAll,
   onToggleStatus,
@@ -105,7 +105,7 @@ const TeamPage = ({
 
   deleteTarget,
   setDeleteTarget,
-
+  handleEditAccount,
   onConfirmDelete,
   subAccount,
   setSubAccount,
@@ -706,7 +706,7 @@ const TeamPage = ({
                       autoComplete="off"
                     />
 
-                    {formErrors.name && (
+                    {formErrors?.name && (
                       <p className="text-xs text-destructive">
                         {formErrors.name}
                       </p>
@@ -731,7 +731,7 @@ const TeamPage = ({
                       autoComplete="off"
                     />
 
-                    {formErrors.phoneNumber && (
+                    {formErrors?.phoneNumber && (
                       <p className="text-xs text-destructive">
                         {formErrors.phoneNumber}
                       </p>
@@ -753,7 +753,7 @@ const TeamPage = ({
                       autoComplete="off"
                     />
 
-                    {formErrors.username && (
+                    {formErrors?.username && (
                       <p className="text-xs text-destructive">
                         {formErrors.username}
                       </p>
@@ -799,7 +799,7 @@ const TeamPage = ({
                       </button>
                     </div>
 
-                    {formErrors.password && (
+                    {formErrors?.password && (
                       <p className="text-xs text-destructive">
                         {formErrors.password}
                       </p>
@@ -821,20 +821,22 @@ const TeamPage = ({
 
                 <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2">
                   {/* USER TYPE */}
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5"> 
+                  <div>
                     <ReusableSelect
                       label="User Type"
-                      value={subAccount?.usertypeId ?? ""}
+                      withPortal
+                      value={subAccount?.user_type_id ?? ""}
                       onChange={(value) =>
-                        handleSubAccountChange("usertypeId", value)
+                        handleSubAccountChange("user_type_id", value)
                       }
                       options={USER_TYPE_OPTIONS}
                       placeholder="Select user type"
                     />
-
-                    {formErrors.usertypeId && (
+                  </div>
+                    {formErrors?.user_type_id && (
                       <p className="text-xs text-destructive">
-                        {formErrors.usertypeId}
+                        {formErrors.user_type_id}
                       </p>
                     )}
                   </div>
@@ -843,6 +845,7 @@ const TeamPage = ({
                   <div className="space-y-1.5">
                     <ReusableSelect
                       label="Branch"
+                      withPortal
                       value={subAccount?.branchId ?? ""}
                       onChange={(value) =>
                         handleSubAccountChange("branchId", value)
@@ -851,16 +854,39 @@ const TeamPage = ({
                       placeholder="Select branch"
                     />
 
-                    {formErrors.branchId && (
+                    {formErrors?.branchId && (
                       <p className="text-xs text-destructive">
                         {formErrors.branchId}
                       </p>
                     )}
                   </div>
+
+                  {/* PRIVILEGES — required for all user types except type 1 */}
+                  {/* {String(subAccount?.usertypeId ?? "").trim() !== "1" && (
+                    <div className="space-y-1.5">
+                      <ReusableSelect
+                        label="Privileges"
+                        withPortal
+                        value={subAccount?.previleges ?? ""}
+                        onChange={(value) =>
+                          handleSubAccountChange("previleges", value)
+                        }
+                        options={PRIVILEGE_OPTIONS}
+                        placeholder="Select privileges"
+                      />
+
+                      {formErrors?.previleges && (
+                        <p className="text-xs text-destructive">
+                          {formErrors.previleges}
+                        </p>
+                      )}
+                    </div>
+                  )} */}
                 </div>
               </section>
 
               {/* CLASS & SECTION */}
+              {authAccName?.user_type_id !== 1 && (
               <section className="mt-7">
                 <div className="mb-4">
                   <h3 className="text-sm font-semibold text-foreground">
@@ -875,6 +901,8 @@ const TeamPage = ({
                 {/* <div className="rounded-lg border border-border bg-muted/20 p-4">
           </div> */}
               </section>
+
+              )}
             </div>
 
             {/* FOOTER */}

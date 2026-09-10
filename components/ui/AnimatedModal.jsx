@@ -63,6 +63,14 @@ function AnimatedModal({
               onClose?.();
             }
           }}
+          onMouseDown={(event) => {
+            if (
+              closeOnOverlayClick &&
+              event.target === event.currentTarget
+            ) {
+              onClose?.();
+            }
+          }}
         >
           <motion.div
             className={cn(

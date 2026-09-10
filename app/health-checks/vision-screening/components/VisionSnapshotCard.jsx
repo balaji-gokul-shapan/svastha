@@ -23,6 +23,9 @@ function AcuityRow({
     return record?.severity ?? "";
   };
 
+  console.log(eye,"eye");
+  
+
   const severityLine = (value) => {
     const severity = severityFor(value);
     if (!severity) return null;
@@ -129,21 +132,21 @@ const VisionSnapshotCard = ({
 
           <AcuityRow
             label="Right Eye (OD)"
-            eye={getSelectedStudentScreeningData?.od_distance_without || od}
+            eye={od}
             onChange={setOd}
             visionResultData={visionResultData}
             acuitySeverityMap={acuitySeverityMap}
           />
           <AcuityRow
             label="Left Eye (OS)"
-            eye={getSelectedStudentScreeningData?.os_distance_without || os}
+            eye={os}
             onChange={setOs}
             visionResultData={visionResultData}
             acuitySeverityMap={acuitySeverityMap}
           />
           <AcuityRow
             label="Both Eyes (OU)"
-            eye={getSelectedStudentScreeningData?.ou_distance_without || ou}
+            eye={ou}
             onChange={setOu}
             visionResultData={visionResultData}
             acuitySeverityMap={acuitySeverityMap}

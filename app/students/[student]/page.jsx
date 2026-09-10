@@ -21,15 +21,15 @@ import { getAllStudent } from "@/lib/features/getAllStudentSlice";
 import { updateStudent } from "@/lib/features/updateStudentSlice";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import HealthCheckModal from "@/components/students/health-check-modal";
-import { getStudentSlug } from "../student-data";
-import { getInitials } from "../students-data-table";
-import { getNormaliseName } from "../students-cards";
+import { getStudentSlug } from "../datas/student-data";
+import { getInitials } from "../utilities/students-data-table";
 import {
   FemaleStudentIcon,
   MaleStudentIcon,
 } from "@/components/assets/image/icon";
 import { Badge } from "@/components/ui/badge";
 import ImageCropper from "@/components/imageCropper";
+import { getNormaliseName } from "../utilities/students-cards";
 
 function statusToneClass(status) {
   const s = (status ?? "").toLowerCase();
