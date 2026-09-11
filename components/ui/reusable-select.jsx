@@ -52,7 +52,12 @@ export default function ReusableSelect({
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
   const searchTimerRef = useRef(null);
-    const dropdownContainerRef = useRef(null);
+  const dropdownContainerRef = useRef(null);
+  // Clearing the input after an option is picked is a UI cleanup, not a new
+  // search. Without this guard, the debounced effect below calls onSearch("")
+  // shortly after selection and can replace the result list containing the
+  // selected option.
+  const skipNextSearchRef = useRef(false);
   
 
   // ─── portal element (lazy, appended to body) ─────────────────────────────
@@ -93,6 +98,10 @@ export default function ReusableSelect({
   // to local filtering when onSearch is not provided.
   useEffect(() => {
     if (!onSearch) return;
+    if (skipNextSearchRef.current) {
+      skipNextSearchRef.current = false;
+      return;
+    }
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     const keyword = searchTerm.trim();
     searchTimerRef.current = setTimeout(() => {
@@ -202,8 +211,8 @@ export default function ReusableSelect({
       if (!clickedInsideTrigger && !clickedInsideDropdown) {
         setOpen(false);
         setSearchTerm("");
-        setEditingValue(null);
-        setDeletingValue(null);
+        setEditingValue && setEditingValue(null);
+        setDeletingValue && setDeletingValue(null);
       }
     };
     document.addEventListener("mousedown", onPointerDown);
@@ -305,6 +314,7 @@ export default function ReusableSelect({
                                 onClick={() => {
                                   onChange?.(option.value);
                                   setOpen(false);
+                                  skipNextSearchRef.current = true;
                                   setSearchTerm("");
                                 }}
                                 className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground"

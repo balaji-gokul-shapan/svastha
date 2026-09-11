@@ -396,7 +396,6 @@ export default function DentalAssessmentPage() {
     queryKey: ["dental-Condition"],
     queryFn: async () => {
       const result = await dispatch(getDentalConditionsScreening()).unwrap();
-
       return result?.[0]?.data ?? [];
     },
     refetchOnWindowFocus: false,
@@ -1974,6 +1973,14 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
     });
     setIsCodingPopupOpen(false);
     setEditingEntryId(null);
+    // Reset the popup + search state so the next open starts fresh and the
+    // coding dropdown shows the full list, not the last search results.
+    setPopupCodingValue("");
+    setPopupConditionValue("");
+    setPopupTreatmentValue("");
+    setPopupSurfaceValue("");
+    setCodingSearchTerm("");
+    setCodingSearchOptions(null);
     toast.success(
       isEditingEntry
         ? `Coding updated for tooth ${toothNumber}`
@@ -2042,7 +2049,8 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
       const search = keyword.trim();
       setCodingSearchTerm(keyword);
       if (!search) {
-        // setCodingSearchOptions(null);
+        setCodingSearchOptions(null);
+        setCodingSearchTerm("");
         await dispatch(getDentalCodingScreening({ page: 1, perPage: 50 }));
         return;
       }
@@ -2697,6 +2705,9 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
                                       setPopupCodingValue("");
                                       setPopupConditionValue("");
                                       setPopupTreatmentValue("");
+                                      setPopupSurfaceValue("");
+                                      setCodingSearchTerm("");
+                                      setCodingSearchOptions(null);
                                     }
                                   }}
                                 >
