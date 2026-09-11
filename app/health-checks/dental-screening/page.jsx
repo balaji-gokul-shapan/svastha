@@ -430,22 +430,23 @@ export default function DentalAssessmentPage() {
 
   // Map a treatment display name → the matching dental-treatments master id
   // (the dental_codings payload stores foreign keys, not the display label).
- const getDentalTreatmentId = (treatmentName) =>
-  String(
-    (Array.isArray(DentalTreatmentsMasterData)
-      ? DentalTreatmentsMasterData
-      : []
-    ).find(
-      (t) =>
-        String(t?.name ?? "").trim() ===
-        String(treatmentName ?? "").trim()
-    )?.id ?? ""
-  );
-
+  const getDentalTreatmentId = (treatmentName) =>
+    String(
+      (Array.isArray(DentalTreatmentsMasterData)
+        ? DentalTreatmentsMasterData
+        : []
+      ).find(
+        (t) =>
+          String(t?.name ?? "").trim() === String(treatmentName ?? "").trim(),
+      )?.id ?? "",
+    );
 
   // Coding dropdown: show the human-readable name, store the code as the
-  // payload value. Falls back to name if code is missing.
+  // payload value. Falls back to name if code is missing. popupCodingValue
   const getDentalCodingOptions = mapDentalCodingOptions(getDentalCoding);
+console.log(getDentalCodingOptions,"getDentalCodingOptions");
+
+
 
   const getDentalCondtionOptions = (
     Array.isArray(getDentalCondition) ? getDentalCondition : []
@@ -472,7 +473,6 @@ export default function DentalAssessmentPage() {
         })
       : plaqueOptions;
 
- 
   const gingivalHealthSource =
     Array.isArray(getDentalCondition) && getDentalCondition.length > 0
       ? getDentalCondition
@@ -480,43 +480,41 @@ export default function DentalAssessmentPage() {
         ? DentalConditionsMasterData
         : [];
 
-const gingivalHealthToggleOptions = gingivalHealthOptions
-  .map((item) => {
-    const label = String(item?.label ?? "").trim();
-    const value = String(item?.value ?? "").trim().toLowerCase();
-    const severity = String(item?.severity ?? "").trim().toLowerCase();
+  const gingivalHealthToggleOptions = gingivalHealthOptions
+    .map((item) => {
+      const label = String(item?.label ?? "").trim();
+      const value = String(item?.value ?? "")
+        .trim()
+        .toLowerCase();
+      const severity = String(item?.severity ?? "")
+        .trim()
+        .toLowerCase();
 
-    let tone = "neutral";
+      let tone = "neutral";
 
-    if (severity.includes("high")) {
-      tone = "bad";
-    } else if (severity.includes("medium")) {
-      tone = "warn";
-    } else if (
-      severity.includes("low") ||
-      severity.includes("none")
-    ) {
-      tone = "good";
-    } else if (value === "good" || label.toLowerCase() === "good") {
-      tone = "good";
-    } else if (value === "fair" || label.toLowerCase() === "fair") {
-      tone = "warn";
-    } else if (value === "poor" || label.toLowerCase() === "poor") {
-      tone = "bad";
-    }
+      if (severity.includes("high")) {
+        tone = "bad";
+      } else if (severity.includes("medium")) {
+        tone = "warn";
+      } else if (severity.includes("low") || severity.includes("none")) {
+        tone = "good";
+      } else if (value === "good" || label.toLowerCase() === "good") {
+        tone = "good";
+      } else if (value === "fair" || label.toLowerCase() === "fair") {
+        tone = "warn";
+      } else if (value === "poor" || label.toLowerCase() === "poor") {
+        tone = "bad";
+      }
 
-    return {
-      value,
-      label,
-      tone,
-    };
-  })
-  .filter((option) => option.value);
+      return {
+        value,
+        label,
+        tone,
+      };
+    })
+    .filter((option) => option.value);
 
-console.log(
-  gingivalHealthToggleOptions,
-  "gingivalHealthToggleOptions"
-);
+  console.log(gingivalHealthToggleOptions, "gingivalHealthToggleOptions");
 
   // Map master-data oral hygiene records to toggle options ({value, label,
   // tone}) and append them after the built-in ones (deduped by value).
@@ -561,7 +559,7 @@ console.log(
   // const [getDentalCodingValue, setDentalCodingValue] = useState("");
   // const [DentalConditionValue, setDentalConditionValue] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-   const isSavingRef = useRef(false);
+  const isSavingRef = useRef(false);
   const [dentalFindingEntries, setDentalFindingEntries] = useState([]);
   const [dentalCodingEntries, setDentalCodingEntries] = useState([]);
   const [isCodingPopupOpen, setIsCodingPopupOpen] = useState(false);
@@ -569,7 +567,7 @@ console.log(
   const [popupConditionValue, setPopupConditionValue] = useState("");
   const [popupTreatmentValue, setPopupTreatmentValue] = useState("");
   const [popupSurfaceValue, setPopupSurfaceValue] = useState("");
-   // Tracks the last successfully saved student (create-only flow): once a
+  // Tracks the last successfully saved student (create-only flow): once a
   // student is saved, further save clicks for the SAME student are blocked;
   // selecting a different student changes the key and unblocks saving.
   const savedStudentKeyRef = useRef(null);
@@ -773,6 +771,25 @@ console.log(
   console.log(currentTooth, "selectedTeeth");
 
   console.log(popupCodingValue, popupConditionValue, "popupCodingValue");
+
+  
+  const getDentalCondtion = (Array.isArray(getDentalCoding)
+    ? getDentalCoding
+    : []
+  ).find(
+    (item) => String(item?.code ?? "").trim() === String(popupCodingValue ?? "").trim(),
+  );
+  const getDentalConditionFromCoding = useMemo(() => {
+    const raw =
+      getDentalCondtion?.dental_condition ??
+      getDentalCondtion?.dentalCondition ??
+      [];
+    const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+    const first = list[0];
+    if (typeof first === "string") return first;
+    return String(first?.name ?? "").trim();
+  }, [getDentalCondtion]);
+
 
   // const hasDentalRecords = dentalScreeningData.length > 0;
 
@@ -1416,8 +1433,12 @@ console.log(
       Array.isArray(getDentalCondition) ? getDentalCondition : []
     ).find(
       (item) =>
-        String(item?.name ?? "").trim().toLowerCase() ===
-        String(value ?? "").trim().toLowerCase(),
+        String(item?.name ?? "")
+          .trim()
+          .toLowerCase() ===
+        String(value ?? "")
+          .trim()
+          .toLowerCase(),
     );
 
     updateSelectedTooth({
@@ -1479,22 +1500,24 @@ console.log(
       }),
     [studentsArray],
   );
-const getDentalConditionValue = (
-  Array.isArray(getDentalCondition) ? getDentalCondition : []
-).find(
-  (item) =>
-    String(item?.name ?? "").trim().toLowerCase() ===
-    String(currentTooth?.condition ?? "").trim().toLowerCase()
-);
+  const getDentalConditionValue = (
+    Array.isArray(getDentalCondition) ? getDentalCondition : []
+  ).find(
+    (item) =>
+      String(item?.name ?? "")
+        .trim()
+        .toLowerCase() ===
+      String(currentTooth?.condition ?? "")
+        .trim()
+        .toLowerCase(),
+  );
 
-console.log("current condition:", currentTooth?.condition);
-console.log("conditions:", getDentalCondition);
-console.log("selectedeee:", getDentalConditionValue);
+  console.log("current condition:", currentTooth?.condition);
+  console.log("conditions:", getDentalCondition);
+  console.log("selectedeee:", getDentalConditionValue);
 
-  
   const handleSaveAssessment = () => {
-
-      if (isSavingRef.current) {
+    if (isSavingRef.current) {
       return;
     }
 
@@ -1543,10 +1566,10 @@ console.log("selectedeee:", getDentalConditionValue);
       return;
     }
     if (savedStudentKeyRef.current === String(rawStudentId)) {
-          toast.error(
-            "This student's screening has already been saved. Select another student to continue.",
-          );
-          return;
+      toast.error(
+        "This student's screening has already been saved. Select another student to continue.",
+      );
+      return;
     }
 
     const payload = {
@@ -1577,7 +1600,6 @@ console.log("selectedeee:", getDentalConditionValue);
         treatment: String(entry.treatment ?? ""),
       })),
 
-      
       dental_codings: dentalCodingEntries.map((entry) => ({
         code: entry.coding,
         name: entry.condition,
@@ -1611,8 +1633,7 @@ console.log("selectedeee:", getDentalConditionValue);
         treatment: String(tooth.treatment ?? ""),
       })),
     };
-    console.log(payload,"payload");
-    
+    console.log(payload, "payload");
 
     setIsSaving(true);
     isSavingRef.current = true;
@@ -1706,8 +1727,7 @@ console.log("selectedeee:", getDentalConditionValue);
         const code = String(item?.code ?? "").trim();
         const id = String(item?.id ?? "").trim();
         const name = String(item?.name ?? item?.code ?? "").trim();
-        console.log({code, id, name});
-        
+        console.log({ code, id, name });
 
         if (code) {
           map[code] = {
@@ -1721,15 +1741,14 @@ console.log("selectedeee:", getDentalConditionValue);
     return map;
   }, [getDentalCoding]);
 
-  console.log(codingLabelMap,"codingLabelMap");
-  
+  console.log(codingLabelMap, "codingLabelMap");
 
   const conditionLabelMap = useMemo(() => {
     const map = {};
     if (Array.isArray(getDentalCondition)) {
       getDentalCondition.forEach((item) => {
-        console.log(item,"item---");
-        
+        console.log(item, "item---");
+
         const name = String(item?.name ?? "").trim();
         if (!name) return;
         // Keyed by name; the value carries every master field so entries can
@@ -1751,62 +1770,68 @@ console.log("selectedeee:", getDentalConditionValue);
     }
     return map;
   }, [getDentalCondition]);
-  console.log(popupConditionValue,"conditionLabelMap");
+  console.log(popupConditionValue, "conditionLabelMap");
 
   // Keep dentalFindingEntries in sync with the tooth chart — every tooth with a
-// condition or marked finding becomes a finding entry (mirrors the manual
-// dentalCodingEntries flow, but derived so saving always reflects the chart).
-useEffect(() => {
-  const entries = (Array.isArray(chart) ? chart : [])
-    .filter((tooth) => tooth.number > 0)
-    .filter((tooth) => {
-      const hasCondition = String(tooth.condition ?? "").trim().length > 0;
-      const hasStatus = String(tooth.status ?? "").trim().length > 0 &&
-        !["healthy", "missing"].includes(String(tooth.status).trim());
-      const hasFinding =
-        hasCondition ||
-        hasStatus ||
-        (String(tooth.surface ?? "").trim() && String(tooth.surface ?? "").trim() !== "—") ||
-        String(tooth.severity ?? "").trim() ||
-        String(tooth.riskScore ?? "").trim();
-      return hasFinding;
-    })
-    
-    .map((tooth) => ({
-      
-      id: tooth.number,
-      tooth_number: tooth.number,
-      condition: String(tooth.condition ?? ""),
-      dental_condition_id: (() => {
-        // Resolve the condition NAME to its master ID — the backend expects the
-        // ID, not the display name. Mirrors the lookup in handleConditionChange.
-        const conditionName = String(tooth.condition ?? "")
-          .trim()
-          .toLowerCase();
-        const conditionRecord = (
-          Array.isArray(getDentalCondition) ? getDentalCondition : []
-        ).find(
-          (item) =>
-            String(item?.name ?? "").trim().toLowerCase() === conditionName,
-        );
-        return String(conditionRecord?.id ?? tooth.condition ?? "");
-      })(),
-      surface: tooth.surface && tooth.surface !== "—" ? String(tooth.surface) : "",
-      risk: tooth.riskScore || tooth.risk || "",
-      severity: tooth.severity && tooth.severity !== "—" ? String(tooth.severity) : "",
-      treatment: String(tooth.treatment ?? ""),
-    }));
-    
+  // condition or marked finding becomes a finding entry (mirrors the manual
+  // dentalCodingEntries flow, but derived so saving always reflects the chart).
+  useEffect(() => {
+    const entries = (Array.isArray(chart) ? chart : [])
+      .filter((tooth) => tooth.number > 0)
+      .filter((tooth) => {
+        const hasCondition = String(tooth.condition ?? "").trim().length > 0;
+        const hasStatus =
+          String(tooth.status ?? "").trim().length > 0 &&
+          !["healthy", "missing"].includes(String(tooth.status).trim());
+        const hasFinding =
+          hasCondition ||
+          hasStatus ||
+          (String(tooth.surface ?? "").trim() &&
+          String(tooth.surface ?? "").trim() !== "—") ||
+          String(tooth.severity ?? "").trim() ||
+          String(tooth.riskScore ?? "").trim();
+        return hasFinding;
+      })
+
+      .map((tooth) => ({
+        id: tooth.number,
+        tooth_number: tooth.number,
+        condition: String(tooth.condition ?? ""),
+        dental_condition_id: (() => {
+          // Resolve the condition NAME to its master ID — the backend expects the
+          // ID, not the display name. Mirrors the lookup in handleConditionChange.
+          const conditionName = String(tooth.condition ?? "")
+            .trim()
+            .toLowerCase();
+          const conditionRecord = (
+            Array.isArray(getDentalCondition) ? getDentalCondition : []
+          ).find(
+            (item) =>
+              String(item?.name ?? "")
+                .trim()
+                .toLowerCase() === conditionName,
+          );
+          return String(conditionRecord?.id ?? tooth.condition ?? "");
+        })(),
+        surface:
+          tooth.surface && tooth.surface !== "—" ? String(tooth.surface) : "",
+        risk: tooth.riskScore || tooth.risk || "",
+        severity:
+          tooth.severity && tooth.severity !== "—"
+            ? String(tooth.severity)
+            : "",
+        treatment: String(tooth.treatment ?? ""),
+      }));
+
     setDentalFindingEntries(entries);
   }, [chart]);
-  
-  console.log(dentalFindingEntries,"entries");
-  
+
+  console.log(dentalFindingEntries, "entries");
 
   // Live condition info for the popup's read-only fields — derived directly
   // from the selection so severity / risk / label update as the user picks.
-  const popupConditionInfo = popupConditionValue
-    ? (conditionLabelMap[popupConditionValue] ?? null)
+  const popupConditionInfo = popupCodingValue
+    ? (conditionLabelMap[getDentalConditionFromCoding] ?? null)
     : null;
   console.log(popupConditionInfo, "popupConditionInfo");
 
@@ -1814,7 +1839,8 @@ useEffect(() => {
     const coding = String(popupCodingValue ?? "").trim();
     console.log(coding, "coding---");
 
-    const condition = String(popupConditionValue ?? "").trim();
+    // const condition = String(popupConditionValue ?? "").trim();
+    const condition = String(getDentalConditionFromCoding ?? "").trim();
     if (!coding || !condition) {
       toast.error("Please select both coding and condition");
       return;
@@ -1835,7 +1861,7 @@ useEffect(() => {
     // The map value is the full master object — the label is still its name,
     // while severity / risk / description ride along on the entry.
     const conditionInfo = conditionLabelMap[condition];
-    console.log(conditionInfo,"conditionInfo");
+    console.log(conditionInfo, "conditionInfo");
     const conditionLabel = conditionInfo?.name ?? condition;
     // Derive the chart status from the condition so the tooth paints itself:
     // Dental Caries → caries (red), No Abnormality → healthy (green),
@@ -1864,7 +1890,7 @@ useEffect(() => {
       dentalConditionId: conditionInfo?.dentalConditionId ?? "",
       status,
       tooth: toothNumber,
-      surface: String(popupSurfaceValue ?? "").trim(),   // was: surface: "",
+      surface: String(popupSurfaceValue ?? "").trim(), // was: surface: "",
       risk: conditionInfo?.risk,
       treatment: String(popupTreatmentValue ?? "").trim(),
       dentition,
@@ -1987,7 +2013,6 @@ useEffect(() => {
       setPopupConditionValue("");
       setPopupTreatmentValue("");
       setPopupSurfaceValue("");
-
     }
     // Re-paint the tooth: the last remaining entry wins; with no entries left
     // the tooth returns to healthy. (Primary teeth not present in `chart`
@@ -2451,27 +2476,25 @@ useEffect(() => {
                   </div>
 
                   <Tabs defaultValue="tooth-details" className="w-full">
-                    <TabsList className="w-full sm:w-1/2">
+                    <TabsList className="grid w-full grid-cols-2 sm:w-1/2">
                       <TabsTrigger
                         value="tooth-details"
-                        className="gap-2"
                         title="Clinical Findings"
+                        className="min-w-0 gap-2"
                       >
-                        <ToothTabIcon />
-
-                        <span className="hidden sm:inline">
+                        <ToothTabIcon className="size-4 shrink-0" />
+                        <span className="min-w-0 truncate">
                           Clinical Findings
                         </span>
                       </TabsTrigger>
 
                       <TabsTrigger
                         value="dental-info"
-                        className="gap-2"
                         title="Diagnosis & ICD Codes"
+                        className="min-w-0 gap-2"
                       >
-                        <IcdIcon />
-
-                        <span className="hidden sm:inline">
+                        <IcdIcon className="size-4 shrink-0" />
+                        <span className="min-w-0 truncate">
                           Diagnosis & ICD Codes
                         </span>
                       </TabsTrigger>
@@ -2582,7 +2605,7 @@ useEffect(() => {
                                 <TextField
                                   label="Risk score"
                                   value={
-                                      getDentalConditionValue?.risk_score ??
+                                    getDentalConditionValue?.risk_score ??
                                     currentTooth.risk ??
                                     popupConditionInfo?.risk
                                   }
@@ -2725,29 +2748,34 @@ useEffect(() => {
                                         />
                                       </div>
                                       <div className="min-w-0">
-                                        <ReusableSelect
+                                        {/* <ReusableSelect
                                           label="Condition"
                                           options={getDentalCondtionOptions}
-                                          value={popupConditionValue}
+                                          value={popupConditionValue} getDentalConditionFromCoding
                                           onChange={setPopupConditionValue}
                                           disabled={
                                             getDentalConditionLoading ||
                                             !popupCodingValue
                                           }
-                                        />
+                                        /> */}
+                                        <TextField 
+                                          label="Condition"
+                                          value={getDentalConditionFromCoding}
+                                          readOnly
+                                         />
                                       </div>
                                       {popupConditionInfo ? (
                                         <div className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-muted/30 p-3 sm:grid-cols-2">
-                                          <div className="min-w-0">
-                                            {/* <label className="mb-1.5 block text-xs text-muted-foreground"></label> */}
+                                          {/* <div className="min-w-0">
+                                            <label className="mb-1.5 block text-xs text-muted-foreground"></label>
                                             <TextField
                                               type="text"
                                               label="Condition"
                                               readOnly
                                               value={popupConditionInfo.name}
-                                              // className="h-9 w-full cursor-default rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none"
+                                              className="h-9 w-full cursor-default rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none"
                                             />
-                                          </div>
+                                          </div> */}
                                           <div className="min-w-0">
                                             {/* <label className="mb-1.5 block text-xs text-muted-foreground">
                                               
@@ -2772,8 +2800,7 @@ useEffect(() => {
                                               type="text"
                                               readOnly
                                               value={
-                                                popupConditionInfo.risk ||
-                                                "—"
+                                                popupConditionInfo.risk || "—"
                                               }
                                               // className="h-9 w-full cursor-default rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none"
                                             />
@@ -2788,15 +2815,18 @@ useEffect(() => {
                                               onChange={setPopupTreatmentValue}
                                             />
                                           </div>
-                                           <div className="min-w-0">
-                                           <TextField
-  type="text"
-  label="Surface"
-  value={popupSurfaceValue}
-  onChange={(e) => setPopupSurfaceValue(e.target.value)}
-/>
-
-                                           </div>
+                                          <div className="min-w-0">
+                                            <TextField
+                                              type="text"
+                                              label="Surface"
+                                              value={popupSurfaceValue}
+                                              onChange={(e) =>
+                                                setPopupSurfaceValue(
+                                                  e.target.value,
+                                                )
+                                              }
+                                            />
+                                          </div>
                                         </div>
                                       ) : null}
                                     </div>
@@ -2910,29 +2940,29 @@ useEffect(() => {
 
                 {/* ---------------- Oral hygiene ---------------- */}
                 {/* <FramerCard> */}
-                  <OralHygenic
-                    oralHygiene={oralHygiene}
-                    gingivalHealth={gingivalHealth}
-                    plaque={plaque}
-                    sidebarNotes={sidebarNotes}
-                    careInstructions={careInstructions}
-                    referralAction={referralAction}
-                    referralReason={referralReason}
-                    followUpValue={followUpValue}
-                    setReferralAction={setReferralAction}
-                    setReferralReason={setReferralReason}
-                    setFollowUpValue={setFollowUpValue}
-                    setCareInstructions={setCareInstructions}
-                    setSidebarNotes={setSidebarNotes}
-                    updatedAtValue={updatedAtValue}
-                    setOralHygiene={setOralHygiene}
-                    setGingivalHealth={setGingivalHealth}
-                    setPlaque={setPlaque}
-                    oralHygieneToggleOptions={oralHygieneToggleOptions}
-                    gingivalHealthToggleOptions={gingivalHealthToggleOptions}
-                    plaqueToggleOptions={plaqueToggleOptions}
-                    formatDate={formatDate}
-                  />
+                <OralHygenic
+                  oralHygiene={oralHygiene}
+                  gingivalHealth={gingivalHealth}
+                  plaque={plaque}
+                  sidebarNotes={sidebarNotes}
+                  careInstructions={careInstructions}
+                  referralAction={referralAction}
+                  referralReason={referralReason}
+                  followUpValue={followUpValue}
+                  setReferralAction={setReferralAction}
+                  setReferralReason={setReferralReason}
+                  setFollowUpValue={setFollowUpValue}
+                  setCareInstructions={setCareInstructions}
+                  setSidebarNotes={setSidebarNotes}
+                  updatedAtValue={updatedAtValue}
+                  setOralHygiene={setOralHygiene}
+                  setGingivalHealth={setGingivalHealth}
+                  setPlaque={setPlaque}
+                  oralHygieneToggleOptions={oralHygieneToggleOptions}
+                  gingivalHealthToggleOptions={gingivalHealthToggleOptions}
+                  plaqueToggleOptions={plaqueToggleOptions}
+                  formatDate={formatDate}
+                />
                 {/* </FramerCard> */}
 
                 {/* ---------------- Dental findings ---------------- */}
