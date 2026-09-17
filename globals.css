@@ -1,0 +1,1042 @@
+/* ==========================================================================
+   Svastha — Health Screening & School Health Program
+   Global stylesheet — Tailwind v4 (CSS-first config, no tailwind.config.js)
+   Import this once in app/layout.tsx: `import "./style.css"`
+   Toggle dark mode by adding/removing the "dark" class on <html>.
+   ========================================================================== */
+
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap");
+@import "tailwindcss";
+
+/* Enable class-based dark mode: add/remove .dark on <html> or any ancestor.
+   Without this, Tailwind v4 defaults to the prefers-color-scheme media query. */
+@custom-variant dark (&:is(.dark *));
+
+/* --------------------------------------------------------------------------
+   1. RAW COLOR TOKENS (light + dark)
+   Defined as plain CSS custom properties so they can swap live when the
+   .dark class toggles — @theme alone would bake values in at build time.
+   -------------------------------------------------------------------------- */
+
+:root {
+  /* Brand — pulled directly from the logo: the cyan-blue figure + green
+     medical cross. Kept as standalone tokens (not "primary") because the
+     raw hues fail WCAG contrast as text/button colors — see --primary
+     below for the accessible working version. Use --brand-* only for
+     logo marks, decorative gradients, and large graphic fills. */
+  --brand-blue: hsl(198 83% 49%);
+  /* #15A6E3 */
+  --brand-green: hsl(142 62% 65%);
+  /* medical-cross green, ≈ Tailwind green-500 */
+
+  /* Surfaces */
+  --background: hsl(210 24% 97%);
+  /* cool paper, not cream */
+  --foreground: hsl(222 47% 11%);
+  /* ink */
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(222 47% 11%);
+  --popover: var(--card);
+  --popover-foreground: var(--card-foreground);
+
+  /* Brand, accessibility-adjusted for UI use (text, buttons, links) */
+  --primary: hsl(199 86% 33%);
+  /* darkened brand blue — 5.7:1 with white text */
+  --primary-foreground: hsl(210 30% 98%);
+  --secondary: hsl(210 22% 93%);
+  --secondary-foreground: hsl(222 47% 15%);
+  --accent: var(--brand-green);
+  /* 7.1:1 with dark ink — pair with dark text, not white */
+  --accent-foreground: hsl(222 47% 11%);
+
+  /* Muted / supporting */
+  --muted: hsl(210 20% 93%);
+  --muted-foreground: hsl(215 16% 40%);
+  --border: hsl(214 20% 88%);
+  --input: hsl(214 20% 88%);
+  --ring: var(--primary);
+
+  /* Semantic status */
+  --success: hsl(152 52% 32%);
+  --success-foreground: hsl(0 0% 100%);
+  --warning: hsl(38 92% 45%);
+  --warning-foreground: hsl(32, 85%, 31%);
+  --destructive: hsl(4 62% 46%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --info: hsl(205 70% 42%);
+  --info-foreground: hsl(0 0% 100%);
+  
+  --chart-1: hsl(4 72% 51%);
+  /* red — Grade 1 / Critical */
+  --chart-2: hsl(29 88% 50%);
+  /* orange — Grade 2 / High */
+  --chart-3: hsl(38 92% 50%);
+  /* amber — Grade 3 / Moderate */
+  --chart-4: hsl(142 66% 40%);
+  /* green — Grade 4 / Preventive, healthy */
+  --chart-5: hsl(199 86% 40%);
+  /* blue — brand-aligned */
+  --chart-6: hsl(262 60% 58%);
+  /* violet */
+  --chart-7: hsl(199 30% 55%);
+  /* muted teal-blue */
+
+  --domain-physical: hsl(152 55% 48%); /* green   — Physical Health */
+  --domain-vision: hsl(205 85% 56%); /* sky blue — Vision */
+  --domain-hearing: hsl(217 55% 46%); /* deeper indigo-blue — Hearing */
+  --domain-oral: hsl(38 90% 50%); /* amber/gold — Oral Health */
+  --domain-immunization: hsl(350 65% 55%); /* rose — Immunization */
+
+  --domain-female: hsl(340 72% 48%);
+  --domain-female-soft: hsl(340 75% 96%);
+  --domain-female-border: hsl(340 65% 88%);
+  --domain-female-hover: hsl(340 75% 92%);
+
+  /* Brand gradient — subtle two-tone wash echoing the logo's blue + green,
+     applied to <body> at low opacity. Use .bg-brand-gradient to apply the
+     same treatment deliberately to a hero/login section instead. */
+  --brand-gradient:
+    radial-gradient(
+      120% 120% at 100% 0%,
+      color-mix(in oklch, var(--brand-blue) 10%, transparent) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      120% 120% at 0% 100%,
+      color-mix(in oklch, var(--brand-green) 7%, transparent) 0%,
+      transparent 45%
+    );
+
+  /* Elevation */
+  --shadow-color: hsl(222 47% 11%);
+  --radius: 0.625rem;
+}
+
+.dark {
+  --brand-blue: hsl(199 90% 62%);
+  --brand-green: hsl(142, 62%, 65%);
+
+  --background: hsl(222 47% 7%);
+  /* near-navy ink */
+  --foreground: hsl(210 24% 92%);
+  --card: hsl(222 40% 10%);
+  --card-foreground: hsl(210 24% 92%);
+  --popover: var(--card);
+  --popover-foreground: var(--card-foreground);
+
+  --primary: hsl(199 88% 62%);
+  /* brighter for contrast against a dark surface */
+  --primary-foreground: hsl(222 47% 9%);
+  --secondary: hsl(222 30% 15%);
+  --secondary-foreground: hsl(210 24% 92%);
+  --accent: var(--brand-green);
+  --accent-foreground: hsl(222 47% 9%);
+
+  --muted: hsl(222 30% 15%);
+  --muted-foreground: hsl(215 15% 65%);
+  --border: hsl(222 25% 20%);
+  --input: hsl(222 25% 20%);
+  --ring: var(--primary);
+
+  --success: hsl(152 45% 48%);
+  --success-foreground: hsl(222 47% 9%);
+  --warning: hsl(38 92% 55%);
+  --warning-foreground: hsl(39, 54%, 54%);
+  --destructive: hsl(4 70% 62%);
+  --destructive-foreground: hsl(222 47% 9%);
+  --info: hsl(205 70% 60%);
+  --info-foreground: hsl(222 47% 9%);
+
+  /* Chart palette — brighter/more saturated than light mode on purpose;
+     muted tones recede too far against a dark background to stay legible. */
+  --chart-1: hsl(4 82% 65%);
+  --chart-2: hsl(29 92% 60%);
+  --chart-3: hsl(38 95% 62%);
+  --chart-4: hsl(142 60% 55%);
+  --chart-5: hsl(199 90% 62%);
+  --chart-6: hsl(262 70% 70%);
+  --chart-7: hsl(199 35% 65%);
+
+  --domain-physical: hsl(152 60% 55%);
+  --domain-vision: hsl(205 88% 62%);
+  --domain-hearing: hsl(217 65% 62%);
+  --domain-oral: hsl(38 92% 58%);
+  --domain-immunization: hsl(350 75% 65%);
+
+  --domain-female: hsl(340 80% 68%);
+  --domain-female-soft: hsl(340 35% 15%);
+  --domain-female-border: hsl(340 35% 28%);
+  --domain-female-hover: hsl(340 35% 22%);
+
+  --brand-gradient:
+    radial-gradient(
+      120% 120% at 100% 0%,
+      color-mix(in oklch, var(--brand-blue) 22%, transparent) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      120% 120% at 0% 100%,
+      color-mix(in oklch, var(--brand-green) 16%, transparent) 0%,
+      transparent 55%
+    );
+
+  --shadow-color: hsl(222 60% 2%);
+}
+
+/* --------------------------------------------------------------------------
+   2. THEME MAPPING
+   @theme inline registers these as Tailwind utilities (bg-primary,
+   text-foreground, font-display, rounded-lg, p-md, stroke-chart-1, ...)
+   while keeping them pointed at the live custom properties above, so dark
+   mode swaps at runtime instead of being baked in at build time.
+   -------------------------------------------------------------------------- */
+
+@theme inline {
+  /* Colors */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-green: var(--brand-green);
+
+  /* Chart colors — generates bg-chart-1, stroke-chart-1, fill-chart-1, etc. */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+
+  --color-domain-physical: var(--domain-physical);
+  --color-domain-vision: var(--domain-vision);
+  --color-domain-hearing: var(--domain-hearing);
+  --color-domain-oral: var(--domain-oral);
+  --color-domain-immunization: var(--domain-immunization);
+
+  --color-domain-female: var(--domain-female);
+  --color-domain-female-soft: var(--domain-female-soft);
+  --color-domain-female-border: var(--domain-female-border);
+  --color-domain-female-hover: var(--domain-female-hover);
+
+  /* Typography — generates font-display / font-body / font-mono / font-sf */
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono:
+    "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --font-sf:
+    var(--font-sf-pro), "Inter", ui-sans-serif, system-ui, -apple-system,
+    sans-serif;
+
+  /* Radius — generates rounded-sm / rounded-md / rounded-lg */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+
+  /* Semantic spacing — generates p-xs, gap-md, py-xl, etc. alongside
+     Tailwind's default numeric scale (they coexist) */
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 0.75rem;
+  --spacing-md: 1.25rem;
+  --spacing-lg: 2rem;
+  --spacing-xl: 3.5rem;
+  --spacing-2xl: 5rem;
+
+  --container-max: 84rem;
+}
+
+/* --------------------------------------------------------------------------
+   3. BASE TYPOGRAPHY & GLOBAL ELEMENT STYLES
+   -------------------------------------------------------------------------- */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: var(--font-sf, var(--font-body));
+    background-color: var(--color-background);
+    background-image: var(--brand-gradient);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    color: var(--color-foreground);
+    line-height: 1.6;
+    font-size: 1rem;
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-sf);
+    color: var(--color-foreground);
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+  }
+
+  h5,
+  h6 {
+    font-family: var(--font-sf);
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--color-foreground);
+  }
+
+  /* Fluid type scale — comfortable on a 360px phone through a 1920px monitor */
+  h1 {
+    font-size: clamp(1.75rem, 1.4rem + 1.6vw, 2.75rem);
+    line-height: 1.15;
+  }
+
+  h2 {
+    font-size: clamp(1.5rem, 1.25rem + 1.1vw, 2.125rem);
+    line-height: 1.2;
+  }
+
+  h3 {
+    font-size: clamp(1.25rem, 1.1rem + 0.7vw, 1.625rem);
+    line-height: 1.25;
+  }
+
+  h4 {
+    font-size: clamp(1.125rem, 1.03rem + 0.4vw, 1.3rem);
+    line-height: 1.3;
+  }
+
+  h5 {
+    font-size: 1.0625rem;
+  }
+
+  h6 {
+    font-size: 0.9375rem;
+    text-transform: capitalize;
+    letter-spacing: 0.04em;
+    color: var(--color-muted-foreground);
+  }
+
+  p {
+    line-height: 1.65;
+    letter-spacing: 0.04em;
+  }
+
+  small,
+  .text-caption {
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--color-muted-foreground);
+  }
+
+  /* Tabular data — grades, IDs, screening dates — always mono, always aligned */
+  code,
+  .tabular-data {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  a {
+    color: var(--color-primary);
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+
+  a:hover {
+    color: var(--color-brand-blue);
+  }
+
+  ::selection {
+    background: color-mix(in oklch, var(--color-accent) 30%, transparent);
+    color: var(--color-foreground);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-muted);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(
+      in oklch,
+      var(--color-muted-foreground) 40%,
+      transparent
+    );
+  }
+
+  img,
+  video {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    font-family: inherit;
+    font-size: 1rem;
+  }
+  select,
+  button {
+    cursor: pointer;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  * {
+    border-color: var(--color-border);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* --------------------------------------------------------------------------
+   4. COMPONENT CLASSES
+   -------------------------------------------------------------------------- */
+
+@layer components {
+  .container-page {
+    width: 100%;
+    max-width: var(--container-max);
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .container-page {
+      padding-inline: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container-page {
+      padding-inline: 2rem;
+    }
+  }
+
+  .section {
+    padding-block: var(--spacing-lg);
+  }
+
+  @media (min-width: 1024px) {
+    .section {
+      padding-block: var(--spacing-xl);
+    }
+  }
+
+  .card {
+    background-color: var(--color-card);
+    color: var(--color-card-foreground);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    box-shadow:
+      0 1px 2px color-mix(in oklch, var(--shadow-color) 6%, transparent),
+      0 1px 1px color-mix(in oklch, var(--shadow-color) 4%, transparent);
+  }
+
+  /* Signature mark: a small green underline for active/selected states —
+     doubles as a "wellness check" cue, echoing the logo's green cross. */
+  .signature-underline {
+    position: relative;
+    display: inline-block;
+  }
+
+  .signature-underline::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -0.2em;
+    height: 2px;
+    background: var(--color-accent);
+    border-radius: 2px;
+    transform: scaleX(0.9);
+  }
+
+  /* Ledger-style row striping for tables (screenings, referrals, claims) */
+  .table-ledger tbody tr:nth-child(even) {
+    background-color: color-mix(in oklch, var(--color-muted) 50%, transparent);
+  }
+
+  .table-ledger tbody tr:hover {
+    background-color: color-mix(in oklch, var(--color-primary) 6%, transparent);
+  }
+
+  .table-ledger th {
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-muted-foreground);
+    border-bottom: 1px solid var(--color-border);
+    padding: 0.75rem 1rem;
+    text-align: left;
+  }
+
+  .table-ledger td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid
+      color-mix(in oklch, var(--color-border) 60%, transparent);
+    font-size: 0.9375rem;
+  }
+
+  /* ---------- Shared form-field primitives ----------
+     Used by TextField / ScreeningInput / YearPicker / selects so every
+     form (incl. SchoolDetails stepper) shares one label / input /
+     error language driven by theme tokens. */
+  .field-label {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--color-foreground);
+    margin-bottom: 0.375rem;
+  }
+
+  .field-required {
+    margin-left: 0.125rem;
+    color: var(--color-destructive);
+  }
+
+  .field-hint {
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--color-muted-foreground);
+  }
+
+  .field-error {
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--color-destructive);
+    margin-top: 0.25rem;
+  }
+
+  .input-field {
+    display: flex;
+    height: 2.5rem;
+    width: 100%;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-input);
+    background-color: var(--color-background);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--color-foreground);
+    box-shadow: 0 1px 2px color-mix(in oklch, var(--shadow-color) 6%, transparent);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .input-field::placeholder {
+    color: var(--color-muted-foreground);
+  }
+
+  .input-field:focus-visible {
+    outline: none;
+    border-color: var(--color-ring);
+    box-shadow: 0 0 0 2px color-mix(in oklch, var(--color-ring) 30%, transparent);
+  }
+
+  .input-field:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .input-field[aria-invalid="true"] {
+    border-color: var(--color-destructive);
+    box-shadow: 0 0 0 2px color-mix(in oklch, var(--color-destructive) 18%, transparent);
+  }
+
+  .textarea-field {
+    width: 100%;
+    min-height: 5.5rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-input);
+    background-color: var(--color-background);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--color-foreground);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .textarea-field::placeholder {
+    color: var(--color-muted-foreground);
+  }
+
+  .textarea-field:focus-visible {
+    outline: none;
+    border-color: var(--color-ring);
+    box-shadow: 0 0 0 2px color-mix(in oklch, var(--color-ring) 30%, transparent);
+  }
+
+  /* Segmented Yes/No-style picker (screening-fields.jsx) */
+  .segmented {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    background-color: color-mix(in oklch, var(--color-muted) 45%, transparent);
+    padding: 0.25rem;
+  }
+
+  .segmented__btn {
+    border-radius: calc(var(--radius-md) - 2px);
+    padding: 0.375rem 0.875rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--color-muted-foreground);
+    border: 1px solid transparent;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .segmented__btn:hover {
+    color: var(--color-foreground);
+    background-color: color-mix(in oklch, var(--color-muted) 70%, transparent);
+  }
+
+  .segmented__btn[aria-pressed="true"] {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--color-primary-foreground);
+  }
+
+  .segmented__btn[data-tone="good"][aria-pressed="true"] {
+    background-color: var(--color-success);
+    border-color: var(--color-success);
+    color: var(--color-success-foreground);
+  }
+
+  .segmented__btn[data-tone="warn"][aria-pressed="true"] {
+    background-color: var(--color-warning);
+    border-color: var(--color-warning);
+    color: var(--color-warning-foreground);
+  }
+
+  .segmented__btn[data-tone="bad"][aria-pressed="true"] {
+    background-color: var(--color-destructive);
+    border-color: var(--color-destructive);
+    color: var(--color-destructive-foreground);
+  }
+
+  /* SchoolDetails stepper section headings */
+  .form-section-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-foreground);
+    margin-bottom: 0.75rem;
+  }
+
+  /* ---------- SchoolDetails stepper / branch-list skin ----------
+     All SchoolDetails coloring lives here (theme tokens only) so the
+     page itself stays free of hardcoded color utilities. */
+  .sd-icon-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    background-color: color-mix(in oklch, var(--color-primary) 10%, transparent);
+    color: var(--color-primary);
+  }
+
+  .sd-progress-track {
+    height: 0.375rem;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 999px;
+    background-color: var(--color-muted);
+  }
+
+  .sd-progress-bar {
+    height: 100%;
+    border-radius: 999px;
+    background-color: var(--color-primary);
+    transition: width 0.3s ease;
+  }
+
+  .sd-step-pill {
+    display: inline-flex;
+    height: 2rem;
+    width: 2rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .sd-step-pill--done,
+  .sd-step-pill--active {
+    background-color: var(--color-primary);
+    color: var(--color-primary-foreground);
+  }
+
+  .sd-step-pill--active {
+    outline: 2px solid color-mix(in oklch, var(--color-primary) 30%, transparent);
+    outline-offset: 2px;
+  }
+
+  .sd-step-pill--idle {
+    background-color: var(--color-muted);
+    color: var(--color-muted-foreground);
+  }
+
+  .sd-step-connector {
+    margin-inline: 0.25rem;
+    height: 0.125rem;
+    width: 3rem;
+    border-radius: 999px;
+    transition: background-color 0.15s ease;
+  }
+
+  .sd-step-connector--done {
+    background-color: var(--color-primary);
+  }
+
+  .sd-step-connector--idle {
+    background-color: var(--color-muted);
+  }
+
+  .sd-form-scroll {
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+
+  .sd-stat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  @media (max-width: 640px) {
+    .sd-stat-grid {
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+  }
+
+  .sd-icon-btn {
+    flex-shrink: 0;
+    border-radius: var(--radius-md);
+  }
+
+  .sd-icon-btn:hover {
+    background-color: color-mix(in oklch, var(--color-muted) 70%, transparent);
+    color: var(--color-foreground);
+  }
+
+  .sd-section-accent {
+    border-left: 2px solid color-mix(in oklch, var(--color-primary) 60%, transparent);
+    padding-left: 0.75rem;
+  }
+
+  /* Active-step micro meter (current pill progress) */
+  .sd-active-step-meter {
+    margin-inline: 0.5rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background-color: color-mix(in oklch, var(--color-primary) 15%, transparent);
+  }
+
+  .sd-active-step-meter__fill {
+    height: 0.25rem;
+    width: 2rem;
+    border-radius: 999px;
+    background-color: color-mix(in oklch, var(--color-primary) 40%, transparent);
+    transition: width 0.3s ease-out;
+  }
+
+  /* Branch list rows — layout stays in JSX, coloring lives here */
+  .sd-branch-meta {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    color: var(--color-muted-foreground);
+  }
+
+  .sd-branch-meta__row {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .sd-branch-meta__value {
+    font-weight: 500;
+    color: var(--color-foreground);
+  }
+
+  .sd-branch-empty {
+    border-radius: var(--radius-md);
+    border: 1px dashed var(--color-border);
+    background-color: var(--color-card);
+    padding: 1.5rem;
+  }
+}
+
+@layer utilities {
+  .bg-brand-gradient {
+    background-image: var(--brand-gradient);
+    background-repeat: no-repeat;
+    background-size: cover;
+  }
+}
+
+/* Global top progress bar (indeterminate) */
+@keyframes global-loader-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(500%);
+  }
+}
+.side-rays-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  pointer-events: none;
+  z-index: 3;
+  overflow: hidden;
+}
+.dot-field-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* ===== Female domain skin: ToggleGroup keeps its pink text =====
+   The FemaleStudentsCard renders active toggle with the neutral (blue)
+   text-primary by default; this unlayered rule re-colors it to the pink
+   domain token. Unlayered beats the @layer utilities classes. */
+.screening-card--female button[aria-pressed="true"] {
+  color: var(--color-domain-female);
+  border-color: var(--color-domain-female);
+  background-color: var(--color-domain-female-soft);
+}
+.screening-card--female button[aria-pressed="true"]:hover {
+  background-color: var(--color-domain-female-hover);
+}
+
+/* ===== Tooth chart tabs (dental screening): active tab = primary =====
+   TabsTrigger (components/ui/tabs.jsx) paints the active tab with
+   bg-background/text-foreground utilities. This unlayered rule re-colors
+   the active trigger with the primary token — same "unlayered beats
+   @layer utilities" trick as the female-domain rule above. Scoped to
+   .tooth-tabs so every other Tabs instance keeps its default styling. */
+.tooth-tabs [role="tab"][data-state="active"] {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+.tooth-tabs [role="tab"][data-state="active"]:hover {
+  background-color: color-mix(in oklch, var(--color-primary) 88%, black);
+}
+
+/* Inactive tab: subtle background + muted text, with hover highlight */
+.tooth-tabs [role="tab"][data-state="inactive"] {
+  background-color: transparent;
+  color: var(--color-muted-foreground);
+}
+.tooth-tabs [role="tab"][data-state="inactive"]:hover {
+  background-color: var(--color-muted);
+  color: var(--color-foreground);
+}
+
+/* Responsive tab padding: compact on mobile, roomier on larger screens */
+.tooth-tabs [role="tab"] {
+  padding: 0.375rem 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  gap: 0.375rem;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+@media (min-width: 640px) {
+  .tooth-tabs [role="tab"] {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    gap: 0.5rem;
+  }
+}
+
+/* Icon inherits color from parent tab */
+.tooth-tabs [role="tab"] svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+@media (min-width: 640px) {
+  .tooth-tabs [role="tab"] svg {
+    width: 1.625rem;
+    height: 1.625rem;
+  }
+}
+
+/* Responsive tab list: full-width on mobile, auto on larger screens */
+.tooth-tabs [role="tablist"] {
+  width: 100%;
+  gap: 0.25rem;
+}
+@media (min-width: 640px) {
+  .tooth-tabs [role="tablist"] {
+    width: auto;
+    gap: 0.5rem;
+  }
+}
+
+/* react-datepicker — themed to match shadcn/ui design tokens */
+.react-datepicker {
+  font-family: var(--font-body, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.875rem !important;
+  background-color: var(--color-popover, #ffffff) !important;
+  color: var(--color-popover-foreground, #111827) !important;
+  border: 1px solid var(--color-border, #e5e7eb) !important;
+  border-radius: var(--radius-md, 0.375rem) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+.react-datepicker__header {
+  background-color: var(--color-muted, #f3f4f6) !important;
+  border-bottom: 1px solid var(--color-border, #e5e7eb) !important;
+  padding: 0.5rem !important;
+}
+
+.react-datepicker__navigation {
+  color: var(--color-muted-foreground, #6b7280) !important;
+}
+
+.react-datepicker__navigation:hover {
+  color: var(--color-foreground, #111827) !important;
+}
+
+.react-datepicker__year-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 0.25rem !important;
+  padding: 0.5rem !important;
+}
+
+.react-datepicker__year-text {
+  border-radius: 0.25rem !important;
+  padding: 0.5rem !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  color: var(--color-foreground, #111827) !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s !important;
+}
+
+.react-datepicker__year-text:hover {
+  background-color: var(--color-accent, #f3f4f6) !important;
+}
+
+.react-datepicker__year-text--selected,
+.react-datepicker__year-text--keyboard-selected {
+  background-color: var(--color-primary, #2563eb) !important;
+  color: var(--color-primary-foreground, #ffffff) !important;
+}
+
+.react-datepicker__year-text--now {
+  font-weight: 600 !important;
+}
+
+.react-datepicker-popper {
+  z-index: 9999 !important;
+}
+
+.react-datepicker__year-wrapper {
+    flex-wrap: wrap;
+    max-width: 150px !important;
+    display: flex;
+}
+
+/* Ensure year picker elements are always clickable */
+.react-datepicker__year-text,
+.react-datepicker__navigation,
+.react-datepicker__navigation:hover {
+  pointer-events: auto !important;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  opacity: 1;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  height: 1.25rem;
+  width: 1rem;
+}
+
+input[type="number"]::-webkit-inner-spin-button:hover {
+  /* background: color-mix(in oklch, var(--color-primary) 80%, black); */
+}
+
+
+/* input[type="number"]::-webkit-inner-spin-button:hover,
+input[type="number"]::-webkit-outer-spin-button:hover {
+  background: color-mix(in oklch, var(--color-primary) 80%, black) !important;
+  background-color: color-mix(in oklch, var(--color-primary) 80%, black);
+} */
+
+/* Number input spinner — Firefox */
+input[type="number"] {
+  -moz-appearance: textfield;
+}

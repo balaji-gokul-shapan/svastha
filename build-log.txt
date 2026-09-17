@@ -1,4 +1,4 @@
-﻿
+
 > svastha@0.1.0 build
 > next build
 
@@ -54,4 +54,3 @@ Route (app)
 
 Γùï  (Static)   prerendered as static content
 ╞Æ  (Dynamic)  server-rendered on demand
-

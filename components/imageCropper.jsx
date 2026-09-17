@@ -194,3 +194,4 @@ const ImageCropper = ({
 };
 
 export default ImageCropper;
+
