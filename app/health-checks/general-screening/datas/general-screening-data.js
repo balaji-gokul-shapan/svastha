@@ -50,6 +50,20 @@ export const weightStandardOptions = ["Below Average", "Average", "Above Average
 // actually references in your schema).
 // ---------------------------------------------------------------------------
 
+export const yesNoOptions = (goodValue) => {
+  if (goodValue === "neutral") {
+    return [
+      { value: "yes", label: "Yes", tone: "neutral" },
+      { value: "no", label: "No", tone: "neutral" },
+    ];
+  }
+  return [
+    { value: "yes", label: "Yes", tone: goodValue === "yes" ? "good" : "bad" },
+    { value: "no", label: "No", tone: goodValue === "no" ? "good" : "bad" },
+  ];
+};
+
+
 export function calcBmi(heightCm, weightKg) {
   const height = Number(heightCm);
   const weight = Number(weightKg);

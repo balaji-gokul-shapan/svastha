@@ -17,7 +17,11 @@ const Review = ({
   otherFindings,
   careInstructions,
   sidebarNotes,
+  dentalCodingEntries,
+  
 }) => {
+  console.log(dentalCodingEntries,dentalCodingEntries,"dentalCodingEntries");
+  
   return (
     <article className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
       <div className="flex flex-col gap-4 border-b bg-muted/30 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -279,6 +283,34 @@ const Review = ({
                           {label}
                         </span>
                       ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">
+                      No additional findings recorded
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2 h-1/2 overflow-auto py-4">
+                  {dentalCodingEntries?.length > 0 ? (
+                    dentalCodingEntries.map((entry) => (
+                      <span
+                        key={entry.id}
+                        title={
+                          entry.conditionDescription
+                            ? `${entry.conditionLabel}: ${entry.conditionDescription}`
+                            : undefined
+                        }
+                        className="rounded-full flex flex-row items-center border bg-muted/50 px-3 py-1.5 text-xs font-medium text-foreground"
+                      >
+                        <ToothIcon className="size-4 pr-1"/>{" "}
+                        <span className="text-xs">{entry.tooth != null ? ` ${entry.tooth} · ` : ""}</span>
+                        {/* <small className="text-xs">{'tooth Number · '}</small> */}{" "}
+                         {/* <span className="text-sm">{entry.codingLabel != null ? `${entry.tooth} · ` : ""}</span> */}
+                        {entry.codingLabel}
+                        {entry.conditionLabel
+                          ? ` - ${entry.conditionLabel}`
+                          : ""}
+                      </span>
+                    ))
                   ) : (
                     <span className="text-sm text-muted-foreground">
                       No additional findings recorded

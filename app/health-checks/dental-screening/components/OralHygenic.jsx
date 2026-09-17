@@ -16,6 +16,8 @@ const OralHygenic = ({
   setReferralAction,
   setReferralReason,
   setFollowUpValue,
+  referralRequired,
+  followUpRequired,
   setCareInstructions,
   setSidebarNotes,
   updatedAtValue,
@@ -85,30 +87,44 @@ const OralHygenic = ({
               <ShieldAlert className="size-4 text-warning" />
               Referral
             </h3>
-            <TextareaField
-              id="dental-recommended-action"
-              label="Recommended Action"
-              value={referralAction}
-              onChange={(event) => setReferralAction(event.target.value)}
-              rows={2}
-              textareaClassName="resize-none bg-background text-sm"
-            />
-            <TextareaField
-              id="dental-referral-reason"
-              label="Reason"
-              value={referralReason}
-              onChange={(event) => setReferralReason(event.target.value)}
-              rows={2}
-              textareaClassName="resize-none bg-background text-sm"
-            />
-            <TextareaField
-              id="dental-follow-up"
-              label="Follow-up"
-              value={followUpValue}
-              onChange={(event) => setFollowUpValue(event.target.value)}
-              rows={2}
-              textareaClassName="resize-none bg-background text-sm"
-            />
+
+            {referralRequired === "yes" && (
+              <>
+                <TextareaField
+                  id="dental-recommended-action"
+                  label="Recommended Action"
+                  value={referralAction}
+                  onChange={(event) => setReferralAction(event.target.value)}
+                  rows={2}
+                  textareaClassName="resize-none bg-background text-sm"
+                />
+                <TextareaField
+                  id="dental-referral-reason"
+                  label="Reason"
+                  value={referralReason}
+                  onChange={(event) => setReferralReason(event.target.value)}
+                  rows={2}
+                  textareaClassName="resize-none bg-background text-sm"
+                />
+              </>
+            )}
+
+            {followUpRequired === "yes" && (
+              <TextareaField
+                id="dental-follow-up"
+                label="Follow-up"
+                value={followUpValue}
+                onChange={(event) => setFollowUpValue(event.target.value)}
+                rows={2}
+                textareaClassName="resize-none bg-background text-sm"
+              />
+            )}
+
+            {referralRequired !== "yes" && followUpRequired !== "yes" && (
+              <p className="text-xs text-muted-foreground">
+                No referral or follow-up needed.
+              </p>
+            )}
           </article>
         </FramerCard>
       </div>

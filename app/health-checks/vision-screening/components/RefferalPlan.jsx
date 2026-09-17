@@ -15,10 +15,12 @@ const RefferalPlan = ({
   followUp,
   setFollowUp,
   followUpOptions,
+  followUpRequired,
+  handleFollowUpRequiredChange,
   referralReasons,
   handleFollowUpChange,
-    formErrors,
-    yesNoOptions,
+  formErrors,
+  yesNoOptions,
 }) => {
   return (
     <FramerCard>
@@ -32,35 +34,55 @@ const RefferalPlan = ({
           </span>
           Referral &amp; Follow-up
         </h3>
-        <div className="mt-3 space-y-3">
-          <ToggleGroup
-            label="Referral to Specialist"
-            options={yesNoOptions("no")}
-            value={referral}
-            onChange={setReferral}
-          />
-          {referral === "yes" && (
-            <div>
+        <div className="mt-3 space-y-3 grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-2">
+            <ToggleGroup
+              label="Referral to Specialist"
+              options={yesNoOptions("no")}
+              value={referral}
+              onChange={setReferral}
+            />
+            {referral === "yes" && (
+              <div>
+                <SelectField
+                  label="Referral Reason"
+                  options={[
+                    "",
+                    ...(Array.isArray(referralReasons)
+                      ? referralReasons
+                      : []
+                    ).map((item) => String(item?.name ?? "").trim()),
+                  ].filter((name, index, all) => all.indexOf(name) === index)}
+                  value={referralReason}
+                  onChange={handleReferralReasonChange}
+                  error={formErrors?.referralReason}
+                />
+                {formErrors?.referralReason && (
+                  <p className="mt-1.5 text-xs text-destructive">
+                    {formErrors.referralReason}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-2">
+            <ToggleGroup
+              name="follow-up-required"
+              label="Follow-up required ?"
+              options={yesNoOptions("no")}
+              value={followUpRequired}
+              onChange={handleFollowUpRequiredChange}
+            />
+            {followUpRequired === "yes" && (
               <SelectField
-                label="Referral Reason"
-                options={[
-                  "",
-                  ...(Array.isArray(referralReasons)
-                    ? referralReasons
-                    : []
-                  ).map((item) => String(item?.name ?? "").trim()),
-                ].filter((name, index, all) => all.indexOf(name) === index)}
-                value={referralReason}
-                onChange={handleReferralReasonChange}
-                error={formErrors?.referralReason}
+                label="Follow-up"
+                options={followUpOptions}
+                value={followUp}
+                onChange={handleFollowUpChange}
+                error={formErrors?.followUp}
               />
-              {formErrors?.referralReason && (
-                <p className="mt-1.5 text-xs text-destructive">
-                  {formErrors.referralReason}
-                </p>
-              )}
-            </div>
-          )}
+            )}
+          </div>
           <div>
             {/* <FieldLabel>Advice / Suggestions</FieldLabel> */}
             <TextareaField
@@ -72,13 +94,6 @@ const RefferalPlan = ({
               className="w-full resize-none rounded-md   p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
             />
           </div>
-          <SelectField
-            label="Follow-up"
-            options={followUpOptions}
-            value={followUp}
-            onChange={handleFollowUpChange}
-            error={formErrors?.followUp}
-          />
         </div>
       </article>
     </FramerCard>

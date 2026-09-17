@@ -9,13 +9,23 @@ const TONE_ACTIVE_CLASS = {
   good: "border-success bg-success/10 text-success",
   warn: "border-warning bg-warning/10 text-warning-foreground",
   bad: "border-destructive bg-destructive/10 text-destructive",
+  neutral: "border-primary bg-primary/10 text-primary",
 };
 
-function ToggleGroupComponent({ label, options, value, onChange }) {
+function ToggleGroupComponent({ label, options, value, onChange, columns }) {
+  // Column layout: explicit `columns` prop wins (e.g. 2 for Yes/No),
+  // otherwise fall back to the default 3–4 column multi-option grid.
+  const gridClass =
+    columns === 2
+      ? "grid-cols-2"
+      : columns === 3
+        ? "grid-cols-3"
+        : "grid-cols-1 md:grid-cols-3 xl:grid-cols-4";
+
   return (
     <div>
       <p className="mb-1 text-sm font-semibold text-foreground">{label}</p>
-      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-2">
+      <div className={`grid gap-2 ${gridClass}`}>
         {options.map((option) => {
           const isActive = value === option.value;
           return (

@@ -93,7 +93,7 @@ export default function HealthCheckModal({ student }) {
   const reportRef = useRef(null);
   const studentName = student?.name ?? student?.student_name ?? "Student";
   const studentPhoto =
-    student?.profileImage ??
+    student?.image_path ??
     student?.profile_image ??
     student?.student_image ??
     student?.image ??
@@ -104,6 +104,8 @@ export default function HealthCheckModal({ student }) {
   const sectionValue = student?.sec ?? student?.section ?? "--";
   const admissionNo = student?.admission_number ?? "--";
   const dobValue = student?.dob ?? "--";
+  const uhid = student?.uhid ?? "--";
+  const svasthaId = student?.svastha_id;
 
   // Use the real student identifier from the record — the URL slug is
   // lowercased by getStudentSlug(), which breaks backend lookups.
@@ -127,6 +129,13 @@ export default function HealthCheckModal({ student }) {
   const showDental = reportSection.dental ?? true;
   const showImmunization = reportSection.immunization ?? true;
   const showRecommendations = reportSection.recommendations ?? true;
+   const getGridCount = [
+    showVision,
+    showHearing,
+    showDental,
+    showVitals,
+    showImmunization,
+  ].filter(Boolean);
 
   const reportTemplate = reportSettings?.reportTemplate ?? "detailed";
   // "summary" drops the quick-glance status cards; "compact" drops remarks.
@@ -162,6 +171,7 @@ export default function HealthCheckModal({ student }) {
 
     let years = today.getFullYear() - birthDate.getFullYear();
     let months = today.getMonth() - birthDate.getMonth();
+   
 
     if (today.getDate() < birthDate.getDate()) {
       months--;
@@ -470,92 +480,96 @@ export default function HealthCheckModal({ student }) {
               className=" space-y-6 px-5 py-5 sm:px-7"
             >
               {showStudentInfo ? (
-              <section className="grid grid-cols-1 gap-5 sm:grid-cols-[1fr_auto]">
-                <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
-                  <Info label="Student Name" value={studentName} />
-                  <Info label="Date of Birth" value={dobValue} />
-                  <Info label="Age" value={calculateAge(dobValue)} />
-                  <Info label="Admission No" value={admissionNo} />
-                  <Info label="Gender" value={student?.gender ?? "--"} />
-                  <Info
-                    label="Class / Section"
-                    value={`${classValue}-${sectionValue}`}
-                  />
-                  <Info
-                    label="Health Check Date"
-                    value={formatDateTime(
-                      student?.updated_at ?? student?.updatedAt,
+                <section className="grid grid-cols-1 gap-5 sm:grid-cols-[1fr_auto]">
+                  <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
+                    <Info label="Student Name" value={studentName} />
+                    <Info label="Date of Birth" value={dobValue} />
+                    <Info label="Age" value={calculateAge(dobValue)} />
+                    <Info label="Admission No" value={admissionNo} />
+                    <Info label="Gender" value={student?.gender ?? "--"} />
+                    <Info label="UHID No" value={uhid} />
+                    {svasthaId && (
+                      <Info label="SvasthaID No" value={svasthaId} />
                     )}
-                  />
-                </div>
-
-                <div className="flex justify-start sm:justify-end">
-                  <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border bg-muted">
-                    {studentPhoto ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={studentPhoto}
-                        alt="Student"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        Paste Photo here
-                      </span>
-                    )}
+                    <Info
+                      label="Class / Section"
+                      value={`${classValue}-${sectionValue}`}
+                    />
+                    <Info
+                      label="Health Check Date"
+                      value={formatDateTime(
+                        student?.updated_at ?? student?.updatedAt,
+                      )}
+                    />
                   </div>
-                </div>
-              </section>
+
+                  <div className="flex justify-start sm:justify-end">
+                    <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+                      {studentPhoto ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={studentPhoto}
+                          alt="Student"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          Paste Photo here
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </section>
               ) : null}
 
               {showStatusCards ? (
-              <section className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-                {showVitals ? (
-                  <StatusCard
-                    iconClass="text-success bg-success/50"
-                    icon={Activity}
-                    title="Physical Health"
-                    status="Normal"
-                    toneClass="bg-success/10 text-success border-success/30"
-                  />
-                ) : null}
-                {showVision ? (
-                  <StatusCard
-                    iconClass="text-info bg-info/50"
-                    icon={Eye}
-                    title="Vision"
-                    status="Normal"
-                    toneClass="bg-info/10 text-info border-info/30"
-                  />
-                ) : null}
-                {showHearing ? (
-                  <StatusCard
-                    iconClass="text-primary bg-primary/50"
-                    icon={Ear}
-                    title="Hearing"
-                    status="Normal"
-                    toneClass="bg-primary/10 text-primary border-primary/30"
-                  />
-                ) : null}
-                {showDental ? (
-                  <StatusCard
-                    iconClass="text-warning bg-warning/50"
-                    icon={ToothIcon}
-                    title="Oral Health"
-                    status="Good"
-                    toneClass="bg-warning/10 text-warning border-warning/30"
-                  />
-                ) : null}
-                {showImmunization ? (
-                  <StatusCard
-                    iconClass="text-destructive bg-destructive/50"
-                    icon={Syringe}
-                    title="Immunization"
-                    status="Up to Date"
-                    toneClass="bg-destructive/10 text-destructive border-destructive/30"
-                  />
-                ) : null}
-              </section>
+                <section  className={`grid grid-cols-2 gap-3 sm:grid-cols-${getGridCount.length}`}>
+                  {showVitals ? (
+                    <StatusCard
+                      iconClass="text-success bg-success/50"
+                      icon={Activity}
+                      title="Physical Health"
+                      status="Normal"
+                      toneClass="bg-success/10 text-success border-success/30"
+                    />
+                  ) : null}
+                  {showVision ? (
+                    <StatusCard
+                      iconClass="text-info bg-info/50"
+                      icon={Eye}
+                      title="Vision"
+                      status="Normal"
+                      toneClass="bg-info/10 text-info border-info/30"
+                    />
+                  ) : null}
+                  {showHearing ? (
+                    <StatusCard
+                      iconClass="text-primary bg-primary/50"
+                      icon={Ear}
+                      title="Hearing"
+                      status="Normal"
+                      toneClass="bg-primary/10 text-primary border-primary/30"
+                    />
+                  ) : null}
+                  {showDental ? (
+                    <StatusCard
+                      iconClass="text-warning bg-warning/50"
+                      icon={ToothIcon}
+                      title="Oral Health"
+                      status="Good"
+                      toneClass="bg-warning/10 text-warning border-warning/30"
+                    />
+                  ) : null}
+                  {showImmunization ? (
+                    <StatusCard
+                      iconClass="text-destructive bg-destructive/50"
+                      icon={Syringe}
+                      title="Immunization"
+                      status="Up to Date"
+                      toneClass="bg-destructive/10 text-destructive border-destructive/30"
+                    />
+                  ) : null}
+                </section>
               ) : null}
 
               <section>
@@ -682,61 +696,61 @@ export default function HealthCheckModal({ student }) {
               </section>
 
               {showRecommendations ? (
-              <>
-              <section
-                data-pdf-section="recommendations"
-                className="rounded-lg border bg-muted/40 p-4"
-              >
-                <h3 className="mb-3 text-sm font-semibold text-foreground">
-                  Recommendations
-                </h3>
+                <>
+                  <section
+                    data-pdf-section="recommendations"
+                    className="rounded-lg border bg-muted/40 p-4"
+                  >
+                    <h3 className="mb-3 text-sm font-semibold text-foreground">
+                      Recommendations
+                    </h3>
 
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li className="flex gap-2">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                    Maintain balanced diet and regular exercise.
-                  </li>
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      <li className="flex gap-2">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                        Maintain balanced diet and regular exercise.
+                      </li>
 
-                  <li className="flex gap-2">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                    Continue good oral hygiene practices.
-                  </li>
-                </ul>
-              </section>
+                      <li className="flex gap-2">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                        Continue good oral hygiene practices.
+                      </li>
+                    </ul>
+                  </section>
 
-              <section className="flex flex-col items-end p-4">
-                <div className="flex justify-start sm:justify-end">
-                  <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border-dotted border bg-muted">
-                    {studentPhoto ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={studentPhoto}
-                        alt="Student"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        No signaure Photo
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <h3 className="text-sm font-semibold text-foreground">
-                    Dr. Aravind
-                  </h3>
-                  <h6 className="text-[11px] text-muted-foreground">
-                    MBBS FRCS
-                  </h6>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  School Health Officer
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Svastha Health Services
-                </p>
-              </section>
-              </>
+                  <section className="flex flex-col items-end p-4">
+                    <div className="flex justify-start sm:justify-end">
+                      <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border-dotted border bg-muted">
+                        {studentPhoto ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={studentPhoto}
+                            alt="Student"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            No signaure Photo
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <h3 className="text-sm font-semibold text-foreground">
+                        Dr. Aravind
+                      </h3>
+                      <h6 className="text-[11px] text-muted-foreground">
+                        MBBS FRCS
+                      </h6>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      School Health Officer
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Svastha Health Services
+                    </p>
+                  </section>
+                </>
               ) : null}
 
               <div data-pdf-hide className="flex justify-end gap-2">

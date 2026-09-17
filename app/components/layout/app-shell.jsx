@@ -7,6 +7,7 @@ import { useSelector } from "react-redux";
 import { AppBreadcrumb } from "./app-breadcrumb";
 import { Navbar } from "./navbar";
 import { Sidebar } from "./sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 const CHROMELESS_ROUTES = ["/login", "/register"];
 
@@ -34,7 +35,7 @@ export function AppShell({ children }) {
   }, [hideChrome, isAuthenticated, router]);
 
   if (hideChrome) {
-    return <main className="min-h-screen">{children}</main>;
+    return <main className="min-h-screen">{children}</main>
   }
 
   if (!authChecked) {
@@ -42,14 +43,19 @@ export function AppShell({ children }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <SidebarProvider className="min-h-screen bg-background">
       <Sidebar />
+
+      {/*
+       * Mobile only: opens the off-canvas sidebar sheet.
+       */}
+      <SidebarTrigger className="fixed left-3 top-4 z-50 md:hidden" />
 
       <div className="flex  flex-1 flex-col">
         <Navbar title="Dashboard" />
         <AppBreadcrumb />
         <main className="flex-1 p-4 py-1.5 sm:px-6">{children}</main>
       </div>
-    </div>
+    </SidebarProvider>
   );
 }

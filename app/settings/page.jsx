@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 // import React, { useMemo, useRef, useState } from "react";
 // import { toast } from "sonner";
@@ -591,14 +591,12 @@
 // };
 
 // export default Settings;
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import Aside from "./pages/aside";
 import { initialAccounts, settingsNav } from "./datas/settingsData";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import {
-  selectAuthUser,
-  selectUserAccount,
-} from "@/lib/features/auth-slice";
+import { selectAuthUser, selectUserAccount } from "@/lib/features/auth-slice";
+import { useAuthRole } from "@/lib/user-role";
 import {
   resetAppearanceSettings,
   setAppearanceField,
@@ -610,6 +608,7 @@ import { toast } from "sonner";
 import { Settings } from "lucide-react";
 import {
   getAllSchoolBranches,
+  getSchoolBranch,
 } from "@/lib/features/registerSchoolBranchSlice";
 import {
   createSubAccount,
@@ -635,15 +634,160 @@ const ReportPage = dynamic(() => import("./pages/Report"));
 // import ProfilePage from "./pages/ProfilePage";
 // import AppearancePage from "./pages/AppearancePage";
 
+/* =========================================================
+   PRIVILEGES → API PAYLOAD
+   The form holds privileges as the ClassSectionManager map
+   ({ "11": ["A", "B"], "12": ["A"] }) while the API expects a flat
+   "class-index" string ("11-1, 11-2, 12-3").
+
+   The field can also hold a plain string — an account loaded from the
+   API already carries flattened privileges — so every shape is
+   normalised here instead of crashing on `<string>.join(...)` or
+   `values.map(...)`.
+   ========================================================= */
+const buildPrivilegesPayload = (value) => {
+  if (typeof value === "string") return value.trim();
+  if (value == null) return "";
+
+  const entries = Array.isArray(value)
+    ? value.map((sections, index) => [String(index + 1), sections])
+    : Object.entries(value);
+
+  let counter = 1;
+
+  return entries
+    .flatMap(([key, sections]) => {
+      const list = Array.isArray(sections)
+        ? sections
+        : String(sections ?? "")
+            .split(",")
+            .map((section) => section.trim())
+            .filter(Boolean);
+
+      return list.map(() => `${key}-${counter++}`);
+    })
+    .join(",");
+};
+
+
 const page = () => {
   const [activeTab, setActiveTab] = useState("my-details");
   const [navQuery, setNavQuery] = useState("");
   const dispatch = useAppDispatch();
 
   const authUser = useAppSelector(selectAuthUser);
-  const getRole = authUser?.account_type ?? authUser?.role ?? null;
+
+  const getRole = useAuthRole();
+  console.log(getRole, "getRole");
+
   const account = useAppSelector(selectUserAccount);
   console.log(account, "accountee");
+
+  // user_type_id 2 = "school" — auto-open the School Details tab once per
+  // session so the logo-empty popup can appear after login (SchoolDetails
+  // only mounts when this tab is active).
+  React.useEffect(() => {
+    const userTypeId = Number(
+      account?.user_type_id ?? account?.userTypeId ?? "",
+    );
+    if (userTypeId !== 2) return;
+    const storageKey = "svastha-settings-auto-open";
+    if (window.sessionStorage.getItem(storageKey) === "1") return;
+    window.sessionStorage.setItem(storageKey, "1");
+    setActiveTab("SchoolDetails");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [account]);
+
+  // Branch data for a school_sub_account. The backend 401s them on
+  // /schools/branch/all, so their branch can only come from the login
+  // payload — checked on both the account object and the staff/user object.
+  const subAccountBranch = React.useMemo(() => {
+    const id = String(
+      account?.branch_id ??
+        account?.branchId ??
+        account?.branch?.id ??
+        authUser?.branch_id ??
+        authUser?.branchId ??
+        authUser?.branch?.id ??
+        "",
+    ).trim();
+    const name = String(
+      account?.branch_name ??
+        account?.name ??
+        account?.school_name ??
+        account?.schoolName ??
+        authUser?.branch_name ??
+        authUser?.name ??
+        authUser?.school_name ??
+        authUser?.schoolName ??
+        "",
+    ).trim();
+
+    // Class/section from the login payload (plain string, id, or nested object).
+    const toText = (value) => {
+      if (Array.isArray(value)) {
+        return value
+          .map((item) =>
+            item && typeof item === "object"
+              ? String(item.name ?? item.id ?? "")
+              : String(item),
+          )
+          .filter(Boolean)
+          .join(", ");
+      }
+      if (value && typeof value === "object") {
+        return String(value.name ?? value.id ?? "").trim();
+      }
+      return String(value ?? "").trim();
+    };
+
+    const rawClass =
+      account?.class ??
+      account?.class_id ??
+      account?.classId ??
+      account?.class_name ??
+      account?.Class ??
+      authUser?.class ??
+      authUser?.class_id ??
+      authUser?.classId ??
+      authUser?.class_name ??
+      authUser?.Class ??
+      "";
+    const rawSection =
+      account?.section ??
+      account?.section_id ??
+      account?.sectionId ??
+      account?.section_name ??
+      account?.sec ??
+      account?.Section ??
+      authUser?.section ??
+      authUser?.section_id ??
+      authUser?.sectionId ??
+      authUser?.section_name ??
+      authUser?.sec ??
+      authUser?.Section ??
+      "";
+
+    const schoolId = String(
+      account?.school_id ??
+        account?.schoolId ??
+        account?.school?.id ??
+        authUser?.school_id ??
+        authUser?.schoolId ??
+        authUser?.school?.id ??
+        "",
+    ).trim();
+
+    return {
+      id,
+      name,
+      school_id: schoolId,
+      class: toText(rawClass),
+      section: toText(rawSection),
+    };
+  }, [account, authUser]);
+
+  console.log(subAccountBranch, "subAccountBranch");
 
   const [isAddOpen, setIsAddOpen] = useState(false);
 
@@ -670,13 +814,11 @@ const page = () => {
           if (children.length === 0) {
             return null;
           }
-
           return {
             ...item,
             children,
           };
         }
-
         return item;
       })
       .filter(Boolean);
@@ -687,10 +829,14 @@ const page = () => {
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
 
   const [settingsFormData, setSettingsFormData] = useState({
-    name: "",
-    username: "",
+    name: account?.name,
+    username: account?.user_name,
     password: "",
+    signature: "",
   });
+
+console.log(settingsFormData,"settingsFormData");
+
 
   const handleSettingsChange = (field, value) => {
     setSettingsFormData((prev) => ({
@@ -770,45 +916,204 @@ const page = () => {
     queryFn: () => dispatch(getAllSchoolBranches()).unwrap(),
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
+
+    enabled: Boolean(getRole) && getRole !== "school_sub_account",
   });
 
-  console.log(getAllSchoolBranch, "getAllSchoolBranch");
+  const {
+    data: getSchoolBranchData = {},
+    isLoading: getSchoolBranchLoading,
+    error: getSchoolBranchError,
+  } = useQuery({
+    queryKey: ["getSchoolBranch"],
+    queryFn: () => dispatch(getSchoolBranch()).unwrap(),
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+  console.log(getSchoolBranchData, "getSchoolBranchData");
 
-  // Branch options for the team-account form, derived from the fetched
-  // school branches. Tolerates both a raw array and a wrapped { data: [...] }.
-  const branchOptions = (
-    Array.isArray(getAllSchoolBranch)
+  // Branch options for the sub-account form. Built from the FULL branch list
+  // (/schools/branch/all) so multiple branches appear; falls back to the
+  // single /schools/branch record when the list isn't available.
+  const getBranchDataForSubAccount = useMemo(() => {
+    // Each option carries: id (branch id), value (branch name) plus the
+    // class/section assigned to that branch.
+    const toOption = (branch) => ({
+      id: String(branch?.id ?? branch?.branch_id ?? "").trim(),
+      value: String(branch?.branch_name ?? branch?.name ?? "").trim(),
+      class: String(
+        branch?.class ?? branch?.class_name ?? branch?.Class ?? "",
+      ).trim(),
+      section: String(
+        branch?.section ?? branch?.section_name ?? branch?.Section ?? "",
+      ).trim(),
+    });
+
+    const list = Array.isArray(getAllSchoolBranch)
       ? getAllSchoolBranch
-      : (getAllSchoolBranch?.data ?? [])
-  )
-    .map((branch) => ({
-      value: String(branch?.id ?? branch?.branch_id ?? ""),
-      label: branch?.branch_name ?? branch?.name ?? "",
-    }))
-    .filter((option) => option.value && option.label);
+      : (getAllSchoolBranch?.data ?? []);
 
+    const options = list
+      .map(toOption)
+      .filter((option) => option.id && option.value);
+
+    if (options.length === 0 && getSchoolBranchData) {
+      const single = getSchoolBranchData?.data ?? getSchoolBranchData;
+      const option = toOption(single);
+      if (option.id && option.value) options.push(option);
+    }
+
+    return options;
+  }, [getAllSchoolBranch, getSchoolBranchData]);
+  // const getBranchDataForSubAccount = getSchoolBranchData
+
+  // getBranchDataWithClassSection
+
+  console.log(getAllSchoolBranch, "getAllSchoolBranch");
+  // Class/section of the branch this school_sub_account belongs to. The
+  // /schools/branch/all response carries class + section per branch, so look
+  // up the branch matching their branch_id and read it from there.
+  const branchClassSection = React.useMemo(() => {
+    const list = Array.isArray(getAllSchoolBranch)
+      ? getAllSchoolBranch
+      : (getAllSchoolBranch?.data ?? []);
+    if (!subAccountBranch.id || list.length === 0) {
+      return { class: "", section: "" };
+    }
+
+    const branch = list.find(
+      (b) => String(b?.id ?? b?.branch_id ?? "").trim() === subAccountBranch.id,
+    );
+    if (!branch) return { class: "", section: "" };
+
+    const rawClass =
+      branch.class ??
+      branch.class_id ??
+      branch.classId ??
+      branch.class_name ??
+      branch.Class ??
+      branch.classes ??
+      branch.Classes ??
+      "";
+    const rawSection =
+      branch.section ??
+      branch.sec ??
+      branch.section_id ??
+      branch.sectionId ??
+      branch.section_name ??
+      branch.Section ??
+      branch.sections ??
+      branch.Sections ??
+      "";
+
+    const toText = (value) => {
+      if (Array.isArray(value)) {
+        return value
+          .map((item) =>
+            item && typeof item === "object"
+              ? String(item.name ?? item.id ?? "")
+              : String(item),
+          )
+          .filter(Boolean)
+          .join(", ");
+      }
+      if (value && typeof value === "object") {
+        return String(value.name ?? value.id ?? "").trim();
+      }
+      return String(value ?? "").trim();
+    };
+
+    return { class: toText(rawClass), section: toText(rawSection) };
+  }, [getAllSchoolBranch, subAccountBranch.id]);
+
+  // Branch options for the team-account form. Normally derived from the fetched
+  // school branches. A school_sub_account can't call /schools/branch/all (the
+  // backend returns 401 for that role), so build their list from their own
+  // account's branch instead.
+  const branchOptions = React.useMemo(() => {
+    if (getRole === "school_sub_account") {
+      const { id, name } = subAccountBranch;
+      return id && name ? [{ value: id, label: name }] : [];
+    }
+
+    return (
+      Array.isArray(getAllSchoolBranch)
+        ? getAllSchoolBranch
+        : (getAllSchoolBranch?.data ?? [])
+    )
+      .map((branch) => ({
+        value: String(branch?.id ?? branch?.branch_id ?? ""),
+        label: branch?.branch_name ?? branch?.name ?? "",
+      }))
+      .filter((option) => option.value && option.label);
+  }, [getRole, subAccountBranch, getAllSchoolBranch]);
+
+  console.log(getAllSchoolBranch, "getAllSchoolBranch");
+  // console.log(subAccountBranch, "subAccountBranch");
+  console.log(branchClassSection, "branchClassSection");
   const [accounts, setAccounts] = useState(initialAccounts);
   const [selectedIds, setSelectedIds] = useState([]);
   const [isSavingAccount, setIsSavingAccount] = useState(false);
 
-  // ---- Sub-account (team) API wiring ----
-  // Maps a backend sub-account record into the shape the TeamPage table
-  // expects. Tolerates snake_case/camelCase and differing id/name keys.
-  const mapSubAccountRecord = (record = {}, index = 0) => ({
-    id: record?.id ?? record?.sub_acc_id ?? `local-${index}`,
-    apiId: record?.id ?? record?.sub_acc_id ?? null,
-    name: record?.name ?? record?.full_name ?? "",
-    phoneNumber:
-      record?.phone_number ?? record?.phoneNumber ?? record?.phone ?? "",
-    userName: record?.user_name ?? record?.username ?? record?.userName ?? "",
-    user_type_id: String(record?.usertype_id ?? record?.usertypeId ?? ""),
-    branchId: String(record?.branch_id ?? record?.branchId ?? ""),
-    previleges: record?.privileges ?? record?.previleges ?? "",
-    designation: record?.designation ?? record?.user_type ?? "",
-    class: record?.class ?? record?.class_id ?? "",
-    section: record?.section ?? record?.section_id ?? "",
-    status: record?.status ?? "active",
-  });
+  // Branch-scoped team list. A school_sub_account only sees the accounts that
+  // belong to THEIR branch (the ones their school created) — accounts created
+  // by the admin for other branches are hidden.
+  const visibleAccounts = React.useMemo(() => {
+    if (getRole !== "school_sub_account") return accounts;
+    const myBranchId = (subAccountBranch?.id ?? "").trim();
+    if (!myBranchId) return accounts;
+
+    const filtered = accounts.filter((acc) => {
+      const accBranch = String(
+        acc?.branchId ?? acc?.branch_id ?? acc?.branch?.id ?? "",
+      ).trim();
+      if (!accBranch) return true;
+      return accBranch === myBranchId;
+    });
+    return filtered.length > 0 ? filtered : accounts;
+  }, [getRole, accounts, subAccountBranch]);
+
+  console.log(visibleAccounts, "44444");
+
+  const mapSubAccountRecord = (record = {}, index = 0) => {
+    const userType =
+      record?.user_type_id ??
+      record?.userTypeId ??
+      record?.usertype_id ??
+      record?.usertypeId ??
+      record?.user_type?.id ??
+      record?.usertype?.id ??
+      "";
+    const userTypeLabel =
+      record?.user_type?.name ??
+      record?.usertype?.name ??
+      record?.user_type ??
+      record?.usertype ??
+      "";
+    const branch =
+      record?.branch_id ?? record?.branchId ?? record?.branch?.id ?? "";
+
+    return {
+      id: record?.id ?? record?.sub_acc_id ?? `local-${index}`,
+      apiId: record?.id ?? record?.sub_acc_id ?? null,
+      name: record?.name ?? record?.full_name ?? "",
+      phoneNumber:
+        record?.phone_number ?? record?.phoneNumber ?? record?.phone ?? "",
+      userName: record?.user_name ?? record?.username ?? record?.userName ?? "",
+      // Keep as a STRING so it matches USER_TYPE_OPTIONS' `value` ("2"/"3").
+      user_type_id: userType === "" ? "" : String(userType),
+      branchId: branch === "" ? "" : String(branch),
+      previleges: record?.privileges ?? record?.previleges ?? "",
+      // `user_type` may be an object (nested relation) — never render an object.
+      designation:
+        typeof userTypeLabel === "string"
+          ? userTypeLabel
+          : (userTypeLabel?.name ?? ""),
+      class: record?.class ?? record?.class_id ?? "",
+      section: record?.section ?? record?.section_id ?? "",
+      status: record?.status ?? "active",
+    };
+  };
 
   const {
     data: subAccountsData = [],
@@ -819,16 +1124,25 @@ const page = () => {
     queryFn: () => dispatch(getAllSubAccount()).unwrap(),
     staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
+    // Sub-account list. A school_sub_account IS allowed to read this endpoint —
+    // they just see only their own branch's accounts (see visibleAccounts).
+    enabled: Boolean(getRole),
   });
 
-  console.log(subAccountsData,"subAccountsData");
+  console.log(subAccountsData, "subAccountsData");
 
   const subAccountsRef = React.useRef(null);
 
   React.useEffect(() => {
+    // Tolerate all common response shapes: a raw array, { data: [...] },
+    // or a paginated { data: { data: [...] } }.
     const list = Array.isArray(subAccountsData)
       ? subAccountsData
-      : (subAccountsData?.data?.data ?? []);
+      : Array.isArray(subAccountsData?.data)
+        ? subAccountsData.data
+        : Array.isArray(subAccountsData?.data?.data)
+          ? subAccountsData.data.data
+          : [];
     // Only update accounts when the actual data changes (not just reference)
     const serialized = JSON.stringify(list);
     if (subAccountsRef.current !== serialized) {
@@ -846,11 +1160,26 @@ const page = () => {
     branchId: "",
     previleges: "",
   });
+  console.log(subAccount, "subAccount");
 
   const [showPassword, setShowPassword] = useState(false);
   const [formErrors, setFormErrors] = useState({});
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingAccount, setEditingAccount] = useState(null);
+
+  // A school_sub_account belongs to exactly one branch, so when there's only
+  // ONE branch option available, pre-select it in the team form instead of
+  // making them pick it manually. Only fills an EMPTY branchId so editing an
+  // existing team member's branch is never overwritten.
+  React.useEffect(() => {
+    if (getRole !== "school_sub_account") return;
+    if (branchOptions.length !== 1) return;
+    const onlyBranchId = branchOptions[0]?.value;
+    if (!onlyBranchId) return;
+    setSubAccount((prev) =>
+      prev.branchId ? prev : { ...prev, branchId: onlyBranchId },
+    );
+  }, [getRole, branchOptions, subAccount.branchId]);
 
   // Reset form
   const resetAddForm = () => {
@@ -901,12 +1230,16 @@ const page = () => {
     );
   };
 
-  // Select all
+  // Select all — operates on the VISIBLE (branch-scoped) list so a
+  // school_sub_account can never select accounts outside their branch.
   const toggleAll = () => {
     const isAllSelected =
-      accounts.length > 0 && selectedIds.length === accounts.length;
+      visibleAccounts.length > 0 &&
+      selectedIds.length === visibleAccounts.length;
 
-    setSelectedIds(isAllSelected ? [] : accounts.map((account) => account.id));
+    setSelectedIds(
+      isAllSelected ? [] : visibleAccounts.map((account) => account.id),
+    );
   };
 
   // Toggle active/inactive
@@ -945,11 +1278,11 @@ const page = () => {
 
   // Delete
   const deleteAccount = (id) => {
-    console.log(id,"id");
-    
+    console.log(id, "id");
+
     const target = accounts.find((account) => account.id === id);
-    console.log(target,"target");
-    
+    console.log(target, "target");
+
     setAccounts((prev) => prev.filter((account) => account.id !== id));
 
     setSelectedIds((prev) => prev.filter((selectedId) => selectedId !== id));
@@ -1018,6 +1351,12 @@ const page = () => {
   const handleCreateAccount = async (event) => {
     event.preventDefault();
 
+    // Flatten the class/section map into the "class-index" string the API
+    // expects (no-op when privileges are already a flat string).
+    const previlegesResult = buildPrivilegesPayload(subAccount?.previleges);
+
+    console.log(previlegesResult, "subAccountresult");
+
     const name = (subAccount.name || "").trim();
     const userName = (subAccount.userName || "").trim();
     const phoneNumber = (subAccount.phoneNumber || "").trim();
@@ -1026,7 +1365,8 @@ const page = () => {
     // the "required" refine and reaches the backend as undefined.
     const usertypeId = subAccount.user_type_id ?? "";
     const branchId = subAccount.branchId ?? "";
-    const previleges = subAccount.previleges ?? "";
+    const previleges = previlegesResult ?? "";
+    const classSections = subAccount.classSections ?? {};
     console.log(
       name,
       userName,
@@ -1035,7 +1375,9 @@ const page = () => {
       usertypeId,
       branchId,
       previleges,
-    "dsssss");
+      classSections,
+      "dsssss",
+    );
 
     const formValues = {
       name,
@@ -1046,6 +1388,7 @@ const page = () => {
       // Schema key is `user_type_id` (matches the form-state key).
       user_type_id: usertypeId,
       previleges,
+      classSections,
     };
 
     const schema = buildSubAccountSchema({
@@ -1055,8 +1398,7 @@ const page = () => {
     });
 
     const result = schema.safeParse(formValues);
-    console.log({result});
-    
+    console.log({ result });
 
     if (!result.success) {
       const errors = result.error.flatten().fieldErrors;
@@ -1080,72 +1422,78 @@ const page = () => {
     //   return;
     // }
 
-    // // Update
-    // if (editingAccount) {
-    //   const apiId = editingAccount?.apiId ?? editingAccount?.id ?? null;
+    // Update
+    if (editingAccount) {
+      const previlegesResult = buildPrivilegesPayload(subAccount?.previleges);
 
-    //   // Local-only (seed/demo) rows have no API id - update locally, skip API.
-    //   if (apiId == null || apiId === "") {
-    //     setAccounts((prev) =>
-    //       prev.map((account) =>
-    //         String(account.id) === String(editingAccount.id)
-    //           ? {
-    //               ...account,
-    //               name,
-    //               phoneNumber,
-    //               userName,
-    //               usertypeId: subAccount.usertypeId,
-    //               branchId,
-    //               previleges: subAccount.previleges,
-    //             }
-    //           : account,
-    //       ),
-    //     );
-    //     toast.success("Account updated");
-    //     setIsAddOpen(false);
-    //     resetAddForm();
-    //     return;
-    //   }
+      console.log(previlegesResult, "subAccountresult");
 
-    //   try {
-    //     setIsSavingAccount(true);
-    //     await dispatch(
-    //       updateSubAccount({
-    //         id: apiId,
-    //         name,
-    //         phone_number: phoneNumber,
-    //         user_name: userName,
-    //         ...(password ? { password } : {}),
-    //         usertype_id: subAccount.usertypeId,
-    //         branch_id: subAccount.branchId,
-    //         privileges: subAccount.previleges,
-    //       }),
-    //     ).unwrap();
+      const apiId = editingAccount?.apiId ?? editingAccount?.id ?? null;
 
-    //     toast.success("Account updated");
-    //     await refetchSubAccounts();
-    //     setIsAddOpen(false);
-    //     resetAddForm();
-    //   } catch (error) {
-    //     toast.error("Failed to update account", {
-    //       description:
-    //         typeof error === "string" ? error : (error?.message ?? undefined),
-    //     });
-    //   } finally {
-    //     setIsSavingAccount(false);
-    //   }
-    //   return;
-    // }
-    // console.log(subAccount, "subAccount333333");
+      // Local-only (seed/demo) rows have no API id - update locally, skip API.
+      if (apiId == null || apiId === "") {
+        setAccounts((prev) =>
+          prev.map((account) =>
+            String(account.id) === String(editingAccount.id)
+              ? {
+                  ...account,
+                  // name,
+                  // phoneNumber,
+                  // userName,
+                  // usertypeId: subAccount.user_type_id,
+                  // branchId,
+                  previleges: previlegesResult,
+                }
+              : account,
+          ),
+        );
+        toast.success("Account updated");
+        setIsAddOpen(false);
+        resetAddForm();
+        return;
+      }
+
+      try {
+        setIsSavingAccount(true);
+        await dispatch(
+          updateSubAccount({
+            id: apiId,
+            // name,
+            // phone_number: phoneNumber,
+            // user_name: userName,
+            // ...(password ? { password } : {}),
+            // usertype_id: subAccount.user_type_id,
+            // branch_id: subAccount.branchId,
+            previleges: previlegesResult,
+          }),
+        ).unwrap();
+
+        toast.success("Account updated");
+        await refetchSubAccounts();
+        setIsAddOpen(false);
+        resetAddForm();
+      } catch (error) {
+        toast.error("Failed to update account", {
+          description:
+            typeof error === "string" ? error : (error?.message ?? undefined),
+        });
+      } finally {
+        setIsSavingAccount(false);
+      }
+      return;
+    }
+    console.log(subAccount, "subAccount333333");
 
     // Create
     try {
       setIsSavingAccount(true);
       // Privileges are optional — only include `privileges` in the payload
-      // when the user actually picked one, so the backend never receives an
-      // empty value that would trigger "invalid input".
-      const hasPrivileges =
-        String(subAccount.previleges ?? "").trim() !== "";
+      // when the flattened value is actually non-empty. Use the FLATTENED
+      // string, never the raw form value: the class/section map stringifies to
+      // "[object Object]" (truthy!) even when it holds nothing, which sent
+      // `privileges: ""` and made the API answer with
+      // "The privileges field is required." even though the form looked filled.
+      const hasPrivileges = String(previleges ?? "").trim() !== "";
 
       await dispatch(
         createSubAccount({
@@ -1155,9 +1503,7 @@ const page = () => {
           password,
           user_type_id: Number(usertypeId) || undefined,
           branch_id: Number(branchId) || undefined,
-          ...(hasPrivileges
-            ? { privileges: previleges }
-            : {}),
+          ...(hasPrivileges ? { previleges: previleges } : {}),
         }),
       ).unwrap();
 
@@ -1249,6 +1595,7 @@ const page = () => {
             imagePreviewUrl={imagePreviewUrl}
             setImagePreviewUrl={setImagePreviewUrl}
             clearProfileImage={clearProfileImage}
+            signature={settingsFormData.signature}
             name={settingsFormData.name}
             username={settingsFormData.username}
             password={settingsFormData.password}
@@ -1271,13 +1618,23 @@ const page = () => {
           />
         );
       case "SchoolDetails":
-        return <SchoolDetails getAllSchoolBranch={getAllSchoolBranch} />;
+        return (
+          <SchoolDetails
+            getAllSchoolBranch={getAllSchoolBranch}
+            getRole={getRole}
+            getUserAccount={account}
+            getBranchDataForSubAccount={getBranchDataForSubAccount}
+            subAccountBranch={subAccountBranch}
+            getSchoolBranchData={getSchoolBranchData}
+          />
+        );
       case "screening":
         return <ScreeningPage />;
       case "team":
         return (
           <TeamPage
-            accounts={accounts}
+            getSchoolBranch={getSchoolBranchData}
+            accounts={visibleAccounts}
             selectedIds={selectedIds}
             onToggleRow={toggleRow}
             onToggleAll={toggleAll}
@@ -1292,6 +1649,8 @@ const page = () => {
             subAccount={subAccount}
             setSubAccount={setSubAccount}
             branches={branchOptions}
+            subAccountBranch={subAccountBranch}
+            getBranchDataForSubAccount={getBranchDataForSubAccount}
             isSaving={isSavingAccount}
             authAccName={account}
             // newName={newName}

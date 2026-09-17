@@ -95,8 +95,8 @@ export default function MyDetailsPage({
   const completeness = useMemo(() => {
     const checks = [
       Boolean(profileImageFile),
-      Boolean(name.trim()),
-      Boolean(username.trim()),
+      Boolean(name?.trim()),
+      Boolean(username?.trim()),
       Boolean(password),
     ];
     const done = checks.filter(Boolean).length;
@@ -117,11 +117,12 @@ export default function MyDetailsPage({
       {/* HERO */}
       <div className="grid gap-4 lg:grid-cols-[1fr_auto_auto]">
         <article className="flex flex-wrap items-center gap-5 rounded-lg border border-border bg-card p-5">
+           <div className="relative inline-block shrink-0">
           <button
             type="button"
             // onClick={openProfilePicker}
             aria-label="Upload profile image"
-            className="group relative size-24 overflow-hidden rounded-full border border-dashed border-foreground/25 bg-background"
+            className="group block size-24 overflow-hidden rounded-full border border-dashed border-foreground/25 bg-background"
           >
             {imagePreviewUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -163,6 +164,8 @@ export default function MyDetailsPage({
               </span>
             )} */}
           </button>
+
+           </div>
           <input
             ref={profileInputRef}
             id="profile-image-upload"

@@ -3,7 +3,7 @@ import ReusableSelect from "@/components/ui/reusable-select";
 import { FramerCard } from "@/util/FramerCard";
 import React from "react";
 
-const Tympanomentry = ({form, updateField,}) => {
+const Tympanomentry = ({ form, updateField }) => {
   return (
     <FramerCard>
       <Card>
@@ -12,6 +12,7 @@ const Tympanomentry = ({form, updateField,}) => {
         </CardHeader>
 
         <CardContent className="grid gap-3">
+          <div className="mt-3"></div>
           <ReusableSelect
             label="Right Ear"
             value={form.tympanometry_re}

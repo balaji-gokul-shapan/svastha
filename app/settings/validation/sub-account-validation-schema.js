@@ -17,9 +17,15 @@ export const subAccountSchema = z.object({
   // Create-mode: password is required (>= 6 chars).
   password: z.string().superRefine((value, ctx) => {
     if (!value) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Password is required." });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Password is required.",
+      });
     } else if (value.length < 6) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Use at least 6 characters." });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Use at least 6 characters.",
+      });
     }
   }),
 
@@ -31,11 +37,17 @@ export const subAccountSchema = z.object({
     .union([z.string(), z.number()])
     .refine((value) => value !== "" && value != null, "Branch is required."),
 
+
   previleges: z
-    .union([z.string(), z.number(), z.array(z.unknown())])
+    .union([
+      z.string(),
+      z.number(),
+      z.array(z.unknown()),
+      z.record(z.string(), z.unknown()),
+      z.null(),
+    ])
     .optional(),
 });
-
 
 export const buildSubAccountSchema = ({
   isEditing = false,
@@ -49,24 +61,30 @@ export const buildSubAccountSchema = ({
     userName: z
       .string()
       .trim()
-      .min(1, "Username is required.")
+      .min(6, "Username must be at least 6 characters.")
       .refine(
         (value) =>
           !accounts.some(
             (account) =>
               account.id !== editingAccountId &&
               (account.userName || account.username || "").toLowerCase() ===
-                value.toLowerCase()
+                value.toLowerCase(),
           ),
-        "This username is already taken."
+        "This username is already taken.",
       ),
 
     password: z.string().superRefine((value, ctx) => {
       if (isEditing && !value) return; // blank is allowed while editing
       if (!value) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Password is required." });
-      } else if (value.length < 6) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Use at least 6 characters." });
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Password is required.",
+        });
+      } else if (value.length < 8) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Use at least 8 characters.",
+        });
       }
     }),
 

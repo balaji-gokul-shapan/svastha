@@ -236,6 +236,7 @@ function StudentDetailPageInner() {
     const croppedUrl = URL.createObjectURL(croppedFile);
     setUploadedImageFile(croppedFile);
     setImagePreviewUrl(croppedUrl);
+    setShowCropper(false);
   };
 
   const clearUploadedImage = () => {
@@ -287,7 +288,7 @@ function StudentDetailPageInner() {
     formData.set("age", ageValue ?? "");
 
     if (uploadedImageFile) {
-      formData.set("profileImage", uploadedImageFile);
+      formData.set("profile_image", uploadedImageFile);
     }
 
     updateStudentMutation.reset();

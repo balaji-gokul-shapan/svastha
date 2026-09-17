@@ -352,6 +352,17 @@ function buildChartFromCounts(record) {
   return nextChart;
 }
 
+/**
+ * Normalize stored referral/follow-up flags. Records may hold
+ * booleans (true / "true") or "yes" / "no" strings.
+ */
+const toYesNo = (value, fallback = "no") =>
+  value === true || value === "true" || value === "yes"
+    ? "yes"
+    : value === false || value === "false" || value === "no"
+      ? "no"
+      : fallback;
+
 export default function DentalAssessmentPage() {
   const dispatch = useAppDispatch();
   const queryClient = useQueryClient();
@@ -548,6 +559,8 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
   const [referralAction, setReferralAction] = useState("");
   const [referralReason, setReferralReason] = useState("");
   const [followUpValue, setFollowUpValue] = useState("");
+  const [referralRequired, setReferralRequired] = useState("no");
+  const [followUpRequired, setFollowUpRequired] = useState("no");
   const [careInstructions, setCareInstructions] = useState("");
   const [sidebarNotes, setSidebarNotes] = useState("");
 
@@ -1077,7 +1090,7 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
     setOralHygiene(
       String(record?.oral_hygiene ?? oralHygieneOptions[0]?.value ?? "fair"),
     );
-    setGingivalHealth(String(record?.gingival_health ?? "gingivitis"));
+    setGingivalHealth(String(record?.gingival_health ?? "healthy"));
     setPlaque(
       String(
         record?.plaque ??
@@ -1097,6 +1110,9 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
     );
     setReferralReason(String(record?.referral_reason ?? "No specific reason"));
     setFollowUpValue(String(record?.follow_up ?? "As needed"));
+
+    setReferralRequired(toYesNo(record?.referral_required));
+    setFollowUpRequired(toYesNo(record?.follow_up_required));
     setCareInstructions(String(record?.care_instructions ?? ""));
     setSidebarNotes(String(record?.sidebar_notes ?? record?.notes ?? ""));
   }, []);
@@ -1619,6 +1635,8 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
       referral_action: referralAction,
       referral_reason: referralReason,
       follow_up: followUpValue,
+      referral_required: referralRequired === "yes",
+      follow_up_required: followUpRequired === "yes",
       care_instructions: careInstructions,
       sidebar_notes: sidebarNotes,
       preventive_cleaning: "",
@@ -1686,6 +1704,8 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
     setReferralAction("");
     setReferralReason("");
     setFollowUpValue("");
+    setReferralRequired("no");
+    setFollowUpRequired("no");
     setCareInstructions("");
     setSidebarNotes("");
     // setDentalCodingValue("");
@@ -1713,6 +1733,8 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
     setReferralAction("");
     setReferralReason("");
     setFollowUpValue("");
+    setReferralRequired("no");
+    setFollowUpRequired("no");
     setCareInstructions("");
     setSidebarNotes("");
   };
@@ -2788,9 +2810,6 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
                                             />
                                           </div> */}
                                           <div className="min-w-0">
-                                            {/* <label className="mb-1.5 block text-xs text-muted-foreground">
-                                              
-                                            </label> */}
                                             <TextField
                                               label="Severity"
                                               type="text"
@@ -2803,9 +2822,6 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
                                             />
                                           </div>
                                           <div className="min-w-0">
-                                            {/* <label className="mb-1.5 block text-xs text-muted-foreground">
-                                              
-                                            </label> */}
                                             <TextField
                                               label="Risk score"
                                               type="text"
@@ -2816,7 +2832,7 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
                                               // className="h-9 w-full cursor-default rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none"
                                             />
                                           </div>
-                                          <div className="min-w-0">
+                                          <div className="min-w-0 sm:col-span-2">
                                             <ReusableSelect
                                               label="Treatment"
                                               options={
@@ -2826,7 +2842,7 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
                                               onChange={setPopupTreatmentValue}
                                             />
                                           </div>
-                                          <div className="min-w-0">
+                                          <div className="min-w-0 sm:col-span-2">
                                             <TextField
                                               type="text"
                                               label="Surface"
@@ -2963,6 +2979,8 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
                   setReferralAction={setReferralAction}
                   setReferralReason={setReferralReason}
                   setFollowUpValue={setFollowUpValue}
+                  referralRequired={referralRequired}
+                  followUpRequired={followUpRequired}
                   setCareInstructions={setCareInstructions}
                   setSidebarNotes={setSidebarNotes}
                   updatedAtValue={updatedAtValue}
@@ -2991,6 +3009,10 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
                     notes={notes}
                     formErrors={formErrors}
                     handleNotesChange={handleNotesChange}
+                    referralRequired={referralRequired}
+                    setReferralRequired={setReferralRequired}
+                    followUpRequired={followUpRequired}
+                    setFollowUpRequired={setFollowUpRequired}
                   />
                 </div>
 
@@ -3011,6 +3033,8 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
                     careInstructions={careInstructions}
                     sidebarNotes={sidebarNotes}
                     otherFindings={otherFindings}
+                    dentalFindingEntries={dentalFindingEntries}
+                    dentalCodingEntries={dentalCodingEntries}
                   />
                 </div>
               </ScreeningStepper>

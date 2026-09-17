@@ -1,16 +1,10 @@
 ﻿"use client";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { LoadingOverlay, TableSkeleton } from "@/components/ui/loading-state";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 import { StudentsDataTable } from "./utilities/students-data-table";
+import { StudentsCards } from "./utilities/students-cards";
 import { Pagination } from "@/components/ui/pagination";
 import { LayoutGrid, List, PlusCircle } from "lucide-react";
 import Link from "next/link";
@@ -20,20 +14,19 @@ import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { getAllStudent } from "@/lib/features/getAllStudentSlice";
 import { getFilterStudent } from "@/lib/features/getFilterStudent";
 import FileUploadModal from "@/components/students/fileUploadModal";
-import StudentFilter from "../health-checks/utilities/studentFilter";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import SchoolStudentFilter from "./utilities/SchoolStudentFilter";
 import { selectUserAccount } from "@/lib/features/auth-slice";
+import { useAuthRole } from "@/lib/user-role";
+import { toast } from "sonner";
 
-// Default value for every filter â€” values equal to these are kept out of
-// the URL so links stay tidy.
 const FILTER_DEFAULTS = {
   search: "",
   status: "all",
   class: "all",
   section: "all",
-  school: "all",
-  academicYear: "2026-2027",
+  branch_id: "all",
+  academicYear: "all",
   student: "all",
   sortBy: "name",
   sortOrder: "asc",
@@ -50,8 +43,8 @@ function StudentsList() {
   const status = searchParams.get("status") ?? "all";
   const classFilter = searchParams.get("class") ?? "all";
   const sectionFilter = searchParams.get("section") ?? "all";
-  const schoolName = searchParams.get("school") ?? "all";
-  const academicYear = searchParams.get("academicYear") ?? "2026-2027";
+  const schoolName = searchParams.get("branch_id") ?? "all";
+  const academicYear = searchParams.get("academicYear") ?? "all";
   const studentFilter = searchParams.get("student") ?? "all";
   const sortBy = searchParams.get("sortBy") ?? "name";
   const sortOrder = searchParams.get("sortOrder") ?? "asc";
@@ -69,8 +62,6 @@ function StudentsList() {
   const selectUser = useAppSelector(selectUserAccount);
   console.log(selectUser, "selectUserAccount");
 
-  // Merge a patch of filter changes into the current query string.
-  // Filters reset to their default are removed from the URL entirely.
   const updateParams = React.useCallback(
     (patch) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -99,7 +90,6 @@ function StudentsList() {
     [updateParams],
   );
 
-  // Debounced search box â€” local input state committed to the URL.
   const [searchInput, setSearchInput] = React.useState(search);
   React.useEffect(() => {
     setSearchInput(search);
@@ -114,8 +104,7 @@ function StudentsList() {
     return () => {
       clearTimeout(timeoutId);
     };
-    // Only re-arm the debounce timer when the user types.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [searchInput]);
 
   const handleStatusChange = (value) =>
@@ -211,13 +200,66 @@ function StudentsList() {
   const isInitialLoading = loading && rows.length === 0;
   const isRefreshing = isFetching && rows.length > 0;
   const totalPages = Math.max(1, Math.ceil((total || 0) / limit));
+
+
+  const defaultBranchId = React.useMemo(
+    () =>
+      String(
+        selectUser?.branch_id ??
+          selectUser?.branchId ??
+          selectUser?.branch?.id ??
+          "",
+      ).trim(),
+    [selectUser],
+  );
+
  const [filterFormData, setFilterFormData] = React.useState({
-  branchName: "",
-  AcademicYear: "",
+  branchName: defaultBranchId,
+  AcademicYear: "2026 - 2027",
   classes: "",
   section: "",
   BeneficiaryId: "",
 });
+
+
+  // still carry the filters.
+  const filterFormValue = React.useCallback(
+    (value, defaultValue = "all") =>
+      value === undefined ||
+      value === null ||
+      String(value) === String(defaultValue)
+        ? ""
+        : String(value),
+    [],
+  );
+
+  React.useEffect(() => {
+    setFilterFormData((prev) => {
+      const next = {
+        branchName: filterFormValue(schoolName) || defaultBranchId,
+        AcademicYear:
+          academicYear === "all" ||
+          String(academicYear) === FILTER_DEFAULTS.academicYear
+            ? ""
+            : String(academicYear),
+        classes: filterFormValue(classFilter),
+        section: filterFormValue(sectionFilter),
+        BeneficiaryId: filterFormValue(studentFilter),
+      };
+      return JSON.stringify(next) === JSON.stringify(prev) ? prev : next;
+    });
+  }, [
+    schoolName,
+    defaultBranchId,
+    academicYear,
+    classFilter,
+    sectionFilter,
+    studentFilter,
+    filterFormValue,
+  ]);
+
+  
+console.log(filterFormData,"filterFormData");
 
   // const classOptions = React.useMemo(() => {
   //   const classSet = new Set([
@@ -281,16 +323,32 @@ function StudentsList() {
   //     ),
   //   ];
   // }, [classFilter, rows]);
+  
+    // const account = useAppSelector(selectUserAccount);
+    // console.log(account, "accountee")
+
+   const getRole = useAuthRole();
+   console.log(getRole,"getRolesssss");
+   
 
   const { data: filterPayload, isLoading } = useQuery({
-    queryKey: ["filter-student", schoolName, academicYear, "options"],
+    queryKey: ["filter-student", schoolName, academicYear, classFilter, sectionFilter, "options"],
+
+    enabled:
+      Boolean(schoolName && schoolName !== "all") ||
+      Boolean(academicYear && academicYear !== "all")||
+      Boolean(classFilter && classFilter !== "all") ||
+      Boolean(sectionFilter && sectionFilter !== "all"),
     queryFn: () =>
       dispatch(
         getFilterStudent({
           all: true,
           status: "all",
-          schoolName,
+
+          branch_id: schoolName,
           academicYear,
+          classFilter,
+          sectionFilter,
           sortBy: "name",
           sortOrder: "asc",
           search: "",
@@ -304,9 +362,9 @@ function StudentsList() {
     <section className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="">
-          <h2 className="font-sf text-2xl font-bold text-foreground">
+          <h1 className="font-sf text-2xl font-semibold tracking-tight text-foreground lg:text-3xl">
             Students
-          </h2>
+          </h1>
           <p className="text-sm text-muted-foreground">
             View student records, grade section, and follow-up status.
           </p>
@@ -444,7 +502,7 @@ function StudentsList() {
         studentFilter={studentFilter}
         onSchoolNameChange={(value) => {
           updateParams({
-            school: value,
+            branch_id: value,
             class: "all",
             section: "all",
             student: "all",
@@ -479,6 +537,17 @@ function StudentsList() {
         formData={filterFormData}
         setFormData={setFilterFormData}
         selectRole={selectUser.user_type_id}
+   
+        ownBranch={{
+          value: defaultBranchId,
+          label: String(
+            selectUser?.branch_name ??
+              selectUser?.name ??
+              selectUser?.school_name ??
+              selectUser?.schoolName ??
+              "",
+          ).trim(),
+        }}
         filterPayload={filterPayload}
         isLoading={isLoading}
         schoolName={schoolName}
@@ -488,7 +557,7 @@ function StudentsList() {
         studentFilter={studentFilter}
         onSchoolNameChange={(value) => {
           updateParams({
-            school: value,
+            branch_id: value,
             class: "all",
             section: "all",
             student: "all",
@@ -525,7 +594,17 @@ function StudentsList() {
         {isInitialLoading ? <LoadingText label="Loading students..." /> : null}
         {!isInitialLoading && isRefreshing ? <LoadingText label="Refreshing students..." /> : null}
       </div> */}
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {/* Render the error as text — calling toast.error() during render was a
+          side effect that re-fired on every re-render, and passing an object
+          ({error}) made Sonner crash with "Objects are not valid as a React
+          child". The error can be a string (rejectWithValue) or an Error. */}
+      {error ? (
+        <p className="text-sm text-destructive">
+          {typeof error === "string"
+            ? error
+            : (error?.message ?? "Something went wrong while loading students.")}
+        </p>
+      ) : null}
 
       <div className="relative min-h-90 mb-0">
         {isInitialLoading ? (

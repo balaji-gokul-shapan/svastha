@@ -4,6 +4,11 @@ import { TextareaField, TextField } from "@/components/ui/text-field";
 import { FramerCard } from "@/util/FramerCard";
 import { Radio, ShieldAlert } from "lucide-react";
 import React from "react";
+import { ToggleGroup } from "../utilities/toggleGroup";
+import {
+  followUpOptions,
+  yesNoOptions,
+} from "../datas/hearing-screening-data";
 function RiskField({ label, value, onChange }) {
   return (
     <div className="rounded-xl border border-border/70 p-3">
@@ -123,74 +128,99 @@ const RiskFactors = ({form, formErrors, referralReasonOptions, updateField}) => 
           </CardHeader>
 
           <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <TextField
-              label="Referral Grade"
-              value={form.referral_grade}
-              onChange={(e) => updateField("referral_grade", e.target.value)}
+            <ToggleGroup
+              label="Referral required ?"
+              options={yesNoOptions("no")}
+              value={form.referral_required}
+              onChange={(value) => updateField("referral_required", value)}
             />
 
-            <TextField
-              label="Recommendation Type"
-              value={form.recommendation_type}
-              onChange={(e) =>
-                updateField("recommendation_type", e.target.value)
-              }
+            {form.referral_required === "yes" && (
+              <>
+                <TextField
+                  label="Referral Grade"
+                  value={form.referral_grade}
+                  onChange={(e) => updateField("referral_grade", e.target.value)}
+                />
+
+                <TextField
+                  label="Recommendation Type"
+                  value={form.recommendation_type}
+                  onChange={(e) =>
+                    updateField("recommendation_type", e.target.value)
+                  }
+                />
+
+                <TextField
+                  label="Recommended To"
+                  value={form.recommended_to}
+                  onChange={(e) =>
+                    updateField("recommended_to", e.target.value)
+                  }
+                />
+
+                <TextField
+                  label="Referral Priority"
+                  value={form.referral_priority}
+                  onChange={(e) =>
+                    updateField("referral_priority", e.target.value)
+                  }
+                />
+
+                <div className="md:col-span-2 lg:col-span-3">
+                  <ReusableSelect
+                    label="Referral Reason"
+                    value={form.referral_reason}
+                    onChange={(value) => updateField("referral_reason", value)}
+                    options={referralReasonOptions}
+                    error={formErrors?.referral_reason}
+                  />
+                  {formErrors?.referral_reason && (
+                    <p className="mt-1.5 text-xs text-destructive">
+                      {formErrors.referral_reason}
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+
+            <ToggleGroup
+              label="Follow-up required ?"
+              options={yesNoOptions("no")}
+              value={form.follow_up_required}
+              onChange={(value) => updateField("follow_up_required", value)}
             />
 
-            <TextField
-              label="Recommended To"
-              value={form.recommended_to}
-              onChange={(e) => updateField("recommended_to", e.target.value)}
-            />
+            {form.follow_up_required === "yes" && (
+              <>
+                <ReusableSelect
+                  label="Follow-up period"
+                  value={form.follow_up_period}
+                  onChange={(value) => updateField("follow_up_period", value)}
+                  options={followUpOptions}
+                />
 
-            <TextField
-              label="Referral Priority"
-              value={form.referral_priority}
-              onChange={(e) => updateField("referral_priority", e.target.value)}
-            />
-
-            <div className="md:col-span-2">
-              {/* <Textarea
-                          value={form.referral_reason}
-                          onChange={(e) =>
-                            updateField("referral_reason", e.target.value)
-                          }
-                          placeholder="Referral reason..."
-                          rows={3}
-                          className={formErrors?.referral_reason ? "border-destructive focus-visible:ring-destructive" : ""}
-                        /> */}
-              <ReusableSelect
-                label="Referral Reason"
-                value={form.referral_reason}
-                onChange={(value) => updateField("referral_reason", value)}
-                options={referralReasonOptions}
-                error={formErrors?.referral_reason}
-              />
-              {formErrors?.referral_reason && (
-                <p className="mt-1.5 text-xs text-destructive">
-                  {formErrors.referral_reason}
-                </p>
-              )}
-            </div>
-
-            <div className="lg:col-span-3">
-              <TextareaField
-                value={form.follow_up}
-                onChange={(e) => updateField("follow_up", e.target.value)}
-                placeholder="Follow-up instructions..."
-                rows={3}
-                className={
-                  formErrors?.follow_up
-                    ? "border-destructive focus-visible:ring-destructive"
-                    : ""
-                }
-              />
-              {formErrors?.follow_up && (
-                <p className="mt-1.5 text-xs text-destructive">
-                  {formErrors.follow_up}
-                </p>
-              )}
-            </div>
+                <div className="md:col-span-2 lg:col-span-3">
+                  <TextareaField
+                    label="Follow-up instructions"
+                    value={form.follow_up}
+                    onChange={(e) => updateField("follow_up", e.target.value)}
+                    placeholder="Follow-up instructions..."
+                    rows={3}
+                    className={
+                      formErrors?.follow_up
+                        ? "border-destructive focus-visible:ring-destructive"
+                        : ""
+                    }
+                  />
+                  {formErrors?.follow_up && (
+                    <p className="mt-1.5 text-xs text-destructive">
+                      {formErrors.follow_up}
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

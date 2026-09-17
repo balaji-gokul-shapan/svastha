@@ -276,7 +276,7 @@ export function StudentsDataTable({
           checked={allSelected}
           indeterminate={someSelected}
           onChange={toggleSelectAll}
-          ariaLabel="Select all students"
+          aria-label="Select all students"
         />
       ),
       cell: ({ row }) => {
@@ -287,7 +287,7 @@ export function StudentsDataTable({
             <SelectCheckbox
               checked={studentId !== null && selectedIds.has(studentId)}
               onChange={() => toggleSingleRow(studentId)}
-              ariaLabel={`Select ${row.original.name ?? "student"}`}
+              aria-label={`Select ${row.original.name ?? "student"}`}
             />
           </div>
         );

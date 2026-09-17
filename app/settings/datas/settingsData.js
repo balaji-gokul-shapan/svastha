@@ -2,10 +2,10 @@ export const REPORT_SECTIONS = [
   { id: "student_info", label: "Student Information", defaultOn: true },
   { id: "vitals", label: "Vitals & Growth", defaultOn: true },
   { id: "vision", label: "Vision Screening", defaultOn: true },
-  { id: "hearing", label: "Hearing Screening", defaultOn: true },
+  { id: "hearing", label: "Hearing Screening", defaultOn: false },
   { id: "dental", label: "Dental Screening", defaultOn: true },
   { id: "ent", label: "ENT Screening", defaultOn: false },
-  { id: "immunization", label: "Immunization Status", defaultOn: true },
+  { id: "immunization", label: "Immunization Status", defaultOn: false },
   {
     id: "recommendations",
     label: "Recommendations & Sign-off",
@@ -29,11 +29,11 @@ export const settingsNav = [
     label: "School Details",
     roles: ["admin", "school_admin", "school"],
   },
-  {
-    id: "campDetails",
-    label: "Campus Details",
-    roles: ["admin", "school_admin"],
-  },
+  // {
+  //   id: "campDetails",
+  //   label: "Campus Details",
+  //   roles: ["admin", "school_admin", ],
+  // },
   {
     id: "appearance",
     label: "Appearance",
@@ -42,28 +42,28 @@ export const settingsNav = [
   {
     id: "team",
     label: "Teams",
-    roles: ["admin", "school_admin", "school"],
+    roles: ["admin", "school_admin", "school",],
   },
   {
     id: "report",
     label: "Report",
-    roles: ["admin", "school_admin", "school"],
+    roles: ["admin", "school_admin", "school","school_sub_account"],
   },
   {
     id: "screening",
     label: "Screening",
     roles: ["admin", "school_admin", "school"],
   },
-  {
-    id: "applications",
-    label: "Applications",
-    roles: ["admin"],
-  },
-  {
-    id: "api",
-    label: "API",
-    roles: ["admin"],
-  },
+  // {
+  //   id: "applications",
+  //   label: "Applications",
+  //   roles: ["admin"],
+  // },
+  // {
+  //   id: "api",
+  //   label: "API",
+  //   roles: ["admin"],
+  // },
 ];
 
 export const initialAccounts = [

@@ -97,6 +97,17 @@ const HEARING_STEPS = [
   { value: "review", label: "Review & Submit", shortLabel: "Review" },
 ];
 
+/**
+ * Normalize stored referral/follow-up flags. Records may hold
+ * booleans (true / "true") or "yes" / "no" strings.
+ */
+const toYesNo = (value, fallback = "no") =>
+  value === true || value === "true" || value === "yes"
+    ? "yes"
+    : value === false || value === "false" || value === "no"
+      ? "no"
+      : fallback;
+
 export default function HearingScreening({ screening = {} }) {
   const dispatch = useAppDispatch();
   const queryClient = useQueryClient();
@@ -171,6 +182,12 @@ export default function HearingScreening({ screening = {} }) {
     referral_reason: screening.referral_reason ?? "",
 
     follow_up: screening.follow_up ?? "",
+
+    follow_up_period: screening.follow_up_period ?? "",
+
+    referral_required: toYesNo(screening.referral_required),
+
+    follow_up_required: toYesNo(screening.follow_up_required),
   });
     const [isSaving, setIsSaving] = React.useState(false);
       const savedStudentKeyRef = React.useRef(null);
@@ -792,6 +809,12 @@ export default function HearingScreening({ screening = {} }) {
       referral_priority: String(record?.referral_priority ?? ""),
       referral_reason: String(record?.referral_reason ?? ""),
       follow_up: String(record?.follow_up ?? ""),
+
+      follow_up_period: String(record?.follow_up_period ?? ""),
+
+      referral_required: toYesNo(record?.referral_required),
+
+      follow_up_required: toYesNo(record?.follow_up_required),
     });
   };
 

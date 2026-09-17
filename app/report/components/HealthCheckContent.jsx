@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef } from "react";
+import { useAppDispatch } from "@/lib/hooks";
+
 import {
   Activity,
   CheckCircle2,
@@ -117,23 +119,87 @@ function calculateAge(dob) {
 /* Main component — page-level (no modal wrapper)                             */
 /* -------------------------------------------------------------------------- */
 
-export default function HealthCheckContent({ student }) {
+export default function HealthCheckContent({ selectUser, student, branch: branchProp }) {
+
   const reportRef = useRef(null);
 
   const studentName = student?.name ?? student?.student_name ?? "Student";
   const studentPhoto =
-    student?.profileImage ??
+    student?.image_path ??
     student?.profile_image ??
     student?.student_image ??
     student?.image ??
     student?.photo ??
     "";
+  // The selected branch is supplied by the School Name dropdown. Fall back to
+  // the signed-in account only when a branch has not been selected yet.
+  const selectedSchool = branchProp ?? selectUser?.branch ?? selectUser;
+  console.log(selectUser,"selectedSchool");
+  
+  const schoolName =
+    selectedSchool?.label ??
+    selectedSchool?.branch_name ??
+    selectedSchool?.name ??
+    selectedSchool?.school_name ??
+    "--";
+
+  // School / branch address — same field conventions as the branch-options
+  // `toOption` mapping, read from the selected School Name option.
+  const schoolAddress = {
+    address_line_1:
+      String(
+        selectedSchool?.address_line_1 ??
+          selectedSchool?.address_line1 ??
+          "",
+      ).trim() || null,
+    address_line_2:
+      String(
+        selectedSchool?.address_line_2 ??
+          selectedSchool?.address_line2 ??
+          "",
+      ).trim() || null,
+    area: String(selectedSchool?.area ?? "").trim() ||
+      null,
+    city: String(selectedSchool?.city ?? "").trim() ||
+      null,
+    state:
+      String(selectedSchool?.state ?? "").trim() ||
+      null,
+    country:
+      String(selectedSchool?.country ?? "").trim() ||
+      null,
+    pincode:
+      String(
+        selectedSchool?.pincode ??
+          selectedSchool?.pin_code ??
+          selectedSchool?.zip ??
+          "",
+      ).trim() || null,
+    registration_number:
+      String(
+        selectedSchool?.registration_number ??
+          selectedSchool?.reg_no ??
+          "",
+      ).trim() || null,
+  };
+  const schoolAddressText = [
+    schoolAddress.address_line_1,
+    schoolAddress.address_line_2,
+    schoolAddress.area,
+    schoolAddress.city,
+    schoolAddress.state,
+    schoolAddress.country,
+    schoolAddress.pincode,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   const classValue = student?.class ?? student?.Class ?? "--";
   const sectionValue = student?.sec ?? student?.section ?? "--";
   const admissionNo = student?.admission_number ?? "--";
   const dobValue = student?.dob ?? "--";
-
+  const uhid = student?.uhid ?? "--";
+  const svasthaId = student?.svastha_id;
   const studentIdentifier = String(
     student?.student_id ??
       student?.id ??
@@ -141,7 +207,6 @@ export default function HealthCheckContent({ student }) {
       student?.cus_id ??
       "",
   ).trim();
-   
 
   const reportSettings = useAppSelector((state) => state.reportSettings);
   const reportSection = reportSettings?.reportSection ?? {};
@@ -153,9 +218,28 @@ export default function HealthCheckContent({ student }) {
   const showDental = reportSection.dental ?? true;
   const showImmunization = reportSection.immunization ?? true;
   const showRecommendations = reportSection.recommendations ?? true;
-  const getGridCount = [showVision, showHearing, showDental, showVitals, showImmunization].filter(Boolean);
-  console.log(getGridCount,"getGridCount");
-  
+
+  const getGridCount = [
+    showVision,
+    showHearing,
+    showDental,
+    showVitals,
+    showImmunization,
+  ].filter(Boolean);
+  console.log(getGridCount, "getGridCount");
+
+  // Number of visible status cards. Tailwind can't build a class from a
+  // runtime value (e.g. `sm:grid-cols-${n}`), so map the count to explicit,
+  // build-time-detectable class literals.
+  const statusCardCount = getGridCount.length;
+  const statusGridCols =
+    {
+      1: "sm:grid-cols-1",
+      2: "sm:grid-cols-2",
+      3: "sm:grid-cols-3",
+      4: "sm:grid-cols-4",
+      5: "sm:grid-cols-5",
+    }[statusCardCount] ?? "sm:grid-cols-2";
 
   const reportTemplate = reportSettings?.reportTemplate ?? "detailed";
   const showStatusCards = reportTemplate !== "summary";
@@ -174,9 +258,8 @@ export default function HealthCheckContent({ student }) {
     isLoading: screeningLoading,
   } = useScreeningRecord({ getId: studentIdentifier });
 
-  console.log({generalScreeningRecord}, "dddddd");
-  console.log({visionScreeningRecord}, "ssssss");
-  
+  console.log({ generalScreeningRecord }, "dddddd");
+  console.log({ visionScreeningRecord }, "ssssss");
 
   const handleDownloadPDF = async () => {
     const element = reportRef.current;
@@ -191,21 +274,33 @@ export default function HealthCheckContent({ student }) {
         onclone: (clonedDoc) => {
           clonedDoc
             .querySelectorAll("[data-pdf-hide]")
-            .forEach((el) => el.style.setProperty("display", "none", "important"));
+            .forEach((el) =>
+              el.style.setProperty("display", "none", "important"),
+            );
 
           const reportRoot = clonedDoc.querySelector("[data-pdf-report]");
           if (reportRoot) {
             reportRoot
               .querySelectorAll("h1, h2, h3, h4, h5, h6")
-              .forEach((h) => h.style.setProperty("color", "#00a4e3", "important"));
+              .forEach((h) =>
+                h.style.setProperty("color", "#00a4e3", "important"),
+              );
             reportRoot
               .querySelectorAll("p, li, span")
-              .forEach((el) => el.style.setProperty("color", "#000000", "important"));
+              .forEach((el) =>
+                el.style.setProperty("color", "#000000", "important"),
+              );
           }
 
-          const reportHeader = clonedDoc.querySelector('[data-pdf-section="report-header"]');
+          const reportHeader = clonedDoc.querySelector(
+            '[data-pdf-section="report-header"]',
+          );
           if (reportHeader) {
-            reportHeader.style.setProperty("background-color", "#f3f4f6", "important");
+            reportHeader.style.setProperty(
+              "background-color",
+              "#f3f4f6",
+              "important",
+            );
             reportHeader.style.setProperty("color", "#000000", "important");
             reportHeader.querySelectorAll("th").forEach((th) => {
               th.style.setProperty("background-color", "#f3f4f6", "important");
@@ -215,51 +310,125 @@ export default function HealthCheckContent({ student }) {
           }
 
           const pdfColors = {
-            physical: { background: "#ffffff", text: "#222222", border: "#e5e7eb" },
-            vision: { background: "#ffffff", text: "#222222", border: "#e5e7eb" },
-            hearing: { background: "#ffffff", text: "#222222", border: "#e5e7eb" },
-            dental: { background: "#ffffff", text: "#222222", border: "#e5e7eb" },
-            immunization: { background: "#ffffff", text: "#222222", border: "#e5e7eb" },
+            physical: {
+              background: "#ffffff",
+              text: "#222222",
+              border: "#e5e7eb",
+            },
+            vision: {
+              background: "#ffffff",
+              text: "#222222",
+              border: "#e5e7eb",
+            },
+            hearing: {
+              background: "#ffffff",
+              text: "#222222",
+              border: "#e5e7eb",
+            },
+            dental: {
+              background: "#ffffff",
+              text: "#222222",
+              border: "#e5e7eb",
+            },
+            immunization: {
+              background: "#ffffff",
+              text: "#222222",
+              border: "#e5e7eb",
+            },
           };
 
           Object.entries(pdfColors).forEach(([type, colors]) => {
             const rows = clonedDoc.querySelectorAll(`[data-pdf-row="${type}"]`);
             rows.forEach((row) => {
               row.querySelectorAll("td").forEach((cell) => {
-                cell.style.setProperty("background-color", colors.background, "important");
+                cell.style.setProperty(
+                  "background-color",
+                  colors.background,
+                  "important",
+                );
                 cell.style.setProperty("color", colors.text, "important");
-                cell.style.setProperty("border-color", colors.border, "important");
+                cell.style.setProperty(
+                  "border-color",
+                  colors.border,
+                  "important",
+                );
               });
             });
           });
 
-          const recommendations = clonedDoc.querySelector('[data-pdf-section="recommendations"]');
+          const recommendations = clonedDoc.querySelector(
+            '[data-pdf-section="recommendations"]',
+          );
           if (recommendations) {
-            recommendations.style.setProperty("background-color", "#ffffff", "important");
+            recommendations.style.setProperty(
+              "background-color",
+              "#ffffff",
+              "important",
+            );
             recommendations.style.setProperty("color", "#000000", "important");
-            recommendations.style.setProperty("border-color", "#e5e7eb", "important");
+            recommendations.style.setProperty(
+              "border-color",
+              "#e5e7eb",
+              "important",
+            );
             recommendations
               .querySelectorAll("*")
-              .forEach((child) => child.style.setProperty("background-color", "transparent", "important"));
+              .forEach((child) =>
+                child.style.setProperty(
+                  "background-color",
+                  "transparent",
+                  "important",
+                ),
+              );
             recommendations
               .querySelectorAll("h1, h2, h3, h4, h5, h6")
-              .forEach((h) => h.style.setProperty("color", "#00a4e3", "important"));
+              .forEach((h) =>
+                h.style.setProperty("color", "#00a4e3", "important"),
+              );
             recommendations
               .querySelectorAll("p, li, span")
-              .forEach((el) => el.style.setProperty("color", "#000000", "important"));
+              .forEach((el) =>
+                el.style.setProperty("color", "#000000", "important"),
+              );
             recommendations
               .querySelectorAll("svg")
-              .forEach((icon) => icon.style.setProperty("color", "#16a34a", "important"));
+              .forEach((icon) =>
+                icon.style.setProperty("color", "#16a34a", "important"),
+              );
           }
 
           if (reportRoot) {
-            reportRoot.style.setProperty("background-color", "#ffffff", "important");
+            reportRoot.style.setProperty(
+              "background-color",
+              "#ffffff",
+              "important",
+            );
+
+            // The Summary table uses responsive show/hide (hidden sm:block vs
+            // sm:hidden). html2canvas re-renders the clone in its own iframe where
+            // the sm: breakpoint can resolve differently — if BOTH blocks end up
+            // hidden you get a big blank gap before Recommendations. Force the
+            // desktop summary table visible and the mobile block hidden in the PDF.
+            reportRoot
+              .querySelectorAll("[data-pdf-force-block]")
+              .forEach((el) =>
+                el.style.setProperty("display", "block", "important"),
+              );
+            reportRoot
+              .querySelectorAll("[data-pdf-hide]")
+              .forEach((el) =>
+                el.style.setProperty("display", "none", "important"),
+              );
           }
         },
       });
 
       const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       // Equal left/right margin: 6mm each side
@@ -317,36 +486,59 @@ export default function HealthCheckContent({ student }) {
         </div>
       </div> */}
 
-      <div ref={reportRef} data-pdf-report className="space-y-6 py-2">
+      <div ref={reportRef} data-pdf-report className="space-y-6 py-8">
         {showStudentInfo ? (
-          <section className="grid grid-cols-1 gap-5 sm:grid-cols-[1fr_auto]">
-            <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
-              <Info label="Student Name" value={studentName} />
-              <Info label="Date of Birth" value={dobValue} />
-              <Info label="Age" value={calculateAge(dobValue)} />
-              <Info label="Admission No" value={admissionNo} />
-              <Info label="Gender" value={student?.gender ?? "--"} />
-              <Info label="Class / Section" value={`${classValue}-${sectionValue}`} />
-              <Info
-                label="Health Check Date"
-                value={formatDateTime(student?.updated_at ?? student?.updatedAt)}
-              />
-            </div>
-            <div className="flex justify-start sm:justify-end">
-              <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border bg-muted">
-                {studentPhoto ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={studentPhoto} alt="Student" className="h-full w-full object-cover" />
-                ) : (
-                  <span className="text-xs text-muted-foreground">Paste Photo here</span>
-                )}
+          <section className="space-y-4">
+           <div className="flex flex-col items-center pb-4 gap-5">
+             <h2 className="text-center">{schoolName}</h2>
+            {schoolAddressText ? (
+              <p className="-mt-4 mb-2 text-center text-xs text-muted-foreground">
+                {schoolAddressText}
+              </p>
+            ) : null}
+           </div>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-[1fr_auto]">
+              <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
+                <Info label="Student Name" value={studentName} />
+                <Info label="Date of Birth" value={dobValue} />
+                <Info label="Age" value={calculateAge(dobValue)} />
+                <Info label="Admission No" value={admissionNo} />
+                <Info label="UHID No" value={uhid} />
+                {svasthaId && <Info label="SvasthaID No" value={svasthaId} />}
+                <Info label="Gender" value={student?.gender ?? "--"} />
+                <Info
+                  label="Class / Section"
+                  value={`${classValue}-${sectionValue}`}
+                />
+                <Info
+                  label="Health Check Date"
+                  value={formatDateTime(
+                    student?.updated_at ?? student?.updatedAt,
+                  )}
+                />
+              </div>
+              <div className="flex justify-start sm:justify-end">
+                <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+                  {studentPhoto ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={studentPhoto}
+                      alt="Student"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      Paste Photo here
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </section>
         ) : null}
 
         {showStatusCards ? (
-          <section className={`grid grid-cols-2 gap-3 sm:grid-cols-${getGridCount.length}`}>
+          <section className={`grid grid-cols-2 gap-3 ${statusGridCols}`}>
             {showVitals ? (
               <StatusCard
                 iconClass="text-success bg-success/50"
@@ -396,48 +588,133 @@ export default function HealthCheckContent({ student }) {
         ) : null}
 
         <section>
-          <h3 className="mb-3 text-sm font-semibold text-foreground">Summary</h3>
-          <div className="hidden overflow-hidden rounded-lg border sm:block">
+          <h3 className="mb-3 text-sm font-semibold text-foreground">
+            Summary
+          </h3>
+          <div
+            className="hidden overflow-hidden rounded-lg border sm:block"
+            data-pdf-force-block
+          >
             <table className="w-full text-sm">
-              <thead data-pdf-section="report-header" className="bg-muted/40 text-left">
+              <thead
+                data-pdf-section="report-header"
+                className="bg-muted/40 text-left"
+              >
                 <tr>
                   <th className="px-4 py-3 font-semibold">Area</th>
                   <th className="px-4 py-3 font-semibold">Findings</th>
-                  {showRemarks ? <th className="px-4 py-3 font-semibold">Remarks</th> : null}
+                  {showRemarks ? (
+                    <th className="px-4 py-3 font-semibold">Remarks</th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {showVitals ? (
-                  <ReportRow area="Physical Examination" finding="Normal" remark="No significant abnormalities" pdfClass="physical" showRemarks={showRemarks} padClass={rowPadClass} />
+                  <ReportRow
+                    area="Physical Examination"
+                    finding="Normal"
+                    remark="No significant abnormalities"
+                    pdfClass="physical"
+                    showRemarks={showRemarks}
+                    padClass={rowPadClass}
+                  />
                 ) : null}
                 {showVision ? (
-                  <ReportRow area="Vision Screening" finding="Normal" remark="6/6 in both eyes" pdfClass="vision" showRemarks={showRemarks} padClass={rowPadClass} />
+                  <ReportRow
+                    area="Vision Screening"
+                    finding="Normal"
+                    remark="6/6 in both eyes"
+                    pdfClass="vision"
+                    showRemarks={showRemarks}
+                    padClass={rowPadClass}
+                  />
                 ) : null}
                 {showHearing ? (
-                  <ReportRow area="Hearing Screening" finding="Normal" remark="Hearing normal in both ears" pdfClass="hearing" showRemarks={showRemarks} padClass={rowPadClass} />
+                  <ReportRow
+                    area="Hearing Screening"
+                    finding="Normal"
+                    remark="Hearing normal in both ears"
+                    pdfClass="hearing"
+                    showRemarks={showRemarks}
+                    padClass={rowPadClass}
+                  />
                 ) : null}
                 {showDental ? (
-                  <ReportRow area="Dental Check-up" finding="Good" remark="Mild plaque deposits. No caries." pdfClass="dental" showRemarks={showRemarks} padClass={rowPadClass} />
+                  <ReportRow
+                    area="Dental Check-up"
+                    finding="Good"
+                    remark="Mild plaque deposits. No caries."
+                    pdfClass="dental"
+                    showRemarks={showRemarks}
+                    padClass={rowPadClass}
+                  />
                 ) : null}
                 {showImmunization ? (
-                  <ReportRow area="Immunization" finding="Up to Date" remark="All recommended vaccines completed" pdfClass="immunization" showRemarks={showRemarks} padClass={rowPadClass} />
+                  <ReportRow
+                    area="Immunization"
+                    finding="Up to Date"
+                    remark="All recommended vaccines completed"
+                    pdfClass="immunization"
+                    showRemarks={showRemarks}
+                    padClass={rowPadClass}
+                  />
                 ) : null}
               </tbody>
             </table>
           </div>
-          <div className="space-y-3 sm:hidden">
-            {showVitals ? <MobileReportCard area="Physical Examination" finding="Normal" remark="No significant abnormalities" showRemarks={showRemarks} /> : null}
-            {showVision ? <MobileReportCard area="Vision Screening" finding="Normal" remark="6/6 in both eyes" showRemarks={showRemarks} /> : null}
-            {showHearing ? <MobileReportCard area="Hearing Screening" finding="Normal" remark="Hearing normal in both ears" showRemarks={showRemarks} /> : null}
-            {showDental ? <MobileReportCard area="Dental Check-up" finding="Good" remark="Mild plaque deposits. No caries." showRemarks={showRemarks} /> : null}
-            {showImmunization ? <MobileReportCard area="Immunization" finding="Up to Date" remark="All recommended vaccines completed" showRemarks={showRemarks} /> : null}
+          <div className="space-y-3 sm:hidden" data-pdf-hide>
+            {showVitals ? (
+              <MobileReportCard
+                area="Physical Examination"
+                finding="Normal"
+                remark="No significant abnormalities"
+                showRemarks={showRemarks}
+              />
+            ) : null}
+            {showVision ? (
+              <MobileReportCard
+                area="Vision Screening"
+                finding="Normal"
+                remark="6/6 in both eyes"
+                showRemarks={showRemarks}
+              />
+            ) : null}
+            {showHearing ? (
+              <MobileReportCard
+                area="Hearing Screening"
+                finding="Normal"
+                remark="Hearing normal in both ears"
+                showRemarks={showRemarks}
+              />
+            ) : null}
+            {showDental ? (
+              <MobileReportCard
+                area="Dental Check-up"
+                finding="Good"
+                remark="Mild plaque deposits. No caries."
+                showRemarks={showRemarks}
+              />
+            ) : null}
+            {showImmunization ? (
+              <MobileReportCard
+                area="Immunization"
+                finding="Up to Date"
+                remark="All recommended vaccines completed"
+                showRemarks={showRemarks}
+              />
+            ) : null}
           </div>
         </section>
 
         {showRecommendations ? (
           <>
-            <section data-pdf-section="recommendations" className="rounded-lg border bg-muted/40 p-4">
-              <h3 className="mb-3 text-sm font-semibold text-foreground">Recommendations</h3>
+            <section
+              data-pdf-section="recommendations"
+              className="rounded-lg border bg-muted/40 p-4"
+            >
+              <h3 className="mb-3 text-sm font-semibold text-foreground">
+                Recommendations
+              </h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex gap-2">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
@@ -455,18 +732,30 @@ export default function HealthCheckContent({ student }) {
                 <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border-dotted border bg-muted">
                   {studentPhoto ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={studentPhoto} alt="Student" className="h-full w-full object-cover" />
+                    <img
+                      src={studentPhoto}
+                      alt="Student"
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
-                    <span className="text-xs text-muted-foreground">No signature Photo</span>
+                    <span className="text-xs text-muted-foreground">
+                      No signature Photo
+                    </span>
                   )}
                 </div>
               </div>
               <div className="flex items-baseline gap-2">
-                <h3 className="text-sm font-semibold text-foreground">Dr. Aravind</h3>
+                <h3 className="text-sm font-semibold text-foreground">
+                  Dr. Aravind
+                </h3>
                 <h6 className="text-[11px] text-muted-foreground">MBBS FRCS</h6>
               </div>
-              <p className="text-xs text-muted-foreground">School Health Officer</p>
-              <p className="text-xs text-muted-foreground">Svastha Health Services</p>
+              <p className="text-xs text-muted-foreground">
+                School Health Officer
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Svastha Health Services
+              </p>
             </section>
           </>
         ) : null}
@@ -474,4 +763,3 @@ export default function HealthCheckContent({ student }) {
     </div>
   );
 }
-

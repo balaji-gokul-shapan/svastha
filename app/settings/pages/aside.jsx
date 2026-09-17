@@ -5,14 +5,14 @@ import React from 'react'
 const Aside = ({settings, navQuery, query, activeTab, setActiveTab}) => {
   return (
     <aside className="w-full shrink-0 lg:w-60">
-        <div className="flex items-center gap-2">
+        {/* <div className="flex items-center gap-2">
           <span className="size-2 rounded-full bg-foreground" />
           <span className="text-sm font-semibold text-foreground">
             Svastha UI
           </span>
-        </div>
+        </div> */}
 
-        <p className="mt-5 text-sm font-medium text-foreground">Settings</p>
+        {/* <p className="mt-5 text-sm font-medium text-foreground">Settings</p> */}
 
         <div className="relative mt-3">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

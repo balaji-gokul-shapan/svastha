@@ -361,7 +361,7 @@ const Report = ({
                           checked ? "include" : "exclude",
                         )
                       }
-                      ariaLabel={`Toggle ${section.label}`}
+                      aria-label={`Toggle ${section.label}`}
                     />
                   </div>
                 );
@@ -385,7 +385,7 @@ const Report = ({
             onCheckedChange={(checked) =>
               onChange("schoolHead", checked)
             }
-            ariaLabel="Toggle school letterhead"
+            aria-label="Toggle school letterhead"
           />
         </div>
 
@@ -403,7 +403,7 @@ const Report = ({
           <Switch
             checked={autoGenerate}
             onCheckedChange={setAutoGenerate}
-            ariaLabel="Toggle auto-generate reports"
+            aria-label="Toggle auto-generate reports"
           />
         </div> */}
 

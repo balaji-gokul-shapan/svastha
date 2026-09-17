@@ -2,6 +2,21 @@
 // Swap `initialToothChart` and the dropdown option arrays for real data later —
 // every shape here is what the UI expects, so the rest of the form won't need to change.
 
+// Yes/No toggle options — use with <ToggleGroup columns={2} />.
+// `goodValue` picks which side gets the "good" tone ("yes", "no", or "neutral").
+export const yesNoOptions = (goodValue) => {
+  if (goodValue === "neutral") {
+    return [
+      { value: "yes", label: "Yes", tone: "neutral" },
+      { value: "no", label: "No", tone: "neutral" },
+    ];
+  }
+  return [
+    { value: "yes", label: "Yes", tone: goodValue === "yes" ? "good" : "bad" },
+    { value: "no", label: "No", tone: goodValue === "no" ? "good" : "bad" },
+  ];
+};
+
 // ---------------------------------------------------------------------------
 // FDI (ISO 3950) tooth numbering
 // First digit = quadrant

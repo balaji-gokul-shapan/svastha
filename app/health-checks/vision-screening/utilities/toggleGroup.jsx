@@ -13,7 +13,7 @@ const TONE_ACTIVE_CLASS = {
 function ToggleGroupComponent({ label, options, value, onChange, columns = 2, labelClassName }) {
   return (
     <div>
-      <p className={cn("mb-1 text-sm font-semibold text-foreground", labelClassName)}>
+      <p className={cn("mb-1.5 text-sm font-semibold text-foreground", labelClassName)}>
         {label}
       </p>
       <div className={`grid gap-2 ${columns === 2 ? "grid-cols-2" : "grid-cols-3"}`}>

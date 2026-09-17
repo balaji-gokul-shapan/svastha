@@ -29,7 +29,8 @@ export function useScreeningRecord({ getId } = {}) {
     queryKey: ["hearing-screening", normalizedId],
     queryFn: () =>
       dispatch(getHearingScreening({ studentId: normalizedId })).unwrap(),
-    enabled: hasStudent,
+    enabled: false,
+    // enabled: hasStudent,
     staleTime: 60_000,
   });
 
@@ -50,7 +51,7 @@ export function useScreeningRecord({ getId } = {}) {
           sortOrder: "asc",
         }),
       ).unwrap(),
-    enabled: hasStudent,
+    // enabled: hasStudent,
     staleTime: 60_000,
   });
 
@@ -63,10 +64,12 @@ export function useScreeningRecord({ getId } = {}) {
     queryKey: ["dental-screening", normalizedId],
     queryFn: () =>
       dispatch(getDentalScreening({ studentId: normalizedId })).unwrap(),
-    enabled: hasStudent,
+    // enabled: hasStudent,
     staleTime: 60_000,
   });
 
+  console.log(normalizedId,"dentalScreeningData");
+  
   // Vision screening for this student.
   const {
     data: visionScreeningData = [],
@@ -79,7 +82,6 @@ export function useScreeningRecord({ getId } = {}) {
     enabled: hasStudent,
     staleTime: 60_000,
   });
-  
 
   // getInitialScreening resolves to { items: [...], total, page, limit } —
   // normalize it into a plain array of records.
@@ -104,6 +106,10 @@ export function useScreeningRecord({ getId } = {}) {
     if (!studentKeys.size || !Array.isArray(records) || !records.length) {
       return null;
     }
+    console.log(dentalScreeningData,"aaa");
+    console.log(visionScreeningData,"bbb");
+    console.log(generalScreeningPayload,"ccc");
+    
 
     return (
       records.find((record) => {
@@ -121,7 +127,11 @@ export function useScreeningRecord({ getId } = {}) {
           record?.student?.school_registration_number,
           record?.student?.admission_number,
         ]
-          .map((value) => String(value ?? "").trim().toLowerCase())
+          .map((value) =>
+            String(value ?? "")
+              .trim()
+              .toLowerCase(),
+          )
           .filter(Boolean);
 
         return recordKeys.some((key) => studentKeys.has(key));
@@ -137,7 +147,9 @@ export function useScreeningRecord({ getId } = {}) {
   // student; otherwise we must not show another student's data.
   const pickScopedRecord = (records) => {
     const list = Array.isArray(records) ? records : [];
-    return findRecordByStudentKeys(list) ?? (list.length === 1 ? list[0] : null);
+    return (
+      findRecordByStudentKeys(list) ?? (list.length === 1 ? list[0] : null)
+    );
   };
 
   const generalScreeningRecord = useMemo(

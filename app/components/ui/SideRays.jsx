@@ -1,34 +1,44 @@
-import { useRef, useEffect, useState } from 'react';
-import { Renderer, Program, Triangle, Mesh } from 'ogl';
+import { useRef, useEffect, useState } from "react";
+import { Renderer, Program, Triangle, Mesh } from "ogl";
 // import './SideRays.css';
 
-const hexToRgb = hex => {
+const hexToRgb = (hex) => {
   const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return m ? [parseInt(m[1], 16) / 255, parseInt(m[2], 16) / 255, parseInt(m[3], 16) / 255] : [1, 1, 1];
+  return m
+    ? [
+        parseInt(m[1], 16) / 255,
+        parseInt(m[2], 16) / 255,
+        parseInt(m[3], 16) / 255,
+      ]
+    : [1, 1, 1];
 };
 
-const originToFlip = origin => {
+const originToFlip = (origin) => {
   switch (origin) {
-    case 'top-left': return [1, 0];
-    case 'bottom-right': return [0, 1];
-    case 'bottom-left': return [1, 1];
-    default: return [0, 0];
+    case "top-left":
+      return [1, 0];
+    case "bottom-right":
+      return [0, 1];
+    case "bottom-left":
+      return [1, 1];
+    default:
+      return [0, 0];
   }
 };
 
 const SideRays = ({
   speed = 2.5,
-  rayColor1 = '#EAB308',
-  rayColor2 = '#96c8ff',
+  rayColor1 = "#EAB308",
+  rayColor2 = "#96c8ff",
   intensity = 2,
   spread = 2,
-  origin = 'top-right',
+  origin = "top-right",
   tilt = 0,
   saturation = 1.5,
   blend = 0.75,
   falloff = 1.6,
   opacity = 1.0,
-  className = ''
+  className = "",
 }) => {
   const containerRef = useRef(null);
   const uniformsRef = useRef(null);
@@ -40,16 +50,20 @@ const SideRays = ({
   const startingRef = useRef(false);
   const [isVisible, setIsVisible] = useState(false);
   const observerRef = useRef(null);
+  // WebGL can be unavailable (hardware acceleration off, no GPU / remote
+  // desktop, driver blocklist, too many live contexts). Track that so we can
+  // render a static CSS fallback instead of crashing the page.
+  const [webglFailed, setWebglFailed] = useState(false);
 
   useEffect(() => {
     if (!containerRef.current) return;
 
     observerRef.current = new IntersectionObserver(
-      entries => {
+      (entries) => {
         const entry = entries[0];
         setIsVisible(entry.isIntersecting);
       },
-      { threshold: 0 }
+      { threshold: 0 },
     );
 
     observerRef.current.observe(containerRef.current);
@@ -77,15 +91,28 @@ const SideRays = ({
     const initializeWebGL = () => {
       if (!containerRef.current) return;
 
+   
+      const testCanvas = document.createElement("canvas");
+      const glSupported = !!(
+        testCanvas.getContext("webgl2") || testCanvas.getContext("webgl")
+      );
+      if (!glSupported) {
+        console.warn(
+          "SideRays: WebGL is not available in this browser — rendering static CSS fallback instead.",
+        );
+        setWebglFailed(true);
+        return;
+      }
+
       const renderer = new Renderer({
         dpr: Math.min(window.devicePixelRatio, 2),
-        alpha: true
+        alpha: true,
       });
       rendererRef.current = renderer;
 
       const gl = renderer.gl;
-      gl.canvas.style.width = '100%';
-      gl.canvas.style.height = '100%';
+      gl.canvas.style.width = "100%";
+      gl.canvas.style.height = "100%";
 
       while (containerRef.current.firstChild) {
         containerRef.current.removeChild(containerRef.current.firstChild);
@@ -174,12 +201,16 @@ void main() {
         iSaturation: { value: saturation },
         iBlend: { value: blend },
         iFalloff: { value: falloff },
-        iOpacity: { value: opacity }
+        iOpacity: { value: opacity },
       };
       uniformsRef.current = uniforms;
 
       const geometry = new Triangle(gl);
-      const program = new Program(gl, { vertex: vert, fragment: frag, uniforms });
+      const program = new Program(gl, {
+        vertex: vert,
+        fragment: frag,
+        uniforms,
+      });
       const mesh = new Mesh(gl, { geometry, program });
       meshRef.current = mesh;
 
@@ -199,8 +230,9 @@ void main() {
       resizeObserverRef.current.observe(containerRef.current);
 
       let failures = 0;
-      const loop = t => {
-        if (!rendererRef.current || !uniformsRef.current || !meshRef.current) return;
+      const loop = (t) => {
+        if (!rendererRef.current || !uniformsRef.current || !meshRef.current)
+          return;
         uniforms.iTime.value = t * 0.001;
         try {
           renderer.render({ scene: mesh });
@@ -216,7 +248,7 @@ void main() {
         }
       };
 
-      window.addEventListener('resize', updateSize);
+      window.addEventListener("resize", updateSize);
       updateSize();
       // Re-measure once after the first painted frame, then start animating.
       requestAnimationFrame(() => {
@@ -229,13 +261,14 @@ void main() {
           cancelAnimationFrame(animationIdRef.current);
           animationIdRef.current = null;
         }
-        window.removeEventListener('resize', updateSize);
+        window.removeEventListener("resize", updateSize);
         if (renderer) {
           try {
-            const loseCtx = renderer.gl.getExtension('WEBGL_lose_context');
+            const loseCtx = renderer.gl.getExtension("WEBGL_lose_context");
             if (loseCtx) loseCtx.loseContext();
             const canvas = renderer.gl.canvas;
-            if (canvas && canvas.parentNode) canvas.parentNode.removeChild(canvas);
+            if (canvas && canvas.parentNode)
+              canvas.parentNode.removeChild(canvas);
           } catch (e) {}
         }
         rendererRef.current = null;
@@ -244,7 +277,21 @@ void main() {
       };
     };
 
-    initializeWebGL();
+    try {
+      initializeWebGL();
+      setWebglFailed(false);
+    } catch (e) {
+      // e.g. ogl's "unable to create webgl context" — degrade gracefully to a
+      // static gradient so the page remains usable without a GPU. Log a plain
+      // message only: Next dev's console interceptor re-prints any Error
+      // object as a scary red overlay entry, which is just noise here.
+      console.warn(
+        "SideRays: WebGL context unavailable in this browser — rendering static CSS fallback instead.",
+      );
+      setWebglFailed(true);
+      // Allow a retry on the next effect run (prop change / re-visible).
+      startingRef.current = false;
+    }
 
     return () => {
       if (resizeObserverRef.current) {
@@ -257,7 +304,20 @@ void main() {
       }
       startingRef.current = false;
     };
-  }, [isVisible, speed, rayColor1, rayColor2, intensity, spread, origin, tilt, saturation, blend, falloff, opacity]);
+  }, [
+    isVisible,
+    speed,
+    rayColor1,
+    rayColor2,
+    intensity,
+    spread,
+    origin,
+    tilt,
+    saturation,
+    blend,
+    falloff,
+    opacity,
+  ]);
 
   useEffect(() => {
     if (!uniformsRef.current) return;
@@ -275,9 +335,40 @@ void main() {
     u.iBlend.value = blend;
     u.iFalloff.value = falloff;
     u.iOpacity.value = opacity;
-  }, [speed, rayColor1, rayColor2, intensity, spread, origin, tilt, saturation, blend, falloff, opacity]);
+  }, [
+    speed,
+    rayColor1,
+    rayColor2,
+    intensity,
+    spread,
+    origin,
+    tilt,
+    saturation,
+    blend,
+    falloff,
+    opacity,
+  ]);
 
-  return <div ref={containerRef} className={`side-rays-container ${className}`.trim()} />;
+  return (
+    <div
+      ref={containerRef}
+      className={`side-rays-container ${className}`.trim()}
+    >
+      {webglFailed && (
+        <div
+          className="side-rays-fallback"
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
+            opacity,
+            background: `radial-gradient(ellipse at ${origin.includes("right") ? "100%" : "0%"} ${origin.includes("bottom") ? "100%" : "0%"}, ${rayColor1}55, ${rayColor2}22 40%, transparent 65%)`,
+          }}
+        />
+      )}
+    </div>
+  );
 };
 
 export default SideRays;

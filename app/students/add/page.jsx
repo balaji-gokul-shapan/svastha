@@ -185,9 +185,9 @@ export default function AddStudentPage() {
   return (
     <section className="space-y-6">
       <div className="space-y-1">
-        <h2 className="font-sf text-2xl font-bold text-foreground">
+        <h1 className="font-sf text-2xl font-bold text-foreground">
           Add Student
-        </h2>
+        </h1>
         <p className="text-sm text-muted-foreground">
           Enter student details below to create a new record.
         </p>

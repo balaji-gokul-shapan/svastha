@@ -213,40 +213,66 @@ const Review = ({ form, reHearingResult, leHearingResult, formErrors }) => {
         >
           <div className="space-y-2">
             <SummaryRow
-              icon={Activity}
-              label="Referral Grade"
-              value={form.referral_grade || "—"}
+              icon={ShieldAlert}
+              label="Referral Required"
+              value={form.referral_required === "yes" ? "Yes" : "No"}
             />
 
-            <SummaryRow
-              icon={Activity}
-              label="Recommendation"
-              value={form.recommendation_type || "—"}
-            />
+            {form.referral_required === "yes" && (
+              <>
+                <SummaryRow
+                  icon={Activity}
+                  label="Referral Grade"
+                  value={form.referral_grade || "—"}
+                />
 
-            <SummaryRow
-              icon={Ear}
-              label="Recommended To"
-              value={form.recommended_to || "—"}
-            />
+                <SummaryRow
+                  icon={Activity}
+                  label="Recommendation"
+                  value={form.recommendation_type || "—"}
+                />
+
+                <SummaryRow
+                  icon={Ear}
+                  label="Recommended To"
+                  value={form.recommended_to || "—"}
+                />
+
+                <SummaryRow
+                  icon={ShieldAlert}
+                  label="Priority"
+                  value={form.referral_priority || "None"}
+                />
+
+                <SummaryRow
+                  icon={ShieldAlert}
+                  label="Referral Reason"
+                  value={form.referral_reason || "—"}
+                />
+              </>
+            )}
 
             <SummaryRow
               icon={ShieldAlert}
-              label="Priority"
-              value={form.referral_priority || "None"}
+              label="Follow-up Required"
+              value={form.follow_up_required === "yes" ? "Yes" : "No"}
             />
 
-            <SummaryRow
-              icon={ShieldAlert}
-              label="Referral Reason"
-              value={form.referral_reason || "—"}
-            />
+            {form.follow_up_required === "yes" && (
+              <>
+                <SummaryRow
+                  icon={Activity}
+                  label="Follow-up Period"
+                  value={form.follow_up_period || "—"}
+                />
 
-            <SummaryRow
-              icon={Activity}
-              label="Follow-up"
-              value={form.follow_up || "—"}
-            />
+                <SummaryRow
+                  icon={Activity}
+                  label="Follow-up Instructions"
+                  value={form.follow_up || "—"}
+                />
+              </>
+            )}
           </div>
         </ReviewSection>
       </div>

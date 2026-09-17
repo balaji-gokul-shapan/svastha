@@ -6,13 +6,21 @@ const phoneRegex = /^[+]?[\d\s()-]{7,15}$/;
 // Step 1 — Branch Details
 export const branchStepOneSchema = z.object({
   branch_name: z.string().trim().min(1, "Branch name is required"),
-  registration_number: z.string().trim().min(1, "Registration number is required"),
-  ceeb_code: z.string().trim().optional(),
-  year_of_establishment: z
+  registration_number: z
     .string()
     .trim()
-    .min(1, "Year of establishment is optional")
-    .optional(),
+    .min(1, "Registration number is required"),
+  ceeb_code: z.string().trim().optional(),
+  year_of_establishment: z
+    .union([z.string(), z.number()])
+    .refine(
+      (value) => String(value).trim() !== "",
+      "Year of establishment is required",
+    )
+    .refine(
+      (value) => /^\d+$/.test(String(value).trim()),
+      "Year of establishment must contain only numbers",
+    ),
 });
 
 // Step 2 — Academic
@@ -50,7 +58,10 @@ export const branchStepFiveSchema = z.object({
   state: z.string().trim().min(1, "State is required"),
   country: z.string().trim().min(1, "Country is required"),
   pincode: z.string().trim().min(1, "Pincode is required"),
-  contact_person_name: z.string().trim().min(1, "Contact person name is required"),
+  contact_person_name: z
+    .string()
+    .trim()
+    .min(1, "Contact person name is required"),
   contact_person_designation: z.string().trim().optional(),
   contact_person_phone: z
     .string()

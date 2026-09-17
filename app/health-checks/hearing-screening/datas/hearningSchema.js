@@ -78,11 +78,37 @@ export const hearingScreeningSchema = z.object({
   recommendation_type: z.string().optional(),
   recommended_to: z.string().optional(),
   referral_priority: z.string().optional(),
- referral_reason: z
-  .string()
-  .min(1, "Referral reason is required"),
 
-follow_up: z
-  .string()
-  .min(1, "Follow-up instructions are required"),
-});
+  referral_required: z.string().optional(),
+  follow_up_required: z.string().optional(),
+  follow_up_period: z.string().optional(),
+
+  referral_reason: z.string().optional(),
+
+  follow_up: z.string().optional(),
+})
+  .superRefine((data, ctx) => {
+    // A referred student must have a referral reason selected.
+    if (
+      data.referral_required === "yes" &&
+      !String(data.referral_reason ?? "").trim()
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["referral_reason"],
+        message: "Referral reason is required when referral is required",
+      });
+    }
+
+    // A student needing follow-up must have instructions recorded.
+    if (
+      data.follow_up_required === "yes" &&
+      !String(data.follow_up ?? "").trim()
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["follow_up"],
+        message: "Follow-up instructions are required when follow-up is required",
+      });
+    }
+  });

@@ -211,8 +211,8 @@ export default function ReusableSelect({
       if (!clickedInsideTrigger && !clickedInsideDropdown) {
         setOpen(false);
         setSearchTerm("");
-        setEditingValue && setEditingValue(null);
-        setDeletingValue && setDeletingValue(null);
+        // setEditingValue && setEditingValue(null);
+        // setDeletingValue && setDeletingValue(null);
       }
     };
     document.addEventListener("mousedown", onPointerDown);
@@ -380,7 +380,7 @@ export default function ReusableSelect({
                                 4
                               : triggerRect.bottom,
                         }}
-                        className="z-[9999] rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md"
+                        className="z-9999 rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md"
                       >
                         {dropdownBody}
                       </div>,
@@ -391,7 +391,7 @@ export default function ReusableSelect({
                   <div
                    ref={dropdownContainerRef}
                     className={cn(
-                      "absolute left-0 right-0 z-[70] rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md",
+                      "absolute left-0 right-0 z-70 rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md",
                       dropDirection === "up"
                         ? "bottom-full mb-0.5"
                         : "top-full mt-0",

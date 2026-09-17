@@ -1,11 +1,12 @@
-"use client";
+﻿"use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
+import { getRoleFromAccount, useAuthRole } from "@/lib/user-role";
 
 import {
   DropdownMenu,
@@ -111,13 +112,36 @@ const TeamPage = ({
   setSubAccount,
   branches = [],
   isSaving = false,
+  getSchoolBranch,
+  subAccountBranch,
+  getBranchDataForSubAccount = [],
 }) => {
-  const handleSubAccountChange = (field, value) => {
-    setSubAccount((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
+  const handleSubAccountChange = useCallback(
+    (field, value) => {
+      setSubAccount((prev) => ({ ...prev, [field]: value }));
+    },
+    [setSubAccount],
+  );
+  const handleClassSectionsChange = useCallback(
+    (classSections) => handleSubAccountChange("previleges", classSections),
+    [handleSubAccountChange],
+  );
+  console.log(getBranchDataForSubAccount, "getBranchDataForSubAccount");
+  console.log(authAccName, "authAccName");
+  const getRole = useAuthRole(authAccName);
+
+
+  const subAccountBranchOptions = useMemo(() => {
+    const fromSubAccount = (getBranchDataForSubAccount ?? [])
+      .map((option) => ({
+        value: String(option?.id ?? option?.value ?? "").trim(),
+        label: String(option?.value ?? option?.label ?? "").trim(),
+        class: String(option?.class ?? "").trim(),
+        section: String(option?.section ?? "").trim(),
+      }))
+      .filter((option) => option.value && option.label);
+    return fromSubAccount.length > 0 ? fromSubAccount : branches;
+  }, [getBranchDataForSubAccount, branches]);
 
   const accountList = Array.isArray(accounts) ? accounts : [];
 
@@ -127,11 +151,12 @@ const TeamPage = ({
   const [classFilter, setClassFilter] = useState("all");
   const [sectionFilter, setSectionFilter] = useState("all");
   const [privilegeFilter, setPrivilegeFilter] = useState("all");
+  const [userRole, setUserRole] = useState("all");
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
 
-  // Options for class/section filters — derived from the shared mock data
+  // Options for class/section filters â€” derived from the shared mock data
   // (swap for API-driven options when available).
   const classOptions = React.useMemo(() => {
     const grades = new Set();
@@ -164,18 +189,41 @@ const TeamPage = ({
   const privilegeOptions = React.useMemo(() => {
     const privileges = new Set();
     accountList.forEach((account) => {
-      const value = String(account?.previleges ?? "").trim();
-      if (value) privileges.add(value);
+      // Use the human-readable labels ("Class 3 - Section A") derived from the
+      // previleges array — String(array) would produce "[object Object]".
+      getPrivilegeLabels(account).forEach((label) => privileges.add(label));
     });
+    console.log(accountList, "accountList---");
+
     return [
       { value: "all", label: "All Privileges" },
       ...Array.from(privileges)
         .sort()
         .map((privilege) => ({
           value: privilege,
+          label: privilege,
+        })),
+    ];
+  }, [accountList]);
+
+  // Unique user types (user_type_id) present in the accounts list, mapped to
+  // their labels from USER_TYPE_OPTIONS — used by the "User Role" filter.
+  // (Note: getBranchDataForSubAccount only carries branch id/name, so the
+  // user types come from the accounts list itself.)
+  const userRoleOptions = React.useMemo(() => {
+    const userRoles = new Set();
+    accountList.forEach((account) => {
+      const value = String(account?.user_type_id ?? "").trim();
+      if (value) userRoles.add(value);
+    });
+    return [
+      { value: "all", label: "All Roles" },
+      ...Array.from(userRoles)
+        .sort((a, b) => Number(a) - Number(b))
+        .map((type) => ({
+          value: type,
           label:
-            PRIVILEGE_OPTIONS.find((opt) => opt.value === privilege)?.label ??
-            privilege,
+            USER_TYPE_OPTIONS.find((opt) => opt.value === type)?.label ?? type,
         })),
     ];
   }, [accountList]);
@@ -193,6 +241,66 @@ const TeamPage = ({
       .split(",")
       .map((item) => item.trim().toLowerCase())
       .filter(Boolean);
+  };
+
+  // Display label for ONE account's role: user_type_id → USER_TYPE_OPTIONS.
+  // (privilegeOptions above is the filter's ARRAY of options — not a function.)
+  const getAccountRoleLabel = (account) => {
+    const typeId = String(account?.user_type_id ?? "").trim();
+    if (!typeId) return "";
+    return (
+      USER_TYPE_OPTIONS.find((opt) => String(opt.value) === typeId)?.label ??
+      typeId
+    );
+  };
+
+  // Human-readable labels for ONE account's class/section privileges.
+  // `previleges` may arrive as:
+  //   • an array of objects:      [{ class: "3", section: "A" }, …]
+  //   • a JSON string of that:    '[{"class":"3","section":"A"}]'
+  //   • legacy strings:           "3-A" / "3" / comma lists
+  function getPrivilegeLabels(account) {
+    const raw = account?.previleges;
+
+    if (raw === null || raw === undefined || raw === "") return [];
+
+    // Already an array — objects → "Class X - Section Y", plain strings as-is.
+    if (Array.isArray(raw)) {
+      return raw
+        .map((entry) => {
+          if (entry && typeof entry === "object") {
+            const cls = String(entry.class ?? entry.Class ?? "").trim();
+            const sec = String(entry.section ?? entry.Section ?? "").trim();
+            if (cls && sec) return `Class ${cls} - Section ${sec}`;
+            if (cls) return `Class ${cls}`;
+            if (sec) return `Section ${sec}`;
+            return "";
+          }
+          return String(entry).trim();
+        })
+        .filter(Boolean);
+    }
+
+    // JSON-encoded string — try to parse it back into the array form.
+    const text = String(raw).trim();
+    if (text.startsWith("[")) {
+      try {
+        return getPrivilegeLabels({ previleges: JSON.parse(text) });
+      } catch {
+        // fall through to plain-string handling
+      }
+    }
+
+    // Plain / comma-separated string ("3-A", "3", "3-A,4-B").
+    return text
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const [cls, sec] = part.split("-");
+        if (cls && sec) return `Class ${cls.trim()} - Section ${sec.trim()}`;
+        return part;
+      });
   };
 
   // ---- FILTERING ----
@@ -215,7 +323,7 @@ const TeamPage = ({
         if (status !== statusFilter) return false;
       }
 
-      // Class filter — accounts may hold a single value or a comma list.
+      // Class filter â€” accounts may hold a single value or a comma list.
       if (classFilter !== "all") {
         const tokens = toFilterTokens(account?.class);
         if (!tokens.includes(String(classFilter).toLowerCase())) return false;
@@ -227,9 +335,12 @@ const TeamPage = ({
         if (!tokens.includes(String(sectionFilter).toLowerCase())) return false;
       }
 
-      // Privilege filter.
+      // Privilege filter — compare against the same labels shown as chips
+      // ("Class 3 - Section A"), case-insensitive.
       if (privilegeFilter !== "all") {
-        const tokens = toFilterTokens(account?.previleges);
+        const tokens = getPrivilegeLabels(account).map((label) =>
+          label.toLowerCase(),
+        );
         if (!tokens.includes(String(privilegeFilter).toLowerCase()))
           return false;
       }
@@ -244,6 +355,9 @@ const TeamPage = ({
     sectionFilter,
     privilegeFilter,
   ]);
+
+  console.log(accountList,"filteredAccounts");
+  
 
   // ---- PAGINATION ----
   const totalPages = Math.max(1, Math.ceil(filteredAccounts.length / pageSize));
@@ -277,6 +391,7 @@ const TeamPage = ({
     setClassFilter("all");
     setSectionFilter("all");
     setPrivilegeFilter("all");
+    setUserRole("all");
   };
 
   const hasActiveFilters =
@@ -326,323 +441,375 @@ const TeamPage = ({
               </Button>
             </div>
           ) : (
-            <Button
-              type="button"
-              variant="outline"
-              className="ml-auto shrink-0"
-              onClick={onAdd}
-            >
-              <UserRoundPlus size={14} />
-              Add New Account
-            </Button>
+            getRole !== "teacher" && (
+              <Button
+                type="button"
+                variant="outline"
+                className="ml-auto shrink-0"
+                onClick={onAdd}
+              >
+                <UserRoundPlus size={14} />
+                Add New Account
+              </Button>
+            )
           )}
         </div>
 
         {/* FILTER BAR */}
+        {getRole !== "teacher" && (
+          <>
+            <div className="mt-4 flex flex-col gap-3 rounded-md border border-border bg-muted/30 p-3 lg:flex-row lg:items-end lg:flex-wrap">
+              {/* SEARCH */}
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <TextField
+                  label="Search"
+                  labelClassName="text-sm font-medium text-foreground"
+                  id="team-search"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search by name or username..."
+                  autoComplete="off"
+                />
+              </div>
 
-        <div className="mt-4 flex flex-col gap-3 rounded-md border border-border bg-muted/30 p-3 lg:flex-row lg:items-end lg:flex-wrap">
-          {/* SEARCH */}
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <TextField
-              label="Search"
-              labelClassName="text-sm font-medium text-foreground"
-              id="team-search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search by name or username..."
-              autoComplete="off"
-            />
-          </div>
+              {/* STATUS */}
+              <div className="w-full space-y-1.5 lg:w-40">
+                <ReusableSelect
+                  label="Status"
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  options={[
+                    { value: "all", label: "All" },
+                    { value: "active", label: "Active" },
+                    { value: "inactive", label: "Inactive" },
+                  ]}
+                  placeholder="Status"
+                />
+              </div>
 
-          {/* STATUS */}
-          <div className="w-full space-y-1.5 lg:w-40">
-            <ReusableSelect
-              label="Status"
-              value={statusFilter}
-              onChange={setStatusFilter}
-              options={[
-                { value: "all", label: "All" },
-                { value: "active", label: "Active" },
-                { value: "inactive", label: "Inactive" },
-              ]}
-              placeholder="Status"
-            />
-          </div>
+              {/* CLASS */}
+              <div className="w-full space-y-1.5 lg:w-40">
+                <ReusableSelect
+                  label="Class"
+                  value={classFilter}
+                  onChange={setClassFilter}
+                  options={classOptions}
+                  placeholder="Class"
+                />
+              </div>
 
-          {/* CLASS */}
-          <div className="w-full space-y-1.5 lg:w-40">
-            <ReusableSelect
-              label="Class"
-              value={classFilter}
-              onChange={setClassFilter}
-              options={classOptions}
-              placeholder="Class"
-            />
-          </div>
+              {/* SECTION */}
+              <div className="w-full space-y-1.5 lg:w-40">
+                <ReusableSelect
+                  label="Section"
+                  value={sectionFilter}
+                  onChange={setSectionFilter}
+                  options={sectionOptions}
+                  placeholder="Section"
+                />
+              </div>
 
-          {/* SECTION */}
-          <div className="w-full space-y-1.5 lg:w-40">
-            <ReusableSelect
-              label="Section"
-              value={sectionFilter}
-              onChange={setSectionFilter}
-              options={sectionOptions}
-              placeholder="Section"
-            />
-          </div>
+              {/* PRIVILEGES */}
+              <div className="w-full space-y-1.5 lg:w-44">
+                <ReusableSelect
+                  label="Privileges"
+                  value={privilegeFilter}
+                  onChange={setPrivilegeFilter}
+                  options={privilegeOptions}
+                  placeholder="Privileges"
+                />
+              </div>
+              <div className="w-full space-y-1.5 lg:w-44">
+                <ReusableSelect
+                  label="User Role"
+                  value={userRole}
+                  onChange={setUserRole}
+                  options={userRoleOptions}
+                  placeholder="Select Role"
+                />
+              </div>
 
-          {/* PRIVILEGES */}
-          <div className="w-full space-y-1.5 lg:w-44">
-            <ReusableSelect
-              label="Privileges"
-              value={privilegeFilter}
-              onChange={setPrivilegeFilter}
-              options={privilegeOptions}
-              placeholder="Privileges"
-            />
-          </div>
-
-          {/* CLEAR */}
-          {hasActiveFilters ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={clearFilters}
-              className="gap-1.5"
-            >
-              <X className="size-4" />
-              Clear
-            </Button>
-          ) : null}
-        </div>
-
-        {hasActiveFilters ? (
-          <p className="mt-2 text-xs text-muted-foreground">
-            Showing {filteredAccounts.length} of {accountList.length} accounts
-          </p>
-        ) : null}
-
-        {/* TABLE */}
-
-        <div className="mt-4 overflow-x-auto rounded-md border border-border">
-          <table className="w-full min-w-[640px] text-left text-sm">
-            <thead className="bg-muted/50 text-muted-foreground">
-              <tr>
-                <th className="w-12 px-4 py-3 font-medium">
-                  <Checkbox
-                    checked={isAllSelected}
-                    indeterminate={isIndeterminate}
-                    onCheckedChange={onToggleAll}
-                    aria-label="Select all accounts"
-                  />
-                </th>
-
-                <th className="px-4 py-3 font-medium">Name</th>
-
-                <th className="px-4 py-3 font-medium">Status</th>
-
-                <th className="w-20 px-4 py-3 text-right font-medium">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-border bg-card">
-              {paginatedAccounts.map((account) => {
-                const isSelected = selectedIds.includes(account.id);
-
-                const isActive = account.status === "active";
-
-                return (
-                  <tr
-                    key={account.id}
-                    className={isSelected ? "bg-muted/40" : undefined}
-                  >
-                    {/* CHECKBOX */}
-
-                    <td className="px-4 py-3">
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => onToggleRow(account.id)}
-                        aria-label={`Select ${account.name}`}
-                      />
-                    </td>
-
-                    {/* NAME */}
-
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <span
-                          aria-hidden="true"
-                          className={`flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-                            AVATAR_STYLES[account.id % AVATAR_STYLES.length]
-                          }`}
-                        >
-                          {getInitials(account.name)}
-                        </span>
-
-                        <div className="min-w-0">
-                          <p className="truncate font-medium text-foreground">
-                            {account.name}
-                          </p>
-
-                          {account.designation ? (
-                            <p className="truncate text-xs text-muted-foreground">
-                              {account.designation}
-                            </p>
-                          ) : null}
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* STATUS */}
-
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          checked={isActive}
-                          onCheckedChange={() => onToggleStatus(account.id)}
-                          aria-label={`Toggle status for ${account.name}`}
-                        />
-
-                        <span
-                          className={`text-xs font-medium ${
-                            isActive ? "text-success" : "text-muted-foreground"
-                          }`}
-                        >
-                          {isActive ? "Active" : "Inactive"}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* ACTIONS */}
-
-                    <td className="px-4 py-3 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          aria-label={`Actions for ${account.name}`}
-                          className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground"
-                        >
-                          <MoreHorizontal className="size-4" />
-                        </DropdownMenuTrigger>
-
-                        <DropdownMenuContent align="end" className="w-36">
-                          <DropdownMenuItem onClick={() => onEdit(account)}>
-                            <Pencil />
-                            Edit
-                          </DropdownMenuItem>
-
-                          <DropdownMenuItem
-                            onClick={() => onDuplicate(account.id)}
-                          >
-                            <Copy />
-                            Copy
-                          </DropdownMenuItem>
-
-                          <DropdownMenuSeparator />
-
-                          <DropdownMenuItem
-                            onClick={() => setDeleteTarget(account)}
-                            className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                          >
-                            <Trash2 />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                );
-              })}
-
-              {filteredAccounts.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={4}
-                    className="px-4 py-10 text-center text-sm text-muted-foreground"
-                  >
-                    <EmptyState
-                      title="No Screening Configurations Yet"
-                      description="Set up your first screening configuration to define and manage the screening options used for school health assessments."
-                      action={
-                        <Button
-                          type="button"
-                          variant="outline"
-                          //   onClick={() => setOpen(true)}
-                        >
-                          {/* <Building2 className="size-4" /> */}
-                          Create Screening Request
-                        </Button>
-                      }
-                    />
-                  </td>
-                </tr>
+              {/* CLEAR */}
+              {hasActiveFilters ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={clearFilters}
+                  className="gap-1.5"
+                >
+                  <X className="size-4" />
+                  Clear
+                </Button>
               ) : null}
-            </tbody>
-          </table>
-        </div>
+            </div>
+            {hasActiveFilters ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Showing {filteredAccounts.length} of {accountList.length}{" "}
+                accounts
+              </p>
+            ) : null}
 
-        {/* PAGINATION FOOTER */}
+            {/* TABLE */}
 
-        {filteredAccounts.length > 0 ? (
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            {/* PAGE SIZE */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Rows</span>
+            <div className="mt-4 overflow-x-auto rounded-md border border-border">
+              <table className="w-full min-w-[640px] text-left text-sm">
+                <thead className="bg-muted/50 text-muted-foreground">
+                  <tr>
+                    <th className="w-12 px-4 py-3 font-medium">
+                      <Checkbox
+                        checked={isAllSelected}
+                        indeterminate={isIndeterminate}
+                        onCheckedChange={onToggleAll}
+                        aria-label="Select all accounts"
+                      />
+                    </th>
 
-              <ReusableSelect
-                value={String(pageSize)}
-                onChange={(value) => setPageSize(Number(value))}
-                options={[
-                  { value: "5", label: "5" },
-                  { value: "10", label: "10" },
-                  { value: "25", label: "25" },
-                  { value: "50", label: "50" },
-                ]}
-                className="w-24"
-              />
+                    <th className="px-4 py-3 font-medium">Name</th>
 
-              <span className="text-xs text-muted-foreground">
-                Showing{" "}
-                {Math.min(
-                  (currentPage - 1) * pageSize + 1,
-                  filteredAccounts.length,
-                )}
-                –{Math.min(currentPage * pageSize, filteredAccounts.length)} of{" "}
-                {filteredAccounts.length}
-              </span>
+                    <th className="px-4 py-3 font-medium">Status</th>
+
+                    <th className="w-20 px-4 py-3 text-right font-medium">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-border bg-card">
+                  {paginatedAccounts.map((account) => {
+                    const isSelected = selectedIds.includes(account.id);
+                    console.log(account, "account333333333");
+
+                    const isActive = account.status === "active";
+                    const roleLabel = getAccountRoleLabel(account);
+
+                    return (
+                      <tr
+                        key={account.id}
+                        className={
+                          isSelected ? "bg-muted/40 cursor-pointer" : undefined
+                        }
+                        onClick={() => onEdit(account)}
+                      >
+                        {/* CHECKBOX */}
+
+                        <td
+                          className="px-4 py-3"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => onToggleRow(account.id)}
+                            aria-label={`Select ${account.name}`}
+                          />
+                        </td>
+
+                        {/* NAME */}
+
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <span
+                              aria-hidden="true"
+                              className={`flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                                AVATAR_STYLES[account.id % AVATAR_STYLES.length]
+                              }`}
+                            >
+                              {getInitials(account.name)}
+                            </span>
+
+                            <div className="min-w-0">
+                              <p className="truncate font-medium text-foreground">
+                                {account.name}
+                              </p>
+                              {roleLabel ? (
+                                <p className="truncate text-xs font-medium text-muted-foreground">
+                                  {roleLabel}
+                                </p>
+                              ) : null}
+
+                              {account.designation ? (
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {account.designation}
+                                </p>
+                              ) : null}
+
+                              {/* CLASS & SECTION PRIVILEGES */}
+                              {getPrivilegeLabels(account).length > 0 ? (
+                                <div className="mt-1 flex max-w-[260px] flex-wrap gap-1">
+                                  {getPrivilegeLabels(account).map((label) => (
+                                    <span
+                                      key={label}
+                                      className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
+                                    >
+                                      {label}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* STATUS */}
+
+                        <td
+                          className="px-4 py-3"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={isActive}
+                              onCheckedChange={() => onToggleStatus(account.id)}
+                              aria-label={`Toggle status for ${account.name}`}
+                            />
+
+                            <span
+                              className={`text-xs font-medium ${
+                                isActive
+                                  ? "text-success"
+                                  : "text-muted-foreground"
+                              }`}
+                            >
+                              {isActive ? "Active" : "Inactive"}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* ACTIONS */}
+
+                        <td
+                          className="px-4 py-3 text-right"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <DropdownMenu>
+                            <DropdownMenuTrigger
+                              aria-label={`Actions for ${account.name}`}
+                              className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground"
+                            >
+                              <MoreHorizontal className="size-4" />
+                            </DropdownMenuTrigger>
+
+                            <DropdownMenuContent align="end" className="w-36">
+                              <DropdownMenuItem onClick={() => onEdit(account)}>
+                                <Pencil />
+                                Edit
+                              </DropdownMenuItem>
+
+                              <DropdownMenuItem
+                                onClick={() => onDuplicate(account.id)}
+                              >
+                                <Copy />
+                                Copy
+                              </DropdownMenuItem>
+
+                              <DropdownMenuSeparator />
+
+                              <DropdownMenuItem
+                                onClick={() => setDeleteTarget(account)}
+                                className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                              >
+                                <Trash2 />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {filteredAccounts.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-4 py-10 text-center text-sm text-muted-foreground"
+                      >
+                        <EmptyState
+                          title="No Screening Configurations Yet"
+                          description="Set up your first screening configuration to define and manage the screening options used for school health assessments."
+                          action={
+                            <Button
+                              type="button"
+                              variant="outline"
+                              //   onClick={() => setOpen(true)}
+                            >
+                              {/* <Building2 className="size-4" /> */}
+                              Create Screening Request
+                            </Button>
+                          }
+                        />
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
             </div>
 
-            {/* PAGE NAVIGATION */}
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-              >
-                Previous
-              </Button>
+            {/* PAGINATION FOOTER */}
 
-              <span className="text-xs font-medium text-muted-foreground">
-                Page {currentPage} of {totalPages}
-              </span>
+            {filteredAccounts.length > 0 ? (
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                {/* PAGE SIZE */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Rows</span>
 
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={currentPage === totalPages}
-                onClick={() =>
-                  setCurrentPage((page) => Math.min(totalPages, page + 1))
-                }
-              >
-                Next
-              </Button>
-            </div>
-          </div>
-        ) : null}
+                  <ReusableSelect
+                    value={String(pageSize)}
+                    onChange={(value) => setPageSize(Number(value))}
+                    options={[
+                      { value: "5", label: "5" },
+                      { value: "10", label: "10" },
+                      { value: "25", label: "25" },
+                      { value: "50", label: "50" },
+                    ]}
+                    className="w-24"
+                  />
+
+                  <span className="text-xs text-muted-foreground">
+                    Showing{" "}
+                    {Math.min(
+                      (currentPage - 1) * pageSize + 1,
+                      filteredAccounts.length,
+                    )}
+                    â€“
+                    {Math.min(currentPage * pageSize, filteredAccounts.length)}{" "}
+                    of {filteredAccounts.length}
+                  </span>
+                </div>
+
+                {/* PAGE NAVIGATION */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage === 1}
+                    onClick={() =>
+                      setCurrentPage((page) => Math.max(1, page - 1))
+                    }
+                  >
+                    Previous
+                  </Button>
+
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                  </span>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage === totalPages}
+                    onClick={() =>
+                      setCurrentPage((page) => Math.min(totalPages, page + 1))
+                    }
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </>
+        )}
       </article>
 
       {/* ================================
@@ -650,15 +817,7 @@ const TeamPage = ({
       ================================= */}
 
       <Dialog open={isAddOpen} onOpenChange={onAddOpenChange}>
-        <DialogContent
-          className="
-      w-[95vw]
-      max-w-4xl
-      max-h-[90vh]
-      overflow-hidden
-      p-0
-    "
-        >
+        <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-hidden p-0">
           {/* HEADER */}
           <DialogHeader className="border-b border-border px-6 py-5">
             <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
@@ -761,50 +920,55 @@ const TeamPage = ({
                   </div>
 
                   {/* PASSWORD */}
-                  <div className="space-y-1.5">
-                    <div className="relative">
-                      <TextField
-                        label="Password"
-                        labelClassName="text-sm font-medium text-foreground"
-                        id="account-password"
-                        name="password"
-                        type={showPassword ? "text" : "password"}
-                        value={subAccount?.password ?? ""}
-                        onChange={(event) =>
-                          handleSubAccountChange("password", event.target.value)
-                        }
-                        placeholder={
-                          editingAccount
-                            ? "Leave blank to keep current password"
-                            : "Minimum 6 characters"
-                        }
-                        autoComplete="new-password"
-                        className="pr-10"
-                      />
+                  {!editingAccount && (
+                    <div className="space-y-1.5">
+                      <div className="relative">
+                        <TextField
+                          label="Password"
+                          labelClassName="text-sm font-medium text-foreground"
+                          id="account-password"
+                          name="password"
+                          type={showPassword ? "text" : "password"}
+                          value={subAccount?.password ?? ""}
+                          onChange={(event) =>
+                            handleSubAccountChange(
+                              "password",
+                              event.target.value,
+                            )
+                          }
+                          placeholder={
+                            editingAccount
+                              ? "Leave blank to keep current password"
+                              : "Minimum 6 characters"
+                          }
+                          autoComplete="new-password"
+                          className="pr-10"
+                        />
 
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((value) => !value)}
-                        className="absolute right-2 top-8 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((value) => !value)}
+                          className="absolute right-2 top-8 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground
                   "
-                        aria-label={
-                          showPassword ? "Hide password" : "Show password"
-                        }
-                      >
-                        {showPassword ? (
-                          <EyeOff className="size-4" />
-                        ) : (
-                          <Eye className="size-4" />
-                        )}
-                      </button>
-                    </div>
+                          aria-label={
+                            showPassword ? "Hide password" : "Show password"
+                          }
+                        >
+                          {showPassword ? (
+                            <EyeOff className="size-4" />
+                          ) : (
+                            <Eye className="size-4" />
+                          )}
+                        </button>
+                      </div>
 
-                    {formErrors?.password && (
-                      <p className="text-xs text-destructive">
-                        {formErrors.password}
-                      </p>
-                    )}
-                  </div>
+                      {formErrors?.password && (
+                        <p className="text-xs text-destructive">
+                          {formErrors.password}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </section>
 
@@ -821,19 +985,19 @@ const TeamPage = ({
 
                 <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2">
                   {/* USER TYPE */}
-                  <div className="space-y-1.5"> 
-                  <div>
-                    <ReusableSelect
-                      label="User Type"
-                      withPortal
-                      value={subAccount?.user_type_id ?? ""}
-                      onChange={(value) =>
-                        handleSubAccountChange("user_type_id", value)
-                      }
-                      options={USER_TYPE_OPTIONS}
-                      placeholder="Select user type"
-                    />
-                  </div>
+                  <div className="space-y-1.5">
+                    <div>
+                      <ReusableSelect
+                        label="User Type"
+                        withPortal
+                        value={subAccount?.user_type_id ?? ""}
+                        onChange={(value) =>
+                          handleSubAccountChange("user_type_id", value)
+                        }
+                        options={USER_TYPE_OPTIONS}
+                        placeholder="Select user type"
+                      />
+                    </div>
                     {formErrors?.user_type_id && (
                       <p className="text-xs text-destructive">
                         {formErrors.user_type_id}
@@ -850,7 +1014,7 @@ const TeamPage = ({
                       onChange={(value) =>
                         handleSubAccountChange("branchId", value)
                       }
-                      options={branches}
+                      options={subAccountBranchOptions}
                       placeholder="Select branch"
                     />
 
@@ -861,7 +1025,7 @@ const TeamPage = ({
                     )}
                   </div>
 
-                  {/* PRIVILEGES — required for all user types except type 1 */}
+                  {/* PRIVILEGES â€” required for all user types except type 1 */}
                   {/* {String(subAccount?.usertypeId ?? "").trim() !== "1" && (
                     <div className="space-y-1.5">
                       <ReusableSelect
@@ -887,21 +1051,29 @@ const TeamPage = ({
 
               {/* CLASS & SECTION */}
               {authAccName?.user_type_id !== 1 && (
-              <section className="mt-7">
-                <div className="mb-4">
-                  <h3 className="text-sm font-semibold text-foreground">
-                    Class & Section
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Assign the team member to the required classes and sections.
-                  </p>
-                </div>
+                <section className="mt-7">
+                  <div className="mb-4">
+                    <h3 className="text-sm font-semibold text-foreground">
+                      Class & Section
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      Assign the team member to the required classes and
+                      sections.
+                    </p>
+                  </div>
 
-                <ClassSectionManager />
-                {/* <div className="rounded-lg border border-border bg-muted/20 p-4">
+                  <ClassSectionManager
+                    getSchoolBranch={getSchoolBranch}
+                    subAccountBranch={subAccountBranch}
+                    /* Accepts the previleges payload in any shape —
+                       [{ class, section }, …], its JSON string, or the old
+                       { class: [sections] } map. Normalized internally. */
+                    classSections={subAccount?.previleges ?? []}
+                    onClassSectionsChange={handleClassSectionsChange}
+                  />
+                  {/* <div className="rounded-lg border border-border bg-muted/20 p-4">
           </div> */}
-              </section>
-
+                </section>
               )}
             </div>
 

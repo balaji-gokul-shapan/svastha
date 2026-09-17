@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { loginUser } from "@/lib/features/loginSlice";
 import { setAuthSession } from "@/lib/features/auth-slice";
+import { scheduleProactiveRefresh } from "@/lib/auth-utils";
 import { TextField } from "@/components/ui/text-field";
 
 const LoginForm = () => {
@@ -62,6 +63,11 @@ const LoginForm = () => {
           account: result.account ?? {},
         }),
       );
+
+      // Arm the proactive refresh timer right away — Providers only schedules
+      // it at page load, so a client-side login would otherwise wait for the
+      // next window focus or API call before the first automatic renewal.
+      scheduleProactiveRefresh(60, dispatch);
 
       setSuccessMessage(`Welcome ${result.label}. Redirecting...`);
 

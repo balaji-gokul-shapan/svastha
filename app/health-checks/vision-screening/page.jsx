@@ -319,6 +319,7 @@ export default function VisionScreeningPage() {
   const [referral, setReferral] = useState("no");
   const [adviceSuggestions, setAdviceSuggestions] = useState("");
   const [followUp, setFollowUp] = useState(followUpOptions[0]);
+  const [followUpRequired, setFollowUpRequired] = useState("no");
   const [referralReason, setReferralReason] = useState("");
 
   // { fieldName: "message" } — populated when zod validation fails.
@@ -337,6 +338,11 @@ export default function VisionScreeningPage() {
   const handleFollowUpChange = (value) => {
     setFollowUp(value);
     clearFormError("followUp");
+  };
+
+  const handleFollowUpRequiredChange = (value) => {
+    setFollowUpRequired(value);
+    clearFormError("followUpRequired");
   };
 
   const {
@@ -752,6 +758,14 @@ export default function VisionScreeningPage() {
     setAdviceSuggestions(String(record?.advice_suggestions ?? ""));
     setReferralReason(String(record?.referral_reason ?? ""));
     setFollowUp(String(record?.follow_up ?? followUpOptions[0]));
+
+    setFollowUpRequired(
+      record?.follow_up_required === true ||
+        record?.follow_up_required === "true" ||
+        record?.follow_up_required === "yes"
+        ? "yes"
+        : "no",
+    );
   }, []);
 
   // const selectedStudent = useMemo(() => {
@@ -1082,6 +1096,7 @@ export default function VisionScreeningPage() {
       referral_reason: referral === "yes" ? referralReason : null,
       advice_suggestions: adviceSuggestions,
       follow_up: followUp,
+      follow_up_required: followUpRequired === "yes",
     };
     setIsSaving(true);
     isSavingRef.current = true;
@@ -1124,6 +1139,7 @@ export default function VisionScreeningPage() {
     coverTest,
     externalOtherFindings,
     followUp,
+    followUpRequired,
     lensPower,
     lensRemarks,
     lensType,
@@ -1176,6 +1192,7 @@ export default function VisionScreeningPage() {
     setAdviceSuggestions("");
     setReferralReason("");
     setFollowUp(followUpOptions[0]);
+    setFollowUpRequired("no");
   }, []);
 
   // Keep studentFilter in sync: selectedStudentFromFilter gives
@@ -1545,7 +1562,7 @@ export default function VisionScreeningPage() {
                   />
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <VisionRefractiveError
                     refractiveErrorRemarks={refractiveErrorRemarks}
                     refractiveError={refractiveError}
@@ -1582,6 +1599,8 @@ export default function VisionScreeningPage() {
                     setFollowUp={setFollowUp}
                     handleFollowUpChange={handleFollowUpChange}
                     followUpOptions={followUpOptions}
+                    followUpRequired={followUpRequired}
+                    handleFollowUpRequiredChange={handleFollowUpRequiredChange}
                     referralReasons={referralReasons}
                     yesNoOptions={yesNoOptions}
                     formErrors={formErrors}
