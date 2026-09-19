@@ -1,17 +1,20 @@
 import { NextResponse } from "next/server";
 
-import { getAllowedRolesForPath } from "./lib/route-roles";
+import { isRoleAllowedForPath } from "./lib/route-roles";
 
 /**
- * AUTH MIDDLEWARE
- * ---------------
+ * AUTH PROXY (formerly middleware.js — Next.js 16 renamed the convention)
+ * ----------------------------------------------------------------
  * - /login and /register are PUBLIC (accessible without login).
  * - Every other page requires an authenticated session.
  * - The "svastha-auth" cookie stores the user's effective role (kept in sync
  *   with Redux auth state by lib/store.js — sessionStorage alone cannot be
- *   read by middleware because it runs on the server).
- * - Restricted routes (lib/route-roles.js) are additionally blocked per role,
- *   so manually typing a URL doesn't bypass the sidebar's role-based menu.
+ *   read by the proxy because it runs on the server).
+ * - Restricted routes (lib/route-roles.js, keyed by user_type_id) are
+ *   additionally blocked per role, so manually typing a URL doesn't bypass the
+ *   sidebar's role-based menu.
+ *
+ * Keep this file at the project root (same level as app/).
  */
 
 const AUTH_COOKIE_NAME = "svastha-auth";
@@ -27,10 +30,12 @@ const AUTH_PAGES = new Set(["/login"]);
 const LOGIN_PATH = "/login";
 const AUTHENTICATED_HOME_PATH = "/";
 
-export function middleware(request) {
+export function proxy(request) {
   const { pathname, search } = request.nextUrl;
   const rawCookie = request.cookies.get(AUTH_COOKIE_NAME)?.value;
   const isAuthenticated = Boolean(rawCookie);
+  // The cookie holds the resolved role — a name ("school_sub_account") or a
+  // numeric user_type_id ("2"). isRoleAllowedForPath() resolves both.
   const role = rawCookie ? decodeURIComponent(rawCookie) : "";
 
   // Already logged in? Keep users away from the auth pages.
@@ -54,13 +59,9 @@ export function middleware(request) {
   }
 
   // Logged in but the route is restricted to other roles -> bounce home.
-  const allowedRoles = getAllowedRolesForPath(pathname);
-
-  if (
-    allowedRoles &&
-    allowedRoles.length > 0 &&
-    !allowedRoles.includes(role)
-  ) {
+  // NOTE: no console.log here — this runs on EVERY request, so logging the
+  // (usually null = unrestricted) rule floods the dev server output.
+  if (!isRoleAllowedForPath(pathname, { roleName: role })) {
     const url = request.nextUrl.clone();
     url.pathname = AUTHENTICATED_HOME_PATH;
     url.search = "";
@@ -72,8 +73,10 @@ export function middleware(request) {
 }
 
 export const config = {
-  // Skip API routes, Next.js internals and static assets.
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?|css|js)$).*)",
+    // Skip API routes, static assets, and browser probes like Chrome DevTools'
+    // /.well-known/appspecific/com.chrome.devtools.json (which is not a page —
+    // redirecting it to /login just adds noise to the logs).
+    "/((?!api|_next/static|_next/image|favicon.ico|\\.well-known|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?|css|js)$).*)",
   ],
 };

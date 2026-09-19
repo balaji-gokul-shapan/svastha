@@ -2274,7 +2274,7 @@ export default function GeneralScreeningPage() {
                           </h3>
                         </div>
 
-                        <div className="mt-4 space-y-4 flex gap-4 justify-between  w-2/3 ">
+                        <div className="mt-4 space-y-4 grid grid-cols-1 ">
                           {/* ----------------------------------------------
                               REFERRAL
                           ----------------------------------------------- */}

@@ -428,7 +428,13 @@ export default function HearingScreening({ screening = {} }) {
   };
 
   const [isCaDrawerOpen, setIsCaDrawerOpen] = React.useState(false);
-  const [selectedCampId, setSelectedCampId] = React.useState(1);
+  const [selectedCampDetails, setSelectedCampDetails] = React.useState({});
+  // <StudentFilter /> resolves the active camp and pushes it up via
+  // setSelectedCampDetails. Derive the id from it (single source of truth,
+  // same pattern as the dental screening page).
+  const selectedCampId = String(
+    selectedCampDetails?.id ?? selectedCampDetails?.campId ?? "",
+  ).trim();
   const [studentId, setStudentId] = React.useState("");
   const [academicYear, setAcademicYear] = React.useState("2026-2027");
   const [selectedClassFilter, setSelectedClassFilter] = React.useState("all");
@@ -439,14 +445,19 @@ export default function HearingScreening({ screening = {} }) {
   const [sectionFilter, setSectionFilter] = React.useState("all");
   const [studentFilter, setStudentFilter] = React.useState("all");
   const [getStudentDataByEvent, setGetStudentDataByEvent] = React.useState([]);
-  
+
   const {
     data: hearingScreeningData = [],
     isLoading: hearingScreeningLoading,
     error: hearingScreeningQueryError,
   } = useQuery({
-    queryKey: ["hearing-screening", studentId],
-    queryFn: () => dispatch(getHearingScreening({ studentId })).unwrap(),
+    // Camp id is part of the key so switching camps refetches instead of
+    // returning a stale cached record for the previous camp.
+    queryKey: ["hearing-screening", studentId, selectedCampId],
+    queryFn: () =>
+      dispatch(
+        getHearingScreening({ studentId, campId: selectedCampId }),
+      ).unwrap(),
     enabled: Boolean(String(studentId).trim()),
     staleTime: 0,
     refetchOnWindowFocus: true,
@@ -1142,6 +1153,7 @@ export default function HearingScreening({ screening = {} }) {
         authUser={authUser}
         getStudentDataByEvent={getStudentDataByEvent}
         setGetStudentDataByEvent={setGetStudentDataByEvent}
+        setSelectedCampDetails={setSelectedCampDetails}
       />
       {/* =====================================================
           MAIN GRID

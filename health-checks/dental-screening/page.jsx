@@ -663,7 +663,7 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
     clearFormError("notes");
   };
   const [isCaDrawerOpen, setIsCaDrawerOpen] = useState(false);
-  const [selectedCampId, setSelectedCampId] = useState("1");
+  // const [selectedCampId, setSelectedCampId] = useState("1");
   const [studentId, setStudentId] = useState("");
   const [activeDentalStep, setActiveDentalStep] = useState("chart");
   const [academicYear, setAcademicYear] = useState(DEFAULT_ACADEMIC_YEAR);
@@ -674,6 +674,16 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
   const [sectionFilter, setSectionFilter] = useState("all");
   const [studentFilter, setStudentFilter] = useState("all");
   const [getStudentDataByEvent, setGetStudentDataByEvent] = useState([]);
+  const [selectedCampDetails, setSelectedCampDetails] = useState({});
+
+  // <StudentFilter /> resolves the active camp and pushes it up via
+  // setSelectedCampDetails. Derive the id from it (single source of truth, no
+  // extra state). The previous `String(campId ?? "")` referenced an undeclared
+  // `campId`, so it threw a ReferenceError before the query could run.
+  const selectedCampId = String(
+    selectedCampDetails?.id ?? selectedCampDetails?.campId ?? "",
+  ).trim();
+
 
   // const { data: filterPayload, isLoading } = useQuery({
   //   queryKey: ["filter-student", schoolName, academicYear, "options"],
@@ -729,8 +739,10 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
     isLoading: dentalScreeningLoading,
     error: dentalScreeningQueryError,
   } = useQuery({
-    queryKey: ["dental-screening", studentId],
-    queryFn: () => dispatch(getDentalScreening({ studentId })).unwrap(),
+    queryKey: ["dental-screening", studentId, selectedCampId],
+    queryFn: () => dispatch(
+        getDentalScreening({ studentId: normalizedId, campId: selectedCampId }),
+      ).unwrap(),
     enabled: Boolean(String(studentId).trim()),
     staleTime: 0,
     refetchOnWindowFocus: true,
@@ -2350,6 +2362,7 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
         authUser={authUser}
         getStudentDataByEvent={getStudentDataByEvent}
         setGetStudentDataByEvent={setGetStudentDataByEvent}
+        setSelectedCampDetails={setSelectedCampDetails}
       />
       {dentalScreeningQueryError ? (
         <p className="text-sm text-destructive">

@@ -219,10 +219,10 @@ export default function AddStudentPage() {
                      <img
                        src={imagePreviewUrl}
                        alt="Profile preview"
-                       className="size-full rounded-full object-cover"text-xs text-muted-foreground
+                       className="size-full rounded-full object-cover"
                      />
                    ) : (
-                     <span className="flex size-full items-center justify-center text-muted-foreground">
+                     <span className="flex size-full items-center justify-center text-xs text-muted-foreground">
                        <UserRound className="size-10" />
                      </span>
                    )}

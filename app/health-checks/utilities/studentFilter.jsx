@@ -5,6 +5,7 @@ import { getStudentByEvent } from "@/lib/features/getEventAssignSlice";
 import { fetchWithAuth } from "@/lib/auth-utils";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { findSelectedCamp } from "@/lib/useAssignedEvents";
+import { getCampId, getCampName, getCampSchoolName } from "@/lib/camp-utils";
 import { useQuery } from "@tanstack/react-query";
 import React, {
   useCallback,
@@ -68,6 +69,21 @@ const getStudentName = (student) => {
   return student?.student_name ?? student?.name ?? "Unknown";
 };
 
+// Camp ids double as dropdown values, so the picked camp stays authoritative
+// while the school filter is cleared ("all") or the camp has no school. It is
+// only replaced when the filter names a different, real school — otherwise the
+// sync below would wipe the user's selection.
+const campSurvivesSchoolFilter = (camp, schoolName) => {
+  const campSchool = getCampSchoolName(camp);
+  const filter = String(schoolName ?? "").trim();
+
+  if (!campSchool || filter === "all") {
+    return true;
+  }
+
+  return campSchool === filter;
+};
+
 /* -------------------------------------------------------------------------- */
 /* Component                                                                  */
 /* -------------------------------------------------------------------------- */
@@ -88,12 +104,15 @@ const StudentFilter = ({
   onClassFilterChange,
   onSectionFilterChange,
   onStudentFilterChange,
-
+  campSelection,
+  setCampSelection,
   assignedEvents,
 
   assignEventLoading = false,
   assignEventError = null,
-
+  // Optional: pages that need the resolved camp hoist it via this setter.
+  // Defaults to a no-op so pages that don't need it don't have to pass it.
+  setSelectedCampDetails = () => {},
   getStudentDataByEvent,
   setGetStudentDataByEvent,
 }) => {
@@ -148,18 +167,35 @@ const StudentFilter = ({
   /* Camp options                                                             */
   /* ------------------------------------------------------------------------ */
 
-  const campOptions = useMemo(() => {
-    const unique = new Set();
+  // Only dental-screening passes campSelection/setCampSelection, so the camp
+  // pick would otherwise be dropped and the trigger would fall back to the
+  // placeholder. Fall back to internal state when the parent doesn't control it.
+  const isCampSelectionControlled =
+    campSelection !== undefined && typeof setCampSelection === "function";
 
+  const [internalCampSelection, setInternalCampSelection] = useState("all");
+
+  const activeCampSelection = isCampSelectionControlled
+    ? campSelection
+    : internalCampSelection;
+
+  const updateCampSelection = isCampSelectionControlled
+    ? setCampSelection
+    : setInternalCampSelection;
+
+  const campOptions = useMemo(() => {
+    const unique = new Map();
     const campList = Array.isArray(assignedEvents) ? assignedEvents : [];
 
     campList.forEach((camp) => {
-      const value = String(
-        camp?.name ?? camp?.Name ?? camp?.camp_name ?? "",
-      ).trim();
+      const id = getCampId(camp);
+      const label = getCampName(camp);
 
-      if (value) {
-        unique.add(value);
+      if (id && label) {
+        unique.set(id, {
+          label,
+          value: id,
+        });
       }
     });
 
@@ -168,17 +204,11 @@ const StudentFilter = ({
         label: "All Camps",
         value: "all",
       },
-
-      ...Array.from(unique)
-        .sort((a, b) =>
-          a.localeCompare(b, undefined, {
-            numeric: true,
-          }),
-        )
-        .map((value) => ({
-          label: value,
-          value,
-        })),
+      ...Array.from(unique.values()).sort((a, b) =>
+        a.label.localeCompare(b.label, undefined, {
+          numeric: true,
+        }),
+      ),
     ];
   }, [assignedEvents]);
 
@@ -187,26 +217,82 @@ const StudentFilter = ({
   /* ------------------------------------------------------------------------ */
 
   const selectedCamp = useMemo(() => {
-    const result = findSelectedCamp(assignedEvents, schoolName);
+    const campList = Array.isArray(assignedEvents) ? assignedEvents : [];
 
-    return (
-      result ?? {
-        id: null,
-        name: "all",
-        schoolName: "all",
+    const fallback = findSelectedCamp(assignedEvents, schoolName) ?? {
+      id: null,
+      name: "all",
+      schoolName: "all",
+    };
+
+    // The camp picked in the dropdown holds a camp id, so when it belongs to
+    // the school currently filtered it wins: camps can share a school, and
+    // findSelectedCamp would otherwise resolve to the first match.
+    if (activeCampSelection && activeCampSelection !== "all") {
+      const pickedCamp = campList.find(
+        (camp) => getCampId(camp) === String(activeCampSelection).trim(),
+      );
+
+      if (pickedCamp && campSurvivesSchoolFilter(pickedCamp, schoolName)) {
+        return {
+          ...fallback,
+          id: getCampId(pickedCamp) || null,
+          name: getCampName(pickedCamp) || "all",
+          schoolName: getCampSchoolName(pickedCamp) || fallback.schoolName,
+        };
       }
-    );
-  }, [assignedEvents, schoolName]);
+    }
+
+    return fallback;
+  }, [assignedEvents, schoolName, activeCampSelection]);
+
+  // selectedCamp is a useMemo, so it's a new object identity whenever its
+  // inputs change. Keying the effect on a value signature avoids both the
+  // render-time setState (illegal) and an effect loop from object identity.
+  const selectedCampSignature = selectedCamp
+    ? `${selectedCamp.id ?? ""}|${selectedCamp.name ?? ""}|${selectedCamp.schoolName ?? ""}`
+    : "";
+
+  useEffect(() => {
+    setSelectedCampDetails(selectedCamp);
+    // Only re-notify the parent when the resolved camp actually changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCampSignature]);
 
   /* ------------------------------------------------------------------------ */
   /* Camp selection                                                           */
   /* ------------------------------------------------------------------------ */
 
-  const [campSelection, setCampSelection] = useState("all");
+  // The select holds camp ids, so the active camp is mirrored into the
+  // parent-owned selection as an id string.
+  const selectedCampId = useMemo(() => {
+    const id = selectedCamp?.id;
+
+    if (id === null || id === undefined || String(id).trim() === "") {
+      return "all";
+    }
+
+    return String(id).trim();
+  }, [selectedCamp?.id]);
 
   useEffect(() => {
-    setCampSelection(selectedCamp?.name ?? "all");
-  }, [selectedCamp?.name]);
+    updateCampSelection((current) => {
+      // A camp chosen in the dropdown has to survive this sync while it still
+      // belongs to the filtered school.
+      if (current && current !== "all") {
+        const campList = Array.isArray(assignedEvents) ? assignedEvents : [];
+        const currentCamp = campList.find(
+          (camp) => getCampId(camp) === String(current).trim(),
+        );
+
+        if (currentCamp && campSurvivesSchoolFilter(currentCamp, schoolName)) {
+          return current;
+        }
+      }
+
+      return selectedCampId;
+    });
+  }, [selectedCampId, schoolName, assignedEvents, updateCampSelection]);
 
   /* ------------------------------------------------------------------------ */
   /* School options                                                           */
@@ -267,63 +353,60 @@ const StudentFilter = ({
   /* Get students by selected event                                           */
   /* ------------------------------------------------------------------------ */
 
- const {
-  data: getStundentByEvent,
-  isLoading: getStundentByEventLoading,
-  isFetching: getStundentByEventFetching,
-  error: getStundentByEventError,
-  refetch: refetchStudentsByFilter,
-} = useQuery({
-  queryKey: [
-    "get-event-student",
-    selectedCamp?.id,
-    String(classFilter ?? "all"),
-    String(sectionFilter ?? "all"),
-  ],
+  const {
+    data: getStundentByEvent,
+    isLoading: getStundentByEventLoading,
+    isFetching: getStundentByEventFetching,
+    error: getStundentByEventError,
+    refetch: refetchStudentsByFilter,
+  } = useQuery({
+    queryKey: [
+      "get-event-student",
+      selectedCamp?.id,
+      String(classFilter ?? "all"),
+      String(sectionFilter ?? "all"),
+    ],
 
-  queryFn: async () => {
-    if (!selectedCamp?.id) {
-      return [];
-    }
+    queryFn: async () => {
+      if (!selectedCamp?.id) {
+        return [];
+      }
 
-    const result = await dispatch(
-      getStudentByEvent({
-        eventId: selectedCamp.id,
-        page: 1,
-        perPage: 50,
+      const result = await dispatch(
+        getStudentByEvent({
+          eventId: selectedCamp.id,
+          page: 1,
+          perPage: 50,
 
-        studentClass:
-          classFilter === "all" ? "" : String(classFilter),
+          studentClass: classFilter === "all" ? "" : String(classFilter),
 
-        section:
-          sectionFilter === "all" ? "" : String(sectionFilter),
-      }),
-    ).unwrap();
+          section: sectionFilter === "all" ? "" : String(sectionFilter),
+        }),
+      ).unwrap();
 
-    return Array.isArray(result?.items)
-      ? result.items
-      : Array.isArray(result)
-        ? result
-        : [];
-  },
+      return Array.isArray(result?.items)
+        ? result.items
+        : Array.isArray(result)
+          ? result
+          : [];
+    },
 
-  enabled: Boolean(selectedCamp?.id),
+    enabled: Boolean(selectedCamp?.id),
 
-  // IMPORTANT:
-  // Do not keep filtered student combinations fresh for 5 minutes.
-  // When the user goes back to "All Classes", the API should run again.
-  staleTime: 0,
+    // IMPORTANT:
+    // Do not keep filtered student combinations fresh for 5 minutes.
+    // When the user goes back to "All Classes", the API should run again.
+    staleTime: 0,
 
-  // IMPORTANT:
-  // Always refetch when this query becomes active.
-  refetchOnMount: "always",
+    // IMPORTANT:
+    // Always refetch when this query becomes active.
+    refetchOnMount: "always",
 
-  refetchOnWindowFocus: false,
+    refetchOnWindowFocus: false,
 
-  // This makes the query run immediately whenever the query key changes.
-  refetchOnReconnect: true,
-});
-
+    // This makes the query run immediately whenever the query key changes.
+    refetchOnReconnect: true,
+  });
 
   /*
    * Fetch ALL students (all pages) for complete class/section dropdown options.
@@ -1030,9 +1113,9 @@ const StudentFilter = ({
             <ReusableSelect
               label="Camp Name"
               options={campOptions}
-              value={campSelection}
+              value={activeCampSelection}
               onChange={(value) => {
-                setCampSelection(value);
+                updateCampSelection(value);
 
                 if (value === "all") {
                   onSchoolNameChange?.("all");
@@ -1040,26 +1123,17 @@ const StudentFilter = ({
                   return;
                 }
 
+                // Option values are camp ids, so resolve the camp (and its
+                // school) by id — camps can share a school name.
                 const campList = Array.isArray(assignedEvents)
                   ? assignedEvents
                   : [];
 
                 const selectedEvent = campList.find(
-                  (event) =>
-                    String(
-                      event?.name ?? event?.Name ?? event?.camp_name ?? "",
-                    ).trim() === String(value).trim(),
+                  (event) => getCampId(event) === String(value).trim(),
                 );
 
-                const eventSchool = String(
-                  selectedEvent?.school?.school_name ??
-                    selectedEvent?.school?.name ??
-                    selectedEvent?.school_name ??
-                    selectedEvent?.schoolName ??
-                    "",
-                ).trim();
-
-                onSchoolNameChange?.(eventSchool || "all");
+                onSchoolNameChange?.(getCampSchoolName(selectedEvent) || "all");
               }}
               placeholder={
                 assignEventLoading ? "Loading camps..." : "Select Camp"

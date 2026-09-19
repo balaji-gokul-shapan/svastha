@@ -93,6 +93,25 @@
   --domain-oral: hsl(38 90% 50%); /* amber/gold — Oral Health */
   --domain-immunization: hsl(350 65% 55%); /* rose — Immunization */
 
+  /* Domain card tones — soft wash bg, border, and readable foreground per
+     domain. Used by the report StatusCards as gradient washes
+     (from-domain-x/25 via-domain-x-soft ...). */
+  --domain-physical-soft: hsl(152 55% 92%);
+  --domain-physical-border: hsl(152 40% 78%);
+  --domain-physical-foreground: hsl(152 55% 26%);
+  --domain-vision-soft: hsl(205 85% 93%);
+  --domain-vision-border: hsl(205 70% 80%);
+  --domain-vision-foreground: hsl(205 70% 30%);
+  --domain-hearing-soft: hsl(217 60% 93%);
+  --domain-hearing-border: hsl(217 45% 80%);
+  --domain-hearing-foreground: hsl(217 55% 30%);
+  --domain-oral-soft: hsl(38 90% 92%);
+  --domain-oral-border: hsl(38 70% 78%);
+  --domain-oral-foreground: hsl(32 85% 30%);
+  --domain-immunization-soft: hsl(350 70% 93%);
+  --domain-immunization-border: hsl(350 60% 82%);
+  --domain-immunization-foreground: hsl(350 60% 36%);
+
   --domain-female: hsl(340 72% 48%);
   --domain-female-soft: hsl(340 75% 96%);
   --domain-female-border: hsl(340 65% 88%);
@@ -177,6 +196,21 @@
   --domain-oral: hsl(38 92% 58%);
   --domain-immunization: hsl(350 75% 65%);
 
+  --domain-physical-soft: hsl(152 40% 16%);
+  --domain-physical-border: hsl(152 40% 28%);
+  --domain-physical-foreground: hsl(152 60% 72%);
+  --domain-vision-soft: hsl(205 50% 16%);
+  --domain-vision-border: hsl(205 50% 30%);
+  --domain-vision-foreground: hsl(205 85% 72%);
+  --domain-hearing-soft: hsl(217 45% 17%);
+  --domain-hearing-border: hsl(217 40% 30%);
+  --domain-hearing-foreground: hsl(217 65% 74%);
+  --domain-oral-soft: hsl(38 50% 17%);
+  --domain-oral-border: hsl(38 50% 30%);
+  --domain-oral-foreground: hsl(38 92% 68%);
+  --domain-immunization-soft: hsl(350 45% 17%);
+  --domain-immunization-border: hsl(350 45% 32%);
+  --domain-immunization-foreground: hsl(350 75% 74%);
   --domain-female: hsl(340 80% 68%);
   --domain-female-soft: hsl(340 35% 15%);
   --domain-female-border: hsl(340 35% 28%);
@@ -195,6 +229,69 @@
     );
 
   --shadow-color: hsl(222 60% 2%);
+}
+
+/* --------------------------------------------------------------------------
+   Report surface — always renders with the LIGHT theme palette, regardless
+   of whether the app is in dark or light mode. The A4 health-report sheet
+   uses bg-white, so dark-theme text tokens (light text) would be invisible
+   on it. Re-declaring the custom properties here makes every descendant
+   utility (text-foreground, bg-muted/40, border-border, text-success, ...)
+   resolve to the light values, because scoped declarations on this element
+   always beat the values inherited from the .dark <html> scope.
+   -------------------------------------------------------------------------- */
+.report-surface {
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(222 47% 11%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(222 47% 11%);
+  --popover: var(--card);
+  --popover-foreground: var(--card-foreground);
+  --primary: hsl(199 86% 33%);
+  --primary-foreground: hsl(210 30% 98%);
+  --secondary: hsl(210 22% 93%);
+  --secondary-foreground: hsl(222 47% 15%);
+  --accent: var(--brand-green);
+  --accent-foreground: hsl(222 47% 11%);
+  --muted: hsl(210 20% 93%);
+  --muted-foreground: hsl(215 16% 40%);
+  --border: hsl(214 20% 88%);
+  --input: hsl(214 20% 88%);
+  --ring: var(--primary);
+  --success: hsl(152 52% 32%);
+  --success-foreground: hsl(0 0% 100%);
+  --warning: hsl(38 92% 45%);
+  --warning-foreground: hsl(32, 85%, 31%);
+  --destructive: hsl(4 62% 46%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --info: hsl(205 70% 42%);
+  --info-foreground: hsl(0 0% 100%);
+
+  /* Domain tokens also need light values inside the forced-light report
+     scope, otherwise dark-mode cards inherit dark washes on the white sheet. */
+  --domain-physical: hsl(152 55% 48%);
+  --domain-vision: hsl(205 85% 56%);
+  --domain-hearing: hsl(217 55% 46%);
+  --domain-oral: hsl(38 90% 50%);
+  --domain-immunization: hsl(350 65% 55%);
+  --domain-physical-soft: hsl(152 55% 92%);
+  --domain-physical-border: hsl(152 40% 78%);
+  --domain-physical-foreground: hsl(152 55% 26%);
+  --domain-vision-soft: hsl(205 85% 93%);
+  --domain-vision-border: hsl(205 70% 80%);
+  --domain-vision-foreground: hsl(205 70% 30%);
+  --domain-hearing-soft: hsl(217 60% 93%);
+  --domain-hearing-border: hsl(217 45% 80%);
+  --domain-hearing-foreground: hsl(217 55% 30%);
+  --domain-oral-soft: hsl(38 90% 92%);
+  --domain-oral-border: hsl(38 70% 78%);
+  --domain-oral-foreground: hsl(32 85% 30%);
+  --domain-immunization-soft: hsl(350 70% 93%);
+  --domain-immunization-border: hsl(350 60% 82%);
+  --domain-immunization-foreground: hsl(350 60% 36%);
+
+  background-color: hsl(0 0% 100%);
+  color: var(--foreground);
 }
 
 /* --------------------------------------------------------------------------
@@ -260,6 +357,21 @@
   --color-domain-hearing: var(--domain-hearing);
   --color-domain-oral: var(--domain-oral);
   --color-domain-immunization: var(--domain-immunization);
+  --color-domain-physical-soft: var(--domain-physical-soft);
+  --color-domain-physical-border: var(--domain-physical-border);
+  --color-domain-physical-foreground: var(--domain-physical-foreground);
+  --color-domain-vision-soft: var(--domain-vision-soft);
+  --color-domain-vision-border: var(--domain-vision-border);
+  --color-domain-vision-foreground: var(--domain-vision-foreground);
+  --color-domain-hearing-soft: var(--domain-hearing-soft);
+  --color-domain-hearing-border: var(--domain-hearing-border);
+  --color-domain-hearing-foreground: var(--domain-hearing-foreground);
+  --color-domain-oral-soft: var(--domain-oral-soft);
+  --color-domain-oral-border: var(--domain-oral-border);
+  --color-domain-oral-foreground: var(--domain-oral-foreground);
+  --color-domain-immunization-soft: var(--domain-immunization-soft);
+  --color-domain-immunization-border: var(--domain-immunization-border);
+  --color-domain-immunization-foreground: var(--domain-immunization-foreground);
 
   --color-domain-female: var(--domain-female);
   --color-domain-female-soft: var(--domain-female-soft);

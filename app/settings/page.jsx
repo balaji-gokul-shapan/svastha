@@ -929,6 +929,11 @@ console.log(settingsFormData,"settingsFormData");
     queryFn: () => dispatch(getSchoolBranch()).unwrap(),
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
+    // Only school accounts have a branch PROFILE of their own — the backend
+    // 401s this route for admin / doctor / school_sub_account. Don't call it
+    // for them: their branch comes from the full branch list / login payload
+    // (see subAccountBranch and getBranchDataForSubAccount below).
+    enabled: getRole === "school" || getRole === "school_admin",
   });
   console.log(getSchoolBranchData, "getSchoolBranchData");
 

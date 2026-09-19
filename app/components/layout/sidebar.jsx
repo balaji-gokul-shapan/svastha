@@ -188,6 +188,12 @@ export function Sidebar() {
         "doctor",
         "teacher",
       ],
+      // children: [{
+      //     icon: Ear,
+      //     label: "Hearing Screening",
+      //     href: "/health-checks/hearing-screening",
+      //     roles: ["admin", "school_admin", "doctor"],
+      //   },]
     },
   ];
 

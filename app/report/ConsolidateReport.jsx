@@ -10,11 +10,11 @@ import { toast } from "sonner";
 import SchoolStudentFilter from "../students/utilities/SchoolStudentFilter";
 import { useAppSelector } from "@/lib/hooks";
 import { selectAuthUser, selectUserAccount } from "@/lib/features/auth-slice";
-import { getSchoolBranch } from "@/lib/features/registerSchoolBranchSlice";
 import { useDispatch } from "react-redux";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useAuthRole } from "@/lib/user-role";
+import { getAllSchoolBranches } from "@/lib/features/registerSchoolBranchSlice";
 
 // Numeric role ids expected by SchoolStudentFilter's internal map
 // ({ 1: "admin", 2: "school", 3: "teacher" }). Used as a fallback when the
@@ -23,15 +23,17 @@ const ROLE_IDS = { admin: 1, school: 2, teacher: 3 };
 
 export default function ConsolidateReport() {
   const dispatch = useDispatch();
-  const { filterProps, selectedStudent } = useStudentFilter();
+  const { filterProps, selectedStudent, selectedCamp } = useStudentFilter();
   const [selectedBranch, setSelectedBranch] = useState(null);
   console.log(filterProps, "filterProps");
   const authUser = useAppSelector(selectAuthUser);
   console.log(authUser,"authUse2222r");
   const selectUser = useAppSelector(selectUserAccount);
-  console.log(selectUser, "selectUserAccount");
+  console.log(selectedCamp, "selectedCamp");
 
   const getRole = useAuthRole();
+  console.log(getRole,"getRole");
+  
   const {
     data: ownBranchRecord,
     error: ownBranchError,
@@ -39,7 +41,7 @@ export default function ConsolidateReport() {
     isLoading: ownBranchLoading,
   } = useQuery({
     queryKey: ["getSchoolBranch"],
-    queryFn: () => dispatch(getSchoolBranch()).unwrap(),
+    queryFn: () => dispatch(getAllSchoolBranches()).unwrap(),
     // Any signed-in non-doctor account may fetch its own branch profile.
     // Gating on an explicit role list breaks when useAuthRole resolves to a
     // different string ("school_account", "" while the session loads, …).
@@ -161,6 +163,9 @@ export default function ConsolidateReport() {
             // Falls back to the account's own branch so the school name and
             // address render before the user picks one in the dropdown.
             branch={defaultBranch ?? selectedBranch }
+            // Resolved camp (id/name/school) from the report filter — used to
+            // scope the vision/dental/hearing screening-record queries.
+            camp={selectedCamp}
           />
         </div>
       ) : (

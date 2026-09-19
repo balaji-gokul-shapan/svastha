@@ -64,7 +64,10 @@ const SchoolStudentFilter = ({
     queryKey: ["getSchoolBranch"],
     queryFn: () => dispatch(getSchoolBranch()).unwrap(),
     staleTime: 5 * 60 * 1000,
-     enabled: getRole === "admin" || getRole === "school",
+    // School accounts only. The backend 401s this route for admin (and for
+    // school_sub_account / doctor), so admins rely on the FULL branch list
+    // above — which is available to them and already feeds the dropdown.
+    enabled: getRole === "school" || getRole === "school_admin",
     refetchOnWindowFocus: false,
   });
 

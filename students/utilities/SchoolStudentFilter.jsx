@@ -14,7 +14,9 @@ const SchoolStudentFilter = ({ formData, setFormData, selectRole }) => {
   };
 
   const getRole = roles[selectRole] ?? "";
-  console.log(formData.branchName,"branc");
+  const showSchoolName = getRole === "admin" || getRole === "school";
+
+  console.log(getRole, "getRole");
   
 
   const {
@@ -24,12 +26,38 @@ const SchoolStudentFilter = ({ formData, setFormData, selectRole }) => {
   } = useQuery({
     queryKey: ["getSchoolAllBranch"],
     queryFn: () => dispatch(getAllSchoolBranches()).unwrap(),
+
+    enabled: getRole === "admin" || getRole === "school",
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 
-  console.log(getAllSchoolBranch,"getAllSchoolBranch");
-// getFilterStudent
+
+  const {
+    data: getSchoolBranchData = {},
+    isLoading: getSchoolBranchLoading,
+    error: getSchoolBranchError,
+  } = useQuery({
+    queryKey: ["getSchoolBranch"],
+    queryFn: () => dispatch(getSchoolBranch()).unwrap(),
+    staleTime: 5 * 60 * 1000,
+     enabled: getRole === "admin" || getRole === "school",
+    refetchOnWindowFocus: false,
+  });
+
+  console.log(getSchoolBranchData, "getSchoolBranchData");
+console.log(formData,"eeeee");
+
+  const ownBranchValue = String(ownBranch?.value ?? "").trim();
+  React.useEffect(() => {
+    if (formData?.branchName) return;
+    if (!ownBranchValue) return;
+    setFormData((prev) =>
+      prev?.branchName ? prev : { ...prev, branchName: ownBranchValue },
+    );
+  }, [formData?.branchName, ownBranchValue, setFormData]);
+
+  // getFilterStudent — filtered by selected school (branch) AND academic year.
   const {
     data: getAllFilterStudent = {},
     isLoading: getAllFilterStudentLoading,
@@ -37,7 +65,14 @@ const SchoolStudentFilter = ({ formData, setFormData, selectRole }) => {
   } = useQuery({
     queryKey: ["getAllFilterStudent", formData.branchName],
     queryFn: () =>
-      dispatch(getFilterStudent({ branch_id: formData.branchName })).unwrap(),
+      dispatch(
+        getFilterStudent({
+          branch_id: formData.branchName,
+ 
+          academicYear: "all",
+          // classes:
+        }),
+      ).unwrap(),
     enabled: Boolean(formData.branchName),
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,

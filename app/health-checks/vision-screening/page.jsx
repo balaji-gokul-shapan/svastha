@@ -149,7 +149,6 @@ export default function VisionScreeningPage() {
   const dispatch = useAppDispatch();
   const queryClient = useQueryClient();
   const academicYearOptions = ["2026-2027", "2025-2026", "2024-2025"];
-  const [selectedCampId, setSelectedCampId] = useState("1");
   const [academicYear, setAcademicYear] = useState(academicYearOptions[0]);
   const [selectedClassFilter, setSelectedClassFilter] = useState("all");
   const [schoolName, setSchoolName] = useState("all");
@@ -157,6 +156,10 @@ export default function VisionScreeningPage() {
   const [sectionFilter, setSectionFilter] = useState("all");
   const [studentFilter, setStudentFilter] = useState("all");
   const [getStudentDataByEvent, setGetStudentDataByEvent] = useState([]);
+  const [selectedCampDetails, setSelectedCampDetails] = useState({});
+  const selectedCampId = String(
+    selectedCampDetails?.id ?? selectedCampDetails?.campId ?? "",
+  ).trim();
   const [isSaving, setIsSaving] = useState(false);
   const isSavingRef = useRef(false);
   const savedStudentKeyRef = useRef(null);
@@ -350,8 +353,13 @@ export default function VisionScreeningPage() {
     isLoading: visionScreeningLoading,
     error: visionScreeningQueryError,
   } = useQuery({
-    queryKey: ["vision-screening", studentId],
-    queryFn: () => dispatch(getVisionScreening({ studentId })).unwrap(),
+    // Camp id is part of the key so switching camps refetches instead of
+    // returning a stale cached record for the previous camp.
+    queryKey: ["vision-screening", studentId, selectedCampId],
+    queryFn: () =>
+      dispatch(
+        getVisionScreening({ studentId, campId: selectedCampId }),
+      ).unwrap(),
     enabled: Boolean(String(studentId).trim()),
     staleTime: 0,
     refetchOnWindowFocus: true,
@@ -921,13 +929,13 @@ export default function VisionScreeningPage() {
     () => (Array.isArray(visionScreeningData) ? visionScreeningData : []),
     [visionScreeningData],
   );
-    console.log(visionScreeningData,"students");
+  console.log(visionScreeningData, "students");
 
   const getSelectedStudentScreeningData = useMemo(() => {
     if (!selectedStudentKeys.size || !students.length) {
       return null;
     }
-    
+
     return (
       students.find((data) => {
         const dataKeys = [
@@ -1352,7 +1360,10 @@ export default function VisionScreeningPage() {
             </div>
           )}
 
-          <Button type="button" onClick={handleSaveAssessment} disabled={
+          <Button
+            type="button"
+            onClick={handleSaveAssessment}
+            disabled={
               isSaving ||
               (selectedStudent &&
                 savedStudentKey ===
@@ -1363,7 +1374,8 @@ export default function VisionScreeningPage() {
                       selectedStudent?.studentId ??
                       studentId,
                   ))
-            }>
+            }
+          >
             {isSaving ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
@@ -1405,6 +1417,7 @@ export default function VisionScreeningPage() {
         authUser={authUser}
         getStudentDataByEvent={getStudentDataByEvent}
         setGetStudentDataByEvent={setGetStudentDataByEvent}
+        setSelectedCampDetails={setSelectedCampDetails}
       />
       {studentSelectValue?.length > 0 ? (
         <>

@@ -61,7 +61,7 @@ export const buildSubAccountSchema = ({
     userName: z
       .string()
       .trim()
-      .min(6, "Username must be at least 6 characters.")
+      .min(8, "Username must be at least 8 characters.")
       .refine(
         (value) =>
           !accounts.some(

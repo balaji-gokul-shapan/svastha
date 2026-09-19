@@ -149,7 +149,13 @@ export default function VisionScreeningPage() {
   const dispatch = useAppDispatch();
   const queryClient = useQueryClient();
   const academicYearOptions = ["2026-2027", "2025-2026", "2024-2025"];
-  const [selectedCampId, setSelectedCampId] = useState("1");
+  // The camp id is owned by <StudentFilter />, which resolves the active camp
+  // and pushes it up via setSelectedCampDetails. Derive the id from that object
+  // (single source of truth) instead of holding separate static state.
+  const [selectedCampDetails, setSelectedCampDetails] = useState({});
+  const selectedCampId = String(
+    selectedCampDetails?.id ?? selectedCampDetails?.campId ?? "",
+  ).trim();
   const [academicYear, setAcademicYear] = useState(academicYearOptions[0]);
   const [selectedClassFilter, setSelectedClassFilter] = useState("all");
   const [schoolName, setSchoolName] = useState("all");
@@ -344,8 +350,13 @@ export default function VisionScreeningPage() {
     isLoading: visionScreeningLoading,
     error: visionScreeningQueryError,
   } = useQuery({
-    queryKey: ["vision-screening", studentId],
-    queryFn: () => dispatch(getVisionScreening({ studentId })).unwrap(),
+    // The camp id is part of the key so switching camps refetches instead of
+    // returning a stale cached record for the previous camp.
+    queryKey: ["vision-screening", studentId, selectedCampId],
+    queryFn: () =>
+      dispatch(
+        getVisionScreening({ studentId, campId: selectedCampId }),
+      ).unwrap(),
     enabled: Boolean(String(studentId).trim()),
     staleTime: 0,
     refetchOnWindowFocus: true,
@@ -1388,6 +1399,7 @@ export default function VisionScreeningPage() {
         authUser={authUser}
         getStudentDataByEvent={getStudentDataByEvent}
         setGetStudentDataByEvent={setGetStudentDataByEvent}
+        setSelectedCampDetails={setSelectedCampDetails}
       />
       {studentSelectValue?.length > 0 ? (
         <>

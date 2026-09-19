@@ -1,16 +1,28 @@
 "use client";
 
-import { useRef } from "react";
+import { isValidElement, useRef, useState } from "react";
+import Image from "next/image";
 import { useAppDispatch } from "@/lib/hooks";
 
 import {
   Activity,
+  BadgeCent,
+  Calendar,
+  CalendarCheck,
+  Check,
   CheckCircle2,
+  Copy,
   Ear,
   Eye,
+  FileText,
+  Hash,
   HeartPulse,
+  IdCard,
+  IdCardLanyard,
+  School,
   Syringe,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { useScreeningRecord } from "@/components/students/getScreeningRecord";
@@ -18,6 +30,7 @@ import html2canvas from "html2canvas-pro";
 import jsPDF from "jspdf";
 import ToothIcon from "@/app/health-checks/dental-screening/asset/toothIcon";
 import { useAppSelector } from "@/lib/hooks";
+import { Badge } from "@/components/ui/badge";
 
 /* -------------------------------------------------------------------------- */
 /* Sub-components                                                              */
@@ -32,18 +45,166 @@ function Info({ label, value }) {
   );
 }
 
-function StatusCard({ icon: Icon, title, status, toneClass, iconClass }) {
+/* Small pill card: icon + muted label on top, bold value below, and a
+   click-to-copy icon button on the right when `hasCopy` is true.
+   `icon` accepts EITHER a lucide component (icon={Hash}) or a ready-made
+   React node (icon={<Image src="/logo.svg" width={16} height={16} alt="" />}).
+   `valueClass` lets IDs like SvasthaID keep their brand-green highlight.
+   `data-pdf-hide` keeps the copy chrome out of the exported PDF. */
+function CopyableInfo({
+  label,
+  value,
+  valueClass = "text-foreground",
+  hasCopy = true,
+  icon,
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    const text = String(value ?? "").trim();
+    if (!text || text === "--") {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      toast.success(`${label} copied`, { description: text });
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast.error(`Could not copy ${label}`);
+    }
+  };
+
+  // icon can be either a component (lucide's Hash/FileText — which are
+  // forwardRef objects, not plain functions, so check isValidElement instead)
+  // or a ready-made element node like <Image src="/logo.svg" ... />.
+  const IconNode = isValidElement(icon) ? icon : null;
+  const LabelIcon = IconNode ? null : icon;
+
   return (
-    <div className={`rounded-lg border p-3 ${toneClass}`}>
-      <div className="mb-2 flex items-center gap-2">
+    <div className="flex w-fit items-center gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2">
+      <div>
+        <h6 className="flex items-center gap-1 text-[11px] text-muted-foreground">
+          {LabelIcon ? <LabelIcon className="size-4" /> : null}
+          {IconNode ? <span className="inline-flex">{IconNode}</span> : null}
+          {label}
+        </h6>
+        <p className={`text-sm font-bold ${valueClass}`}>{value}</p>
+      </div>
+      {hasCopy ? (
+        <button
+          type="button"
+          onClick={handleCopy}
+          aria-label={`Copy ${label}`}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+          data-pdf-hide
+        >
+          {copied ? (
+            <Check className="size-3.5 text-success" />
+          ) : (
+            <Copy className="size-3.5" />
+          )}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/* Card tones per health domain — colors come from the global domain tokens
+   (--domain-*, --domain-*-soft/border/foreground in globals.css), so the
+   report cards always match the app theme (dental = oral amber, vision = sky
+   blue, ...). Pass `tone="oral"` etc.; `status` still drives the Badge. */
+const DOMAIN_TONE = {
+  physical: {
+    toneClass:
+      "border-domain-physical-border bg-gradient-to-br from-domain-physical/25 via-domain-physical-soft to-domain-physical/[0.03] text-domain-physical-foreground",
+    iconClass:
+      "bg-gradient-to-br from-domain-physical to-domain-physical/60 text-white shadow-sm",
+  },
+  vision: {
+    toneClass:
+      "border-domain-vision-border bg-gradient-to-br from-domain-vision/25 via-domain-vision-soft to-domain-vision/[0.03] text-domain-vision-foreground",
+    iconClass:
+      "bg-gradient-to-br from-domain-vision to-domain-vision/60 text-white shadow-sm",
+  },
+  hearing: {
+    toneClass:
+      "border-domain-hearing-border bg-gradient-to-br from-domain-hearing/25 via-domain-hearing-soft to-domain-hearing/[0.03] text-domain-hearing-foreground",
+    iconClass:
+      "bg-gradient-to-br from-domain-hearing to-domain-hearing/60 text-white shadow-sm",
+  },
+  oral: {
+    toneClass:
+      "border-domain-oral-border bg-gradient-to-br from-domain-oral/25 via-domain-oral-soft to-domain-oral/[0.03] text-domain-oral-foreground",
+    iconClass:
+      "bg-gradient-to-br from-domain-oral to-domain-oral/60 text-white shadow-sm",
+  },
+  dental: {
+    toneClass:
+      "border-domain-oral-border bg-gradient-to-br from-domain-oral/25 via-domain-oral-soft to-domain-oral/[0.03] text-domain-oral-foreground",
+    iconClass:
+      "bg-gradient-to-br from-domain-oral to-domain-oral/60 text-white shadow-sm",
+  },
+  immunization: {
+    toneClass:
+      "border-domain-immunization-border bg-gradient-to-br from-domain-immunization/25 via-domain-immunization-soft to-domain-immunization/[0.03] text-domain-immunization-foreground",
+    iconClass:
+      "bg-gradient-to-br from-domain-immunization to-domain-immunization/60 text-white shadow-sm",
+  },
+};
+
+/* Status only decides the Badge variant — card background stays domain-owned. */
+const STATUS_TONE = {
+  good: { variant: "good" },
+  normal: { variant: "normal" },
+  warning: { variant: "warning" },
+  bad: { variant: "bad" },
+  severe: { variant: "severe" },
+  critical: { variant: "severe" },
+  uptodate: { variant: "good" },
+  abnormal: { variant: "bad" },
+  poor: { variant: "bad" },
+};
+
+function normalizeKey(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+}
+
+function resolveTone(status) {
+  return STATUS_TONE[normalizeKey(status)] ?? null;
+}
+
+function resolveDomain(toneOrTitle) {
+  const key = normalizeKey(toneOrTitle);
+  if (DOMAIN_TONE[key]) return DOMAIN_TONE[key];
+  // Fallback so titles like "Physical Health" / "Oral Health" still match
+  // their domain when no explicit `tone` prop is passed.
+  const found = Object.keys(DOMAIN_TONE).find((k) => key.includes(k));
+  return found ? DOMAIN_TONE[found] : null;
+}
+
+function StatusCard({ icon: Icon, title, status, tone, toneClass, iconClass }) {
+  const badgeTone = resolveTone(status);
+  const domainTone = resolveDomain(tone ?? title);
+  const resolvedTone = toneClass ?? domainTone?.toneClass ?? "";
+  const resolvedIconBg = iconClass ?? domainTone?.iconClass ?? "";
+  const resolvedVariant = badgeTone?.variant ?? "outline";
+
+  return (
+    <div className={`rounded-lg border p-3 ${resolvedTone}`}>
+      <div className="mb-2 flex items-center justify-between gap-2">
         <div
-          className={`flex h-7 w-7 items-center justify-center rounded-full ${iconClass}`}
+          className={`flex h-7 w-7 items-center justify-center rounded-full ${resolvedIconBg}`}
         >
           <Icon className="size-4" />
         </div>
+        <Badge variant={resolvedVariant} className="mt-0.5 text-xs opacity-85">{status}</Badge>
       </div>
-      <p className="text-xs font-medium">{title}</p>
-      <p className="mt-0.5 text-xs opacity-85">{status}</p>
+      <p className="text-xs font-bold">{title}</p>
     </div>
   );
 }
@@ -119,9 +280,15 @@ function calculateAge(dob) {
 /* Main component — page-level (no modal wrapper)                             */
 /* -------------------------------------------------------------------------- */
 
-export default function HealthCheckContent({ selectUser, student, branch: branchProp }) {
-
+export default function HealthCheckContent({
+  selectUser,
+  student,
+  branch: branchProp,
+  camp,
+}) {
   const reportRef = useRef(null);
+  console.log(camp,"campcamp");
+  
 
   const studentName = student?.name ?? student?.student_name ?? "Student";
   const studentPhoto =
@@ -134,8 +301,8 @@ export default function HealthCheckContent({ selectUser, student, branch: branch
   // The selected branch is supplied by the School Name dropdown. Fall back to
   // the signed-in account only when a branch has not been selected yet.
   const selectedSchool = branchProp ?? selectUser?.branch ?? selectUser;
-  console.log(selectUser,"selectedSchool");
-  
+  console.log(selectUser, "selectedSchool");
+
   const schoolName =
     selectedSchool?.label ??
     selectedSchool?.branch_name ??
@@ -148,26 +315,16 @@ export default function HealthCheckContent({ selectUser, student, branch: branch
   const schoolAddress = {
     address_line_1:
       String(
-        selectedSchool?.address_line_1 ??
-          selectedSchool?.address_line1 ??
-          "",
+        selectedSchool?.address_line_1 ?? selectedSchool?.address_line1 ?? "",
       ).trim() || null,
     address_line_2:
       String(
-        selectedSchool?.address_line_2 ??
-          selectedSchool?.address_line2 ??
-          "",
+        selectedSchool?.address_line_2 ?? selectedSchool?.address_line2 ?? "",
       ).trim() || null,
-    area: String(selectedSchool?.area ?? "").trim() ||
-      null,
-    city: String(selectedSchool?.city ?? "").trim() ||
-      null,
-    state:
-      String(selectedSchool?.state ?? "").trim() ||
-      null,
-    country:
-      String(selectedSchool?.country ?? "").trim() ||
-      null,
+    area: String(selectedSchool?.area ?? "").trim() || null,
+    city: String(selectedSchool?.city ?? "").trim() || null,
+    state: String(selectedSchool?.state ?? "").trim() || null,
+    country: String(selectedSchool?.country ?? "").trim() || null,
     pincode:
       String(
         selectedSchool?.pincode ??
@@ -177,9 +334,7 @@ export default function HealthCheckContent({ selectUser, student, branch: branch
       ).trim() || null,
     registration_number:
       String(
-        selectedSchool?.registration_number ??
-          selectedSchool?.reg_no ??
-          "",
+        selectedSchool?.registration_number ?? selectedSchool?.reg_no ?? "",
       ).trim() || null,
   };
   const schoolAddressText = [
@@ -256,7 +411,10 @@ export default function HealthCheckContent({ selectUser, student, branch: branch
     dentalScreeningRecord,
     visionScreeningRecord,
     isLoading: screeningLoading,
-  } = useScreeningRecord({ getId: studentIdentifier });
+  } = useScreeningRecord({
+    getId: studentIdentifier,
+    campId: camp?.id ?? camp?.campId ?? "",
+  });
 
   console.log({ generalScreeningRecord }, "dddddd");
   console.log({ visionScreeningRecord }, "ssssss");
@@ -486,25 +644,43 @@ export default function HealthCheckContent({ selectUser, student, branch: branch
         </div>
       </div> */}
 
-      <div ref={reportRef} data-pdf-report className="space-y-6 py-8">
+      <div
+        ref={reportRef}
+        data-pdf-report
+        className="report-surface mx-auto w-full max-w-full space-y-6 rounded-lg border border-border px-4 py-8 text-foreground shadow-md sm:px-8 sm:py-10 md:max-w-[90%] md:px-10 lg:max-w-[210mm] lg:px-12 lg:py-12 print:shadow-none print:border-0"
+      >
         {showStudentInfo ? (
           <section className="space-y-4">
-           <div className="flex flex-col items-center pb-4 gap-5">
-             <h2 className="text-center">{schoolName}</h2>
-            {schoolAddressText ? (
-              <p className="-mt-4 mb-2 text-center text-xs text-muted-foreground">
-                {schoolAddressText}
-              </p>
-            ) : null}
-           </div>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-[1fr_auto]">
+            <div className="flex flex-col items-center gap-4">
+              <h2 className="text-center text-foreground">
+                {schoolName}
+              </h2>
+              {schoolAddressText ? (
+                <p className="-mt-4 mb-2 text-center text-xs text-muted-foreground">
+                  {schoolAddressText || ""}
+                </p>
+              ) : (
+                null
+              )}
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <h6 className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                <Calendar className="size-3.5 shrink-0 text-primary" />
+                <span className="whitespace-nowrap">
+                  Academic Session: {student?.academic_year ?? "--"}
+                </span>
+              </h6>
+              {/* <h2 className="text-center text-foreground">{schoolName || "dpokokw[ejrije[wrjiwrwr"}</h2>
+              {schoolAddressText ? (
+                <p className="-mt-4 mb-2 text-center text-xs text-muted-foreground">
+                  {schoolAddressText || ""}
+                </p>
+              ) : null */}
+            </div>
+            {/* <div className="grid grid-cols-1 gap-5 sm:grid-cols-[1fr_auto]">
               <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
                 <Info label="Student Name" value={studentName} />
-                <Info label="Date of Birth" value={dobValue} />
-                <Info label="Age" value={calculateAge(dobValue)} />
-                <Info label="Admission No" value={admissionNo} />
-                <Info label="UHID No" value={uhid} />
-                {svasthaId && <Info label="SvasthaID No" value={svasthaId} />}
+                <Info label="Age" value={} />
                 <Info label="Gender" value={student?.gender ?? "--"} />
                 <Info
                   label="Class / Section"
@@ -533,6 +709,88 @@ export default function HealthCheckContent({ selectUser, student, branch: branch
                   )}
                 </div>
               </div>
+            </div> */}
+            <div className="flex flex-col w-full">
+              <div className="flex flex-row gap-5">
+                <div className="flex justify-start sm:justify-end">
+                  <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+                    {studentPhoto ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={studentPhoto}
+                        alt="Student"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        Paste Photo here
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex min-w-0 flex-col gap-1 w-full">
+                  <div className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <h2 className="min-w-0 flex-1 basis-48 wrap-break-word font-bold leading-snug text-foreground">
+                      {studentName}
+                    </h2>
+                  </div>
+                  <div className="flex flex-row gap-2 pb-1">
+                    <Badge variant="success" className="w-fit">
+                      <span className="text-muted-foreground flex gap-1">
+                        <School size={14} className="text-primary" />
+                        Class {classValue}-{sectionValue}
+                      </span>
+                    </Badge>
+                    <Badge variant="outline" className="w-fit">
+                      <span className="text-muted-foreground font-bold">
+                        {student?.gender ?? "--"}
+                      </span>
+                    </Badge>
+                  </div>
+                  <div className="flex flex-row gap-3">
+                    <Badge
+                      variant="special"
+                      className="bg-secondary border-secondary"
+                    >
+                      <span className="text-muted-foreground font-bold">
+                        {calculateAge(dobValue)}
+                      </span>
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-6 flex flex-wrap items-stretch gap-3">
+                <CopyableInfo
+                  label="Admission No"
+                  value={admissionNo}
+                  icon={IdCard}
+                />
+                <CopyableInfo
+                  label="UHID No"
+                  value={uhid}
+                  icon={IdCardLanyard}
+                />
+                {svasthaId ? (
+                  <CopyableInfo
+                    label="SvasthaID No"
+                    value={svasthaId}
+                    valueClass="text-primary font-bold"
+                    icon={
+                      <Image
+                        src="/logo.svg"
+                        width={16}
+                        height={16}
+                        alt="svastha-id"
+                      />
+                    }
+                  />
+                ) : null}
+                <CopyableInfo
+                  label="Date of Birth"
+                  value={dobValue}
+                  icon={CalendarCheck}
+                />
+              </div>
             </div>
           </section>
         ) : null}
@@ -541,47 +799,42 @@ export default function HealthCheckContent({ selectUser, student, branch: branch
           <section className={`grid grid-cols-2 gap-3 ${statusGridCols}`}>
             {showVitals ? (
               <StatusCard
-                iconClass="text-success bg-success/50"
                 icon={Activity}
                 title="Physical Health"
                 status="Normal"
-                toneClass="bg-success/10 text-success border-success/30"
+                tone="physical"
               />
             ) : null}
             {showVision ? (
               <StatusCard
-                iconClass="text-info bg-info/50"
                 icon={Eye}
                 title="Vision"
                 status="Normal"
-                toneClass="bg-info/10 text-info border-info/30"
+                tone="vision"
               />
             ) : null}
             {showHearing ? (
               <StatusCard
-                iconClass="text-primary bg-primary/50"
                 icon={Ear}
                 title="Hearing"
                 status="Normal"
-                toneClass="bg-primary/10 text-primary border-primary/30"
+                tone="hearing"
               />
             ) : null}
             {showDental ? (
               <StatusCard
-                iconClass="text-warning bg-warning/50"
                 icon={ToothIcon}
                 title="Oral Health"
-                status="Good"
-                toneClass="bg-warning/10 text-warning border-warning/30"
+                status="poor"
+                tone="oral"
               />
             ) : null}
             {showImmunization ? (
               <StatusCard
-                iconClass="text-destructive bg-destructive/50"
                 icon={Syringe}
                 title="Immunization"
                 status="Up to Date"
-                toneClass="bg-destructive/10 text-destructive border-destructive/30"
+                tone="immunization"
               />
             ) : null}
           </section>

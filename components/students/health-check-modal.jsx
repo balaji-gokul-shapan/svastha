@@ -1,24 +1,119 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { isValidElement, useRef, useState } from "react";
+import Image from "next/image";
 import {
   Activity,
+  CalendarCheck,
+  Check,
   CheckCircle2,
+  Copy,
   Ear,
   Eye,
   HeartPulse,
   IdCard,
+  IdCardLanyard,
+  School,
   Syringe,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useScreeningRecord } from "./getScreeningRecord";
 import { usePathname } from "next/navigation";
 import html2canvas from "html2canvas-pro";
 import jsPDF from "jspdf";
 import ToothIcon from "@/app/health-checks/dental-screening/asset/toothIcon";
 import { useAppSelector } from "@/lib/hooks";
+
+function normalizeKey(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+}
+
+/* Status text → badge variant only. Card background stays domain-owned so
+   dental/vision/hearing colors always match the global theme tokens. */
+const STATUS_VARIANT = {
+  good: "good",
+  normal: "normal",
+  warning: "warning",
+  bad: "bad",
+  severe: "severe",
+  critical: "severe",
+  uptodate: "good",
+  abnormal: "bad",
+  poor: "bad",
+};
+
+function StatusBadge({ status }) {
+  const variant = STATUS_VARIANT[normalizeKey(status)] ?? "outline";
+  return (
+    <Badge variant={variant} className="mt-0.5 text-xs opacity-85">
+      {status}
+    </Badge>
+  );
+}
+
+/* Per-domain gradient card tones — every color comes from the global tokens
+   (--domain-*, --domain-*-soft/border/foreground in app/globals.css). */
+const DOMAIN_TONE = {
+  physical: {
+    toneClass:
+      "border-domain-physical-border bg-gradient-to-br from-domain-physical/25 via-domain-physical-soft to-domain-physical/[0.03] text-domain-physical-foreground",
+    iconClass:
+      "bg-gradient-to-br from-domain-physical to-domain-physical/60 text-white shadow-sm",
+  },
+  vision: {
+    toneClass:
+      "border-domain-vision-border bg-gradient-to-br from-domain-vision/25 via-domain-vision-soft to-domain-vision/[0.03] text-domain-vision-foreground",
+    iconClass:
+      "bg-gradient-to-br from-domain-vision to-domain-vision/60 text-white shadow-sm",
+  },
+  hearing: {
+    toneClass:
+      "border-domain-hearing-border bg-gradient-to-br from-domain-hearing/25 via-domain-hearing-soft to-domain-hearing/[0.03] text-domain-hearing-foreground",
+    iconClass:
+      "bg-gradient-to-br from-domain-hearing to-domain-hearing/60 text-white shadow-sm",
+  },
+  oral: {
+    toneClass:
+      "border-domain-oral-border bg-gradient-to-br from-domain-oral/25 via-domain-oral-soft to-domain-oral/[0.03] text-domain-oral-foreground",
+    iconClass:
+      "bg-gradient-to-br from-domain-oral to-domain-oral/60 text-white shadow-sm",
+  },
+  dental: {
+    toneClass:
+      "border-domain-oral-border bg-gradient-to-br from-domain-oral/25 via-domain-oral-soft to-domain-oral/[0.03] text-domain-oral-foreground",
+    iconClass:
+      "bg-gradient-to-br from-domain-oral to-domain-oral/60 text-white shadow-sm",
+  },
+  immunization: {
+    toneClass:
+      "border-domain-immunization-border bg-gradient-to-br from-domain-immunization/25 via-domain-immunization-soft to-domain-immunization/[0.03] text-domain-immunization-foreground",
+    iconClass:
+      "bg-gradient-to-br from-domain-immunization to-domain-immunization/60 text-white shadow-sm",
+  },
+};
+
+function resolveDomainTone(toneOrTitle) {
+  const key = normalizeKey(toneOrTitle);
+  if (DOMAIN_TONE[key]) return DOMAIN_TONE[key];
+  if (key.includes("physical") || key.includes("vital")) return DOMAIN_TONE.physical;
+  if (key.includes("vision") || key.includes("eye")) return DOMAIN_TONE.vision;
+  if (key.includes("hear")) return DOMAIN_TONE.hearing;
+  if (
+    key.includes("oral") ||
+    key.includes("dental") ||
+    key.includes("tooth")
+  )
+    return DOMAIN_TONE.oral;
+  if (key.includes("immun")) return DOMAIN_TONE.immunization;
+  return null;
+}
 
 function Info({ label, value }) {
   return (
@@ -29,18 +124,82 @@ function Info({ label, value }) {
   );
 }
 
-function StatusCard({ icon: Icon, title, status, toneClass, iconClass }) {
+/* Small pill card: icon + muted label on top, bold value below, and a
+   click-to-copy icon button on the right when `hasCopy` is true.
+   `icon` accepts EITHER a lucide component (icon={IdCard}) or a ready-made
+   React node (icon={<Image src="/logo.svg" width={16} height={16} alt="" />}). */
+function CopyableInfo({
+  label,
+  value,
+  valueClass = "text-foreground",
+  hasCopy = true,
+  icon,
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    const text = String(value ?? "").trim();
+    if (!text || text === "--") {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      toast.success(`${label} copied`, { description: text });
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast.error(`Could not copy ${label}`);
+    }
+  };
+
+  const IconNode = isValidElement(icon) ? icon : null;
+  const LabelIcon = IconNode ? null : icon;
+
   return (
-    <div className={`rounded-lg border p-3 ${toneClass}`}>
-      <div className="mb-2 flex items-center gap-2">
+    <div className="flex w-fit items-center gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2">
+      <div>
+        <h6 className="flex items-center gap-1 text-[11px] text-muted-foreground">
+          {LabelIcon ? <LabelIcon className="size-4" /> : null}
+          {IconNode ? <span className="inline-flex">{IconNode}</span> : null}
+          {label}
+        </h6>
+        <p className={`text-sm font-bold ${valueClass}`}>{value}</p>
+      </div>
+      {hasCopy ? (
+        <button
+          type="button"
+          onClick={handleCopy}
+          aria-label={`Copy ${label}`}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+          data-pdf-hide
+        >
+          {copied ? (
+            <Check className="size-3.5 text-success" />
+          ) : (
+            <Copy className="size-3.5" />
+          )}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function StatusCard({ icon: Icon, title, status, tone, toneClass, iconClass }) {
+  const domainTone = resolveDomainTone(tone ?? title);
+  const resolvedTone = toneClass ?? domainTone?.toneClass ?? "";
+  const resolvedIconBg = iconClass ?? domainTone?.iconClass ?? "";
+  return (
+    <div className={`rounded-lg border p-3 ${resolvedTone}`}>
+      <div className="mb-2 flex items-center justify-between gap-2">
         <div
-          className={`flex h-7 w-7 items-center justify-center rounded-full ${iconClass}`}
+          className={`flex h-7 w-7 items-center justify-center rounded-full ${resolvedIconBg}`}
         >
           <Icon className="size-4" />
         </div>
+        <StatusBadge status={status} />
       </div>
-      <p className="text-xs font-medium">{title}</p>
-      <p className="mt-0.5 text-xs opacity-85">{status}</p>
+      <p className="text-xs font-bold">{title}</p>
     </div>
   );
 }
@@ -136,6 +295,21 @@ export default function HealthCheckModal({ student }) {
     showVitals,
     showImmunization,
   ].filter(Boolean);
+
+
+  // Number of visible status cards. Tailwind can't build a class from a
+  // runtime value (e.g. `sm:grid-cols-${n}`), so map the count to explicit,
+  // build-time-detectable class literals.
+  const statusCardCount = getGridCount.length;
+  const statusGridCols =
+    {
+      1: "sm:grid-cols-1",
+      2: "sm:grid-cols-2",
+      3: "sm:grid-cols-3",
+      4: "sm:grid-cols-4",
+      5: "sm:grid-cols-5",
+    }[statusCardCount] ?? "sm:grid-cols-2";
+
 
   const reportTemplate = reportSettings?.reportTemplate ?? "detailed";
   // "summary" drops the quick-glance status cards; "compact" drops remarks.
@@ -445,7 +619,7 @@ export default function HealthCheckModal({ student }) {
             >
               <X className="size-4" />
             </Button>
-            <div className="border-b px-5 py-4 sm:px-7">
+            <div className="border-b px-5 py-4 sm:px-7 ">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="text-lg font-bold text-foreground">
@@ -477,96 +651,135 @@ export default function HealthCheckModal({ student }) {
             <div
               ref={reportRef}
               data-pdf-report
-              className=" space-y-6 px-5 py-5 sm:px-7"
+              className="report-surface mx-auto w-full max-w-full space-y-6 rounded-lg border border-border bg-white px-5 py-5 text-foreground shadow-md sm:px-7 md:max-w-[90%] lg:max-w-[210mm] print:border-0 print:shadow-none"
             >
               {showStudentInfo ? (
-                <section className="grid grid-cols-1 gap-5 sm:grid-cols-[1fr_auto]">
-                  <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
-                    <Info label="Student Name" value={studentName} />
-                    <Info label="Date of Birth" value={dobValue} />
-                    <Info label="Age" value={calculateAge(dobValue)} />
-                    <Info label="Admission No" value={admissionNo} />
-                    <Info label="Gender" value={student?.gender ?? "--"} />
-                    <Info label="UHID No" value={uhid} />
-                    {svasthaId && (
-                      <Info label="SvasthaID No" value={svasthaId} />
-                    )}
-                    <Info
-                      label="Class / Section"
-                      value={`${classValue}-${sectionValue}`}
-                    />
-                    <Info
-                      label="Health Check Date"
-                      value={formatDateTime(
-                        student?.updated_at ?? student?.updatedAt,
-                      )}
-                    />
-                  </div>
-
-                  <div className="flex justify-start sm:justify-end">
-                    <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border bg-muted">
-                      {studentPhoto ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={studentPhoto}
-                          alt="Student"
-                          className="h-full w-full object-cover"
+                <section className="space-y-4">
+                  <div className="flex flex-col w-full">
+                    <div className="flex flex-row gap-5">
+                      <div className="flex justify-start sm:justify-end">
+                        <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+                          {studentPhoto ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={studentPhoto}
+                              alt="Student"
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-xs text-muted-foreground">
+                              Paste Photo here
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex min-w-0 flex-col gap-1 w-full">
+                        <div className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                          <h2 className="min-w-0 flex-1 basis-48 wrap-break-word font-bold leading-snug text-foreground">
+                            {studentName}
+                          </h2>
+                        </div>
+                        <div className="flex flex-row flex-wrap gap-2 pb-1">
+                          <Badge variant="success" className="w-fit">
+                            <span className="text-muted-foreground flex gap-1">
+                              <School size={14} className="text-primary" />
+                              Class {classValue}-{sectionValue}
+                            </span>
+                          </Badge>
+                          <Badge variant="outline" className="w-fit">
+                            <span className="text-muted-foreground font-bold">
+                              {student?.gender ?? "--"}
+                            </span>
+                          </Badge>
+                        </div>
+                        <div className="flex flex-row gap-3">
+                          <Badge
+                            variant="special"
+                            className="bg-secondary border-secondary"
+                          >
+                            <span className="text-muted-foreground font-bold">
+                              {calculateAge(dobValue)}
+                            </span>
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-6 flex flex-wrap items-stretch gap-3">
+                      <CopyableInfo
+                        label="Admission No"
+                        value={admissionNo}
+                        icon={IdCard}
+                      />
+                      <CopyableInfo
+                        label="UHID No"
+                        value={uhid}
+                        icon={IdCardLanyard}
+                      />
+                      {svasthaId ? (
+                        <CopyableInfo
+                          label="SvasthaID No"
+                          value={svasthaId}
+                          valueClass="text-primary font-bold"
+                          icon={
+                            <Image
+                              src="/logo.svg"
+                              width={16}
+                              height={16}
+                              alt="svastha-id"
+                            />
+                          }
                         />
-                      ) : (
-                        <span className="text-xs text-muted-foreground">
-                          Paste Photo here
-                        </span>
-                      )}
+                      ) : null}
+                      <CopyableInfo
+                        label="Date of Birth"
+                        value={dobValue}
+                        icon={CalendarCheck}
+                      />
                     </div>
                   </div>
                 </section>
               ) : null}
 
               {showStatusCards ? (
-                <section  className={`grid grid-cols-2 gap-3 sm:grid-cols-${getGridCount.length}`}>
+          <section className={`grid grid-cols-2 gap-3 ${statusGridCols}`}>
                   {showVitals ? (
                     <StatusCard
-                      iconClass="text-success bg-success/50"
                       icon={Activity}
                       title="Physical Health"
                       status="Normal"
-                      toneClass="bg-success/10 text-success border-success/30"
+                      tone="physical"
                     />
                   ) : null}
                   {showVision ? (
                     <StatusCard
-                      iconClass="text-info bg-info/50"
                       icon={Eye}
                       title="Vision"
                       status="Normal"
-                      toneClass="bg-info/10 text-info border-info/30"
+                      tone="vision"
                     />
                   ) : null}
                   {showHearing ? (
                     <StatusCard
-                      iconClass="text-primary bg-primary/50"
                       icon={Ear}
                       title="Hearing"
                       status="Normal"
-                      toneClass="bg-primary/10 text-primary border-primary/30"
+                      tone="hearing"
                     />
                   ) : null}
                   {showDental ? (
                     <StatusCard
-                      iconClass="text-warning bg-warning/50"
                       icon={ToothIcon}
                       title="Oral Health"
                       status="Good"
-                      toneClass="bg-warning/10 text-warning border-warning/30"
+                      tone="oral"
                     />
                   ) : null}
                   {showImmunization ? (
                     <StatusCard
-                      iconClass="text-destructive bg-destructive/50"
                       icon={Syringe}
                       title="Immunization"
                       status="Up to Date"
-                      toneClass="bg-destructive/10 text-destructive border-destructive/30"
+                      tone="immunization"
                     />
                   ) : null}
                 </section>

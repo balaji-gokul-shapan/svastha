@@ -214,6 +214,10 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
   const savedStudentKeyRef = React.useRef(null);
 
   const [savedStudentKey, setSavedStudentKey] = useState(null);
+  const [selectedCampDetails, setSelectedCampDetails] = React.useState({});
+      const selectedCampId = String(
+        selectedCampDetails?.id ?? selectedCampDetails?.campId ?? "",
+      ).trim();
 
   const [form, setForm] = React.useState({
     ...initialForm,
@@ -485,12 +489,15 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
     error: EntScreeningDataQueryError,
     refetch: refetchEntScreening,
   } = useQuery({
-    queryKey: ["Ent-screening", studentId],
+    // Camp id is part of the key so switching camps refetches instead of
+    // returning a stale cached record for the previous camp.
+    queryKey: ["Ent-screening", studentId, selectedCampId],
 
     queryFn: () =>
       dispatch(
         getEntScreening({
           studentId,
+          campId: selectedCampId,
         }),
       ).unwrap(),
 
@@ -757,6 +764,7 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
           authUser={authUser}
           getStudentDataByEvent={getStudentDataByEvent}
           setGetStudentDataByEvent={setGetStudentDataByEvent}
+          setSelectedCampDetails={setSelectedCampDetails}
         />
 
         {/* =====================================================

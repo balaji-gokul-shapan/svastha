@@ -676,7 +676,6 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
     clearFormError("notes");
   };
   const [isCaDrawerOpen, setIsCaDrawerOpen] = useState(false);
-  const [selectedCampId, setSelectedCampId] = useState("1");
   const [studentId, setStudentId] = useState("");
   const [activeDentalStep, setActiveDentalStep] = useState("chart");
   const [academicYear, setAcademicYear] = useState(DEFAULT_ACADEMIC_YEAR);
@@ -686,7 +685,18 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
   const [classFilter, setClassFilter] = useState("all");
   const [sectionFilter, setSectionFilter] = useState("all");
   const [studentFilter, setStudentFilter] = useState("all");
+  const [campSelection, setCampSelection] = useState("all");
+  const [selectedCampDetails, setSelectedCampDetails] = useState({});
+
   const [getStudentDataByEvent, setGetStudentDataByEvent] = useState([]);
+
+  // <StudentFilter /> resolves the active camp and pushes it up via
+  // setSelectedCampDetails. Derive the id from it (single source of truth,
+  // no static state) instead of the old hardcoded useState("1") — which was
+  // also being reassigned as a const and crashed at runtime.
+  const selectedCampId = String(
+    selectedCampDetails?.id ?? selectedCampDetails?.campId ?? "",
+  ).trim();
 
   // const { data: filterPayload, isLoading } = useQuery({
   //   queryKey: ["filter-student", schoolName, academicYear, "options"],
@@ -720,6 +730,7 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
     }
     return [];
   }, [getStudentDataByEvent]);
+
   const {
     data: assignedEvents,
     isLoading: assignEventLoading,
@@ -742,8 +753,12 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
     isLoading: dentalScreeningLoading,
     error: dentalScreeningQueryError,
   } = useQuery({
-    queryKey: ["dental-screening", studentId],
-    queryFn: () => dispatch(getDentalScreening({ studentId })).unwrap(),
+
+    queryKey: ["dental-screening", studentId, selectedCampId],
+    queryFn: () =>
+      dispatch(
+        getDentalScreening({ studentId, campId: selectedCampId }),
+      ).unwrap(),
     enabled: Boolean(String(studentId).trim()),
     staleTime: 0,
     refetchOnWindowFocus: true,
@@ -2356,6 +2371,8 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
       <StudentFilter
         // filterPayload={filterPayload}
         // isLoading={isLoading}
+        campSelection={campSelection}
+        setCampSelection={setCampSelection}
         schoolName={schoolName}
         academicYear={academicYear}
         classFilter={classFilter}
@@ -2372,6 +2389,7 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
         authUser={authUser}
         getStudentDataByEvent={getStudentDataByEvent}
         setGetStudentDataByEvent={setGetStudentDataByEvent}
+        setSelectedCampDetails={setSelectedCampDetails}
       />
       {dentalScreeningQueryError ? (
         <p className="text-sm text-destructive">

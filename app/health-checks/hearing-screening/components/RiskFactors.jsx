@@ -59,7 +59,7 @@ const RiskFactors = ({form, formErrors, referralReasonOptions, updateField}) => 
 
           <CardContent>
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              <RiskField
+              <ReusableSelect
                 label="Frequent Ear Infections"
                 value={form.risk_frequent_ear_infections}
                 onChange={(value) =>
@@ -67,13 +67,13 @@ const RiskFactors = ({form, formErrors, referralReasonOptions, updateField}) => 
                 }
               />
 
-              <RiskField
+              <ReusableSelect
                 label="Speech Delay"
                 value={form.risk_speech_delay}
                 onChange={(value) => updateField("risk_speech_delay", value)}
               />
 
-              <RiskField
+              <ReusableSelect
                 label="Learning Difficulty"
                 value={form.risk_learning_difficulty}
                 onChange={(value) =>
@@ -81,7 +81,7 @@ const RiskFactors = ({form, formErrors, referralReasonOptions, updateField}) => 
                 }
               />
 
-              <RiskField
+              <ReusableSelect
                 label="Family History"
                 value={form.risk_family_history_hearing_loss}
                 onChange={(value) =>
@@ -89,13 +89,13 @@ const RiskFactors = ({form, formErrors, referralReasonOptions, updateField}) => 
                 }
               />
 
-              <RiskField
+              <ReusableSelect
                 label="Noise Exposure"
                 value={form.risk_noise_exposure}
                 onChange={(value) => updateField("risk_noise_exposure", value)}
               />
 
-              <RiskField
+              <ReusableSelect
                 label="Other Risks"
                 value={form.risk_others}
                 onChange={(value) => updateField("risk_others", value)}
@@ -127,7 +127,7 @@ const RiskFactors = ({form, formErrors, referralReasonOptions, updateField}) => 
             </div>
           </CardHeader>
 
-          <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <CardContent className="grid gap-4 md:grid-cols-2">
             <ToggleGroup
               label="Referral required ?"
               options={yesNoOptions("no")}

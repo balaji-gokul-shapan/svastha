@@ -15,10 +15,17 @@ import { getVisionScreening } from "@/lib/features/getVisionScreening";
  *   const { generalScreeningRecord, hearingScreeningRecord, ... } =
  *     useScreeningRecord({ getId: studentId });
  */
-export function useScreeningRecord({ getId } = {}) {
+export function useScreeningRecord({ getId, campId } = {}) {
   const dispatch = useAppDispatch();
   const normalizedId = String(getId ?? "").trim();
   const hasStudent = Boolean(normalizedId);
+
+  // Camp ids are part of the cache keys, so records fetched for one camp
+  // never collide with records fetched for another (mirrors the screening
+  // pages' ["<test>-screening", studentId, selectedCampId] keys).
+  const selectedCampId = String(campId ?? "").trim();
+  console.log(selectedCampId,"selectedCampId");
+  
 
   // Hearing screening for this student.
   const {
@@ -26,11 +33,12 @@ export function useScreeningRecord({ getId } = {}) {
     isLoading: hearingLoading,
     error: hearingError,
   } = useQuery({
-    queryKey: ["hearing-screening", normalizedId],
+    queryKey: ["hearing-screening", normalizedId, selectedCampId],
     queryFn: () =>
-      dispatch(getHearingScreening({ studentId: normalizedId })).unwrap(),
-    enabled: false,
-    // enabled: hasStudent,
+      dispatch(
+        getHearingScreening({ studentId: normalizedId, campId: selectedCampId }),
+      ).unwrap(),
+    enabled: hasStudent,
     staleTime: 60_000,
   });
 
@@ -51,7 +59,7 @@ export function useScreeningRecord({ getId } = {}) {
           sortOrder: "asc",
         }),
       ).unwrap(),
-    // enabled: hasStudent,
+    enabled: hasStudent,
     staleTime: 60_000,
   });
 
@@ -61,24 +69,26 @@ export function useScreeningRecord({ getId } = {}) {
     isLoading: dentalLoading,
     error: dentalError,
   } = useQuery({
-    queryKey: ["dental-screening", normalizedId],
+    queryKey: ["dental-screening", normalizedId, selectedCampId],
     queryFn: () =>
-      dispatch(getDentalScreening({ studentId: normalizedId })).unwrap(),
-    // enabled: hasStudent,
+      dispatch(
+        getDentalScreening({ studentId: normalizedId, campId: selectedCampId }),
+      ).unwrap(),
+    enabled: hasStudent,
     staleTime: 60_000,
   });
 
-  console.log(normalizedId,"dentalScreeningData");
-  
   // Vision screening for this student.
   const {
     data: visionScreeningData = [],
     isLoading: visionLoading,
     error: visionError,
   } = useQuery({
-    queryKey: ["vision-screening", normalizedId],
+    queryKey: ["vision-screening", normalizedId, selectedCampId],
     queryFn: () =>
-      dispatch(getVisionScreening({ studentId: normalizedId })).unwrap(),
+      dispatch(
+        getVisionScreening({ studentId: normalizedId, campId: selectedCampId }),
+      ).unwrap(),
     enabled: hasStudent,
     staleTime: 60_000,
   });
@@ -106,10 +116,6 @@ export function useScreeningRecord({ getId } = {}) {
     if (!studentKeys.size || !Array.isArray(records) || !records.length) {
       return null;
     }
-    console.log(dentalScreeningData,"aaa");
-    console.log(visionScreeningData,"bbb");
-    console.log(generalScreeningPayload,"ccc");
-    
 
     return (
       records.find((record) => {
