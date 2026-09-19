@@ -120,13 +120,10 @@ export function StudentsCards({ data = [], backQuery = "", onDeleted }) {
 
   if (!data.length) {
     return (
-      <div className="rounded-xl border border-dashed border-border bg-card p-6">
-        <EmptyState
-          title="No students found"
-          description="Try changing filters or add a new student to get started."
-        />
-
-      </div>
+      <EmptyState
+        title="No students found"
+        description="Try changing filters or add a new student to get started."
+      />
     );
   }
 

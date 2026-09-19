@@ -11,8 +11,8 @@ export default function Home() {
       <p className="text-sm text-muted-foreground">
         Welcome to Svastha. Use the sidebar to navigate modules.
       </p> */}
-      <MasterDashboard />
-      {/* <StudentOverviewCharts/> */}
+      <MasterDashboard/>
+{/* <StudentOverviewCharts/> */}
       {/* <StudentOverviewCharts students={studentRecords} /> */}
     </section>
   );

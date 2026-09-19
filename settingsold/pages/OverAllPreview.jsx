@@ -167,7 +167,7 @@ export default function OverAllPreview({ profileImageFile, setProfileImageFile})
             <p className="truncate text-lg font-semibold text-foreground">{name || "Your name"}</p>
             <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <Mail className="size-3.5" />
-              {username ? `${username}` : "Add a username to see your handle"}
+              {username ? `${username}@svastha.app` : "Add a username to see your handle"}
             </p>
             {imageError && <p className="mt-1 text-xs text-destructive">{imageError}</p>}
           </div>

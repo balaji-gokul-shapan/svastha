@@ -11,7 +11,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { StudentsDataTable } from "./utilities/students-data-table";
-import { StudentsCards } from "./utilities/students-cards";
 import { Pagination } from "@/components/ui/pagination";
 import { LayoutGrid, List, PlusCircle } from "lucide-react";
 import Link from "next/link";
@@ -25,7 +24,6 @@ import StudentFilter from "../health-checks/utilities/studentFilter";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import SchoolStudentFilter from "./utilities/SchoolStudentFilter";
 import { selectUserAccount } from "@/lib/features/auth-slice";
-import { useAuthRole } from "@/lib/user-role";
 
 // Default value for every filter â€” values equal to these are kept out of
 // the URL so links stay tidy.
@@ -34,8 +32,8 @@ const FILTER_DEFAULTS = {
   status: "all",
   class: "all",
   section: "all",
-  branch_id: "all",
-  academicYear: "all",
+  school: "all",
+  academicYear: "2026-2027",
   student: "all",
   sortBy: "name",
   sortOrder: "asc",
@@ -52,8 +50,8 @@ function StudentsList() {
   const status = searchParams.get("status") ?? "all";
   const classFilter = searchParams.get("class") ?? "all";
   const sectionFilter = searchParams.get("section") ?? "all";
-  const schoolName = searchParams.get("branch_id") ?? "all";
-  const academicYear = searchParams.get("academicYear") ?? "all";
+  const schoolName = searchParams.get("school") ?? "all";
+  const academicYear = searchParams.get("academicYear") ?? "2026-2027";
   const studentFilter = searchParams.get("student") ?? "all";
   const sortBy = searchParams.get("sortBy") ?? "name";
   const sortOrder = searchParams.get("sortOrder") ?? "asc";
@@ -101,6 +99,7 @@ function StudentsList() {
     [updateParams],
   );
 
+  // Debounced search box â€” local input state committed to the URL.
   const [searchInput, setSearchInput] = React.useState(search);
   React.useEffect(() => {
     setSearchInput(search);
@@ -212,73 +211,13 @@ function StudentsList() {
   const isInitialLoading = loading && rows.length === 0;
   const isRefreshing = isFetching && rows.length > 0;
   const totalPages = Math.max(1, Math.ceil((total || 0) / limit));
-
-  // The signed-in account's OWN branch. Used as the default value of the
-  // School Name filter when the URL carries no branch (see the sync effect
-  // below — without it the dropdown is blanked out). Kept as a STRING because
-  // the dropdown's option values are strings ("2", not 2).
-  const defaultBranchId = React.useMemo(
-    () =>
-      String(
-        selectUser?.branch_id ??
-          selectUser?.branchId ??
-          selectUser?.branch?.id ??
-          "",
-      ).trim(),
-    [selectUser],
-  );
-
  const [filterFormData, setFilterFormData] = React.useState({
-  branchName: defaultBranchId,
-  AcademicYear: "2026 - 2027",
+  branchName: "",
+  AcademicYear: "",
   classes: "",
   section: "",
   BeneficiaryId: "",
 });
-
-  // Keep the SchoolStudentFilter form state in sync with the URL query
-  // string. The dropdowns are controlled by filterFormData, so without this
-  // they'd reset to empty whenever this page remounts — e.g. after the
-  // "Back to Students" button returns from a student's detail page, or on
-  // browser back/forward — even though the URL (and therefore the results)
-  // still carry the filters.
-  const filterFormValue = React.useCallback(
-    (value, defaultValue = "all") =>
-      value === undefined ||
-      value === null ||
-      String(value) === String(defaultValue)
-        ? ""
-        : String(value),
-    [],
-  );
-
-  React.useEffect(() => {
-    setFilterFormData((prev) => {
-      const next = {
-        branchName: filterFormValue(schoolName) || defaultBranchId,
-        AcademicYear:
-          academicYear === "all" ||
-          String(academicYear) === FILTER_DEFAULTS.academicYear
-            ? ""
-            : String(academicYear),
-        classes: filterFormValue(classFilter),
-        section: filterFormValue(sectionFilter),
-        BeneficiaryId: filterFormValue(studentFilter),
-      };
-      return JSON.stringify(next) === JSON.stringify(prev) ? prev : next;
-    });
-  }, [
-    schoolName,
-    defaultBranchId,
-    academicYear,
-    classFilter,
-    sectionFilter,
-    studentFilter,
-    filterFormValue,
-  ]);
-
-  
-console.log(filterFormData,"filterFormData");
 
   // const classOptions = React.useMemo(() => {
   //   const classSet = new Set([
@@ -342,39 +281,16 @@ console.log(filterFormData,"filterFormData");
   //     ),
   //   ];
   // }, [classFilter, rows]);
-  
-    // const account = useAppSelector(selectUserAccount);
-    // console.log(account, "accountee")
-
-   const getRole = useAuthRole();
-   console.log(getRole,"getRolesssss");
-   
 
   const { data: filterPayload, isLoading } = useQuery({
-    queryKey: ["filter-student", schoolName, academicYear, classFilter, sectionFilter, "options"],
-    // Only run when there's an actual filter to send. With the defaults
-    // (no branch, academicYear "all") this would POST only page/per_page/sort,
-    // which the backend rejects with "at least one parameter is required".
-    // filterPayload isn't consumed by SchoolStudentFilter (it builds its own
-    // options), so it's safe to skip until a branch or a concrete year exists.
-    enabled:
-      Boolean(schoolName && schoolName !== "all") ||
-      Boolean(academicYear && academicYear !== "all")||
-      Boolean(classFilter && classFilter !== "all") ||
-      Boolean(sectionFilter && sectionFilter !== "all"),
+    queryKey: ["filter-student", schoolName, academicYear, "options"],
     queryFn: () =>
       dispatch(
         getFilterStudent({
           all: true,
           status: "all",
-          // The backend's valid filters are branch_id/class/sec/academic_year
-          // (no `school`). Send the selected branch id as `branch_id`, not as
-          // `schoolName` (which would map to an unrecognised `school` param
-          // and fail with "at least one filter parameter required").
-          branch_id: schoolName,
+          schoolName,
           academicYear,
-          classFilter,
-          sectionFilter,
           sortBy: "name",
           sortOrder: "asc",
           search: "",
@@ -528,7 +444,7 @@ console.log(filterFormData,"filterFormData");
         studentFilter={studentFilter}
         onSchoolNameChange={(value) => {
           updateParams({
-            branch_id: value,
+            school: value,
             class: "all",
             section: "all",
             student: "all",
@@ -563,18 +479,6 @@ console.log(filterFormData,"filterFormData");
         formData={filterFormData}
         setFormData={setFilterFormData}
         selectRole={selectUser.user_type_id}
-        // Fallback branch for roles that can't fetch /schools/branch/all
-        // (school_sub_account) — their OWN branch from the account.
-        ownBranch={{
-          value: defaultBranchId,
-          label: String(
-            selectUser?.branch_name ??
-              selectUser?.name ??
-              selectUser?.school_name ??
-              selectUser?.schoolName ??
-              "",
-          ).trim(),
-        }}
         filterPayload={filterPayload}
         isLoading={isLoading}
         schoolName={schoolName}
@@ -584,7 +488,7 @@ console.log(filterFormData,"filterFormData");
         studentFilter={studentFilter}
         onSchoolNameChange={(value) => {
           updateParams({
-            branch_id: value,
+            school: value,
             class: "all",
             section: "all",
             student: "all",

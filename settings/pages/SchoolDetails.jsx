@@ -1,10 +1,8 @@
 ﻿"use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import React, { useRef, useState } from "react";
 import {
   Building2,
-  Camera,
   GraduationCap,
   Users,
   Ruler,
@@ -14,8 +12,6 @@ import {
   ChevronRight,
   Loader2,
   Check,
-  SaveCheck,
-  University,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -31,14 +27,9 @@ import ReusableMultiSelect from "@/components/ui/ReusableMultiSelect";
 import { SECTION_OPTIONS } from "@/app/settings/datas/settingsData";
 import { toast } from "sonner";
 import { useDispatch } from "react-redux";
-import {
-  createSchoolBranches,
-  updateSchoolBranches,
-} from "@/lib/features/registerSchoolBranchSlice";
+import { createSchoolBranches } from "@/lib/features/registerSchoolBranchSlice";
 import { branchStepSchemas } from "../validation/branch-validation-schema";
 import { NumberStepperField } from "@/components/ui/numberStepperField";
-import ImageCropper from "@/components/imageCropper";
-import { uploadSchoolLogo } from "@/lib/features/registerSchoolSlice";
 
 const steps = [
   {
@@ -105,35 +96,24 @@ const EMPTY_FORM = {
   contact_person_email: "",
 };
 
-const SchoolDetails = ({
-  getAllSchoolBranch,
-  getRole,
-  subAccountBranch,
-  getBranchDataForSubAccount,
-  getSchoolBranchData,
-  getUserAccount,
-}) => {
+const SchoolDetails = ({ getAllSchoolBranch }) => {
   const [open, setOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
   const isSavingRef = useRef(false);
   const dispatch = useDispatch();
-  const queryClient = useQueryClient();
 
   const [formData, setFormData] = useState({ ...EMPTY_FORM });
   const [errors, setErrors] = useState({});
-  const [editingBranch, setEditingBranch] = useState(null);
 
   const [selectedClassIds, setSelectedClassIds] = useState([]);
   const [selectedSectionIds, setSelectedSectionIds] = useState([]);
-  console.log(getSchoolBranchData, "getAllSchoolBranch---schl");
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     setErrors((prev) => ({ ...prev, [name]: "" }));
   };
-  console.log(getUserAccount, "getRole");
 
   // Academic class/section options (multi-select)
   const classOptions = SECTION_OPTIONS.map((opt) => {
@@ -160,6 +140,10 @@ const SchoolDetails = ({
     setFormData((prev) => ({ ...prev, section: ids.join(", ") }));
   };
 
+  // Shared field builders — all steps use the `TextField` UI component so
+  // every input shares one label / input / error language from globals.css.
+  // `required` renders the global `.field-required` asterisk; `error`
+  // paints the destructive ring + `.field-error` message.
   const parseLabel = (label) => {
     const required = label.trim().endsWith("*");
     return {
@@ -184,7 +168,6 @@ const SchoolDetails = ({
       />
     );
   };
-  console.log(formData, "formData");
 
   const numField = (label, name, min = 0) => {
     const { text, required } = parseLabel(label);
@@ -308,66 +291,29 @@ const SchoolDetails = ({
     setIsSaving(true);
     isSavingRef.current = true;
 
-    // When a logo file is present, send multipart FormData so the backend
-    // receives `branch_logo`; otherwise keep the existing JSON behaviour.
-    let requestPayload = payload;
-    // if (branchImageFile) {
-    //   const formPayload = new FormData();
-    //   formPayload.append("branch_logo", branchImageFile);
-    //   Object.entries(payload).forEach(([key, value]) => {
-    //     formPayload.append(key, value ?? "");
-    //   });
-    //   requestPayload = formPayload;
-    // }
-
-    // Edit mode: PATCH the existing branch; create mode: POST a new one.
-    // Tolerates both `id` and `branch_id` id keys from the backend record.
-    const editingId = editingBranch?.id ?? editingBranch?.branch_id;
-    const request = editingId
-      ? dispatch(
-          updateSchoolBranches({ id: editingId, payload: requestPayload }),
-        )
-      : dispatch(createSchoolBranches(requestPayload));
-
-    request
+    dispatch(createSchoolBranches(payload))
       .unwrap()
       .then(() => {
         setIsSaving(false);
         isSavingRef.current = false;
-
-        toast.success(
-          editingBranch
-            ? "Branch updated successfully"
-            : "School Branch saved successfully",
-          {
-            description: formData.branch_name
-              ? `Record saved for ${formData.branch_name}`
-              : undefined,
-          },
-        );
-
+        toast.success("School Branch saved successfully", {
+          description: formData.branch_name
+            ? `Record saved for ${formData.branch_name}`
+            : undefined,
+        });
         setOpen(false);
         setCurrentStep(1);
         setFormData({ ...EMPTY_FORM });
         setSelectedClassIds([]);
         setSelectedSectionIds([]);
         setErrors({});
-        setEditingBranch(null);
-        clearBranchImage();
-
-        // The branch list lives in react-query (staleTime 5 min) — invalidate
-        // it so the cards reflect the created/updated details immediately.
-        queryClient.invalidateQueries({ queryKey: ["getSchoolAllBranch"] });
       })
       .catch((error) => {
         setIsSaving(false);
         isSavingRef.current = false;
-        toast.error(
-          editingBranch ? "Failed to update Branch" : "Failed to create Branch",
-          {
-            description: getBackendErrorMessage(error),
-          },
-        );
+        toast.error("Failed to create Branch", {
+          description: getBackendErrorMessage(error),
+        });
       });
   };
 
@@ -438,289 +384,23 @@ const SchoolDetails = ({
 
   const isLastStep = currentStep === steps.length;
 
-  // Branch list visible to the current role. A school_sub_account only sees
-  // the branch THEY belong to — matched by the login payload's branch id, with
-  // a fallback built from the login payload itself when the API list isn't
-  // available (the backend 401s school_sub_account on /schools/branch/all).
-  const allBranches = Array.isArray(getAllSchoolBranch?.data)
+  const getAllBranch = getAllSchoolBranch?.data?.length ?? 0;
+  const branches = Array.isArray(getAllSchoolBranch?.data)
     ? getAllSchoolBranch.data
     : [];
 
-  const myBranchId = String(subAccountBranch?.id ?? "").trim();
-  const branches = useMemo(() => {
-    if (getRole === "school_sub_account") {
-      const own = allBranches.filter(
-        (b) => String(b?.id ?? b?.branch_id ?? "").trim() === myBranchId,
-      );
-      if (own.length > 0) return own;
-      return myBranchId
-        ? [
-            {
-              id: myBranchId,
-              branch_name: subAccountBranch?.name ?? "",
-              class: subAccountBranch?.class ?? "",
-              section: subAccountBranch?.section ?? "",
-            },
-          ]
-        : [];
-    }
-    return allBranches;
-  }, [getRole, allBranches, myBranchId, subAccountBranch]);
-
-  // user_type_id 2 = "school" — on first login (or while the branch still has
-  // no logo), auto-open the edit wizard so the school completes its details.
-  // Runs at most once per browser session per branch (sessionStorage guard).
-  const autoOpenedBranchRef = useRef(null);
-
-  useEffect(() => {
-    console.log("auto-open check — getUserAccount:", getUserAccount);
-    const userType = String(
-      getUserAccount?.user_type_id ?? getUserAccount?.userTypeId ?? "",
-    ).trim();
-    if (userType !== "2") return;
-    if (branches.length === 0) return;
-
-    const target = branches[0];
-    const branchKey = String(target?.id ?? target?.branch_id ?? "").trim();
-    if (!branchKey) return;
-
-    // Already prompted for this branch this session? Don't nag again.
-    if (autoOpenedBranchRef.current === branchKey) return;
-    if (
-      window.sessionStorage.getItem(`svastha-logo-prompt-${branchKey}`) === "1"
-    ) {
-      autoOpenedBranchRef.current = branchKey;
-      return;
-    }
-
-    const hasLogo = Boolean(
-      target?.branch_logo ??
-      target?.branch_logo_url ??
-      target?.logo ??
-      target?.logo_url,
-    );
-    if (hasLogo) {
-      // Logo already set — remember and never auto-open again.
-      window.sessionStorage.setItem(`svastha-logo-prompt-${branchKey}`, "1");
-      autoOpenedBranchRef.current = branchKey;
-      return;
-    }
-
-    // First time (or logo still empty) → open the edit popup once.
-    console.log("auto-open → opening edit wizard for", target);
-    autoOpenedBranchRef.current = branchKey;
-    window.sessionStorage.setItem(`svastha-logo-prompt-${branchKey}`, "1");
-    handleEditBranch(target);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getUserAccount, branches]);
-
-  const getAllBranch = branches.length;
-
-  // getSchoolBranchData is a single-record query response (the thunk already
-  // unwraps `data`), NOT an array — normalise it to an array for rendering.
-  const branchRecords = useMemo(() => {
-    const raw = getSchoolBranchData?.data ?? getSchoolBranchData;
-    if (Array.isArray(raw)) return raw.filter(Boolean);
-    // A blank object means "nothing loaded yet" — it must not become a card.
-    if (raw && typeof raw === "object" && Object.keys(raw).length > 0) {
-      return [raw];
-    }
-    return Array.isArray(branches) ? branches : [];
-  }, [getSchoolBranchData, branches]);
-
-  console.log(branchRecords, "branchRecords");
+  console.log(getAllSchoolBranch, "getAllBranch");
 
   const activeStep = steps[currentStep - 1];
   const ActiveIcon = activeStep.icon;
 
-  const profileInputRef = useRef(null); // hidden <input type=file>
-  const [branchImageFile, setBranchImageFile] = useState(null); // the stored File
-  const [imagePreviewUrl, setImagePreviewUrl] = useState("");
-  const [showCropper, setShowCropper] = useState(false);
-  const [imageError, setImageError] = useState("");
-
-  // Pending logo upload (cropped file awaiting user confirmation) +
-  // the "use same logo for all branches" option shown in the dialog.
-  const [pendingLogo, setPendingLogo] = useState(null);
-  const [useSameLogoForAll, setUseSameLogoForAll] = useState(false);
-  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
-
-  const openBranchPicker = () => profileInputRef.current?.click();
-  const handleBranchImageChange = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setImageError("Select a valid image.");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setImageError("Image must be under 5 MB.");
-      return;
-    }
-    setImageError("");
-    if (imagePreviewUrl?.startsWith("blob:"))
-      URL.revokeObjectURL(imagePreviewUrl);
-    const previewUrl = URL.createObjectURL(file);
-
-    setBranchImageFile(file);
-    setImagePreviewUrl(previewUrl);
-    setShowCropper(true); // ← opens the cropper
-    event.target.value = ""; // allow re-selecting the same file
-  };
-  const handleUpload = async (file, sameForAll) => {
-    const logoSchoolId =
-      editingBranch?.school_id ??
-      editingBranch?.school?.id ??
-      subAccountBranch?.school_id ??
-      "";
-
-    if (!logoSchoolId) {
-      toast.error("Unable to determine the school for this logo upload.");
-      return false;
-    }
-
-    setIsUploadingLogo(true);
-    try {
-      await dispatch(
-        uploadSchoolLogo({
-          id: logoSchoolId,
-          image: file,
-          use_same_logo_for_all: sameForAll ? "true" : "false",
-        }),
-      ).unwrap();
-      toast.success("School logo updated");
-      return true;
-    } catch (err) {
-      // The thunk rejects with the backend's message string (already parsed —
-      // e.g. "Invalid file type. Only JPEG, PNG, GIF, and WebP images are
-      // allowed."). Show it verbatim; fall back sensibly if it's ever an object.
-      const message =
-        typeof err === "string"
-          ? err
-          : (err?.message ??
-            err?.errors?.image?.[0] ??
-            err?.data?.message ??
-            "Failed to upload logo");
-      toast.error(message);
-      return false;
-    } finally {
-      setIsUploadingLogo(false);
-    }
-  };
-
-  const handleCroppedImage = (croppedFile) => {
-    if (imagePreviewUrl?.startsWith("blob:"))
-      URL.revokeObjectURL(imagePreviewUrl);
-    const croppedUrl = URL.createObjectURL(croppedFile);
-    setBranchImageFile(croppedFile);
-    setImagePreviewUrl(croppedUrl);
-    setShowCropper(false);
-    setImageError("");
-    // Don't hit the API yet — park the cropped file and open the
-    // confirm/cancel dialog (see pendingLogo).
-    setPendingLogo(croppedFile);
-  };
-
-  // Confirm button in the dialog -> actually upload the cropped logo.
-  const confirmLogoUpload = async () => {
-    if (!pendingLogo) return;
-    const ok = await handleUpload(pendingLogo, useSameLogoForAll);
-    if (ok) setPendingLogo(null);
-  };
-
-  // Cancel button / close -> keep the local preview (it can still be saved
-  // with the branch) but discard the pending API upload.
-  const cancelLogoUpload = () => {
-    (setPendingLogo(null), clearBranchImage());
-  };
-
-  const clearBranchImage = () => {
-    if (imagePreviewUrl?.startsWith("blob:"))
-      URL.revokeObjectURL(imagePreviewUrl);
-    setBranchImageFile(null);
-    setImagePreviewUrl("");
-    setShowCropper(false);
-    setImageError("");
-    if (profileInputRef.current) profileInputRef.current.value = "";
-  };
-
   const openModal = () => {
-    setEditingBranch(null);
-    setFormData({ ...EMPTY_FORM });
-    setSelectedClassIds([]);
-    setSelectedSectionIds([]);
     setCurrentStep(1);
     setErrors({});
-    clearBranchImage();
     setOpen(true);
   };
 
-  // Opens the existing step wizard pre-filled with the branch's saved details.
-  const handleEditBranch = (branch) => {
-    // A school_sub_account's card is built from the SCHOOL ACCOUNT, which
-    // doesn't carry the branch wizard fields. Pre-fill from the real branch
-    // record (/schools/branch) instead, falling back to the clicked card.
-    const isSubAccount = getRole === "school_sub_account";
-    const record = isSubAccount
-      ? (getSchoolBranchData?.data ?? getSchoolBranchData ?? branch)
-      : branch;
-    setEditingBranch(record);
-    console.log(getRole, "editingBranch");
-
-    // Pre-fill every wizard field from the record, tolerating missing keys.
-    setFormData({
-      ...EMPTY_FORM,
-      ...Object.fromEntries(
-        Object.keys(EMPTY_FORM).map((key) => [
-          key,
-          record?.[key] ?? EMPTY_FORM[key],
-        ]),
-      ),
-    });
-
-    // The form stores classes/sections as "1, 2" strings; the multi-selects
-    // need id arrays — parse them back, matching by option value OR label.
-    const toIds = (csv, options) =>
-      String(record?.[csv] ?? "")
-        .split(",")
-        .map((value) => value.trim())
-        .filter(Boolean)
-        .map((value) => {
-          const match = options.find(
-            (option) =>
-              String(option.value) === value || option.label === value,
-          );
-          return match ? match.value : null;
-        })
-        .filter((id) => id !== null);
-
-    setSelectedClassIds(toIds("class", classOptions));
-    setSelectedSectionIds(toIds("section", sectionOptions));
-
-    // Pre-fill the saved logo (view-only until a new file is picked).
-    if (imagePreviewUrl?.startsWith("blob:")) {
-      URL.revokeObjectURL(imagePreviewUrl);
-    }
-    const savedLogo = record?.branch_logo ?? record?.branch_logo_url;
-    if (typeof savedLogo === "string" && savedLogo) {
-      setBranchImageFile(null);
-      setImagePreviewUrl(savedLogo);
-      setShowCropper(false);
-      setImageError("");
-      if (profileInputRef.current) profileInputRef.current.value = "";
-    } else {
-      clearBranchImage();
-    }
-
-    setErrors({});
-    setCurrentStep(1);
-    setOpen(true);
-  };
-
-  const closeModal = () => {
-    clearBranchImage();
-    setOpen(false);
-  };
+  const closeModal = () => setOpen(false);
 
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-card">
@@ -758,9 +438,7 @@ const SchoolDetails = ({
               <h2 className="text-xl font-semibold text-foreground">
                 School Details
               </h2>
-              <Badge
-                variant={branchRecords.length > 0 ? "success" : "secondary"}
-              >
+              <Badge variant={branches.length > 0 ? "success" : "secondary"}>
                 {getAllBranch > 0
                   ? `${getAllBranch} branch${getAllBranch > 1 ? "es" : ""}`
                   : "No branches"}
@@ -773,15 +451,13 @@ const SchoolDetails = ({
             </p>
           </div>
         </div>
-        {getUserAccount?.user_type_id !== 2 && (
-          <Button type="button" onClick={openModal}>
-            <Building2 className="mr-2 size-4" /> Add Branch
-          </Button>
-        )}
+        <Button type="button" onClick={openModal}>
+          <Building2 className="mr-2 size-4" /> Add Branch
+        </Button>
       </div>
       <Separator />
 
-      {branchRecords.length === 0 ? (
+      {branches.length === 0 ? (
         // <EmptyState
         //   title="No school branches"
         //   description="Click Add Branch to register your first school branch."
@@ -806,31 +482,13 @@ const SchoolDetails = ({
           />
         </div>
       ) : (
-        <div
-          className={`grid gap-4 p-4 sm:grid-cols-2 ${
-            branchRecords.length > 4 ? "xl:grid-cols-2" : "xl:grid-cols-1"
-          }`}
-        >
-          {branchRecords.map((b, i) => (
-            <Card
-              key={b.id ?? b.branch_name ?? i}
-              className="cursor-pointer transition-colors hover:border-primary/40 p-4"
-              onClick={() => handleEditBranch(b)}
-            >
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 p-4">
+          {branches.map((b, i) => (
+            <Card key={b.id ?? b.branch_name ?? i} className="p-4">
               <div className="flex items-center gap-2">
-                {typeof (b.branch_logo ?? b.branch_logo_url) === "string" &&
-                (b.branch_logo ?? b.branch_logo_url) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={b.branch_logo ?? b.branch_logo_url}
-                    alt={`${b.branch_name ?? "Branch"} logo`}
-                    className="size-9 shrink-0 rounded-full border border-border object-cover"
-                  />
-                ) : (
-                  <span className="sd-icon-badge size-9">
-                    <Building2 className="size-4" />
-                  </span>
-                )}
+                <span className="sd-icon-badge size-9">
+                  <Building2 className="size-4" />
+                </span>
                 <div>
                   <p className="text-sm font-semibold leading-tight">
                     {b.branch_name ?? "Unnamed branch"}
@@ -876,7 +534,7 @@ const SchoolDetails = ({
         onClose={closeModal}
         maxWidth="max-w-4xl"
         showCloseButton={false}
-        ariaLabel={editingBranch ? "Edit school branch" : "Add school branch"}
+        ariaLabel="Add school branch"
         closeOnOverlayClick={false}
       >
         <div className="flex items-start justify-between gap-4 border-b px-6 py-4">
@@ -885,13 +543,8 @@ const SchoolDetails = ({
               <ActiveIcon className="size-5" />
             </span>
             <div>
-              <h3 className="text-base font-semibold">
-                {editingBranch ? "Edit School Branch" : "Add School Branch"}
-              </h3>
+              <h3 className="text-base font-semibold">Add School Branch</h3>
               <p className="text-xs text-muted-foreground">
-                {editingBranch
-                  ? `Updating "${editingBranch.branch_name ?? "branch"}" — `
-                  : ""}
                 Step {currentStep} of {steps.length} — {activeStep.title}:{" "}
                 {activeStep.description}
               </p>
@@ -922,130 +575,40 @@ const SchoolDetails = ({
         <form onSubmit={handleSave}>
           <div className="sd-form-scroll space-y-5 px-6 py-4">
             {currentStep === 1 && (
-              <div className="space-y-4">
-                {/* Branch Logo — mirrors ProfilePage avatar upload pattern */}
-                <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border p-5">
-                  <p className="text-sm font-medium text-foreground">
-                    {branchImageFile
-                      ? "Branch logo selected"
-                      : "Branch Logo (optional)"}
-                  </p>
-                  <div className="relative inline-block shrink-0">
-                    <button
-                      type="button"
-                      onClick={openBranchPicker}
-                      aria-label="Upload branch logo"
-                      className="group relative size-20 shrink-0 overflow-hidden rounded-full border border-dashed border-foreground/25 bg-background transition-colors hover:border-primary/50"
-                    >
-                      {imagePreviewUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={imagePreviewUrl}
-                          alt="Branch logo preview"
-                          className="size-full object-cover"
-                        />
-                      ) : (
-                        <span className="flex size-full items-center justify-center text-muted-foreground">
-                          <Camera className="size-8" />
-                        </span>
-                      )}
-                      <span className="absolute inset-0 flex items-center justify-center rounded-full bg-foreground/50 text-background opacity-0 transition-opacity group-hover:opacity-100">
-                        <Camera className="size-5" />
-                      </span>
-                    </button>
-
-                    {/* Remove — OUTSIDE the overflow-hidden circle so it isn't clipped */}
-                    {(branchImageFile || imagePreviewUrl) && !showCropper && (
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          clearBranchImage();
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.stopPropagation();
-                            clearBranchImage();
-                          }
-                        }}
-                        aria-label="Remove selected branch logo"
-                        className="absolute -right-1 -top-1 z-10 rounded-full bg-destructive p-1 text-destructive-foreground shadow"
-                      >
-                        <X className="size-3" />
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Hidden file input */}
-                  <input
-                    ref={profileInputRef}
-                    id="branch-logo-upload"
-                    name="branch_logo"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleBranchImageChange}
-                    className="hidden"
+              <div className="grid gap-4 sm:grid-cols-2">
+                {textField("Branch Name *", "branch_name", "e.g. Main Campus")}
+                {textField(
+                  "Registration Number *",
+                  "registration_number",
+                  "e.g. REG-2024-001",
+                )}
+                {textField("CEEB Code", "ceeb_code", "e.g. 123456")}
+                <div>
+                  <YearPicker
+                    id="year_of_establishment"
+                    name="year_of_establishment"
+                    label="Year of Establishment"
+                    labelClassName="field-label"
+                    placeholder="Select year"
+                    minYear={1800}
+                    // withPortal
+                    value={formData.year_of_establishment || ""}
+                    onValueChange={(v) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        year_of_establishment: v,
+                      }));
+                      setErrors((prev) => ({
+                        ...prev,
+                        year_of_establishment: "",
+                      }));
+                    }}
                   />
-
-                  <p className="text-center text-xs text-muted-foreground">
-                    Click the avatar to upload · JPG, PNG, or WEBP up to 5 MB
-                  </p>
-
-                  {imageError && (
-                    <p className="text-xs text-destructive">{imageError}</p>
-                  )}
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <ImageCropper
-                    image={imagePreviewUrl}
-                    open={showCropper}
-                    onClose={() => setShowCropper(false)}
-                    onCrop={handleCroppedImage}
-                    aspect={1}
-                    cropShape="round"
-                    title="Adjust Branch Logo"
-                    description="Drag the image and adjust the zoom."
-                  />
-                  {textField(
-                    "Branch Name *",
-                    "branch_name",
-                    "e.g. Main Campus",
-                  )}
-                  {textField(
-                    "Registration Number *",
-                    "registration_number",
-                    "e.g. REG-2024-001",
-                  )}
-                  {textField("CEEB Code", "ceeb_code", "e.g. 123456")}
-                  <div>
-                    <YearPicker
-                      id="year_of_establishment"
-                      name="year_of_establishment"
-                      label="Year of Establishment"
-                      labelClassName="field-label"
-                      placeholder="Select year"
-                      minYear={1800}
-                      // withPortal
-                      value={formData.year_of_establishment || ""}
-                      onValueChange={(v) => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          year_of_establishment: v,
-                        }));
-                        setErrors((prev) => ({
-                          ...prev,
-                          year_of_establishment: "",
-                        }));
-                      }}
-                    />
-                    {errors.year_of_establishment ? (
-                      <p className="field-error">
-                        {errors.year_of_establishment}
-                      </p>
-                    ) : null}
-                  </div>
+                  {errors.year_of_establishment ? (
+                    <p className="field-error">
+                      {errors.year_of_establishment}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             )}
@@ -1188,7 +751,6 @@ const SchoolDetails = ({
 
           <div className="flex items-center justify-between gap-3 border-t px-6 py-4">
             <Button type="button" variant="ghost" onClick={closeModal}>
-              {/* <X scale={14}/> */}
               Cancel
             </Button>
 
@@ -1207,16 +769,8 @@ const SchoolDetails = ({
                     <>
                       <Loader2 className="mr-2 size-4 animate-spin" /> Saving…
                     </>
-                  ) : editingBranch ? (
-                    <>
-                      <SaveCheck scale={14} />
-                      "Save Changes"
-                    </>
                   ) : (
-                    <>
-                      <University scale={14} />
-                      "Save Branch"
-                    </>
+                    "Save Branch"
                   )}
                 </Button>
               ) : (
@@ -1227,62 +781,6 @@ const SchoolDetails = ({
             </div>
           </div>
         </form>
-      </AnimatedModal>
-
-      {/* Confirm logo upload dialog */}
-      <AnimatedModal open={Boolean(pendingLogo)} onClose={cancelLogoUpload}>
-        <div className="space-y-4 p-6">
-          <h3 className="text-lg font-semibold text-foreground">
-            Upload school logo?
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            Your cropped logo is ready. Confirm to upload it for this school.
-          </p>
-
-          <label className="flex items-center gap-2 text-sm text-foreground">
-            <input
-              type="checkbox"
-              checked={useSameLogoForAll}
-              onChange={(e) => setUseSameLogoForAll(e.target.checked)}
-              disabled={isUploadingLogo}
-              className="size-4 accent-primary"
-            />
-            Use the same logo for all branches
-          </label>
-
-          {imagePreviewUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={imagePreviewUrl}
-              alt="Logo to upload"
-              className="mx-auto size-20 rounded-full border border-border object-cover"
-            />
-          ) : null}
-
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={cancelLogoUpload}
-              disabled={isUploadingLogo}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={confirmLogoUpload}
-              disabled={isUploadingLogo}
-            >
-              {isUploadingLogo ? (
-                <>
-                  <Loader2 className="mr-2 size-4 animate-spin" /> Uploading…
-                </>
-              ) : (
-                "Confirm & Upload"
-              )}
-            </Button>
-          </div>
-        </div>
       </AnimatedModal>
     </section>
   );

@@ -50,10 +50,10 @@ const RefractiveError = ({
             onChange={setColorVisionTestType}
           />
           <TextField
-            className="sm:col-span-2"
+          className="sm:col-span-2"
             label="Color Vision Remarks"
             value={colorVisionRemarks}
-            onChange={(event) => setColorVisionRemarks(event.target.value)}
+            onChange={setColorVisionRemarks}
             placeholder="Optional"
           />
           <SelectField
@@ -76,7 +76,7 @@ const RefractiveError = ({
           <TextField
             label="Muscle Balance Remarks"
             value={muscleBalanceRemarks}
-            onChange={(event) => setMuscleBalanceRemarks(event.target.value)}
+            onChange={setMuscleBalanceRemarks}
             placeholder="Optional"
           />
         </div>

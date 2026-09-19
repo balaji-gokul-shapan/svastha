@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Save, Search } from "lucide-react";
 import { toast } from "sonner";
+<<<<<<< HEAD
 import SchoolStudentFilter from "../students/utilities/SchoolStudentFilter";
 import { useAppSelector } from "@/lib/hooks";
 import { selectAuthUser, selectUserAccount } from "@/lib/features/auth-slice";
@@ -62,14 +63,22 @@ export default function ConsolidateReport() {
         null,
     };
   }, [selectUser]);
+=======
+
+export default function ConsolidateReport() {
+  const { filterProps, selectedStudent } = useStudentFilter();
+>>>>>>> origin/main
 
   const handleSaveReport = () => {
     toast.success("Changes saved successfully");
   };
 
+<<<<<<< HEAD
   const getRole = useAuthRole();
   console.log(getRole, "getRolesssss");
 
+=======
+>>>>>>> origin/main
   return (
     <div className="min-h-screen py-5">
       <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
@@ -82,6 +91,7 @@ export default function ConsolidateReport() {
           </p>
         </div>
       </div>
+<<<<<<< HEAD
 
       {getRole === "doctor" ? (
         <StudentFilter {...filterProps} />
@@ -93,6 +103,9 @@ export default function ConsolidateReport() {
           ownBranch={defaultBranch}
         />
       )}
+=======
+      <StudentFilter {...filterProps} />
+>>>>>>> origin/main
 
       {selectedStudent ? (
         <div className="space-y-3">
@@ -103,6 +116,7 @@ export default function ConsolidateReport() {
             </Button>
           </div> */}
 
+<<<<<<< HEAD
           <HealthCheckContent
             selectUser={selectUser}
             student={selectedStudent}
@@ -113,6 +127,12 @@ export default function ConsolidateReport() {
         </div>
       ) : (
         <div className="rounded-xl border border-dashed border-border bg-card p-6 my-8">
+=======
+          <HealthCheckContent student={selectedStudent} />
+        </div>
+      ) : (
+        <div className="rounded-xl border border-dashed border-border bg-card p-6">
+>>>>>>> origin/main
           <EmptyState
             title="No Report Data"
             description="Select a Student to get the Report"

@@ -41,7 +41,8 @@ import Image from "next/image";
 
 import ToothIcon from "@/app/health-checks/dental-screening/asset/toothIcon";
 
-import { useAuthRole } from "@/lib/user-role";
+import { selectAuthUser } from "@/lib/features/auth-slice";
+import { useAppSelector } from "@/lib/hooks";
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = React.useState(false);
@@ -57,7 +58,12 @@ export function Sidebar() {
   });
 
   const pathname = usePathname();
-  const getRole = useAuthRole();
+  const authUser = useAppSelector(selectAuthUser);
+  console.log("authUser:", authUser);
+  const getRole =
+    authUser?.account_type ??
+    authUser?.role ??
+    null;
 
   console.log("Current Role:", getRole);
 
@@ -87,14 +93,14 @@ export function Sidebar() {
       label: "Students",
       href: "/students",
       icon: Users,
-      roles: ["admin", "school_admin", "teacher","school", "school_sub_account"],
+      roles: ["admin", "school_admin", "teacher","school"],
     },
 
     {
       label: "Health Checks",
       href: "/health-checks",
       icon: HeartPulse,
-      roles: [ "school_admin", "doctor", "teacher"],
+      roles: ["admin", "school_admin", "doctor"],
       children: [
         {
           icon: SquareActivity,
@@ -147,39 +153,39 @@ export function Sidebar() {
       ],
     },
 
-    // {
-    //   label: "Insurance and Claims",
-    //   href: "/insurance-and-claims",
-    //   icon: CalendarCheck,
+    {
+      label: "Insurance and Claims",
+      href: "/insurance-and-claims",
+      icon: CalendarCheck,
 
-    //   roles: ["admin", "school_admin"],
+      roles: ["admin", "school_admin"],
 
-    //   children: [
-    //     {
-    //       label: "Overview",
-    //       href: "/insurance-and-claims",
-    //       roles: ["admin", "school_admin"],
-    //     },
+      children: [
+        {
+          label: "Overview",
+          href: "/insurance-and-claims",
+          roles: ["admin", "school_admin"],
+        },
 
-    //     {
-    //       label: "Active Claims",
-    //       href: "/insurance-and-claims/claims",
-    //       roles: ["admin", "school_admin"],
-    //     },
+        {
+          label: "Active Claims",
+          href: "/insurance-and-claims/claims",
+          roles: ["admin", "school_admin"],
+        },
 
-    //     {
-    //       label: "Settlements",
-    //       href: "/insurance-and-claims/settlements",
-    //       roles: ["admin"],
-    //     },
-    //   ],
-    // },
+        {
+          label: "Settlements",
+          href: "/insurance-and-claims/settlements",
+          roles: ["admin"],
+        },
+      ],
+    },
 
     {
       label: "Reports",
       href: "/report",
       icon: BarChart3,
-      roles: ["admin", "school_admin", "school", "school_sub_account", "doctor"],
+      roles: ["admin", "school_admin", "school"],
     },
   ];
 

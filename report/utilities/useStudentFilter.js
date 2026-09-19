@@ -29,7 +29,9 @@ export default function useStudentFilter() {
   const { assignedEvents, assignEventLoading, assignEventError } =
     useAssignedEvents();
 
-
+  /* ---------------------------------------------------------------------- */
+  /* Filter state                                                           */
+  /* ---------------------------------------------------------------------- */
   const [academicYear, setAcademicYear] = useState("2026-2027");
   const [schoolName, setSchoolName] = useState("all");
   const [classFilter, setClassFilter] = useState("all");
@@ -37,24 +39,10 @@ export default function useStudentFilter() {
   const [studentFilter, setStudentFilter] = useState("all");
   const [studentId, setStudentId] = useState("");
 
-  // Form state consumed by <SchoolStudentFilter /> — the same shape the
-  // Students page passes (filterFormData). Without it that component crashes
-  // reading `formData.branchName` in its own query.
-  const [formData, setFormData] = useState({
-    branchName: "",
-    AcademicYear: "",
-    classes: "",
-    section: "",
-    BeneficiaryId: "",
-  });
-
   const selectedCamp = useMemo(
     () => findSelectedCamp(assignedEvents, schoolName),
     [assignedEvents, schoolName],
   );
-
-  console.log(schoolName,"schoolName");
-  
 
   const assignedEventIds = useMemo(
     () =>
@@ -165,23 +153,14 @@ export default function useStudentFilter() {
   /* ---------------------------------------------------------------------- */
   /* Students query                                                         */
   /* ---------------------------------------------------------------------- */
-  // When the <SchoolStudentFilter /> flow picked a branch, scope the students
-  // query by branch_id (that's what SchoolStudentFilter uses). The health-checks
-  // <StudentFilter /> flow has no formData.branchName, so it keeps using
-  // schoolName — passing the branch id as `school` would match nothing.
-  const selectedBranchId = (formData?.branchName ?? "").trim();
-
   const { data: filterPayload, isLoading } = useQuery({
-    queryKey: ["filter-student", schoolName, selectedBranchId, academicYear, "options"],
+    queryKey: ["filter-student", schoolName, academicYear, "options"],
     queryFn: () =>
       dispatch(
         getFilterStudent({
           all: true,
           status: "all",
-          // Branch picked via SchoolStudentFilter -> filter by branch_id and
-          // omit the `school` param (a branch id is not a school name).
-          schoolName: selectedBranchId ? "all" : schoolName,
-          branch_id: selectedBranchId,
+          schoolName,
           academicYear,
           sortBy: "name",
           sortOrder: "asc",
@@ -219,8 +198,6 @@ export default function useStudentFilter() {
   /* Props to spread onto <StudentFilter />                                 */
   /* ---------------------------------------------------------------------- */
   const filterProps = {
-    formData,
-    setFormData,
     filterPayload,
     isLoading,
     schoolName,

@@ -32,22 +32,34 @@ import {
   getAllScreening,
 } from "@/lib/features/registerScreeningSlice";
 import { screeningSchema } from "../validation/screening-validation-schema";
-import { getAllSchoolBranches } from "@/lib/features/registerSchoolBranchSlice";
-import { useAppSelector } from "@/lib/hooks";
-import {
-  selectUserAccount,
-} from "@/lib/features/auth-slice";
-import { useAuthRole } from "@/lib/user-role";
+
+const SCHOOL_OPTIONS = [
+  {
+    label: "Svastha International School",
+    value: "1",
+  },
+  {
+    label: "Svastha Public School",
+    value: "2",
+  },
+];
+
+const BRANCH_OPTIONS = [
+  {
+    label: "Main Branch",
+    value: "1",
+  },
+  {
+    label: "Chennai Branch",
+    value: "2",
+  },
+];
 
 const ScreeningPage = () => {
   const [open, setOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const isSavingRef = useRef(false);
   const dispatch = useDispatch();
-  const account = useAppSelector(selectUserAccount);
-  // Role as a string ("admin" | "school" | "school_sub_account", …) — decides
-  // whether the branch list may be fetched.
-  const getRole = useAuthRole();
   const {
     data: masterScreeningData = [],
     isLoading: masterScreeningDataLoading,
@@ -66,26 +78,7 @@ const ScreeningPage = () => {
     refetchOnWindowFocus: false,
   });
 
-    const {
-      data: getAllSchoolBranch = {},
-      isLoading: getAllSchoolBranchLoading,
-      error: getAllSchoolBranchError,
-    } = useQuery({
-      queryKey: ["getSchoolAllBranch"],
-      queryFn: () => dispatch(getAllSchoolBranches()).unwrap(),
-      staleTime: 5 * 60 * 1000,
-      refetchOnWindowFocus: false,
-  
-      enabled: Boolean(getRole),
-    });
-
-    console.log(getAllSchoolBranch,"getAllSchoolBranch");
-    
-
-
   console.log(getAllScreeningData, "getAllScreeningData");
-
-  
 
   //   const {
   //   data: createScreeningData = [],
@@ -142,23 +135,23 @@ const ScreeningPage = () => {
     },
   };
   const SCREENING_ICONS = {
-    "General": Activity,
-    "ENT": Stethoscope,
-    "Dental": ToothIcon,
-    "Hear": Ear,
-    "Vision": Eye,
+    "General Screening": Activity,
+    "ENT Screening": Stethoscope,
+    "Dental Screening": ToothIcon,
+    "Hear Screening": Ear,
+    "Vision Screening": Eye,
   };
 
   const SCREENING_DESCRIPTION = {
-    "General":
+    "General Screening":
       "Assess overall health, physical condition, growth, and general well-being of students",
-    "ENT":
+    "ENT Screening":
       "Evaluate ear, nose, and throat health to identify common ENT-related concerns.",
-    "Dental":
+    "Dental Screening":
       "Check oral health, dental hygiene, and identify common dental conditions or concerns.",
-    "Hear":
+    "Hear Screening":
       "Screen students for hearing difficulties and identify potential hearing-related concerns.",
-    "Vision":
+    "Vision Screening":
       "Assess visual acuity and identify possible vision problems that may affect students' learning.",
   };
 
@@ -166,8 +159,6 @@ const ScreeningPage = () => {
     ? masterScreeningData
     : (masterScreeningData?.data ?? masterScreeningData?.screeningTypes ?? []);
 
-    console.log(rawScreeningTypes,"rawScreeningTypes");
-    
   const SCREENING_TYPES = rawScreeningTypes.map((screening) => ({
     ...screening,
     icon: SCREENING_ICONS[screening.screening_type],
@@ -191,77 +182,10 @@ const ScreeningPage = () => {
 
   const [errors, setErrors] = useState({});
 
-  // Branch records for the signed-in school. School/Branch dropdown options
-  // are derived from this list (the mocks are gone). Declared AFTER formData
-  // because branchOptions reads formData.school_id.
-  const branchList = React.useMemo(() => {
-    const raw = Array.isArray(getAllSchoolBranch)
-      ? getAllSchoolBranch
-      : (getAllSchoolBranch?.data ?? []);
-    return Array.isArray(raw) ? raw : [];
-  }, [getAllSchoolBranch]);
-
-  const schoolOptions = React.useMemo(() => {
-    const schools = new Map();
-    branchList.forEach((branch) => {
-      const value = String(
-        branch?.school_id ?? branch?.schoolId ?? branch?.school?.id ?? "",
-      ).trim();
-      const label = String(
-        branch?.school_name ?? branch?.school?.name ?? branch?.name ?? "",
-      ).trim();
-      if (value) schools.set(value, label || value);
-    });
-    // Roles that can't fetch the list (school_sub_account) still get their
-    // own school from the login payload.
-    if (schools.size === 0) {
-      const value = String(
-        account?.school_id ?? account?.school?.id ?? "",
-      ).trim();
-      const label = String(
-        account?.school_name ?? account?.school?.name ?? account?.name ?? "",
-      ).trim();
-      if (value) schools.set(value, label || value);
-    }
-    return Array.from(schools, ([value, label]) => ({ value, label }));
-  }, [branchList, account]);
-
-  const branchOptions = React.useMemo(() => {
-    const options = branchList
-      .filter((branch) =>
-        formData.school_id
-          ? String(
-              branch?.school_id ??
-                branch?.schoolId ??
-                branch?.school?.id ??
-                "",
-            ).trim() === formData.school_id
-          : true,
-      )
-      .map((branch) => ({
-        value: String(branch?.id ?? branch?.branch_id ?? "").trim(),
-        label: String(branch?.branch_name ?? branch?.name ?? "").trim(),
-      }))
-      .filter((option) => option.value && option.label);
-
-    // Fallback: the account's own branch (school_sub_account etc.).
-    if (options.length === 0) {
-      const value = String(
-        account?.branch_id ?? account?.branchId ?? account?.branch?.id ?? "",
-      ).trim();
-      const label = String(account?.branch_name ?? account?.name ?? "").trim();
-      if (value) options.push({ value, label: label || value });
-    }
-
-    return options;
-  }, [branchList, formData.school_id, account]);
-
   const handleChange = (field, value) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
-      // Branches belong to a school — picking a school resets the branch pick.
-      ...(field === "school_id" ? { branch_id: "" } : {}),
     }));
 
     setErrors((prev) => ({
@@ -330,11 +254,11 @@ const ScreeningPage = () => {
     };
 
     const formValues = {
-      school_id: formData.school_id,
-      branch_id: formData.branch_id,
-      total_classes: formData.total_classes,
-      total_sections: formData.total_sections,
-      screening_type_ids: formData.screening_type_ids,
+      school_id,
+      branch_id,
+      total_classes,
+      total_sections,
+      screening_type_ids,
     };
 
     const result = screeningSchema.safeParse(formValues);
@@ -520,7 +444,7 @@ const ScreeningPage = () => {
                       label="School"
                       value={formData.school_id}
                       onChange={(value) => handleChange("school_id", value)}
-                      options={schoolOptions}
+                      options={SCHOOL_OPTIONS}
                       placeholder="Select school"
                     />
 
@@ -537,7 +461,7 @@ const ScreeningPage = () => {
                       label="Branch"
                       value={formData.branch_id}
                       onChange={(value) => handleChange("branch_id", value)}
-                      options={branchOptions}
+                      options={BRANCH_OPTIONS}
                       placeholder="Select branch"
                     />
 
@@ -637,8 +561,6 @@ const ScreeningPage = () => {
                       const isSelected = formData.screening_type_ids.includes(
                         screening.id,
                       );
-                      console.log(screening,"dsa");
-                      
 
                       return (
                         <button

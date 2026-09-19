@@ -2,10 +2,10 @@ export const REPORT_SECTIONS = [
   { id: "student_info", label: "Student Information", defaultOn: true },
   { id: "vitals", label: "Vitals & Growth", defaultOn: true },
   { id: "vision", label: "Vision Screening", defaultOn: true },
-  { id: "hearing", label: "Hearing Screening", defaultOn: false },
+  { id: "hearing", label: "Hearing Screening", defaultOn: true },
   { id: "dental", label: "Dental Screening", defaultOn: true },
   { id: "ent", label: "ENT Screening", defaultOn: false },
-  { id: "immunization", label: "Immunization Status", defaultOn: false },
+  { id: "immunization", label: "Immunization Status", defaultOn: true },
   {
     id: "recommendations",
     label: "Recommendations & Sign-off",
@@ -32,7 +32,7 @@ export const settingsNav = [
   {
     id: "campDetails",
     label: "Campus Details",
-    roles: ["admin", "school_admin", ],
+    roles: ["admin", "school_admin"],
   },
   {
     id: "appearance",
@@ -42,12 +42,12 @@ export const settingsNav = [
   {
     id: "team",
     label: "Teams",
-    roles: ["admin", "school_admin", "school",],
+    roles: ["admin", "school_admin", "school"],
   },
   {
     id: "report",
     label: "Report",
-    roles: ["admin", "school_admin", "school","school_sub_account"],
+    roles: ["admin", "school_admin", "school"],
   },
   {
     id: "screening",

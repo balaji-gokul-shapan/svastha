@@ -340,7 +340,7 @@ export default function ImmunizationChartPage() {
             <div className="mt-4 flex items-center gap-3 rounded-lg border border-dashed border-border bg-muted/40 p-4">
               <MousePointerClick className="size-4 shrink-0 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
-                Select a cell in the chart to see dose details - batch number,
+                Select a cell in the chart to see dose details — batch number,
                 date given, and who administered it.
               </p>
             </div>

@@ -1,9 +1,7 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { X } from "lucide-react";
-import { TextField } from "@/components/ui/text-field";
-import { Checkbox } from "@/components/ui/checkbox";
 
 /* =========================================================
    TagInput — generic chip editor. Not tied to a fixed option
@@ -89,70 +87,11 @@ const INITIAL_SECTIONS = {
   12: ["A", "B", "C1", "C2"],
 };
 
-export default function ClassSectionManager({
-  classSections: initialClassSections = [],
-  getSchoolBranch,
-  subAccountBranch = {},
-  onClassSectionsChange,
-}) {
-  const [classSections, setClassSections] = useState(
-    typeof initialClassSections === "object" && initialClassSections !== null
-      ? initialClassSections
-      : {},
-  );
+export default function ClassSectionManager() {
+  const [classSections, setClassSections] = useState(INITIAL_SECTIONS);
   const [activeClass, setActiveClass] = useState("11");
   const [showApply, setShowApply] = useState(false);
   const [applyTargets, setApplyTargets] = useState([]);
-  console.log("initialClassSections", initialClassSections);
-  console.log("activeClass", activeClass);
-
-  // Push classSections up to the parent form whenever it changes.
-  // The very first run is skipped: echoing the initial value straight back
-  // would overwrite the form's privileges with an empty map (e.g. while
-  // editing an account whose privileges came back as a flat string).
-  const didEmitInitial = useRef(false);
-  useEffect(() => {
-    if (!onClassSectionsChange) return;
-    if (!didEmitInitial.current) {
-      didEmitInitial.current = true;
-      return;
-    }
-    onClassSectionsChange(classSections);
-  }, [classSections, onClassSectionsChange]);
-
-  // Resolve classes and sections: prefer the authorized branch data, fall back to
-  // the sub-account's own branch (from the login payload) when the full list isn't
-  // accessible (e.g. school_sub_account 401s on /schools/branch/all).
-  const branchData = getSchoolBranch && Object.keys(getSchoolBranch).length > 0
-    ? getSchoolBranch
-    : subAccountBranch;
-
-    console.log(branchData,"branchData");
-    
-
- const allClasses = Array.isArray(branchData?.class)
-  ? branchData.class
-  : branchData?.class
-    ? [branchData.class]
-    : [];
-  // Guard against empty/missing branch data so allClasses[0] is never undefined.
-  const refinedresult = (allClasses[0] || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-console.log(refinedresult,"refinedresult");
-console.log(allClasses,"allClasses");
-
-  const allSections = Array.isArray(branchData?.section)
-    ? branchData.section
-    : branchData?.section
-      ? [branchData.section]
-      : [];
-  const refinedresultSection = (allSections[0] || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
 
   const activeSections = classSections[activeClass] || [];
 
@@ -164,12 +103,10 @@ console.log(allClasses,"allClasses");
     setSectionsForActive([...activeSections, letter]);
   };
 
-  const toggleApplyTarget = (cls) => {
-    console.log('toggling class:', cls, 'current:', applyTargets);
+  const toggleApplyTarget = (cls) =>
     setApplyTargets((prev) =>
-      prev.includes(cls) ? prev.filter((c) => c !== cls) : [...prev, cls]
+      prev.includes(cls) ? prev.filter((c) => c !== cls) : [...prev, cls],
     );
-  };
 
   const applyToOthers = () => {
     setClassSections((prev) => {
@@ -188,7 +125,7 @@ console.log(allClasses,"allClasses");
       <div>
         <h3 className="text-lg font-semibold text-foreground">Class &amp; Section Setup</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Configure sections independently for each class - names don't have
+          Configure sections independently for each class — names don't have
           to follow A/B/C, e.g. Class 11 can use A, B, C1, C2.
         </p>
       </div>
@@ -199,7 +136,7 @@ console.log(allClasses,"allClasses");
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Classes
           </p>
-          {refinedresult.map((cls) => {
+          {CLASSES.map((cls) => {
             const count = (classSections[cls] || []).length;
             const isActive = cls === activeClass;
             return (
@@ -255,7 +192,7 @@ console.log(allClasses,"allClasses");
 
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <span className="text-xs text-muted-foreground">Quick add:</span>
-            {refinedresultSection.filter((letter) => !activeSections.includes(letter)).map((letter) => (
+            {QUICK_SECTIONS.filter((letter) => !activeSections.includes(letter)).map((letter) => (
               <button
                 key={letter}
                 type="button"
@@ -273,14 +210,13 @@ console.log(allClasses,"allClasses");
                 Copy {activeSections.length ? activeSections.join(", ") : "these sections"} to:
               </p>
               <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
-                {refinedresult.filter((cls) => cls !== activeClass).map((cls) => (
-                  <label
-                    key={cls}
-                    className="flex cursor-pointer items-center gap-1.5 text-xs text-foreground"
-                  >
-                    <Checkbox
+                {CLASSES.filter((cls) => cls !== activeClass).map((cls) => (
+                  <label key={cls} className="flex items-center gap-1.5 text-xs text-foreground">
+                    <input
+                      type="checkbox"
                       checked={applyTargets.includes(cls)}
-                      onCheckedChange={() => toggleApplyTarget(cls)}
+                      onChange={() => toggleApplyTarget(cls)}
+                      className="size-3.5 accent-primary"
                     />
                     Class {cls}
                   </label>
