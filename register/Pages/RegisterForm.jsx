@@ -12,18 +12,15 @@ import {
   Trash2,
   Check,
   Loader2,
-  Globe,
   User,
-  Phone,
-  Mail,
 } from "lucide-react";
-import {
-  Select as ShadSelect,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { TextField, TextareaField } from "@/components/ui/text-field";
+import ReusableSelect from "@/components/ui/reusable-select";
+import { NumberStepperField } from "@/components/ui/numberStepperField";
+import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   schoolStepOneSchema,
   schoolStepTwoSchema,
@@ -116,15 +113,12 @@ const initialForm = {
 export default function SchoolRegistrationPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { createLoading } = useAppSelector(
-    (state) => state.registerSchool,
-  );
+  const { createLoading } = useAppSelector((state) => state.registerSchool);
 
   const [currentStep, setCurrentStep] = useState(1);
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [formErrors, setFormErrors] = useState({});
-
 
   // const updateField = (field, value) => {
   //   setForm((prev) => ({
@@ -150,42 +144,40 @@ export default function SchoolRegistrationPage() {
     });
   };
 
-const updateBranch = (index, field, value) => {
-  setForm((prev) => ({
-    ...prev,
-    branches: prev.branches.map((branch, i) =>
-      i === index
-        ? {
-            ...branch,
-            [field]: value,
-          }
-        : branch
-    ),
-  }));
-
-  setFormErrors((prev) => {
-    if (!prev?.branches?.[index]?.[field]) {
-      return prev;
-    }
-
-    const next = {
+  const updateBranch = (index, field, value) => {
+    setForm((prev) => ({
       ...prev,
-      branches: {
-        ...prev.branches,
-      },
-    };
+      branches: prev.branches.map((branch, i) =>
+        i === index
+          ? {
+              ...branch,
+              [field]: value,
+            }
+          : branch,
+      ),
+    }));
 
-    next.branches[index] = {
-      ...next.branches[index],
-    };
+    setFormErrors((prev) => {
+      if (!prev?.branches?.[index]?.[field]) {
+        return prev;
+      }
 
-    delete next.branches[index][field];
+      const next = {
+        ...prev,
+        branches: {
+          ...prev.branches,
+        },
+      };
 
-    return next;
-  });
-};
+      next.branches[index] = {
+        ...next.branches[index],
+      };
 
+      delete next.branches[index][field];
 
+      return next;
+    });
+  };
 
   const addBranch = () => {
     setForm((prev) => ({
@@ -331,7 +323,7 @@ const updateBranch = (index, field, value) => {
   };
 
   return (
-    <main className="container-page px-4 py-6 md:px-8 lg:px-12">
+    <main className="container-page px-4 py-6 md:px-8 lg:px-12 h-full overflow-auto no-scrollbar">
       <div className="mx-auto max-w-7xl">
         {/* Header */}
         <div className="mb-8">
@@ -421,25 +413,24 @@ const updateBranch = (index, field, value) => {
           </div>
         </div>
 
-        {/* Form Card */}
-        <div className="overflow-hidden rounded-2xl border bg-background shadow-sm">
+        {/* Form Card — ui Card */}
+        <Card className="overflow-hidden rounded-xl shadow-sm sm:rounded-2xl">
           {/* Card Header */}
-          <div className="border-b px-5 py-5 md:px-8">
-            <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+          <div className="border-b px-4 py-4 sm:px-6 sm:py-5 md:px-8">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-primary sm:text-xs">
               Step {currentStep} of {steps.length}
             </p>
 
-            <h2 className="mt-1 text-xl font-semibold">
+            <h2 className="mt-1 text-lg font-semibold tracking-tight text-balance sm:text-xl md:text-2xl">
               {steps[currentStep - 1].title}
             </h2>
 
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground sm:text-sm">
               {steps[currentStep - 1].description}
             </p>
           </div>
 
-          {/* Content */}
-          <div className="p-5 md:p-8 h-[500px] overflow-auto">
+          <CardContent className="p-4 sm:p-6 md:p-8 min-h-[280px] sm:min-h-[320px] lg:min-h-[360px] md:max-h-[calc(100dvh-340px)] md:overflow-y-auto md:overscroll-contain">
             {currentStep === 1 && (
               <SchoolDetails
                 form={form}
@@ -467,172 +458,186 @@ const updateBranch = (index, field, value) => {
             )}
 
             {currentStep === 4 && (
-              <Review form={form} updateField={updateField} />
+              <Review form={form} updateField={updateField} errors={formErrors} />
             )}
-          </div>
+          </CardContent>
 
-          {/* Footer */}
-          <div className="flex flex-col-reverse gap-3 border-t bg-muted/20 px-5 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
-            <button
+          {/* Footer - stacks full-width on mobile, inline on sm+ */}
+          <CardContent className="flex flex-col-reverse gap-2.5 border-t bg-muted/20 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-6 sm:py-4 md:px-8">
+            <Button
               type="button"
+              variant="outline"
               onClick={previousStep}
               disabled={currentStep === 1}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border bg-background px-5 text-sm font-medium transition hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+              className="h-11 w-full sm:h-10 sm:w-auto"
             >
-              <ChevronLeft className="size-4" />
+              <ChevronLeft className="size-4 shrink-0" />
               Back
-            </button>
+            </Button>
 
             {currentStep < steps.length ? (
-              <button
+              <Button
                 type="button"
                 onClick={nextStep}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-6 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
+                className="h-11 w-full sm:h-10 sm:w-auto"
               >
                 Continue
-                <ChevronRight className="size-4" />
-              </button>
+                <ChevronRight className="size-4 shrink-0" />
+              </Button>
             ) : (
-              <button
+              <Button
                 type="button"
                 onClick={handleSubmit}
                 disabled={createLoading}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-6 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-60"
+                className="h-11 w-full sm:h-10 sm:w-auto"
               >
                 {createLoading ? (
                   <>
-                    <Loader2 className="size-4 animate-spin" />
+                    <Loader2 className="size-4 shrink-0 animate-spin" />
                     Registering...
                   </>
                 ) : (
                   <>
-                    <Check className="size-4" />
+                    <Check className="size-4 shrink-0" />
                     Register School
                   </>
                 )}
-              </button>
+              </Button>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </main>
   );
 }
 
 /* =========================================================
-   STEP 1
+   STEP 1 — ui/components: TextField, ReusableSelect, NumberStepperField
 ========================================================= */
 const getError = (errors, field) => {
   return errors?.[field]?._errors?.[0] || "";
 };
+
+function UiSelectField({ label, required, error, children }) {
+  return (
+    <div>
+      {label ? (
+        <span className="field-label mb-2">
+          {label}
+          {required ? <span className="field-required">*</span> : null}
+        </span>
+      ) : null}
+      {children}
+      {error ? <p className="field-error">{error}</p> : null}
+    </div>
+  );
+}
 function SchoolDetails({ form, updateField, errors }) {
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <SectionTitle
         icon={Building2}
         title="Basic Information"
         description="Enter the basic details of your school."
       />
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <Field
+      <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
+        <TextField
+          id="reg-school-name"
           label="School Name"
           required
-          error={getError(errors, "school_name")}
+          value={form.school_name}
+          onChange={(e) => updateField("school_name", e.target.value)}
+          placeholder="Enter school name"
+          error={getError(errors, "school_name") || undefined}
           className="md:col-span-2"
-        >
-          <Input
-            value={form.school_name}
-            onChange={(e) => updateField("school_name", e.target.value)}
-            placeholder="Enter school name"
-          />
-        </Field>
+        />
 
-        <Field
+        <UiSelectField
           label="Ownership Type"
           required
           error={getError(errors, "ownership_type")}
         >
-          <Select
+          <ReusableSelect
+            withPortal
             value={form.ownership_type}
             onChange={(value) => updateField("ownership_type", value)}
             options={[
-              ["Private", "Private"],
-              ["Government", "Government"],
-              ["Aided", "Aided"],
-              ["Trust", "Trust"],
+              { value: "Private", label: "Private" },
+              { value: "Government", label: "Government" },
+              { value: "Aided", label: "Aided" },
+              { value: "Trust", label: "Trust" },
             ]}
             placeholder="Select ownership"
           />
-        </Field>
+        </UiSelectField>
 
-        <Field
+        <UiSelectField
           label="Board"
           required
           error={getError(errors, "board")}
         >
-          <Select
+          <ReusableSelect
+            withPortal
             value={form.board}
             onChange={(value) => updateField("board", value)}
             options={[
-              ["CBSE", "CBSE"],
-              ["ICSE", "ICSE"],
-              ["State Board", "State Board"],
-              ["IB", "IB"],
-              ["Other", "Other"],
+              { value: "CBSE", label: "CBSE" },
+              { value: "ICSE", label: "ICSE" },
+              { value: "State Board", label: "State Board" },
+              { value: "IB", label: "IB" },
+              { value: "Other", label: "Other" },
             ]}
             placeholder="Select board"
           />
-        </Field>
+        </UiSelectField>
 
-        <Field
+        <TextField
+          id="reg-number"
           label="Registration Number"
           required
-          error={getError(errors, "registration_number")}
-        >
-          <Input
-            value={form.registration_number}
-            onChange={(e) =>
-              updateField("registration_number", e.target.value)
-            }
-            placeholder="Enter registration number"
-          />
-        </Field>
+          value={form.registration_number}
+          onChange={(e) => updateField("registration_number", e.target.value)}
+          placeholder="Enter registration number"
+          error={getError(errors, "registration_number") || undefined}
+        />
 
-        <Field label="CEEB Code">
-          <Input
-            value={form.ceeb_code}
-            onChange={(e) => updateField("ceeb_code", e.target.value)}
-            placeholder="Enter CEEB code"
-          />
-        </Field>
+        <TextField
+          id="reg-ceeb"
+          label="CEEB Code"
+          value={form.ceeb_code}
+          onChange={(e) => updateField("ceeb_code", e.target.value)}
+          placeholder="Enter CEEB code"
+          error={getError(errors, "ceeb_code") || undefined}
+        />
 
-        <Field label="Teaching Staff">
-          <Input
-            type="number"
-            min="0"
-            value={form.total_teaching_staff}
-            onChange={(e) =>
-              updateField("total_teaching_staff", Number(e.target.value))
-            }
-          />
-        </Field>
+        <NumberStepperField
+          label="Teaching Staff"
+          name="total_teaching_staff"
+          required
+          min={0}
+          value={form.total_teaching_staff}
+          onChange={(e) =>
+            updateField("total_teaching_staff", Number(e.target.value))
+          }
+          error={getError(errors, "total_teaching_staff") || undefined}
+        />
 
-        <Field label="Non-Teaching Staff">
-          <Input
-            type="number"
-            min="0"
-            value={form.total_non_teaching_staff}
-            onChange={(e) =>
-              updateField("total_non_teaching_staff", Number(e.target.value))
-            }
-          />
-        </Field>
+        <NumberStepperField
+          label="Non-Teaching Staff"
+          name="total_non_teaching_staff"
+          required  
+          min={0}
+          value={form.total_non_teaching_staff}
+          onChange={(e) =>
+            updateField("total_non_teaching_staff", Number(e.target.value))
+          }
+          error={getError(errors, "total_non_teaching_staff") || undefined}
+        />
       </div>
     </div>
   );
 }
-
 
 /* =========================================================
    STEP 2
@@ -640,101 +645,96 @@ function SchoolDetails({ form, updateField, errors }) {
 
 function ContactAddress({ form, updateField, errors }) {
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <SectionTitle
         icon={MapPin}
         title="Contact & Address"
         description="Provide school location and primary contact details."
       />
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <Field
+      <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
+        <TextField
+          id="reg-address-1"
           label="Address Line 1"
           required
-          error={getError(errors, "address_line_1")}
+          value={form.address_line_1}
+          onChange={(e) => updateField("address_line_1", e.target.value)}
+          placeholder="Building / street address"
+          error={getError(errors, "address_line_1") || undefined}
           className="md:col-span-2"
-        >
-          <Input
-            value={form.address_line_1}
-            onChange={(e) => updateField("address_line_1", e.target.value)}
-            placeholder="Building / street address"
-          />
-        </Field>
+        />
 
-        <Field
+        <TextField
+          id="reg-address-2"
           label="Address Line 2"
-          error={getError(errors, "address_line_2")}
-        >
-          <Input
-            value={form.address_line_2}
-            onChange={(e) => updateField("address_line_2", e.target.value)}
-            placeholder="Apartment, landmark, etc."
-          />
-        </Field>
+          value={form.address_line_2}
+          onChange={(e) => updateField("address_line_2", e.target.value)}
+          placeholder="Apartment, landmark, etc."
+          error={getError(errors, "address_line_2") || undefined}
+        />
 
-        <Field label="Area">
-          <Input
-            value={form.area}
-            onChange={(e) => updateField("area", e.target.value)}
-            placeholder="Enter area"
-          />
-        </Field>
+        <TextField
+          id="reg-area"
+          label="Area"
+          value={form.area}
+          onChange={(e) => updateField("area", e.target.value)}
+          placeholder="Enter area"
+          error={getError(errors, "area") || undefined}
+        />
 
-        <Field
+        <TextField
+          id="reg-city"
           label="City"
           required
-          error={getError(errors, "city")}
-        >
-          <Input
-            value={form.city}
-            onChange={(e) => updateField("city", e.target.value)}
-            placeholder="Enter city"
-          />
-        </Field>
+          value={form.city}
+          onChange={(e) => updateField("city", e.target.value)}
+          placeholder="Enter city"
+          error={getError(errors, "city") || undefined}
+        />
 
-        <Field
+        <TextField
+          id="reg-state"
           label="State"
           required
-          error={getError(errors, "state")}
-        >
-          <Input
-            value={form.state}
-            onChange={(e) => updateField("state", e.target.value)}
-            placeholder="Enter state"
-          />
-        </Field>
+          value={form.state}
+          onChange={(e) => updateField("state", e.target.value)}
+          placeholder="Enter state"
+          error={getError(errors, "state") || undefined}
+        />
 
-        <Field label="Country">
-          <Input
-            value={form.country}
-            onChange={(e) => updateField("country", e.target.value)}
-            placeholder="Enter country"
-          />
-        </Field>
+        <TextField
+          id="reg-country"
+          label="Country"
+          value={form.country}
+          onChange={(e) => updateField("country", e.target.value)}
+          placeholder="Enter country"
+          error={getError(errors, "country") || undefined}
+        />
 
-        <Field
+        <TextField
+          id="reg-pincode"
           label="Pincode"
           required
-          error={getError(errors, "pincode")}
-        >
-          <Input
-            value={form.pincode}
-            onChange={(e) => updateField("pincode", e.target.value)}
-            placeholder="Enter pincode"
-          />
-        </Field>
+          inputMode="numeric"
+          maxLength={6}
+          value={form.pincode}
+          onChange={(e) =>
+            updateField("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))
+          }
+          placeholder="e.g. 600001"
+          error={getError(errors, "pincode") || undefined}
+        />
       </div>
 
-      <div className="rounded-xl border bg-muted/20 p-4 md:p-6">
+      <Card className="bg-muted/20">
+        <CardContent className="pt-5">
         <div className="mb-5 flex items-center gap-3">
           <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <User className="size-4" />
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold">
-              Primary Contact Person
-            </h3>
+            <h3 className="text-sm font-semibold">Primary Contact Person</h3>
 
             <p className="text-xs text-muted-foreground">
               Person responsible for school communication
@@ -742,63 +742,60 @@ function ContactAddress({ form, updateField, errors }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field
+        <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
+          <TextField
+            id="reg-contact-name"
             label="Contact Person Name"
             required
-            error={getError(errors, "contact_person_name")}
-          >
-            <Input
-              value={form.contact_person_name}
-              onChange={(e) =>
-                updateField("contact_person_name", e.target.value)
-              }
-              placeholder="Full name"
-            />
-          </Field>
+            value={form.contact_person_name}
+            onChange={(e) => updateField("contact_person_name", e.target.value)}
+            placeholder="Full name"
+            error={getError(errors, "contact_person_name") || undefined}
+          />
 
-          <Field label="Designation">
-            <Input
-              value={form.contact_person_designation}
-              onChange={(e) =>
-                updateField("contact_person_designation", e.target.value)
-              }
-              placeholder="Principal / Manager"
-            />
-          </Field>
+          <TextField
+            id="reg-contact-designation"
+            label="Designation"
+            value={form.contact_person_designation}
+            onChange={(e) => updateField("contact_person_designation", e.target.value)}
+            placeholder="Principal / Manager"
+            error={getError(errors, "contact_person_designation") || undefined}
+          />
 
-          <Field
+          <TextField
+            id="reg-contact-phone"
             label="Phone"
             required
-            error={getError(errors, "contact_person_phone")}
-          >
-            <Input
-              value={form.contact_person_phone}
-              onChange={(e) =>
-                updateField("contact_person_phone", e.target.value)
-              }
-              placeholder="+91 XXXXX XXXXX"
-            />
-          </Field>
+            type="tel"
+            inputMode="tel"
+            maxLength={15}
+            value={form.contact_person_phone}
+            onChange={(e) =>
+              updateField(
+                "contact_person_phone",
+                e.target.value.replace(/[^\d+\s()-]/g, "").slice(0, 15),
+              )
+            }
+            placeholder="+91 XXXXX XXXXX"
+            error={getError(errors, "contact_person_phone") || undefined}
+          />
 
-          <Field
+          <TextField
+            id="reg-contact-email"
             label="Email"
             required
-            error={getError(errors, "email")}
-          >
-            <Input
-              type="email"
-              value={form.email}
-              onChange={(e) => updateField("email", e.target.value)}
-              placeholder="school@example.com"
-            />
-          </Field>
+            type="email"
+            value={form.email}
+            onChange={(e) => updateField("email", e.target.value)}
+            placeholder="school@example.com"
+            error={getError(errors, "email") || undefined}
+          />
         </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
-
 
 /* =========================================================
    STEP 3
@@ -832,37 +829,42 @@ function Branches({ form, addBranch, updateBranch, removeBranch, errors }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 rounded-xl border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between md:p-6">
+      <Card className="bg-muted/20">
+        <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between md:p-6">
         <SectionTitle
           icon={GitBranch}
           title="School Branches"
           description="Add branches associated with this school."
         />
 
-        <button
+        <Button
           type="button"
           onClick={addBranch}
-          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          className="w-full shrink-0 sm:w-auto"
         >
           <Plus className="size-4" />
           Add Branch
-        </button>
-      </div>
+        </Button>
+        </CardContent>
+      </Card>
 
       {form.branches.length === 0 ? (
-        <div className="rounded-xl border border-dashed p-10 text-center">
+        <Card className="border-dashed">
+          <CardContent className="p-10 text-center">
           <GitBranch className="mx-auto size-10 text-muted-foreground" />
 
           <h3 className="mt-3 text-sm font-semibold">No branches added</h3>
 
           <p className="mt-1 text-sm text-muted-foreground">
-            Click "Add Branch" to add a school branch.
+            Click &rdquo;Add Branch&rdquo; to add a school branch.
           </p>
-        </div>
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-6">
           {form.branches.map((branch, index) => (
-            <div key={index} className="rounded-xl border p-4 md:p-6">
+            <Card key={index}>
+              <CardContent className="pt-5">
               <div className="mb-6 flex items-center justify-between">
                 <div>
                   <h3 className="font-semibold">Branch {index + 1}</h3>
@@ -874,31 +876,32 @@ function Branches({ form, addBranch, updateBranch, removeBranch, errors }) {
 
                 <div className="flex items-center gap-3">
                   <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-muted-foreground">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={Boolean(armed[index])}
-                      onChange={() => toggleArm(index)}
-                      className="size-4 accent-destructive"
+                      onCheckedChange={() => toggleArm(index)}
+                      aria-label={`Arm delete Branch ${index + 1}`}
                     />
                     Delete
                   </label>
 
                   {armed[index] && (
-                    <button
+                    <Button
                       type="button"
+                      variant="destructive"
+                      size="icon"
                       onClick={() => handleRemove(index)}
-                      className="inline-flex size-9 items-center justify-center rounded-lg bg-destructive/10 text-destructive transition hover:bg-destructive/20"
                       aria-label={`Delete Branch ${index + 1}`}
                     >
                       <Trash2 className="size-4" />
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
                 <BranchField
                   label="Branch Name"
+                  required
                   value={branch.branch_name}
                   error={getBranchError(index, "branch_name")}
                   onChange={(value) =>
@@ -908,6 +911,7 @@ function Branches({ form, addBranch, updateBranch, removeBranch, errors }) {
 
                 <BranchField
                   label="Registration Number"
+                  required
                   value={branch.registration_number}
                   error={getBranchError(index, "registration_number")}
                   onChange={(value) =>
@@ -917,6 +921,7 @@ function Branches({ form, addBranch, updateBranch, removeBranch, errors }) {
 
                 <BranchField
                   label="Address Line 1"
+                  required
                   value={branch.address_line_1}
                   error={getBranchError(index, "address_line_1")}
                   onChange={(value) =>
@@ -942,6 +947,7 @@ function Branches({ form, addBranch, updateBranch, removeBranch, errors }) {
 
                 <BranchField
                   label="City"
+                  required
                   value={branch.city}
                   error={getBranchError(index, "city")}
                   onChange={(value) => updateBranch(index, "city", value)}
@@ -949,6 +955,7 @@ function Branches({ form, addBranch, updateBranch, removeBranch, errors }) {
 
                 <BranchField
                   label="State"
+                  required
                   value={branch.state}
                   error={getBranchError(index, "state")}
                   onChange={(value) => updateBranch(index, "state", value)}
@@ -956,6 +963,7 @@ function Branches({ form, addBranch, updateBranch, removeBranch, errors }) {
 
                 <BranchField
                   label="Country"
+                  required
                   value={branch.country}
                   error={getBranchError(index, "country")}
                   onChange={(value) => updateBranch(index, "country", value)}
@@ -963,13 +971,19 @@ function Branches({ form, addBranch, updateBranch, removeBranch, errors }) {
 
                 <BranchField
                   label="Pincode"
+                  inputMode="numeric"
+                  maxLength={6}
+                  required
                   value={branch.pincode}
                   error={getBranchError(index, "pincode")}
-                  onChange={(value) => updateBranch(index, "pincode", value)}
+                  onChange={(value) =>
+                    updateBranch(index, "pincode", value.replace(/\D/g, "").slice(0, 6))
+                  }
                 />
 
                 <BranchField
                   label="Contact Person"
+                  required
                   value={branch.contact_person_name}
                   error={getBranchError(index, "contact_person_name")}
                   onChange={(value) =>
@@ -988,15 +1002,24 @@ function Branches({ form, addBranch, updateBranch, removeBranch, errors }) {
 
                 <BranchField
                   label="Phone"
+                  type="tel"
+                  inputMode="tel"
+                  maxLength={15}
+                  required
                   value={branch.contact_person_phone}
                   error={getBranchError(index, "contact_person_phone")}
                   onChange={(value) =>
-                    updateBranch(index, "contact_person_phone", value)
+                    updateBranch(
+                      index,
+                      "contact_person_phone",
+                      value.replace(/[^\d+\s()-]/g, "").slice(0, 15),
+                    )
                   }
                 />
 
                 <BranchField
                   label="Contact Email"
+                  required
                   value={branch.contact_person_email}
                   error={getBranchError(index, "contact_person_email")}
                   onChange={(value) =>
@@ -1004,7 +1027,8 @@ function Branches({ form, addBranch, updateBranch, removeBranch, errors }) {
                   }
                 />
               </div>
-            </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
@@ -1016,57 +1040,62 @@ function Branches({ form, addBranch, updateBranch, removeBranch, errors }) {
    STEP 4
 ========================================================= */
 
-function Review({ form, updateField }) {
+function Review({ form, updateField, errors }) {
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <SectionTitle
         icon={FileText}
         title="Profile & Review"
         description="Complete your school profile and verify the information."
       />
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <Field label="School Name With Location">
-          <Input
-            value={form.school_name_with_location}
-            onChange={(e) =>
-              updateField("school_name_with_location", e.target.value)
-            }
-            placeholder="Example: ABC School, Chennai"
-          />
-        </Field>
+      <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
+        <TextField
+          id="reg-name-location"
+          label="School Name With Location"
+          value={form.school_name_with_location}
+          onChange={(e) =>
+            updateField("school_name_with_location", e.target.value)
+          }
+          placeholder="Example: ABC School, Chennai"
+          error={getError(errors, "school_name_with_location") || undefined}
+        />
 
-        <Field label="School Website">
-          <div className="relative">
-            <Globe className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <TextField
+          id="reg-website"
+          label="School Website"
+          type="url"
+          inputMode="url"
+          value={form.school_website_url}
+          onChange={(e) =>
+            updateField("school_website_url", e.target.value)
+          }
+          placeholder="https://example.com"
+          error={getError(errors, "school_website_url") || undefined}
+        />
 
-            <Input
-              className="pl-9"
-              value={form.school_website_url}
-              onChange={(e) =>
-                updateField("school_website_url", e.target.value)
-              }
-              placeholder="https://example.com"
-            />
-          </div>
-        </Field>
-
-        <Field label="School Profile" className="md:col-span-2">
-          <textarea
+        <div className="md:col-span-2">
+          <TextareaField
+            id="reg-profile"
+            label="School Profile"
+            required
             value={form.school_profile}
             onChange={(e) => updateField("school_profile", e.target.value)}
             rows={5}
             placeholder="Write a short description about the school..."
-            className="flex w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+            textareaClassName="resize-y bg-background"
           />
-        </Field>
+          {getError(errors, "school_profile") ? (
+            <p className="field-error">{getError(errors, "school_profile")}</p>
+          ) : null}
+        </div>
       </div>
 
       {/* Review */}
       <div>
         <h3 className="mb-4 text-base font-semibold">Registration Summary</h3>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <SummaryItem label="School Name" value={form.school_name} />
 
           <SummaryItem label="Ownership" value={form.ownership_type} />
@@ -1103,28 +1132,27 @@ function Review({ form, updateField }) {
         </div>
       </div>
 
-      {/* Active Status */}
-      <label className="flex cursor-pointer items-center justify-between rounded-xl border p-4">
-        <div>
-          <p className="text-sm font-semibold">School Status</p>
+      {/* Active Status — ui Switch */}
+      <Card>
+        <CardContent className="flex cursor-pointer items-center justify-between gap-4 p-4">
+          <div>
+            <p className="text-sm font-semibold">School Status</p>
 
-          <p className="text-xs text-muted-foreground">
-            Enable the school immediately after registration.
-          </p>
-        </div>
+            <p className="text-xs text-muted-foreground">
+              Enable the school immediately after registration.
+            </p>
+          </div>
 
-        <input
-          type="checkbox"
-          checked={form.is_active}
-          onChange={(e) => updateField("is_active", e.target.checked)}
-          className="size-4 accent-primary"
-        />
-      </label>
+          <Switch
+            checked={form.is_active}
+            onCheckedChange={(checked) => updateField("is_active", checked)}
+            aria-label="School active status"
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }
-
-
 
 function SectionTitle({ icon: Icon, title, description }) {
   return (
@@ -1145,73 +1173,45 @@ function SectionTitle({ icon: Icon, title, description }) {
 function Field({ label, required, error, children, className = "" }) {
   return (
     <div className={className}>
-      <label className="mb-2 block text-sm font-medium">
+      <label className="field-label mb-2">
         {label}
 
-        {required && <span className="ml-1 text-destructive">*</span>}
+        {required && <span className="field-required">*</span>}
       </label>
 
       {children}
 
-      {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}
+      {error && <p className="field-error">{error}</p>}
     </div>
   );
 }
 
-function BranchField({ label, value, onChange, error }) {
+function BranchField({ label, value, onChange, error, id, type, inputMode, placeholder, ...rest }) {
   return (
-    <Field label={label}>
-      <Input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={`Enter ${label.toLowerCase()}`}
-      />
-
-      {error && (
-        <p className="mt-1.5 text-xs text-destructive">
-          {error}
-        </p>
-      )}
-    </Field>
-  );
-}
-
-
-function Input(props) {
-  return (
-    <input
-      {...props}
-      className={`h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 ${props.className || ""}`}
+    <TextField
+      id={id}
+      type={type}
+      inputMode={inputMode}
+      label={label}
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder ?? `Enter ${String(label ?? "").toLowerCase()}`}
+      error={error || undefined}
+      {...rest}
     />
   );
 }
 
-function Select({ value, onChange, options, placeholder }) {
-  return (
-    <ShadSelect
-      value={value || undefined}
-      onValueChange={(selectedValue) => onChange(selectedValue)}
-    >
-      <SelectTrigger className="h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20">
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map(([itemValue, label]) => (
-          <SelectItem key={itemValue} value={itemValue}>
-            {label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </ShadSelect>
-  );
-}
+export { Field as RegisterField };
 
 function SummaryItem({ label, value }) {
   return (
-    <div className="rounded-lg border bg-muted/20 p-4">
+    <Card className="bg-muted/20">
+      <CardContent className="p-4">
       <p className="text-xs text-muted-foreground">{label}</p>
 
       <p className="mt-1 truncate text-sm font-medium">{value || "-"}</p>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
