@@ -17,8 +17,8 @@ export default function ConsolidateReport() {
   const { filterProps, selectedStudent } = useStudentFilter();
   const [selectedBranch, setSelectedBranch] = useState(null);
   console.log(filterProps, "filterProps");
-  // const authUser = useAppSelector(selectAuthUser);
-  // console.log(authUser,"authUser");
+  const authUser = useAppSelector(selectAuthUser);
+  console.log(authUser,"authUserddddd");
   const selectUser = useAppSelector(selectUserAccount);
   console.log(selectUser, "selectUserAccount");
 
@@ -74,7 +74,7 @@ export default function ConsolidateReport() {
     <div className="min-h-screen py-5">
       <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="font-sf text-2xl font-semibold tracking-tight text-foreground lg:text-3xl">
+          <h1 className=" text-2xl font-semibold tracking-tight text-foreground lg:text-3xl">
             Health Check Report
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">

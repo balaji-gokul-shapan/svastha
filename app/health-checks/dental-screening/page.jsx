@@ -2,14 +2,24 @@
 import * as React from "react";
 import dynamic from "next/dynamic";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   AlertTriangle,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Circle,
   Loader2,
+  PanelLeft,
   Pencil,
   Plus,
   Save,
@@ -81,6 +91,32 @@ import StudentProfileCard from "@/app/students/utilities/studentProfileCard";
 const DentalSectionLoading = () => (
   <div className="min-h-24 rounded-xl border border-border bg-card p-4" />
 );
+
+// localStorage key for the Dental Screening left-rail collapse preference.
+const RAIL_KEY = "dental-screening:rail-collapsed";
+const RAIL_EVENT = "dental-screening:rail-change";
+
+const getRailSnapshot = () => {
+  try {
+    return window.localStorage.getItem(RAIL_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+
+// The server has no localStorage, so it always renders the expanded rail.
+// useSyncExternalStore then re-renders with the real value after hydration.
+const getServerRailSnapshot = () => false;
+
+const subscribeRail = (onStoreChange) => {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(RAIL_EVENT, onStoreChange);
+
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(RAIL_EVENT, onStoreChange);
+  };
+};
 
 const QuickFindingSummary = dynamic(
   () => import("./components/QuickFindingSummary"),
@@ -209,11 +245,7 @@ function mapConditionToStatus(conditionLabel) {
     .toLowerCase();
   return CONDITION_TO_STATUS[key] ?? "other";
 }
-// Extracts an FDI tooth number from the tail of a coding string, e.g.
-// "K02.83" or "83" → 83 (the user's convention: coding ends with the tooth).
-// Returns null when the tail isn't a plausible tooth number (must be two
-// digits within adult 11-48 or primary 51-85) so the caller can fall back
-// to the currently selected tooth instead of painting a bogus cell.
+
 function extractToothFromCoding(coding) {
   const tail = String(coding ?? "")
     .trim()
@@ -454,9 +486,7 @@ export default function DentalAssessmentPage() {
   // Coding dropdown: show the human-readable name, store the code as the
   // payload value. Falls back to name if code is missing. popupCodingValue
   const getDentalCodingOptions = mapDentalCodingOptions(getDentalCoding);
-console.log(getDentalCodingOptions,"getDentalCodingOptions");
-
-
+  console.log(getDentalCodingOptions, "getDentalCodingOptions");
 
   const getDentalCondtionOptions = (
     Array.isArray(getDentalCondition) ? getDentalCondition : []
@@ -576,7 +606,7 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
   const [dentalCodingEntries, setDentalCodingEntries] = useState([]);
   const [isCodingPopupOpen, setIsCodingPopupOpen] = useState(false);
   const [isCodingListOpen, setIsCodingListOpen] = useState(false);
-  
+
   const [isSavedFindingDetailOpen, setIsSavedFindingDetailOpen] =
     useState(false);
   const [selectedSavedFinding, setSelectedSavedFinding] = useState(null);
@@ -596,7 +626,6 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
   const [popupSurfaceValue, setPopupSurfaceValue] = useState("");
   const savedStudentKeyRef = useRef(null);
   const [savedStudentKey, setSavedStudentKey] = useState(null);
-
 
   const [editingEntryId, setEditingEntryId] = useState(null);
   const [codingSearchTerm, setCodingSearchTerm] = useState("");
@@ -686,6 +715,37 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
     clearFormError("notes");
   };
   const [isCaDrawerOpen, setIsCaDrawerOpen] = useState(false);
+
+  // Left-rail collapse, persisted so the screener's chosen workspace width
+  // survives navigation between screening pages.
+  //
+  // useSyncExternalStore (not a lazy useState initializer) is deliberate: this
+  // file is "use client" but still SSR'd, so reading localStorage during the
+  // first render would mismatch the server HTML. It also avoids a
+  // setState-in-effect hydration flash.
+  const isRailCollapsed = useSyncExternalStore(
+    subscribeRail,
+    getRailSnapshot,
+    getServerRailSnapshot,
+  );
+
+  const setRailCollapsed = useCallback((next) => {
+    try {
+      window.localStorage.setItem(RAIL_KEY, next ? "1" : "0");
+    } catch {
+      // Storage unavailable (private mode) — fall back to session-only.
+    }
+
+    // Same-tab subscribers aren't notified of a storage write by the spec, so
+    // announce the change ourselves.
+    window.dispatchEvent(new Event(RAIL_EVENT));
+  }, []);
+
+  const toggleRail = useCallback(
+    () => setRailCollapsed(!isRailCollapsed),
+    [isRailCollapsed, setRailCollapsed],
+  );
+
   const [studentId, setStudentId] = useState("");
   const [activeDentalStep, setActiveDentalStep] = useState("chart");
   const [academicYear, setAcademicYear] = useState(DEFAULT_ACADEMIC_YEAR);
@@ -763,7 +823,6 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
     isLoading: dentalScreeningLoading,
     error: dentalScreeningQueryError,
   } = useQuery({
-
     queryKey: ["dental-screening", studentId, selectedCampId],
     queryFn: () =>
       dispatch(
@@ -809,12 +868,11 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
 
   console.log(popupCodingValue, popupConditionValue, "popupCodingValue");
 
-  
-  const getDentalCondtion = (Array.isArray(getDentalCoding)
-    ? getDentalCoding
-    : []
+  const getDentalCondtion = (
+    Array.isArray(getDentalCoding) ? getDentalCoding : []
   ).find(
-    (item) => String(item?.code ?? "").trim() === String(popupCodingValue ?? "").trim(),
+    (item) =>
+      String(item?.code ?? "").trim() === String(popupCodingValue ?? "").trim(),
   );
   const getDentalConditionFromCoding = useMemo(() => {
     const raw =
@@ -826,7 +884,6 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
     if (typeof first === "string") return first;
     return String(first?.name ?? "").trim();
   }, [getDentalCondtion]);
-
 
   // const hasDentalRecords = dentalScreeningData.length > 0;
 
@@ -1456,11 +1513,6 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
     const toothNumber = selectedTooth;
     if (toothNumber == null) return;
 
-    // Snapshot the tooth's status BEFORE the update so we can tell a real
-    // user change apart from a re-render sync. When the tab switches, the
-    // detail panel re-runs against the new selected tooth; Radix only fires
-    // onValueChange on a real click, but this guard guarantees a tab switch
-    // can never wipe coding entries for teeth the user didn't touch.
     const currentStatus = toothMap.get(toothNumber)?.status;
 
     updateSelectedTooth({ status: value });
@@ -1468,10 +1520,7 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
     // No actual change → the handler was synchronised, not user-driven.
     if (currentStatus === value) return;
 
-    // Manual override: the user changed this tooth's status by hand, so any
-    // coding entries pinned to it (which had painted the old status) no longer
-    // apply — drop them so the Dental Information chips stay in sync with the
-    // chart. Entries for other teeth are untouched.
+
     setDentalCodingEntries((prev) => {
       const removed = prev.some((entry) => entry.tooth === toothNumber);
       if (removed) {
@@ -1862,7 +1911,7 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
           hasCondition ||
           hasStatus ||
           (String(tooth.surface ?? "").trim() &&
-          String(tooth.surface ?? "").trim() !== "—") ||
+            String(tooth.surface ?? "").trim() !== "—") ||
           String(tooth.severity ?? "").trim() ||
           String(tooth.riskScore ?? "").trim();
         return hasFinding;
@@ -2269,19 +2318,19 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
 
   return (
     <section className="space-y-4">
-      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between mb-4">
-        <div>
-          <div className="flex items-center gap-2 py-3">
-            <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary aspect-square">
+      <div className="sticky top-14 z-10 mb-4 flex flex-col gap-3 border-b border-border/60 bg-background/85 px-0 backdrop-blur supports-backdrop-filter:bg-background/70 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-3 py-3">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-md shadow-primary/20">
               <ToothIcon className="size-6" />
             </div>
 
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight">
+            <div className="min-w-0">
+              <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
                 Dental Screening
               </h1>
 
-              <p className="text-sm text-muted-foreground">
+              <p className="truncate text-sm text-muted-foreground">
                 Dental health screening and assessment
               </p>
 
@@ -2449,7 +2498,15 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
         <>
           <StudentProfileCard student={selectedStudent} />
 
-          <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start">
+          <div
+            className={cn(
+              "grid gap-4 transition-[grid-template-columns] duration-300 ease-out",
+              isRailCollapsed
+                ? "lg:grid-cols-[3.25rem_minmax(0,1fr)]"
+                : "lg:grid-cols-[300px_minmax(0,1fr)]",
+              "lg:items-start",
+            )}
+          >
             {/* ---------------- Left column ---------------- */}
             {/* <div className="space-y-4">
           <article className="rounded-xl border border-border bg-card p-4">
@@ -2518,30 +2575,82 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
           </div>
         </div> */}
             <div className="relative md:relative lg:sticky lg:top-36 z-10 self-start space-y-5">
-              <FramerCard>
-                <AssessmentCard
-                  // onChange={handleAssessmentChange}
-                  // form={assessmentForm}
-                  form={{}}
-                  data={getSelectedStudentScreeningData}
-                  studentOptions={assessmentStudentOptions}
-                  studentValue={studentSelectValue}
-                  // isScreeningLoading={getData.studentCampLoading}
-                  // isScreeningError={getData.studentCampQueryError}
-                  // isScreening={true}
-                  schoolName={schoolName}
-                  onStudentChange={handleAssessmentStudentChange}
-                  onSave={handleSaveAssessment}
-                  onCancel={handleCancelAssessment}
-                  authUser={authUser}
-                />
-              </FramerCard>
-              <QuickFindingSummary
-                activeToothTab={activeToothTab}
-                quickFindings={quickFindings}
-              />
+              {isRailCollapsed ? (
+                // Collapsed: a narrow vertical handle. The rail's contents are
+                // unmounted rather than hidden so their controls don't stay
+                // in the tab order while visually collapsed.
+                <button
+                  type="button"
+                  onClick={toggleRail}
+                  aria-label="Expand assessment panel"
+                  aria-expanded={false}
+                  title="Expand assessment panel"
+                  className="flex w-full flex-col items-center gap-3 rounded-2xl border border-border bg-card px-1 py-4 text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                >
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <PanelLeft className="size-4" />
+                  </span>
+
+                  {/* Vertical label — lets the rail stay narrow without
+                      hiding what the panel is. */}
+                  <span className="hidden text-[11px] font-semibold uppercase tracking-wider [writing-mode:vertical-rl] lg:block">
+                    Assessment
+                  </span>
+
+                  <ChevronRight className="hidden size-4 shrink-0 lg:block" />
+
+                  {/* On mobile the rail is full-width, so the label and
+                      chevron are already legible horizontally. */}
+                  <span className="text-xs font-semibold uppercase tracking-wider lg:hidden">
+                    Assessment
+                  </span>
+                  <ChevronRight className="size-4 shrink-0 lg:hidden" />
+                </button>
+              ) : (
+                <>
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      onClick={toggleRail}
+                      aria-label="Collapse assessment panel"
+                      aria-expanded={true}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <ChevronLeft className="size-4" />
+                      <span className="hidden sm:inline">Collapse</span>
+                    </Button>
+                  </div>
+
+                  <FramerCard>
+                    <AssessmentCard
+                      // onChange={handleAssessmentChange}
+                      // form={assessmentForm}
+                      form={{}}
+                      data={getSelectedStudentScreeningData}
+                      studentOptions={assessmentStudentOptions}
+                      studentValue={studentSelectValue}
+                      // isScreeningLoading={getData.studentCampLoading}
+                      // isScreeningError={getData.studentCampQueryError}
+                      // isScreening={true}
+                      schoolName={schoolName}
+                      onStudentChange={handleAssessmentStudentChange}
+                      onSave={handleSaveAssessment}
+                      onCancel={handleCancelAssessment}
+                      authUser={authUser}
+                    />
+                  </FramerCard>
+                  <QuickFindingSummary
+                    activeToothTab={activeToothTab}
+                    quickFindings={quickFindings}
+                  />
+                </>
+              )}
             </div>
-            <div className="min-w-0">
+            <div
+              className={`mx-auto isisRailCollapsed ${isRailCollapsed ? "w-2/3" : "w-9/10"}`}
+            >
               <ScreeningStepper
                 activeStep={activeDentalStep}
                 setActiveStep={setActiveDentalStep}
@@ -2594,8 +2703,11 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
                         <IcdIcon className="size-4 shrink-0" />
                         <span className="min-w-0 truncate">
                           <span className="">
-                          Diagnosis & ICD Codes {" "}{" "}
-                          <span className="rounded-full aspect-square p-2  text-primary bg-primary/20">{dentalCodingEntries?.length ||  savedDentalCodingEntries?.length}</span>
+                            Diagnosis & ICD Codes{" "}
+                            <span className="rounded-full aspect-square p-2  text-primary bg-primary/20">
+                              {dentalCodingEntries?.length ||
+                                savedDentalCodingEntries?.length}
+                            </span>
                           </span>
                         </span>
                       </TabsTrigger>
@@ -2862,11 +2974,11 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
                                             !popupCodingValue
                                           }
                                         /> */}
-                                        <TextField 
+                                        <TextField
                                           label="Condition"
                                           value={getDentalConditionFromCoding}
                                           readOnly
-                                         />
+                                        />
                                       </div>
                                       {popupConditionInfo ? (
                                         <div className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-muted/30 p-3 sm:grid-cols-2">
@@ -3067,7 +3179,6 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
                     </TabsContent>
                   </Tabs>
 
-                
                   <Dialog
                     open={isCodingListOpen}
                     onOpenChange={setIsCodingListOpen}
@@ -3085,7 +3196,9 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
                           <table className="w-full text-left text-sm">
                             <thead>
                               <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
-                                <th className="py-2 pr-3 font-medium">Coding</th>
+                                <th className="py-2 pr-3 font-medium">
+                                  Coding
+                                </th>
                                 <th className="py-2 pr-3 font-medium">
                                   Condition
                                 </th>
@@ -3152,152 +3265,144 @@ console.log(getDentalCodingOptions,"getDentalCodingOptions");
                     </DialogContent>
                   </Dialog>
 
-                    {/* Saved finding detail popup — read-only, opened when a saved
+                  {/* Saved finding detail popup — read-only, opened when a saved
                         chip (from dental_findings) is clicked. */}
-                    <Dialog
-                      open={isSavedFindingDetailOpen}
-                      onOpenChange={(open) => {
-                        setIsSavedFindingDetailOpen(open);
-                        if (!open) setSelectedSavedFinding(null);
-                      }}
-                    >
-                      <DialogContent className="shadow-2xs sm:max-w-2/5">
-                        {selectedSavedFinding ? (
-                          <>
-                            <DialogHeader>
-                              <DialogTitle>
-                                Dental coding detail
-                              </DialogTitle>
-                              <DialogDescription>
-                                Saved finding for tooth{" "}
-                                <span className="font-medium text-foreground">
-                                  {selectedSavedFinding.tooth ?? "—"}
-                                </span>{" "}
-                                (
-                                {selectedSavedFinding.dentition === "primary"
-                                  ? "primary"
-                                  : "permanent"}
+                  <Dialog
+                    open={isSavedFindingDetailOpen}
+                    onOpenChange={(open) => {
+                      setIsSavedFindingDetailOpen(open);
+                      if (!open) setSelectedSavedFinding(null);
+                    }}
+                  >
+                    <DialogContent className="shadow-2xs sm:max-w-2/5">
+                      {selectedSavedFinding ? (
+                        <>
+                          <DialogHeader>
+                            <DialogTitle>Dental coding detail</DialogTitle>
+                            <DialogDescription>
+                              Saved finding for tooth{" "}
+                              <span className="font-medium text-foreground">
+                                {selectedSavedFinding.tooth ?? "—"}
+                              </span>{" "}
+                              (
+                              {selectedSavedFinding.dentition === "primary"
+                                ? "primary"
+                                : "permanent"}
                               ).
-                              </DialogDescription>
-                            </DialogHeader>
+                            </DialogDescription>
+                          </DialogHeader>
 
-                            <div className="space-y-4">
-                              <dl className="grid gap-3 sm:grid-cols-2">
-                                <div className="min-w-0">
-                                  <dt className="mb-1.5 block text-xs text-muted-foreground">
-                                    Coding
-                                  </dt>
-                                  <dd className="text-sm font-medium text-foreground">
-                                    {selectedSavedFinding.codingLabel || "—"}
-                                  </dd>
-                                </div>
-
-                                <div className="min-w-0">
-                                  <dt className="mb-1.5 block text-xs text-muted-foreground">
-                                    Tooth
-                                  </dt>
-                                  <dd className="text-sm font-medium text-foreground">
-                                    Tooth{" "}
-                                    {selectedSavedFinding.tooth ||
-                                      "—"}
-                                  </dd>
-                                </div>
-
-                                <div className="min-w-0">
-                                  <dt className="mb-1.5 block text-xs text-muted-foreground">
-                                    Condition
-                                  </dt>
-                                  <dd className="text-sm font-medium text-foreground">
-                                    {selectedSavedFinding.conditionLabel ||
-                                      "—"}
-                                  </dd>
-                                </div>
-
-                                <div className="min-w-0">
-                                  <dt className="mb-1.5 block text-xs text-muted-foreground">
-                                    ICD code
-                                  </dt>
-                                  <dd className="text-sm text-muted-foreground">
-                                    {selectedSavedFinding.dentalCodingId ||
-                                      "—"}
-                                  </dd>
-                                </div>
-
-                                <div className="min-w-0">
-                                  <dt className="mb-1.5 block text-xs text-muted-foreground">
-                                    Severity
-                                  </dt>
-                                  <dd className="text-sm text-foreground">
-                                    {selectedSavedFinding.conditionSeverity ||
-                                      "—"}
-                                  </dd>
-                                </div>
-
-                                <div className="min-w-0">
-                                  <dt className="mb-1.5 block text-xs text-muted-foreground">
-                                    Risk score
-                                  </dt>
-                                  <dd className="text-sm text-foreground">
-                                    {selectedSavedFinding.conditionRiskScore ||
-                                      selectedSavedFinding.risk ||
-                                      "—"}
-                                  </dd>
-                                </div>
-
-                                <div className="min-w-0 sm:col-span-2">
-                                  <dt className="mb-1.5 block text-xs text-muted-foreground">
-                                    Description
-                                  </dt>
-                                  <dd className="text-sm text-muted-foreground">
-                                    {selectedSavedFinding.conditionDescription ||
-                                      "—"}
-                                  </dd>
-                                </div>
-
-                                <div className="min-w-0 sm:col-span-2">
-                                  <dt className="mb-1.5 block text-xs text-muted-foreground">
-                                    Surface
-                                  </dt>
-                                  <dd className="text-sm text-muted-foreground">
-                                    {selectedSavedFinding.surface ||
-                                      selectedSavedFinding.tooth_number ||
-                                      "—"}
-                                  </dd>
-                                </div>
-                              </dl>
-
-                              <div className="rounded-lg border border-border bg-muted/30 p-3">
+                          <div className="space-y-4">
+                            <dl className="grid gap-3 sm:grid-cols-2">
+                              <div className="min-w-0">
                                 <dt className="mb-1.5 block text-xs text-muted-foreground">
-                                  Finding id
+                                  Coding
                                 </dt>
-                                <dd className="text-sm text-muted-foreground">
-                                  {selectedSavedFinding.id}
+                                <dd className="text-sm font-medium text-foreground">
+                                  {selectedSavedFinding.codingLabel || "—"}
                                 </dd>
                               </div>
+
+                              <div className="min-w-0">
+                                <dt className="mb-1.5 block text-xs text-muted-foreground">
+                                  Tooth
+                                </dt>
+                                <dd className="text-sm font-medium text-foreground">
+                                  Tooth {selectedSavedFinding.tooth || "—"}
+                                </dd>
+                              </div>
+
+                              <div className="min-w-0">
+                                <dt className="mb-1.5 block text-xs text-muted-foreground">
+                                  Condition
+                                </dt>
+                                <dd className="text-sm font-medium text-foreground">
+                                  {selectedSavedFinding.conditionLabel || "—"}
+                                </dd>
+                              </div>
+
+                              <div className="min-w-0">
+                                <dt className="mb-1.5 block text-xs text-muted-foreground">
+                                  ICD code
+                                </dt>
+                                <dd className="text-sm text-muted-foreground">
+                                  {selectedSavedFinding.dentalCodingId || "—"}
+                                </dd>
+                              </div>
+
+                              <div className="min-w-0">
+                                <dt className="mb-1.5 block text-xs text-muted-foreground">
+                                  Severity
+                                </dt>
+                                <dd className="text-sm text-foreground">
+                                  {selectedSavedFinding.conditionSeverity ||
+                                    "—"}
+                                </dd>
+                              </div>
+
+                              <div className="min-w-0">
+                                <dt className="mb-1.5 block text-xs text-muted-foreground">
+                                  Risk score
+                                </dt>
+                                <dd className="text-sm text-foreground">
+                                  {selectedSavedFinding.conditionRiskScore ||
+                                    selectedSavedFinding.risk ||
+                                    "—"}
+                                </dd>
+                              </div>
+
+                              <div className="min-w-0 sm:col-span-2">
+                                <dt className="mb-1.5 block text-xs text-muted-foreground">
+                                  Description
+                                </dt>
+                                <dd className="text-sm text-muted-foreground">
+                                  {selectedSavedFinding.conditionDescription ||
+                                    "—"}
+                                </dd>
+                              </div>
+
+                              <div className="min-w-0 sm:col-span-2">
+                                <dt className="mb-1.5 block text-xs text-muted-foreground">
+                                  Surface
+                                </dt>
+                                <dd className="text-sm text-muted-foreground">
+                                  {selectedSavedFinding.surface ||
+                                    selectedSavedFinding.tooth_number ||
+                                    "—"}
+                                </dd>
+                              </div>
+                            </dl>
+
+                            <div className="rounded-lg border border-border bg-muted/30 p-3">
+                              <dt className="mb-1.5 block text-xs text-muted-foreground">
+                                Finding id
+                              </dt>
+                              <dd className="text-sm text-muted-foreground">
+                                {selectedSavedFinding.id}
+                              </dd>
                             </div>
+                          </div>
 
-                            <DialogFooter>
-                              <Button
-                                type="button"
-                                onClick={() =>
-                                  setIsSavedFindingDetailOpen(false)
-                                }
-                              >
-                                Close
-                              </Button>
-                            </DialogFooter>
-                          </>
-                        ) : (
-                          <p className="py-4 text-sm text-muted-foreground">
-                            No finding selected.
-                          </p>
-                        )}
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                  {/* </FramerCard> */}
+                          <DialogFooter>
+                            <Button
+                              type="button"
+                              onClick={() => setIsSavedFindingDetailOpen(false)}
+                            >
+                              Close
+                            </Button>
+                          </DialogFooter>
+                        </>
+                      ) : (
+                        <p className="py-4 text-sm text-muted-foreground">
+                          No finding selected.
+                        </p>
+                      )}
+                    </DialogContent>
+                  </Dialog>
+                </div>
+                {/* </FramerCard> */}
 
-                  {/* ---------------- Oral hygiene ---------------- */}
+                {/* ---------------- Oral hygiene ---------------- */}
                 {/* <FramerCard> */}
                 <OralHygenic
                   oralHygiene={oralHygiene}

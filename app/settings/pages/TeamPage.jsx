@@ -17,6 +17,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import {
+  Users,
+  ShieldCheck,
+  SlidersHorizontal,
+  ChevronRight,
+  Loader2,
   MoreHorizontal,
   Pencil,
   Copy,
@@ -78,6 +83,135 @@ const getInitials = (name = "") => {
     .toUpperCase();
 };
 
+/**
+ * Read a human-readable value out of a privilege entry's class/section field.
+ * The API may hand back a plain string ("3"), a nested relation object
+ * ({ name: "III" } / { class_name: "III" }), or a raw id (3 / "3") — so
+ * resolve whichever form arrived and never stringify an object by accident.
+ */
+const readPart = (...candidates) => {
+  for (const candidate of candidates) {
+    if (candidate === null || candidate === undefined) continue;
+
+    if (typeof candidate === "object") {
+      const nested = readPart(
+        candidate.name,
+        candidate.class_name,
+        candidate.className,
+        candidate.section_name,
+        candidate.sectionName,
+        candidate.title,
+        candidate.label,
+        candidate.value,
+        candidate.code,
+        candidate.id,
+        candidate.class_id,
+        candidate.section_id,
+      );
+
+      if (nested) return nested;
+      continue;
+    }
+
+    const text = String(candidate).trim();
+
+    if (text && text !== "[object Object]") return text;
+  }
+
+  return "";
+};
+
+/**
+ * Human-readable labels for ONE account's class/section privileges.
+ * `previleges` may arrive as:
+ *   • an array of objects:      [{ class: "3", section: "A" }, …]
+ *   • a JSON string of that:    '[{"class":"3","section":"A"}]'
+ *   • a class → sections map:   { "3": ["A", "B"] }
+ *   • legacy strings:           "3-A" / "3" / comma lists
+ */
+function getPrivilegeLabels(account) {
+  const raw = account?.previleges;
+
+  if (raw === null || raw === undefined || raw === "") return [];
+
+  const toLabel = (entry) => {
+    if (entry && typeof entry === "object") {
+      const cls = readPart(
+        entry.class,
+        entry.Class,
+        entry.grade,
+        entry.grade_id,
+        entry.class_id,
+      );
+      const sec = readPart(
+        entry.section,
+        entry.Section,
+        entry.section_id,
+      );
+
+      if (cls && sec) return `Class ${cls} - Section ${sec}`;
+      if (cls) return `Class ${cls}`;
+      if (sec) return `Section ${sec}`;
+      return "";
+    }
+
+    return String(entry).trim();
+  };
+
+  // Already an array — objects → "Class X - Section Y", plain strings as-is.
+  if (Array.isArray(raw)) {
+    return raw.map(toLabel).filter(Boolean);
+  }
+
+  if (typeof raw === "object") {
+    // Class → sections map: { "3": ["A", "B"], "4": "C" }
+    return Object.entries(raw)
+      .flatMap(([cls, sections]) => {
+        const classLabel = readPart(cls);
+        const list = Array.isArray(sections) ? sections : [sections];
+
+        return list
+          .map((section) => readPart(section))
+          .filter(Boolean)
+          .map(
+            (section) =>
+              classLabel
+                ? `Class ${classLabel} - Section ${section}`
+                : `Section ${section}`,
+          );
+      })
+      .filter(Boolean);
+  }
+
+  // JSON-encoded string — try to parse it back into the array/map form.
+  const text = String(raw).trim();
+
+  if (text.startsWith("[") || text.startsWith("{")) {
+    try {
+      return getPrivilegeLabels({ previleges: JSON.parse(text) });
+    } catch {
+      // fall through to plain-string handling
+    }
+  }
+
+  // Plain / comma-separated string ("3-A", "3", "3-A,4-B").
+  return text
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      // Never surface a raw stringified object in the UI.
+      if (part === "[object Object]") return "";
+
+      const [cls, sec] = part.split("-");
+
+      if (cls && sec) return `Class ${cls.trim()} - Section ${sec.trim()}`;
+
+      return part;
+    })
+    .filter(Boolean);
+}
+
 const TeamPage = ({
   accounts,
   selectedIds,
@@ -112,6 +246,7 @@ const TeamPage = ({
   setSubAccount,
   branches = [],
   isSaving = false,
+  isLoadingPrivileges = false,
   getSchoolBranch,
   subAccountBranch,
   getBranchDataForSubAccount = [],
@@ -127,9 +262,10 @@ const TeamPage = ({
     [handleSubAccountChange],
   );
   console.log(getBranchDataForSubAccount, "getBranchDataForSubAccount");
-  console.log(authAccName, "authAccName");
+  console.log(subAccount, "eeeeeee");
   const getRole = useAuthRole(authAccName);
 
+  
 
   const subAccountBranchOptions = useMemo(() => {
     const fromSubAccount = (getBranchDataForSubAccount ?? [])
@@ -254,54 +390,6 @@ const TeamPage = ({
     );
   };
 
-  // Human-readable labels for ONE account's class/section privileges.
-  // `previleges` may arrive as:
-  //   • an array of objects:      [{ class: "3", section: "A" }, …]
-  //   • a JSON string of that:    '[{"class":"3","section":"A"}]'
-  //   • legacy strings:           "3-A" / "3" / comma lists
-  function getPrivilegeLabels(account) {
-    const raw = account?.previleges;
-
-    if (raw === null || raw === undefined || raw === "") return [];
-
-    // Already an array — objects → "Class X - Section Y", plain strings as-is.
-    if (Array.isArray(raw)) {
-      return raw
-        .map((entry) => {
-          if (entry && typeof entry === "object") {
-            const cls = String(entry.class ?? entry.Class ?? "").trim();
-            const sec = String(entry.section ?? entry.Section ?? "").trim();
-            if (cls && sec) return `Class ${cls} - Section ${sec}`;
-            if (cls) return `Class ${cls}`;
-            if (sec) return `Section ${sec}`;
-            return "";
-          }
-          return String(entry).trim();
-        })
-        .filter(Boolean);
-    }
-
-    // JSON-encoded string — try to parse it back into the array form.
-    const text = String(raw).trim();
-    if (text.startsWith("[")) {
-      try {
-        return getPrivilegeLabels({ previleges: JSON.parse(text) });
-      } catch {
-        // fall through to plain-string handling
-      }
-    }
-
-    // Plain / comma-separated string ("3-A", "3", "3-A,4-B").
-    return text
-      .split(",")
-      .map((part) => part.trim())
-      .filter(Boolean)
-      .map((part) => {
-        const [cls, sec] = part.split("-");
-        if (cls && sec) return `Class ${cls.trim()} - Section ${sec.trim()}`;
-        return part;
-      });
-  };
 
   // ---- FILTERING ----
   const filteredAccounts = React.useMemo(() => {
@@ -385,6 +473,16 @@ const TeamPage = ({
     return filteredAccounts.slice(start, start + pageSize);
   }, [filteredAccounts, currentPage, pageSize]);
 
+  // Page numbers to render as clickable buttons (same set the pager steps
+  // through — purely presentational, driven by totalPages/currentPage).
+  const pageNumbers = React.useMemo(() => {
+    const pages = [];
+    for (let page = 1; page <= totalPages; page += 1) {
+      pages.push(page);
+    }
+    return pages;
+  }, [totalPages]);
+
   const clearFilters = () => {
     setSearchQuery("");
     setStatusFilter("all");
@@ -407,349 +505,394 @@ const TeamPage = ({
   const isIndeterminate =
     selectedIds.length > 0 && selectedIds.length < accountList.length;
 
+  const activeCount = accountList.filter(
+    (account) => account?.status === "active",
+  ).length;
+  const inactiveCount = accountList.length - activeCount;
+
   return (
     <>
       {/* ================================
           ACCOUNTS
       ================================= */}
 
-      <article className="rounded-lg border border-border bg-card p-4 sm:p-5">
-        <div className="flex flex-row items-center justify-between gap-2">
-          <div className="flex flex-col items-start">
-            <h3 className="text-lg font-semibold text-foreground">Accounts</h3>
+      <article className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        {/* Accent rail */}
+        <div className="h-1 w-full bg-gradient-to-r from-primary via-primary/50 to-transparent" />
 
-            <p className="mt-1 text-sm text-muted-foreground">
-              Manage team members, their designations, and access status.
-            </p>
-          </div>
-
-          {selectedIds.length > 0 ? (
-            <div className="ml-auto flex shrink-0 items-center gap-3">
-              <span className="text-xs font-medium text-muted-foreground">
-                {selectedIds.length} of {accountList.length} selected
+        <div className="p-4 sm:p-6">
+          {/* HEADER */}
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+                <Users className="size-5" />
               </span>
 
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onBulkDelete}
-                className="gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-              >
-                <Trash2 className="size-4" />
-                Delete
-                {selectedIds.length > 1 ? ` (${selectedIds.length})` : ""}
-              </Button>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="profile-settings-eyebrow__dot" />
+                  <p className="profile-settings-eyebrow">Team workspace</p>
+                </div>
+                <h3 className="text-2xl font-semibold tracking-tight text-foreground">
+                  Team Accounts
+                </h3>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  Manage team members, their designations, and access status.
+                </p>
+              </div>
             </div>
-          ) : (
-            getRole !== "teacher" && (
-              <Button
-                type="button"
-                variant="outline"
-                className="ml-auto shrink-0"
-                onClick={onAdd}
-              >
-                <UserRoundPlus size={14} />
-                Add New Account
-              </Button>
-            )
-          )}
-        </div>
+
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              {/* STAT PILLS */}
+              <div className="flex items-center gap-2">
+                <span className="rounded-full border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium text-foreground">
+                  {accountList.length}{" "}
+                  <span className="text-muted-foreground">Total</span>
+                </span>
+                <span className="rounded-full border border-success/25 bg-success/10 px-3 py-1.5 text-xs font-medium text-success">
+                  {activeCount}{" "}
+                  <span className="opacity-75">Active</span>
+                </span>
+                <span className="rounded-full border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                  {inactiveCount} Inactive
+                </span>
+              </div>
+
+              {selectedIds.length > 0 ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onBulkDelete}
+                  className="gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="size-4" />
+                  Delete
+                  {selectedIds.length > 1 ? ` (${selectedIds.length})` : ""}
+                </Button>
+              ) : (
+                getRole !== "teacher" && (
+                  <Button type="button" onClick={onAdd} className="gap-1.5">
+                    <UserRoundPlus size={14} />
+                    Add New Account
+                  </Button>
+                )
+              )}
+            </div>
+          </div>
 
         {/* FILTER BAR */}
         {getRole !== "teacher" && (
           <>
-            <div className="mt-4 flex flex-col gap-3 rounded-md border border-border bg-muted/30 p-3 lg:flex-row lg:items-end lg:flex-wrap">
-              {/* SEARCH */}
-              <div className="min-w-0 flex-1 space-y-1.5">
-                <TextField
-                  label="Search"
-                  labelClassName="text-sm font-medium text-foreground"
-                  id="team-search"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search by name or username..."
-                  autoComplete="off"
-                />
+            <div className="mt-5 space-y-3 rounded-xl border border-border bg-muted/25 p-3 sm:p-4">
+              {/* SEARCH + STATUS */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="min-w-0 sm:col-span-2 lg:col-span-2">
+                  <TextField
+                    label="Search"
+                    labelClassName="text-xs font-medium uppercase tracking-wide text-muted-foreground"
+                    id="team-search"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search by name or username..."
+                    autoComplete="off"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <ReusableSelect
+                    label="Status"
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                    options={[
+                      { value: "all", label: "All" },
+                      { value: "active", label: "Active" },
+                      { value: "inactive", label: "Inactive" },
+                    ]}
+                    placeholder="Status"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <ReusableSelect
+                    label="User Role"
+                    value={userRole}
+                    onChange={setUserRole}
+                    options={userRoleOptions}
+                    placeholder="Select Role"
+                  />
+                </div>
               </div>
 
-              {/* STATUS */}
-              <div className="w-full space-y-1.5 lg:w-40">
-                <ReusableSelect
-                  label="Status"
-                  value={statusFilter}
-                  onChange={setStatusFilter}
-                  options={[
-                    { value: "all", label: "All" },
-                    { value: "active", label: "Active" },
-                    { value: "inactive", label: "Inactive" },
-                  ]}
-                  placeholder="Status"
-                />
-              </div>
+              {/* CLASS / SECTION / PRIVILEGES */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="space-y-1.5">
+                  <ReusableSelect
+                    label="Class"
+                    value={classFilter}
+                    onChange={setClassFilter}
+                    options={classOptions}
+                    placeholder="Class"
+                  />
+                </div>
 
-              {/* CLASS */}
-              <div className="w-full space-y-1.5 lg:w-40">
-                <ReusableSelect
-                  label="Class"
-                  value={classFilter}
-                  onChange={setClassFilter}
-                  options={classOptions}
-                  placeholder="Class"
-                />
-              </div>
+                <div className="space-y-1.5">
+                  <ReusableSelect
+                    label="Section"
+                    value={sectionFilter}
+                    onChange={setSectionFilter}
+                    options={sectionOptions}
+                    placeholder="Section"
+                  />
+                </div>
 
-              {/* SECTION */}
-              <div className="w-full space-y-1.5 lg:w-40">
-                <ReusableSelect
-                  label="Section"
-                  value={sectionFilter}
-                  onChange={setSectionFilter}
-                  options={sectionOptions}
-                  placeholder="Section"
-                />
-              </div>
+                <div className="space-y-1.5">
+                  <ReusableSelect
+                    label="Privileges"
+                    value={privilegeFilter}
+                    onChange={setPrivilegeFilter}
+                    options={privilegeOptions}
+                    placeholder="Privileges"
+                  />
+                </div>
 
-              {/* PRIVILEGES */}
-              <div className="w-full space-y-1.5 lg:w-44">
-                <ReusableSelect
-                  label="Privileges"
-                  value={privilegeFilter}
-                  onChange={setPrivilegeFilter}
-                  options={privilegeOptions}
-                  placeholder="Privileges"
-                />
+                {/* CLEAR */}
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    variant={hasActiveFilters ? "default" : "outline"}
+                    onClick={clearFilters}
+                    disabled={!hasActiveFilters}
+                    className="w-full gap-1.5"
+                  >
+                    <X className="size-4" />
+                    Clear Filters
+                  </Button>
+                </div>
               </div>
-              <div className="w-full space-y-1.5 lg:w-44">
-                <ReusableSelect
-                  label="User Role"
-                  value={userRole}
-                  onChange={setUserRole}
-                  options={userRoleOptions}
-                  placeholder="Select Role"
-                />
-              </div>
-
-              {/* CLEAR */}
-              {hasActiveFilters ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={clearFilters}
-                  className="gap-1.5"
-                >
-                  <X className="size-4" />
-                  Clear
-                </Button>
-              ) : null}
             </div>
-            {hasActiveFilters ? (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Showing {filteredAccounts.length} of {accountList.length}{" "}
-                accounts
+            {/* SELECT-ALL STRIP + RESULT COUNT */}
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/25 px-3 py-2.5 sm:px-4">
+              <label className="flex cursor-pointer select-none items-center gap-2.5 text-xs font-medium text-muted-foreground">
+                <Checkbox
+                  checked={isAllSelected}
+                  indeterminate={isIndeterminate}
+                  onCheckedChange={onToggleAll}
+                  aria-label="Select all accounts"
+                />
+                Select all
+              </label>
+
+              <p className="text-xs text-muted-foreground">
+                {hasActiveFilters ? (
+                  <>
+                    Showing{" "}
+                    <span className="font-semibold text-foreground">
+                      {filteredAccounts.length}
+                    </span>{" "}
+                    of {accountList.length} accounts
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold text-foreground">
+                      {accountList.length}
+                    </span>{" "}
+                    team members
+                  </>
+                )}
               </p>
-            ) : null}
-
-            {/* TABLE */}
-
-            <div className="mt-4 overflow-x-auto rounded-md border border-border">
-              <table className="w-full min-w-[640px] text-left text-sm">
-                <thead className="bg-muted/50 text-muted-foreground">
-                  <tr>
-                    <th className="w-12 px-4 py-3 font-medium">
-                      <Checkbox
-                        checked={isAllSelected}
-                        indeterminate={isIndeterminate}
-                        onCheckedChange={onToggleAll}
-                        aria-label="Select all accounts"
-                      />
-                    </th>
-
-                    <th className="px-4 py-3 font-medium">Name</th>
-
-                    <th className="px-4 py-3 font-medium">Status</th>
-
-                    <th className="w-20 px-4 py-3 text-right font-medium">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-border bg-card">
-                  {paginatedAccounts.map((account) => {
-                    const isSelected = selectedIds.includes(account.id);
-                    console.log(account, "account333333333");
-
-                    const isActive = account.status === "active";
-                    const roleLabel = getAccountRoleLabel(account);
-
-                    return (
-                      <tr
-                        key={account.id}
-                        className={
-                          isSelected ? "bg-muted/40 cursor-pointer" : undefined
-                        }
-                        onClick={() => onEdit(account)}
-                      >
-                        {/* CHECKBOX */}
-
-                        <td
-                          className="px-4 py-3"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={() => onToggleRow(account.id)}
-                            aria-label={`Select ${account.name}`}
-                          />
-                        </td>
-
-                        {/* NAME */}
-
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <span
-                              aria-hidden="true"
-                              className={`flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-                                AVATAR_STYLES[account.id % AVATAR_STYLES.length]
-                              }`}
-                            >
-                              {getInitials(account.name)}
-                            </span>
-
-                            <div className="min-w-0">
-                              <p className="truncate font-medium text-foreground">
-                                {account.name}
-                              </p>
-                              {roleLabel ? (
-                                <p className="truncate text-xs font-medium text-muted-foreground">
-                                  {roleLabel}
-                                </p>
-                              ) : null}
-
-                              {account.designation ? (
-                                <p className="truncate text-xs text-muted-foreground">
-                                  {account.designation}
-                                </p>
-                              ) : null}
-
-                              {/* CLASS & SECTION PRIVILEGES */}
-                              {getPrivilegeLabels(account).length > 0 ? (
-                                <div className="mt-1 flex max-w-[260px] flex-wrap gap-1">
-                                  {getPrivilegeLabels(account).map((label) => (
-                                    <span
-                                      key={label}
-                                      className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
-                                    >
-                                      {label}
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : null}
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* STATUS */}
-
-                        <td
-                          className="px-4 py-3"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Switch
-                              checked={isActive}
-                              onCheckedChange={() => onToggleStatus(account.id)}
-                              aria-label={`Toggle status for ${account.name}`}
-                            />
-
-                            <span
-                              className={`text-xs font-medium ${
-                                isActive
-                                  ? "text-success"
-                                  : "text-muted-foreground"
-                              }`}
-                            >
-                              {isActive ? "Active" : "Inactive"}
-                            </span>
-                          </div>
-                        </td>
-
-                        {/* ACTIONS */}
-
-                        <td
-                          className="px-4 py-3 text-right"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <DropdownMenu>
-                            <DropdownMenuTrigger
-                              aria-label={`Actions for ${account.name}`}
-                              className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground"
-                            >
-                              <MoreHorizontal className="size-4" />
-                            </DropdownMenuTrigger>
-
-                            <DropdownMenuContent align="end" className="w-36">
-                              <DropdownMenuItem onClick={() => onEdit(account)}>
-                                <Pencil />
-                                Edit
-                              </DropdownMenuItem>
-
-                              <DropdownMenuItem
-                                onClick={() => onDuplicate(account.id)}
-                              >
-                                <Copy />
-                                Copy
-                              </DropdownMenuItem>
-
-                              <DropdownMenuSeparator />
-
-                              <DropdownMenuItem
-                                onClick={() => setDeleteTarget(account)}
-                                className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                              >
-                                <Trash2 />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    );
-                  })}
-
-                  {filteredAccounts.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={4}
-                        className="px-4 py-10 text-center text-sm text-muted-foreground"
-                      >
-                        <EmptyState
-                          title="No Screening Configurations Yet"
-                          description="Set up your first screening configuration to define and manage the screening options used for school health assessments."
-                          action={
-                            <Button
-                              type="button"
-                              variant="outline"
-                              //   onClick={() => setOpen(true)}
-                            >
-                              {/* <Building2 className="size-4" /> */}
-                              Create Screening Request
-                            </Button>
-                          }
-                        />
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
             </div>
+
+            {/* MEMBER CARDS */}
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {paginatedAccounts.map((account) => {
+                const isSelected = selectedIds.includes(account.id);
+                console.log(account, "account333333333");
+
+                const isActive = account.status === "active";
+                const roleLabel = getAccountRoleLabel(account);
+                const privilegeLabels = getPrivilegeLabels(account);
+
+                return (
+                  <div
+                    key={account.id}
+                    onClick={() => onEdit(account)}
+                    className={`group relative flex cursor-pointer flex-col gap-3 rounded-xl border p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+                      isSelected
+                        ? "border-primary/50 bg-primary/5 ring-1 ring-primary/30"
+                        : "border-border bg-card hover:border-primary/40"
+                    }`}
+                  >
+                    {/* TOP ROW */}
+                    <div className="flex items-start gap-3">
+                      <div
+                        onClick={(event) => event.stopPropagation()}
+                        className="pt-0.5"
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => onToggleRow(account.id)}
+                          aria-label={`Select ${account.name}`}
+                        />
+                      </div>
+
+                      <span
+                        aria-hidden="true"
+                        className={`relative flex size-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${
+                          AVATAR_STYLES[account.id % AVATAR_STYLES.length]
+                        }`}
+                      >
+                        {getInitials(account.name)}
+                        <span
+                          className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-card ${
+                            isActive ? "bg-success" : "bg-muted-foreground"
+                          }`}
+                        />
+                      </span>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-semibold text-foreground">
+                          {account.name}
+                        </p>
+                        {roleLabel ? (
+                          <span className="mt-1 inline-flex items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
+                            <ShieldCheck className="size-3" />
+                            {roleLabel}
+                          </span>
+                        ) : null}
+                        {account.designation ? (
+                          <p className="mt-1 truncate text-xs text-muted-foreground">
+                            {account.designation}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {/* CLASS & SECTION PRIVILEGES */}
+                    {privilegeLabels.length > 0 ? (
+                      <div className="rounded-lg border border-dashed border-border bg-muted/30 p-2.5">
+                        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Class &amp; Section Access
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {privilegeLabels.map((label) => (
+                            <span
+                              key={label}
+                              className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
+                            >
+                              {label}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* FOOTER */}
+                    <div className="mt-auto flex items-center justify-between border-t border-border pt-3">
+                      <div
+                        onClick={(event) => event.stopPropagation()}
+                        className="flex items-center gap-2"
+                      >
+                        <Switch
+                          checked={isActive}
+                          onCheckedChange={() => onToggleStatus(account.id)}
+                          aria-label={`Toggle status for ${account.name}`}
+                        />
+                        <span
+                          className={`text-xs font-medium ${
+                            isActive ? "text-success" : "text-muted-foreground"
+                          }`}
+                        >
+                          {isActive ? "Active" : "Inactive"}
+                        </span>
+                      </div>
+
+                      <div
+                        onClick={(event) => event.stopPropagation()}
+                        className="flex items-center gap-1"
+                      >
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            aria-label={`Actions for ${account.name}`}
+                            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground"
+                          >
+                            <MoreHorizontal className="size-4" />
+                          </DropdownMenuTrigger>
+
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem onClick={() => onEdit(account)}>
+                              <Pencil />
+                              Edit
+                            </DropdownMenuItem>
+
+                            <DropdownMenuItem
+                              onClick={() => onDuplicate(account.id)}
+                            >
+                              <Copy />
+                              Copy
+                            </DropdownMenuItem>
+
+                            <DropdownMenuSeparator />
+
+                            <DropdownMenuItem
+                              onClick={() => setDeleteTarget(account)}
+                              className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                            >
+                              <Trash2 />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        <ChevronRight className="size-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* EMPTY STATE */}
+            {filteredAccounts.length === 0 ? (
+              <div className="mt-4 rounded-xl border border-dashed border-border bg-muted/20">
+                <EmptyState
+                  title="No Team Members Found"
+                  description={
+                    hasActiveFilters
+                      ? "No accounts match the filters you have applied. Try adjusting or clearing the filters to see more results."
+                      : "No accounts yet. Click “Add New Account” to create your first team member."
+                  }
+                  action={
+                    hasActiveFilters ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={clearFilters}
+                        className="gap-1.5"
+                      >
+                        <SlidersHorizontal className="size-4" />
+                        Clear Filters
+                      </Button>
+                    ) : getRole !== "teacher" ? (
+                      <Button
+                        type="button"
+                        onClick={onAdd}
+                        className="gap-1.5"
+                      >
+                        <UserRoundPlus className="size-4" />
+                        Add New Account
+                      </Button>
+                    ) : null
+                  }
+                />
+              </div>
+            ) : null}
 
             {/* PAGINATION FOOTER */}
 
             {filteredAccounts.length > 0 ? (
-              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border bg-muted/25 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
                 {/* PAGE SIZE */}
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs text-muted-foreground">Rows</span>
 
                   <ReusableSelect
@@ -766,18 +909,25 @@ const TeamPage = ({
 
                   <span className="text-xs text-muted-foreground">
                     Showing{" "}
-                    {Math.min(
-                      (currentPage - 1) * pageSize + 1,
-                      filteredAccounts.length,
-                    )}
-                    â€“
-                    {Math.min(currentPage * pageSize, filteredAccounts.length)}{" "}
+                    <span className="font-medium text-foreground">
+                      {Math.min(
+                        (currentPage - 1) * pageSize + 1,
+                        filteredAccounts.length,
+                      )}
+                    </span>
+                    {" – "}
+                    <span className="font-medium text-foreground">
+                      {Math.min(
+                        currentPage * pageSize,
+                        filteredAccounts.length,
+                      )}
+                    </span>{" "}
                     of {filteredAccounts.length}
                   </span>
                 </div>
 
                 {/* PAGE NAVIGATION */}
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <Button
                     type="button"
                     variant="outline"
@@ -790,9 +940,22 @@ const TeamPage = ({
                     Previous
                   </Button>
 
-                  <span className="text-xs font-medium text-muted-foreground">
-                    Page {currentPage} of {totalPages}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    {pageNumbers.map((page) => (
+                      <Button
+                        key={page}
+                        type="button"
+                        size="sm"
+                        variant={page === currentPage ? "default" : "outline"}
+                        aria-label={`Go to page ${page}`}
+                        aria-current={page === currentPage ? "page" : undefined}
+                        onClick={() => setCurrentPage(page)}
+                        className="h-8 min-w-8 px-2"
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                  </div>
 
                   <Button
                     type="button"
@@ -810,6 +973,7 @@ const TeamPage = ({
             ) : null}
           </>
         )}
+        </div>
       </article>
 
       {/* ================================
@@ -1062,15 +1226,21 @@ const TeamPage = ({
                     </p>
                   </div>
 
-                  <ClassSectionManager
-                    getSchoolBranch={getSchoolBranch}
-                    subAccountBranch={subAccountBranch}
-                    /* Accepts the previleges payload in any shape —
-                       [{ class, section }, …], its JSON string, or the old
-                       { class: [sections] } map. Normalized internally. */
-                    classSections={subAccount?.previleges ?? []}
-                    onClassSectionsChange={handleClassSectionsChange}
-                  />
+                  {isLoadingPrivileges ? (
+                    <div className="mb-4 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                      <Loader2 className="size-3.5 animate-spin" />
+                      Loading saved classes and sections…
+                    </div>
+                  ) : null}
+
+                  <div className={isLoadingPrivileges ? "pointer-events-none opacity-60" : undefined}>
+                    <ClassSectionManager
+                      getSchoolBranch={getSchoolBranch}
+                      subAccountBranch={subAccountBranch}
+                      classSections={subAccount?.previleges ?? []}
+                      onClassSectionsChange={handleClassSectionsChange}
+                    />
+                  </div>
                   {/* <div className="rounded-lg border border-border bg-muted/20 p-4">
           </div> */}
                 </section>

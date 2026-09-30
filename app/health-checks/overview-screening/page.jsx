@@ -28,18 +28,30 @@ import { Separator } from "@/components/ui/separator";
 // import { useState } from "react";
 import { fadeUp, FramerCard } from "@/util/FramerCard";
 import { getFilterStudent } from "@/lib/features/getFilterStudent";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { EmptyState } from "@/components/ui/empty-state";
 import { selectAuthUser } from "@/lib/features/auth-slice";
 import useAssignedEvents, { findSelectedCamp } from "@/lib/useAssignedEvents";
+import {
+  getScreeningIds,
+  getScreeningKeys,
+  isScreeningKeyAssigned,
+} from "@/lib/camp-utils";
 import { getStudentByEvent } from "@/lib/features/getEventAssignSlice";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas-pro";
 import { toast } from "sonner";
 import StudentFilter from "../utilities/studentFilter";
 import { useAllScreeningReport } from "@/components/healthChecks/getScreeningReport";
+import { useScreeningRecordByFilter } from "@/components/students/getScreeningRecordByFilter";
+import Image from "next/image";
+import {
+  getSignatureValue,
+  normalizeSignatureUrl,
+} from "@/lib/signature-utils";
+import { getDoctorSignature } from "@/lib/features/doctorSignatureSlice";
 
 /* =========================================================
    COMPLETE STUDENT HEALTH PROFILE DATA
@@ -289,8 +301,13 @@ const recordBelongsToStudent = (record, studentIds) => {
 };
 
 const findStudentScreeningRecord = (records, studentIds) => {
-  console.log( studentIds, "studentIds4444444");
-  return records.find((record) => recordBelongsToStudent(record, studentIds)) ?? null;
+  if (!records) return null;
+
+  // The screening hook returns ONE already-resolved record per screening
+  // (or null), not a list — so normalise before calling .find().
+  const list = Array.isArray(records) ? records : [records];
+
+  return list.find((record) => recordBelongsToStudent(record, studentIds)) ?? null;
 };
 
 const formatMetric = (value, unit, fallback) => {
@@ -314,6 +331,32 @@ const getRecordName = (record, ...keys) => {
   return "";
 };
 
+/** "Yes" / true → "Yes", false → "No", empty → "". Never invents a value. */
+const toYesNoText = (value) => {
+  if (value === null || value === undefined || value === "") return "";
+
+  const text = String(value).trim().toLowerCase();
+
+  if (["1", "true", "yes", "y"].includes(text)) return "Yes";
+  if (["0", "false", "no", "n"].includes(text)) return "No";
+
+  return String(value).trim();
+};
+
+/** Placeholder shown when a screening has not been recorded for the student. */
+const NOT_RECORDED = "Not recorded";
+
+/**
+ * First non-empty value across `keys`, or `fallback` when none is present.
+ * Used so every card can fall back to "Not recorded" instead of silently
+ * showing the demo values baked into HEALTH_PROFILE_TEMPLATE.
+ */
+const pick = (record, keys, fallback = NOT_RECORDED) => {
+  const value = getRecordName(record, ...keys);
+
+  return value || fallback;
+};
+
 /* =========================================================
    MAIN PAGE
 ========================================================= */
@@ -330,6 +373,68 @@ export default function StudenthealthReport() {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const authUser = useAppSelector(selectAuthUser);
+  const doctorSignatureState = useAppSelector((state) => state.doctorSignature);
+
+  /* ------------------------------------------------------------------
+     Doctor signature — same source as the report (GET /doctor-signature/{id}).
+     The overview page can be opened without visiting Profile first, so the
+     signature is fetched here rather than relying on that page to have
+     populated the slice.
+     ------------------------------------------------------------------ */
+  const doctorId = authUser?.id ?? authUser?.Id ?? null;
+
+  const isDoctorUser = useMemo(() => {
+    const values = [
+      authUser?.account_type,
+      authUser?.emp_account_type,
+      authUser?.user_type_id,
+      authUser?.role,
+    ];
+
+    return values.some((value) => {
+      if (value == null) return false;
+      if (typeof value === "number") return value === 5;
+      if (typeof value === "object") {
+        return String(value.role ?? value.name ?? value.id ?? "").trim().toLowerCase() === "doctor";
+      }
+
+      const normalized = String(value).trim().toLowerCase();
+
+      return normalized === "doctor" || normalized === "5";
+    });
+  }, [authUser]);
+
+  useEffect(() => {
+    // The endpoint is doctor-only; other roles get a 401 there.
+    if (!doctorId || !isDoctorUser) return;
+
+    dispatch(getDoctorSignature(doctorId));
+  }, [dispatch, doctorId, isDoctorUser]);
+
+  const doctorSignatureUrl = normalizeSignatureUrl(
+    getSignatureValue(doctorSignatureState),
+  );
+
+  /**
+   * Signed-in examiner's name. Several auth payload fields (`label`,
+   * `user_type`, `role`) can be OBJECTS, so only take a real non-empty
+   * string — rendering an object here is what previously crashed.
+   */
+  const examinerName = useMemo(() => {
+    const candidates = [
+      authUser?.label,
+      authUser?.emp_name,
+      authUser?.user_name,
+      authUser?.username,
+      authUser?.name,
+    ];
+
+    return (
+      candidates
+        .find((value) => typeof value === "string" && value.trim().length > 0)
+        ?.trim() ?? ""
+    );
+  }, [authUser]);
   const { assignedEvents, assignEventLoading, assignEventError } =
     useAssignedEvents();
 
@@ -337,6 +442,31 @@ export default function StudenthealthReport() {
     () => findSelectedCamp(assignedEvents, schoolName),
     [assignedEvents, schoolName],
   );
+
+  /* ---------------------------------------------------------------------- */
+  /* Camp screening assignment                                              */
+  /*                                                                         */
+  /* The camp only runs a subset of screenings (screening_ids "1".."5").      */
+  /* Map them to slug keys and hide every section that is not assigned, so    */
+  /* the overview matches the report. An empty list = no restriction.         */
+  /* ---------------------------------------------------------------------- */
+
+  const assignedScreeningIds = getScreeningIds(selectedCamp);
+  const assignedScreeningKeys = getScreeningKeys(selectedCamp);
+  const isAssigned = (key) =>
+    isScreeningKeyAssigned(assignedScreeningKeys, key);
+
+  const showGeneral = isAssigned("general");
+  const showVision = isAssigned("vision");
+  const showHearing = isAssigned("hearing");
+  const showDental = isAssigned("dental");
+  const showEnt = isAssigned("ent");
+  // Immunization has no screening_id of its own in the 1..5 scheme, so it
+  // follows the general screening assignment.
+  const showImmunization = showGeneral;
+  const showUnknownScreenings =
+    assignedScreeningIds.length > 0 && assignedScreeningKeys.length === 0;
+
   const assignedEventIds = useMemo(
     () =>
       (Array.isArray(assignedEvents) ? assignedEvents : [])
@@ -345,6 +475,8 @@ export default function StudenthealthReport() {
         .sort(),
     [assignedEvents],
   );
+
+  
 
   const { data: campStudentMap } = useQuery({
     queryKey: ["report-camp-rosters", assignedEventIds],
@@ -472,6 +604,8 @@ export default function StudenthealthReport() {
     if (!studentId) return null;
     return (
       students.find((student) => {
+        console.log(student,"studentsed");
+        
         const ids = [
           student?.id,
           student?.studentId,
@@ -509,18 +643,40 @@ export default function StudenthealthReport() {
 
   const selectedStudentId = selectedStudentIds[0] ?? "";
 
+  // const {
+  //   campScreeningRecords = [],
+  //   campVisionScreeningRecords = [],
+  //   campDentalScreeningRecords = [],
+  //   campHearingScreeningRecords = [],
+  //   campEntScreeningRecords = [],
+  // } = useAllScreeningReport({
+  //   campId: String(selectedCamp?.id ?? selectedCamp?.camp_id ?? "").trim(),
+  //   getId: selectedStudentId,
+  // });
   const {
-    campScreeningRecords = [],
-    campVisionScreeningRecords = [],
-    campDentalScreeningRecords = [],
-    campHearingScreeningRecords = [],
-    campEntScreeningRecords = [],
-  } = useAllScreeningReport({
-    campId: String(selectedCamp?.id ?? selectedCamp?.camp_id ?? "").trim(),
-    // getId: selectedStudentId,
+    generalScreeningRecord = [],
+    hearingScreeningRecord = [],
+    dentalScreeningRecord = [],
+    visionScreeningRecord = [],
+    entScreeningRecord = [],
+    isLoading: screeningLoading,
+  } = useScreeningRecordByFilter({
+    getId: selectedStudentId,
+    campId: String(
+      selectedCamp?.id ??
+        selectedCamp?.campId ??
+        selectedCamp?.camp_id ??
+        "",
+    ).trim(),
+    class: String(
+      selectedStudent?.class ?? selectedStudent?.Class ?? "",
+    ).trim(),
+    section: String(
+      selectedStudent?.sec ?? selectedStudent?.section ?? "",
+    ).trim(),
   });
-
-  console.log(campScreeningRecords,"campScreeningRecords", selectedStudentIds, "selectedStudentIds");
+  
+  console.log(generalScreeningRecord,"generalScreeningRecord", selectedStudentIds, "selectedStudentIds");
   
   const studentData = useMemo(() => {
     if (!selectedStudentId) {
@@ -533,34 +689,22 @@ export default function StudenthealthReport() {
       };
     }
 
+    const resolve = (record) =>
+      findStudentScreeningRecord(record, selectedStudentId) ?? record ?? null;
+
     return {
-      general: findStudentScreeningRecord(
-        campScreeningRecords,
-        selectedStudentId,
-      )?? campScreeningRecords[0] ?? null,
-      vision: findStudentScreeningRecord(
-        campVisionScreeningRecords,
-        selectedStudentId,
-      ) ?? campVisionScreeningRecords[0] ?? null,
-      dental: findStudentScreeningRecord(
-        campDentalScreeningRecords,
-        selectedStudentId,
-      ) ?? campDentalScreeningRecords[0] ?? null,
-      hearing: findStudentScreeningRecord(
-        campHearingScreeningRecords,
-        selectedStudentId,
-      ) ?? campHearingScreeningRecords[0] ?? null,
-      ent:
-        findStudentScreeningRecord(campEntScreeningRecords, selectedStudentId) ??
-        campEntScreeningRecords[0] ??
-        null,
+      general: resolve(generalScreeningRecord),
+      vision: resolve(visionScreeningRecord),
+      dental: resolve(dentalScreeningRecord),
+      hearing: resolve(hearingScreeningRecord),
+      ent: resolve(entScreeningRecord),
     };
   }, [
-      campScreeningRecords,
-      campVisionScreeningRecords,
-      campDentalScreeningRecords,
-      campHearingScreeningRecords,
-      campEntScreeningRecords,
+      generalScreeningRecord,
+      visionScreeningRecord,
+      dentalScreeningRecord,
+      hearingScreeningRecord,
+      entScreeningRecord,
       selectedStudentId,
       // selectedStudentId,
     ]);
@@ -571,6 +715,10 @@ export default function StudenthealthReport() {
     if (!selectedStudent) return HEALTH_PROFILE_TEMPLATE;
     const s = selectedStudent;
     const general = studentData.general;
+    const vision = studentData.vision;
+    const dental = studentData.dental;
+    const hearing = studentData.hearing;
+    const ent = studentData.ent;
 
     const filterSchool =
       selectedCamp?.schoolName && selectedCamp.schoolName !== "all"
@@ -645,6 +793,17 @@ export default function StudenthealthReport() {
         date: general?.created_at ?? general?.screening_date ?? HEALTH_PROFILE_TEMPLATE.assessment.date,
         location: resolvedSchool,
         camp: resolvedCamp,
+        // Real signed-in examiner instead of the demo "Dr. Priya Sharma".
+        examiner:
+          getRecordName(general, "examiner", "examiner_name", "doctor_name") ||
+          examinerName ||
+          HEALTH_PROFILE_TEMPLATE.assessment.examiner,
+        designation:
+          getRecordName(general, "designation", "examiner_designation") ||
+          HEALTH_PROFILE_TEMPLATE.assessment.designation,
+        assistant:
+          getRecordName(general, "assistant", "assistant_name") ||
+          HEALTH_PROFILE_TEMPLATE.assessment.assistant,
       },
       student: {
         ...HEALTH_PROFILE_TEMPLATE.student,
@@ -677,93 +836,207 @@ export default function StudenthealthReport() {
         ...HEALTH_PROFILE_TEMPLATE.vitals,
         height: {
           ...HEALTH_PROFILE_TEMPLATE.vitals.height,
-          value: formatMetric(
-            general?.height,
-            "cm",
-            HEALTH_PROFILE_TEMPLATE.vitals.height.value,
-          ),
+          value: formatMetric(general?.height, "cm", NOT_RECORDED),
         },
         weight: {
           ...HEALTH_PROFILE_TEMPLATE.vitals.weight,
-          value: formatMetric(
-            general?.weight,
-            "kg",
-            HEALTH_PROFILE_TEMPLATE.vitals.weight.value,
-          ),
+          value: formatMetric(general?.weight, "kg", NOT_RECORDED),
         },
         bmi: {
           ...HEALTH_PROFILE_TEMPLATE.vitals.bmi,
-          value: formatMetric(
-            general?.bmi,
-            "",
-            HEALTH_PROFILE_TEMPLATE.vitals.bmi.value,
-          ),
+          value: formatMetric(general?.bmi, "", NOT_RECORDED),
         },
         bloodPressure: {
           ...HEALTH_PROFILE_TEMPLATE.vitals.bloodPressure,
           value:
-            general?.bp ??
-            general?.blood_pressure ??
-            HEALTH_PROFILE_TEMPLATE.vitals.bloodPressure.value,
+            getRecordName(general, "bp", "blood_pressure") || NOT_RECORDED,
         },
         pulse: {
           ...HEALTH_PROFILE_TEMPLATE.vitals.pulse,
-          value: formatMetric(
-            general?.pulse,
-            "bpm",
-            HEALTH_PROFILE_TEMPLATE.vitals.pulse.value,
-          ),
+          value: formatMetric(general?.pulse, "bpm", NOT_RECORDED),
         },
         temperature: {
           ...HEALTH_PROFILE_TEMPLATE.vitals.temperature,
-          value: formatMetric(
-            general?.temperature,
-            "°F",
-            HEALTH_PROFILE_TEMPLATE.vitals.temperature.value,
-          ),
+          value: formatMetric(general?.temperature, "°F", NOT_RECORDED),
         },
         oxygen: {
           ...HEALTH_PROFILE_TEMPLATE.vitals.oxygen,
-          value: formatMetric(
-            general?.spo2,
-            "%",
-            HEALTH_PROFILE_TEMPLATE.vitals.oxygen.value,
-          ),
+          value: formatMetric(general?.spo2, "%", NOT_RECORDED),
         },
       },
       immunization: {
         ...HEALTH_PROFILE_TEMPLATE.immunization,
-        status:
-          getRecordName(general, "immunization", "immunization_name") ||
-          HEALTH_PROFILE_TEMPLATE.immunization.status,
+        status: pick(general, [
+          "immunization",
+          "immunization_name",
+          "immunization_status",
+        ]),
+        vaccines: pick(
+          general,
+          ["vaccines", "vaccine_status", "vaccination_status"],
+          NOT_RECORDED,
+        ),
       },
+
+      /* ---------------- VISION — from the vision screening record -------- */
+      vision: {
+        ...HEALTH_PROFILE_TEMPLATE.vision,
+        status: pick(vision, ["status", "overall_status", "vision_status"]),
+        rightEye: {
+          acuity: pick(vision, ["od_distance_with", "od_distance_without"]),
+          corrected: pick(vision, ["od_distance_with"], NOT_RECORDED),
+        },
+        leftEye: {
+          acuity: pick(vision, ["os_distance_with", "os_distance_without"]),
+          corrected: pick(vision, ["os_distance_with"], NOT_RECORDED),
+        },
+        colorVision: pick(vision, ["color_vision_status"]),
+        strabismus: toYesNoText(vision?.strabismus) || NOT_RECORDED,
+        usesCorrection: toYesNoText(vision?.uses_glasses_or_lens) || NOT_RECORDED,
+        remarks:
+          getRecordName(
+            vision,
+            "od_remarks",
+            "os_remarks",
+            "advice_suggestions",
+            "muscle_balance_remarks",
+          ) || NOT_RECORDED,
+      },
+
+      /* ---------------- HEARING — from the hearing screening record ------ */
+      hearing: {
+        ...HEALTH_PROFILE_TEMPLATE.hearing,
+        status: pick(hearing, ["overall_status", "status"]),
+        rightEar: {
+          status: pick(hearing, ["overall_status_re"], NOT_RECORDED),
+          threshold: pick(hearing, ["pta_500hz_re"], NOT_RECORDED),
+          findings: pick(hearing, ["ear_exam_re"], NOT_RECORDED),
+        },
+        leftEar: {
+          status: pick(hearing, ["overall_status_le"], NOT_RECORDED),
+          threshold: pick(hearing, ["pta_500hz_le"], NOT_RECORDED),
+          findings: pick(hearing, ["ear_exam_le"], NOT_RECORDED),
+        },
+        whisperTest: {
+          right: pick(hearing, ["whisper_test_re"], NOT_RECORDED),
+          left: pick(hearing, ["whisper_test_le"], NOT_RECORDED),
+          distance: pick(hearing, ["whisper_test_distance"], NOT_RECORDED),
+        },
+        speech: {
+          right: pick(hearing, ["speech_recognition_re"], NOT_RECORDED),
+          left: pick(hearing, ["speech_recognition_le"], NOT_RECORDED),
+          srtRight: pick(hearing, ["srt_re"], NOT_RECORDED),
+          srtLeft: pick(hearing, ["srt_le"], NOT_RECORDED),
+        },
+        tympanometry: {
+          right: pick(hearing, ["tympanometry_re"], NOT_RECORDED),
+          left: pick(hearing, ["tympanometry_le"], NOT_RECORDED),
+        },
+        remarks:
+          getRecordName(
+            hearing,
+            "whisper_test_remarks",
+            "ear_comments",
+            "recommendation_type",
+          ) || NOT_RECORDED,
+      },
+
+      /* ---------------- DENTAL — from the dental screening record -------- */
+      dental: {
+        ...HEALTH_PROFILE_TEMPLATE.dental,
+        status: pick(dental, ["oral_hygiene", "status", "oral_health"]),
+        oralHygiene: pick(dental, ["oral_hygiene", "oral_health"]),
+        gingivalHealth: pick(dental, ["gingival_health", "gingivitis"]),
+        plaque: pick(dental, ["plaque", "plaque_status"]),
+        caries: String(dental?.caries ?? dental?.decayed ?? "").trim()
+          ? String(dental?.caries ?? dental?.decayed).trim()
+          : "0",
+        otherIssues: String(dental?.other_issues ?? "").trim()
+          ? String(dental.other_issues).trim()
+          : "0",
+        healthyTeeth: String(dental?.healthy_teeth ?? "").trim()
+          ? String(dental.healthy_teeth).trim()
+          : NOT_RECORDED,
+        missingTeeth: String(dental?.missing_teeth ?? "").trim()
+          ? String(dental.missing_teeth).trim()
+          : "0",
+        currentTooth: {
+          ...HEALTH_PROFILE_TEMPLATE.dental.currentTooth,
+          number: pick(dental, ["tooth_number", "current_tooth"], NOT_RECORDED),
+          name: pick(dental, ["tooth_name"], NOT_RECORDED),
+          status: pick(dental, ["tooth_status", "condition"], NOT_RECORDED),
+          surface: pick(dental, ["surface"], NOT_RECORDED),
+          severity: pick(dental, ["severity"], NOT_RECORDED),
+          treatment: pick(dental, ["treatment", "recommendation"], NOT_RECORDED),
+        },
+        referral: {
+          action: toYesNoText(dental?.referral_required) || NOT_RECORDED,
+          reason: pick(dental, ["referral_reason"], NOT_RECORDED),
+          followUp: pick(dental, ["follow_up_period", "follow_up"], NOT_RECORDED),
+        },
+        instructions: pick(dental, ["instructions", "advice"], NOT_RECORDED),
+        notes: pick(dental, ["notes", "remarks"], NOT_RECORDED),
+      },
+
+      /* ---------------- ENT — from the ENT screening record -------------- */
+      ent: {
+        ...HEALTH_PROFILE_TEMPLATE.ent,
+        status: pick(ent, ["ent_grade", "severity", "risk_level", "status"]),
+        nose: pick(ent, ["nasal_breathing", "nasal_blockage", "nose_status"]),
+        throat: pick(ent, ["oropharynx", "pharyngeal_wall", "throat_status"]),
+        tonsils: pick(ent, ["tonsils", "tonsillar_enlargement"]),
+        lymphNodes: pick(ent, ["head_neck_lymph_nodes"]),
+        remarks: pick(
+          ent,
+          ["summary_remarks", "any_other_findings", "ear_comments"],
+          NOT_RECORDED,
+        ),
+      },
+
       history: {
         ...HEALTH_PROFILE_TEMPLATE.history,
-        allergies:
-          getRecordName(general, "allergy", "allergy_name") ||
-          HEALTH_PROFILE_TEMPLATE.history.allergies,
-        chronicDisease:
-          getRecordName(general, "chronic_disease", "chronic_disease_name") ||
-          HEALTH_PROFILE_TEMPLATE.history.chronicDisease,
+        allergies: pick(general, ["allergy", "allergy_name"], "None"),
+        chronicDisease: pick(
+          general,
+          ["chronic_disease", "chronic_disease_name"],
+          "None",
+        ),
         medications:
-          general?.regular_medication ||
-          HEALTH_PROFILE_TEMPLATE.history.medications,
+          getRecordName(general, "regular_medication", "medications") || "None",
       },
+
       referral: {
         ...HEALTH_PROFILE_TEMPLATE.referral,
-        type: general?.referral_type || HEALTH_PROFILE_TEMPLATE.referral.type,
+        required:
+          general?.referral_required === true ||
+          general?.referral_required === 1 ||
+          general?.referral_required === "1"
+            ? true
+            : Boolean(vision?.referral_to_specialist),
+        type:
+          getRecordName(general, "referral_type") ||
+          getRecordName(ent, "recommend_to") ||
+          (vision?.referral_to_specialist ? "Vision specialist" : "Not required"),
         reason:
-          general?.referral_type_notes ||
-          general?.referral ||
-          HEALTH_PROFILE_TEMPLATE.referral.reason,
+          getRecordName(general, "referral_type_notes", "referral", "referral_reason") ||
+          getRecordName(vision, "referral_reason") ||
+          getRecordName(dental, "referral_reason") ||
+          NOT_RECORDED,
         followUp:
-          general?.follow_up_period ||
-          HEALTH_PROFILE_TEMPLATE.referral.followUp,
+          getRecordName(general, "follow_up_period") ||
+          getRecordName(vision, "follow_up") ||
+          getRecordName(hearing, "follow_up_period") ||
+          NOT_RECORDED,
       },
       clinicalNotes:
-        general?.remarks ??
-        general?.notes ??
-        HEALTH_PROFILE_TEMPLATE.clinicalNotes,
+        getRecordName(
+          general,
+          "remarks",
+          "notes",
+          "clinical_notes",
+        ) ||
+        getRecordName(ent, "summary_remarks", "any_other_findings") ||
+        NOT_RECORDED,
     };
   }, [
     selectedStudent,
@@ -771,10 +1044,70 @@ export default function StudenthealthReport() {
     selectedCamp,
     assignedEvents,
     campStudentMap,
+    examinerName,
     studentData.general,
+    studentData.vision,
+    studentData.dental,
+    studentData.hearing,
+    studentData.ent,
   ]);
 
 
+
+  /**
+   * Which of the five screenings actually have a record for this student.
+   * Rendered as a coverage strip so a blank card is obviously "not screened"
+   * rather than a real finding.
+   */
+  const screeningCoverage = useMemo(() => {
+    const items = [
+      { key: "general", label: "General", icon: Activity, record: studentData.general },
+      { key: "vision", label: "Vision", icon: Eye, record: studentData.vision },
+      { key: "hearing", label: "Hearing", icon: Ear, record: studentData.hearing },
+      { key: "dental", label: "Dental", icon: Activity, record: studentData.dental },
+      { key: "ent", label: "ENT", icon: CircleDot, record: studentData.ent },
+    ];
+
+    return items.map((item) => ({
+      ...item,
+      recorded: Boolean(item.record),
+    }));
+  }, [studentData]);
+
+  const recordedCount = screeningCoverage.filter((item) => item.recorded).length;
+
+  /**
+   * BMI as a real number, or null when height/weight were never recorded.
+   * The value stored in `healthProfile` is the "Not recorded" placeholder in that
+   * case, which must never reach the gauge or the 5xl numeral.
+   */
+  const bmiSummary = useMemo(() => {
+    const parsed = Number.parseFloat(
+      String(healthProfile.vitals.bmi.value ?? "").trim(),
+    );
+
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return { value: null, label: "", percentile: NOT_RECORDED };
+    }
+
+    const rounded = Math.round(parsed * 10) / 10;
+
+    // Same clinical bands the general screening page uses.
+    const label =
+      rounded < 18.5
+        ? "Underweight"
+        : rounded < 25
+          ? "Normal"
+          : rounded < 30
+            ? "Overweight"
+            : "Obese";
+
+    return {
+      value: String(rounded),
+      label,
+      percentile: healthProfile.vitals.bmi.percentile,
+    };
+  }, [healthProfile.vitals.bmi.value, healthProfile.vitals.bmi.percentile]);
 
   const radarValues = useMemo(
     () => ({
@@ -922,11 +1255,11 @@ export default function StudenthealthReport() {
   };
 
   return (
-    <div className="min-h-screen">
-      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
+    <div className="hc-shell min-h-screen">
+      <div className="sticky top-14 z-10 flex flex-col gap-3 border-b border-border/60 bg-background/85 px-0 backdrop-blur supports-backdrop-filter:bg-background/70 md:flex-row md:items-center md:justify-between">
         <div>
-          <div className="flex items-center gap-2 py-3">
-            <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary aspect-square">
+          <div className="flex items-center gap-3 py-3">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-sm aspect-square">
               <Cross className="size-6" />
             </div>
 
@@ -939,12 +1272,17 @@ export default function StudenthealthReport() {
                 General health screening and assessment
               </p> */}
               <div>
-                <h1 className="font-sf text-3xl font-semibold tracking-tight text-foreground lg:text-4xl">
+                <h1 className="font-sf text-2xl font-semibold tracking-tight text-foreground sm:text-3xl lg:text-4xl">
                   Health Check Overview
                 </h1>
 
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Comprehensive student health assessment · 17 Aug 2026
+                <div className="hc-rule mt-2.5 h-0.5 w-full rounded-full" />
+
+                <p className="mt-2.5 text-sm text-muted-foreground">
+                  Comprehensive student health assessment
+                  {healthProfile.assessment.date
+                    ? ` · ${healthProfile.assessment.date}`
+                    : ""}
                 </p>
               </div>
 
@@ -1063,6 +1401,72 @@ export default function StudenthealthReport() {
           authUser={authUser}
         />
       </div>
+
+      {/* SCREENING COVERAGE — shows at a glance which screenings have real data */}
+      {selectedStudent ? (
+        <div className="mb-1 overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-primary/5 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="flex size-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <ShieldCheck className="size-4" aria-hidden="true" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  Screening coverage
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {recordedCount} of {screeningCoverage.length} screenings recorded
+                  for this student
+                </p>
+              </div>
+            </div>
+
+            {/* Progress rail */}
+            <div className="h-1.5 w-full max-w-[16rem] overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-primary to-primary/70 transition-all duration-500"
+                style={{
+                  width: `${
+                    (recordedCount / screeningCoverage.length) * 100
+                  }%`,
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+            {screeningCoverage.map((item) => {
+              const Icon = item.icon;
+
+              return (
+                <div
+                  key={item.key}
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-2 transition-colors ${
+                    item.recorded
+                      ? "border-success/30 bg-success/5"
+                      : "border-dashed border-border bg-muted/30"
+                  }`}
+                >
+                  <Icon
+                    className={`size-4 shrink-0 ${
+                      item.recorded ? "text-success" : "text-muted-foreground"
+                    }`}
+                    aria-hidden="true"
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-semibold text-foreground">
+                      {item.label}
+                    </p>
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      {item.recorded ? "Recorded" : "Not screened"}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
       {/* HEADER */}
       {/* <header className="sticky top-0 z-20 border-b border-border bg-card/95 backdrop-blur">
         <div className="mx-auto flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between lg:px-6">
@@ -1108,15 +1512,52 @@ export default function StudenthealthReport() {
 
         </div>
       </header> */}
-      {selectedStudent ? (
-        <main ref={reportRef} className="space-y-5">
+      {selectedStudent && showUnknownScreenings ? (
+  
+        <div className="rounded-xl border border-dashed border-border bg-card p-6">
+          <EmptyState
+            title="No Screenings Assigned"
+            description="This camp has no screenings assigned. Select a different camp to view the overview."
+          />
+        </div>
+      ) : selectedStudent ? (
+        /* The report page renders its content on a printable "sheet"
+           (`.report-surface`: white paper, A4 width, soft shadow). Reusing the
+           exact same wrapper here means the overview looks like the report on
+           screen AND the html2canvas PDF export inherits the same look. */
+        <main
+          ref={reportRef}
+          className="report-surface report-sheet space-y-6 text-foreground"
+        >
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center justify-end gap-2">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-md">
+                <Image src="/logo.svg" alt="Svastha" width={24} height={24} />
+              </span>
+
+              <span className="font-sf text-3xl font-bold tracking-wide text-brand-blue">
+                Svas
+                <span className="text-brand-green">t</span>
+                ha
+              </span>
+            </div>
+
+            <h6 className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+              <CalendarDays className="size-3.5 shrink-0 text-primary" />
+              <span className="whitespace-nowrap">
+                Health Check Overview
+              </span>
+            </h6>
+          </div>
+
           {/* STUDENT PROFILE */}
-          <FramerCard asCard className="border-border bg-card">
-            <CardContent className="p-5">
-              <div className="flex flex-col gap-5 lg:flex-row lg:justify-between">
+          {/* `report-doc__identity` already supplies the panel padding, so the
+              old inner p-5 wrapper is dropped to avoid double padding. */}
+          <div className="report-doc__identity">
+              <div className="report-sheet__identity flex flex-col gap-5">
                 <div className="flex gap-4">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10">
-                    <UserRound className="h-8 w-8 text-primary" />
+                  <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <UserRound className="size-8" />
                   </div>
 
                   <div>
@@ -1205,19 +1646,18 @@ export default function StudenthealthReport() {
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </FramerCard>
+          </div>
 
           {/* ASSESSMENT DETAILS */}
           <FramerCard asCard className="border-border bg-card">
-            <CardHeader>
+            <CardHeader className="hc-panel-head">
               <CardTitle className="text-base text-foreground">
                 Assessment Details
               </CardTitle>
             </CardHeader>
 
             <CardContent>
-              <div className="grid grid-cols-2 gap-5 md:grid-cols-5">
+              <div className="report-sheet__grid-2 grid grid-cols-1 gap-4 py-4">
                 <Result
                   label="Assessment Date"
                   value={healthProfile.assessment.date}
@@ -1252,7 +1692,7 @@ export default function StudenthealthReport() {
           </FramerCard>
 
           {/* VITALS */}
-          <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <section className="report-sheet__grid-4 grid grid-cols-2 gap-4">
             <StatCard
               icon={Activity}
               label="Height"
@@ -1287,7 +1727,7 @@ export default function StudenthealthReport() {
           </section>
 
           {/* MORE VITALS */}
-          <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <section className="report-sheet__grid-4 grid grid-cols-2 gap-4">
             <StatCard
               icon={HeartPulse}
               label="Blood Pressure"
@@ -1322,11 +1762,12 @@ export default function StudenthealthReport() {
           </section>
 
           {/* MAIN CONTENT */}
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_340px]">
+          <div className="report-sheet__split grid grid-cols-1 gap-5">
             <div className="space-y-5">
               {/* GROWTH */}
+              {showGeneral ? (
               <FramerCard asCard className="border-border bg-card">
-                <CardHeader>
+                <CardHeader className="hc-panel-head">
                   <SectionTitle
                     icon={Activity}
                     title="Growth & BMI"
@@ -1336,7 +1777,7 @@ export default function StudenthealthReport() {
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="report-sheet__grid-2 grid gap-4">
                     <Measurement
                       title="Height"
                       value="145"
@@ -1352,9 +1793,9 @@ export default function StudenthealthReport() {
                     />
                   </div>
 
-                  <div className="rounded-xl border border-border bg-muted/40 p-5">
-                    <div className="flex justify-between">
-                      <div>
+                  <div className="hc-tile h-full">
+                    <div className="flex justify-between gap-3">
+                      <div className="min-w-0">
                         <p className="text-sm font-semibold text-foreground">
                           Body Mass Index
                         </p>
@@ -1364,33 +1805,52 @@ export default function StudenthealthReport() {
                         </p>
                       </div>
 
-                      <Badge className="bg-success/10 text-success">
-                        Normal
-                      </Badge>
+                      {bmiSummary.value !== null ? (
+                        <Badge className="shrink-0 bg-success/10 text-success">
+                          {bmiSummary.label}
+                        </Badge>
+                      ) : null}
                     </div>
 
-                    {/* ADDITION: BmiMiniGauge added alongside the existing
-                        number block — the original centered number stays
-                        exactly as it was */}
-                    <div className="flex flex-col items-center gap-2 py-6 sm:flex-row sm:justify-center sm:gap-8">
-                      <BmiMiniGauge bmi={healthProfile.vitals.bmi.value} />
-                      <div className="text-center">
-                        <p className="text-5xl font-bold text-foreground">
-                          {healthProfile.vitals.bmi.value}
+                    {/* The gauge and the large numeral only make sense for a real
+                        numeric BMI. When height/weight were never recorded the
+                        value is the "Not recorded" placeholder, and rendering that
+                        at 5xl overflowed the tile — so show a quiet empty state
+                        instead of a broken gauge. */}
+                    {bmiSummary.value !== null ? (
+                      <div className="flex flex-col items-center gap-2 py-6 sm:flex-row sm:justify-center sm:gap-8">
+                        <BmiMiniGauge bmi={bmiSummary.value} />
+
+                        <div className="text-center">
+                          <p className="hc-figure text-5xl font-bold text-foreground">
+                            {bmiSummary.value}
+                          </p>
+
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            BMI • {bmiSummary.percentile}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+                        <p className="text-sm font-medium italic text-muted-foreground/70">
+                          Not recorded
                         </p>
 
-                        <p className="mt-2 text-xs text-muted-foreground">
-                          BMI • {healthProfile.vitals.bmi.percentile}
+                        <p className="text-xs text-muted-foreground">
+                          BMI is calculated once height and weight are entered.
                         </p>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </CardContent>
               </FramerCard>
+              ) : null}
 
               {/* VISION */}
+              {showVision ? (
               <FramerCard asCard className="border-border bg-card">
-                <CardHeader>
+                <CardHeader className="hc-panel-head">
                   <SectionTitle
                     icon={Eye}
                     title="Vision Screening"
@@ -1400,7 +1860,7 @@ export default function StudenthealthReport() {
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="report-sheet__grid-2 grid gap-4">
                     <VisionCard
                       eye="Right Eye (OD)"
                       acuity={healthProfile.vision.rightEye.acuity}
@@ -1414,7 +1874,7 @@ export default function StudenthealthReport() {
                     />
                   </div>
 
-                  <div className="grid gap-4 rounded-xl border border-border bg-muted/40 p-4 sm:grid-cols-3">
+                  <div className="report-sheet__grid-3 hc-tile grid gap-4">
                     <Result
                       label="Color Vision"
                       value={healthProfile.vision.colorVision}
@@ -1434,10 +1894,12 @@ export default function StudenthealthReport() {
                   <Note text={healthProfile.vision.remarks} />
                 </CardContent>
               </FramerCard>
+              ) : null}
 
               {/* HEARING */}
+              {showHearing ? (
               <FramerCard asCard className="border-border bg-card">
-                <CardHeader>
+                <CardHeader className="hc-panel-head">
                   <SectionTitle
                     icon={Ear}
                     title="Hearing Screening"
@@ -1447,7 +1909,7 @@ export default function StudenthealthReport() {
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="report-sheet__grid-2 grid gap-4">
                     <ScreeningResult
                       title="Right Ear"
                       value={healthProfile.hearing.rightEar.status}
@@ -1461,7 +1923,7 @@ export default function StudenthealthReport() {
                     />
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="report-sheet__grid-2 grid gap-4">
                     <InfoCard title="Whisper Test">
                       <div className="grid grid-cols-2 gap-4">
                         <Result
@@ -1520,152 +1982,15 @@ export default function StudenthealthReport() {
                   </InfoCard>
                 </CardContent>
               </FramerCard>
+              ) : null}
 
-              {/* DENTAL */}
-              <FramerCard asCard className="border-border bg-card">
-                <CardHeader>
-                  <SectionTitle
-                    icon={HeartPulse}
-                    title="Dental Screening"
-                    subtitle="Oral and dental examination"
-                    badge={healthProfile.dental.status}
-                  />
-                </CardHeader>
-
-                <CardContent className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <ScreeningResult
-                      title="Oral Hygiene"
-                      value={healthProfile.dental.oralHygiene}
-                      description="Overall oral hygiene"
-                    />
-
-                    <ScreeningResult
-                      title="Gingival Health"
-                      value={healthProfile.dental.gingivalHealth}
-                      description="Gum health"
-                    />
-
-                    <ScreeningResult
-                      title="Plaque"
-                      value={healthProfile.dental.plaque}
-                      description="Plaque assessment"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                    <SummaryValue
-                      label="Caries"
-                      value={healthProfile.dental.caries}
-                    />
-
-                    <SummaryValue
-                      label="Other Issues"
-                      value={healthProfile.dental.otherIssues}
-                    />
-
-                    <SummaryValue
-                      label="Healthy"
-                      value={healthProfile.dental.healthyTeeth}
-                    />
-
-                    <SummaryValue
-                      label="Missing"
-                      value={healthProfile.dental.missingTeeth}
-                    />
-                  </div>
-
-                  <div className="rounded-xl border border-warning/30 bg-warning/5 p-5">
-                    <p className="text-xs text-muted-foreground">
-                      Current Tooth
-                    </p>
-
-                    <h3 className="mt-1 font-semibold text-foreground">
-                      Tooth {healthProfile.dental.currentTooth.number}{" "}
-                      <span className="font-normal text-muted-foreground">
-                        ({healthProfile.dental.currentTooth.name})
-                      </span>
-                    </h3>
-
-                    <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4">
-                      <Result
-                        label="Status"
-                        value={healthProfile.dental.currentTooth.status}
-                      />
-
-                      <Result
-                        label="Surface"
-                        value={healthProfile.dental.currentTooth.surface}
-                      />
-
-                      <Result
-                        label="Severity"
-                        value={healthProfile.dental.currentTooth.severity}
-                      />
-
-                      <Result
-                        label="Treatment"
-                        value={healthProfile.dental.currentTooth.treatment}
-                      />
-                    </div>
-                  </div>
-
-                  <InfoCard title="Dental Referral">
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <Result
-                        label="Recommended Action"
-                        value={healthProfile.dental.referral.action}
-                      />
-
-                      <Result
-                        label="Reason"
-                        value={healthProfile.dental.referral.reason}
-                      />
-
-                      <Result
-                        label="Follow-up"
-                        value={healthProfile.dental.referral.followUp}
-                      />
-                    </div>
-                  </InfoCard>
-                </CardContent>
-              </FramerCard>
-
-              {/* ENT */}
-              <FramerCard asCard className="border-border bg-card">
-                <CardHeader>
-                  <SectionTitle
-                    icon={Activity}
-                    title="ENT Screening"
-                    subtitle="Ear, nose and throat assessment"
-                    badge={healthProfile.ent.status}
-                  />
-                </CardHeader>
-
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                    <Result label="Nose" value={healthProfile.ent.nose} />
-
-                    <Result label="Throat" value={healthProfile.ent.throat} />
-
-                    <Result label="Tonsils" value={healthProfile.ent.tonsils} />
-
-                    <Result
-                      label="Lymph Nodes"
-                      value={healthProfile.ent.lymphNodes}
-                    />
-                  </div>
-
-                  <Note text={healthProfile.ent.remarks} />
-                </CardContent>
-              </FramerCard>
             </div>
 
             {/* RIGHT SIDEBAR */}
             <aside className="space-y-5">
               {/* BLOOD GROUP */}
               <FramerCard asCard className="border-border bg-card">
-                <CardHeader>
+                <CardHeader className="hc-panel-head">
                   <CardTitle className="text-base text-foreground">
                     Blood Group
                   </CardTitle>
@@ -1691,8 +2016,9 @@ export default function StudenthealthReport() {
               </FramerCard>
 
               {/* IMMUNIZATION */}
+              {showImmunization ? (
               <FramerCard asCard className="border-border bg-card">
-                <CardHeader>
+                <CardHeader className="hc-panel-head">
                   <SectionTitle
                     icon={Syringe}
                     title="Immunization"
@@ -1718,10 +2044,11 @@ export default function StudenthealthReport() {
                   />
                 </CardContent>
               </FramerCard>
+              ) : null}
 
               {/* HEALTH HISTORY */}
               <FramerCard asCard className="border-border bg-card">
-                <CardHeader>
+                <CardHeader className="hc-panel-head">
                   <CardTitle className="text-base text-foreground">
                     Health History
                   </CardTitle>
@@ -1757,7 +2084,7 @@ export default function StudenthealthReport() {
 
               {/* RISK FACTORS */}
               <FramerCard asCard className="border-border bg-card">
-                <CardHeader>
+                <CardHeader className="hc-panel-head">
                   <CardTitle className="text-base text-foreground">
                     Risk Factors
                   </CardTitle>
@@ -1793,11 +2120,11 @@ export default function StudenthealthReport() {
 
               {/* REFERRAL */}
               <FramerCard asCard className="border-warning/30 bg-card">
-                <CardHeader>
+                <CardHeader className="hc-panel-head">
                   <CardTitle className="text-base text-foreground">
                     Referral & Follow-up
                   </CardTitle>
-                  <Badge className="bg-warning/10 text-warning">
+                  <Badge className="bg-warning/10 text-warning w-fit">
                     {healthProfile.referral.priority}
                   </Badge>
                 </CardHeader>
@@ -1824,24 +2151,166 @@ export default function StudenthealthReport() {
 
               {/* NOTES */}
               <FramerCard asCard className="border-border bg-card">
-                <CardHeader>
+                <CardHeader className="hc-panel-head">
                   <CardTitle className="text-base text-foreground">
                     Clinical Notes
                   </CardTitle>
                 </CardHeader>
 
                 <CardContent>
-                  <p className="rounded-lg border border-border bg-muted/40 p-4 text-sm leading-6 text-muted-foreground">
+                  <p className="hc-tile text-sm leading-6 text-foreground/80">
                     {healthProfile.clinicalNotes}
                   </p>
                 </CardContent>
               </FramerCard>
             </aside>
           </div>
+           {/* DENTAL */}
+           {showDental ? (
+              <FramerCard asCard className="border-border bg-card">
+                <CardHeader className="hc-panel-head">
+                  <SectionTitle
+                    icon={HeartPulse}
+                    title="Dental Screening"
+                    subtitle="Oral and dental examination"
+                    badge={healthProfile.dental.status}
+                  />
+                </CardHeader>
+
+                <CardContent className="space-y-4">
+                  <div className="report-sheet__grid-3 grid gap-4">
+                    <ScreeningResult
+                      title="Oral Hygiene"
+                      value={healthProfile.dental.oralHygiene}
+                      description="Overall oral hygiene"
+                    />
+
+                    <ScreeningResult
+                      title="Gingival Health"
+                      value={healthProfile.dental.gingivalHealth}
+                      description="Gum health"
+                    />
+
+                    <ScreeningResult
+                      title="Plaque"
+                      value={healthProfile.dental.plaque}
+                      description="Plaque assessment"
+                    />
+                  </div>
+
+                  <div className="report-sheet__grid-4 grid grid-cols-2 gap-3">
+                    <SummaryValue
+                      label="Caries"
+                      value={healthProfile.dental.caries}
+                    />
+
+                    <SummaryValue
+                      label="Other Issues"
+                      value={healthProfile.dental.otherIssues}
+                    />
+
+                    <SummaryValue
+                      label="Healthy"
+                      value={healthProfile.dental.healthyTeeth}
+                    />
+
+                    <SummaryValue
+                      label="Missing"
+                      value={healthProfile.dental.missingTeeth}
+                    />
+                  </div>
+
+                  <div className="rounded-xl border border-warning/30 bg-warning/5 p-5">
+                    <p className="text-xs text-muted-foreground">
+                      Current Tooth
+                    </p>
+
+                    <h3 className="mt-1 font-semibold text-foreground">
+                      Tooth {healthProfile.dental.currentTooth.number}{" "}
+                      <span className="font-normal text-muted-foreground">
+                        ({healthProfile.dental.currentTooth.name})
+                      </span>
+                    </h3>
+
+                    <div className="report-sheet__grid-4 mt-4 grid grid-cols-2 gap-4">
+                      <Result
+                        label="Status"
+                        value={healthProfile.dental.currentTooth.status}
+                      />
+
+                      <Result
+                        label="Surface"
+                        value={healthProfile.dental.currentTooth.surface}
+                      />
+
+                      <Result
+                        label="Severity"
+                        value={healthProfile.dental.currentTooth.severity}
+                      />
+
+                      <Result
+                        label="Treatment"
+                        value={healthProfile.dental.currentTooth.treatment}
+                      />
+                    </div>
+                  </div>
+
+                  <InfoCard title="Dental Referral">
+                    <div className="report-sheet__grid-3 grid gap-4">
+                      <Result
+                        label="Recommended Action"
+                        value={healthProfile.dental.referral.action}
+                      />
+
+                      <Result
+                        label="Reason"
+                        value={healthProfile.dental.referral.reason}
+                      />
+
+                      <Result
+                        label="Follow-up"
+                        value={healthProfile.dental.referral.followUp}
+                      />
+                    </div>
+                  </InfoCard>
+                </CardContent>
+              </FramerCard>
+           ) : null}
+
+              {/* ENT */}
+              {showEnt ? (
+              <FramerCard asCard className="border-border bg-card">
+                <CardHeader className="hc-panel-head">
+                  <SectionTitle
+                    icon={Activity}
+                    title="ENT Screening"
+                    subtitle="Ear, nose and throat assessment"
+                    badge={healthProfile.ent.status}
+                  />
+                </CardHeader>
+
+                <CardContent>
+                  <div className="report-sheet__grid-4 grid grid-cols-2 gap-4 pb-4">
+                    <Result label="Nose" value={healthProfile.ent.nose} />
+
+                    <Result label="Throat" value={healthProfile.ent.throat} />
+
+                    <Result label="Tonsils" value={healthProfile.ent.tonsils} />
+
+                    <Result
+                      label="Lymph Nodes"
+                      value={healthProfile.ent.lymphNodes}
+                    />
+                  </div>
+
+                  <Note text={healthProfile.ent.remarks} />
+                </CardContent>
+              </FramerCard>
+              ) : null}
 
           {/* FINAL ASSESSMENT */}
           <FramerCard asCard className="border-border bg-card">
-            <CardHeader>
+            <CardHeader className="hc-panel-head">
               <SectionTitle
                 icon={CheckCircle2}
                 title="Overall Assessment"
@@ -1855,16 +2324,29 @@ export default function StudenthealthReport() {
                   glance, placed above the existing grid — the grid below
                   is completely unchanged */}
               <div className="mb-6 flex justify-center">
-                <SystemsRadarChart values={radarValues} />
+                <SystemsRadarChart
+                  values={radarValues}
+                  assignedScreeningKeys={assignedScreeningKeys}
+                />
               </div>
 
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-                <OverallItem title="Growth" value="Normal" />
-                <OverallItem title="Vision" value="Normal" />
-                <OverallItem title="Hearing" value="Normal" />
-                <OverallItem title="Dental" value="Good" />
-                <OverallItem title="ENT" value="Normal" />
-                <OverallItem title="Immunization" value="Up to date" />
+              <div className="report-sheet__grid-3 grid grid-cols-2 gap-3">
+                {showGeneral ? (
+                  <OverallItem title="Growth" value="Normal" />
+                ) : null}
+                {showVision ? (
+                  <OverallItem title="Vision" value="Normal" />
+                ) : null}
+                {showHearing ? (
+                  <OverallItem title="Hearing" value="Normal" />
+                ) : null}
+                {showDental ? (
+                  <OverallItem title="Dental" value="Good" />
+                ) : null}
+                {showEnt ? <OverallItem title="ENT" value="Normal" /> : null}
+                {showImmunization ? (
+                  <OverallItem title="Immunization" value="Up to date" />
+                ) : null}
               </div>
 
               <Separator className="my-5 bg-muted" />
@@ -1873,7 +2355,7 @@ export default function StudenthealthReport() {
                 Recommendations
               </h3>
 
-              <ul className="mt-3 grid gap-3 md:grid-cols-2">
+              <ul className="report-sheet__grid-2 mt-3 grid gap-3">
                 {healthProfile.recommendations.map((item) => (
                   <li
                     key={item}
@@ -1885,25 +2367,57 @@ export default function StudenthealthReport() {
                 ))}
               </ul>
 
-              <div className="mt-7 flex justify-between border-t border-border pt-5">
-                <div>
+              <div className="report-sheet__grid-2 relative mt-7 grid grid-cols-1 items-center gap-6 border-t border-border pt-5 sm:items-end">
+                <div className="min-w-0">
                   <p className="text-xs text-muted-foreground">Examined by</p>
 
-                  <p className="mt-1 font-medium text-foreground">
+                  <p className="mt-1 font-medium break-words text-foreground">
                     {healthProfile.assessment.examiner}
                   </p>
 
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs break-words text-muted-foreground">
                     {healthProfile.assessment.designation}
                   </p>
                 </div>
 
-                <div className="text-right">
-                  <p className="font-serif text-2xl italic text-primary">
-                    Priya Sharma
-                  </p>
+                
+                
 
-                  <p className="text-xs text-muted-foreground">
+                
+                <div className="relative min-w-0 justify-self-center text-center sm:justify-self-end sm:text-right">
+                  <div className="absolute right-3/4 z-1 flex size-28 shrink-0 flex-col items-center justify-center gap-0.5 justify-self-center rounded-full border-2 border-dashed border-primary/40 p-2 text-center rotate-325 sm:size-32">
+                  <Image src="/logo.svg" alt="Svastha" width={26} height={26} />
+
+                  <span className="font-sf text-xs font-bold tracking-wide text-brand-blue">
+                    Svastha
+                  </span>
+
+                  <span className="text-[8px] leading-tight tracking-[0.14em] text-primary">
+                    Authorized Signatory
+                  </span>
+
+                  <span className="text-[8px] leading-tight text-muted-foreground text-brand-green">
+                    SMS
+                  </span>
+                </div>
+                  <div className="relative mx-auto h-28 w-72 max-w-full sm:h-32 sm:w-80">
+                    {doctorSignatureUrl ? (
+                      <Image
+                        src={doctorSignatureUrl}
+                        alt={`Signature of ${healthProfile.assessment.examiner}`}
+                        fill
+                        sizes="(max-width: 640px) 200px, 20rem"
+                        unoptimized
+                        className="object-contain"
+                      />
+                    ) : (
+                      <p className="font-serif text-2xl italic text-primary">
+                        {examinerName || healthProfile.assessment.examiner}
+                      </p>
+                    )}
+                  </div>
+
+                  <p className="mt-2 text-xs text-muted-foreground">
                     {healthProfile.assessment.date}
                   </p>
                 </div>
@@ -1948,89 +2462,148 @@ function StatCard({ icon: Icon, label, value, status, color }) {
   };
 
   return (
-    <FramerCard asCard className="border-border bg-card">
-      <CardContent className="p-4">
-        <div className="flex justify-between">
-          <div
-            className={`flex h-9 w-9 items-center justify-center rounded-lg ${styles[color]}`}
-          >
-            {Icon ? <Icon className="size-5" /> : null}
-          </div>
-
-          <span className="text-xs text-success">{status}</span>
+    /* Mirrors the report's `status-card`: compact tile, hairline rule between
+       the label and the figure, soft top-edge lift instead of a heavy shadow
+       (a heavy shadow muddies up in the html2canvas PDF rasterisation). */
+    <div className="hc-tile group border">
+      <div className="flex items-start justify-between gap-2">
+        <div
+          className={`flex size-8 items-center justify-center rounded-lg ${styles[color]}`}
+        >
+          {Icon ? <Icon className="size-4" /> : null}
         </div>
 
-        <p className="mt-4 text-xs text-muted-foreground">{label}</p>
+        {status ? (
+          <span className="report-doc__badge rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">
+            {status}
+          </span>
+        ) : null}
+      </div>
 
-        <p className="mt-1 text-xl font-semibold text-foreground">{value}</p>
-      </CardContent>
-    </FramerCard>
+      <p className="mt-3 text-[10px] font-semibold tracking-[0.07em] text-muted-foreground uppercase">
+        {label}
+      </p>
+
+      <p className="hc-figure mt-1 text-xl font-semibold text-foreground">
+        {value}
+      </p>
+    </div>
   );
 }
 
 function SectionTitle({ icon: Icon, title, subtitle, badge }) {
   return (
-    <div className="flex items-start justify-between gap-3">
-      <div className="flex gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          {Icon ? <Icon className="size-5" /> : null}
-        </div>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="report-doc__heading">
+        {Icon ? (
+          <span className="flex size-5 shrink-0 items-center justify-center text-primary">
+            <Icon className="size-4" />
+          </span>
+        ) : null}
 
-        <div>
-          <CardTitle className="text-base text-foreground">{title}</CardTitle>
+        <div className="flex flex-col gap-0">
+          <span>{title}</span>
 
-          <p className="text-xs text-muted-foreground">{subtitle}</p>
+        {subtitle ? (
+          <span className=" text-[10px] font-medium tracking-normal normal-case text-muted-foreground">
+            {subtitle}
+          </span>
+        ) : null}
         </div>
       </div>
 
-      {badge && <Badge className="bg-success/10 text-success">{badge}</Badge>}
+      {badge ? (
+        <Badge className="report-doc__badge shrink-0 rounded-full bg-success/10 px-2 py-1 text-xs font-medium text-success">
+          {badge}
+        </Badge>
+      ) : null}
     </div>
   );
 }
 
 function Measurement({ title, value, unit, standard }) {
-  return (
-    <div className="rounded-xl border border-border bg-muted/40 p-4">
-      <p className="text-xs text-muted-foreground">{title}</p>
+  // `value` is the "Not recorded" placeholder when the vitals were never
+  // entered. Render it at body size so the long word can never blow out the
+  // 3xl numeral slot and overflow the tile.
+  const isEmpty =
+    value === NOT_RECORDED ||
+    value === "--" ||
+    value === null ||
+    value === undefined ||
+    value === "";
 
-      <p className="mt-2 text-2xl font-semibold text-foreground">
-        {value} <span className="text-sm text-muted-foreground">{unit}</span>
+  return (
+    <div className="hc-tile hc-tile--accent">
+      <p className="text-[10px] font-semibold tracking-[0.07em] text-muted-foreground uppercase">
+        {title}
       </p>
 
-      <div className="mt-4 flex justify-between border-t border-border pt-3">
+      {isEmpty ? (
+        <p className="mt-2 text-lg font-medium italic text-muted-foreground/60">
+          Not recorded
+        </p>
+      ) : (
+        <p className="hc-figure mt-2 text-3xl font-semibold text-foreground">
+          {value}{" "}
+          <span className="text-sm font-normal text-muted-foreground">{unit}</span>
+        </p>
+      )}
+
+      <div className="mt-4 flex items-center justify-between gap-2 border-t border-border/70 pt-3">
         <span className="text-xs text-muted-foreground">Standard</span>
 
-        <span className="text-xs text-success">{standard}</span>
+        <span className="truncate rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
+          {standard ?? "—"}
+        </span>
       </div>
     </div>
   );
 }
 
 function VisionCard({ eye, acuity, corrected }) {
+  // Same guard as Measurement: acuity is the "Not recorded" placeholder when
+  // the vision screening was never done, and at 4xl that long word overflows.
+  const acuityEmpty =
+    acuity === NOT_RECORDED ||
+    acuity === "--" ||
+    acuity === null ||
+    acuity === undefined ||
+    acuity === "";
+
   return (
-    <div className="rounded-xl border border-border bg-muted/40 p-4">
-      <div className="flex justify-between">
-        <div className="flex items-center gap-2">
+    <div className="hc-tile hc-tile--accent">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           {/* ADDITION: small colored eye status badge, classified from the
               acuity value — text content below is completely unchanged */}
           <EyeStatusBadge acuity={acuity} />
-          <p className="text-sm font-medium text-foreground">{eye}</p>
+          <p className="truncate text-sm font-medium text-foreground">{eye}</p>
         </div>
 
-        <Badge className="bg-success/10 text-success">Normal</Badge>
+        <Badge className="shrink-0 rounded-full bg-success/10 text-success">Normal</Badge>
       </div>
 
-      <div className="mt-5 flex justify-between">
-        <div>
+      <div className="mt-5 flex items-end justify-between gap-3">
+        <div className="min-w-0">
           <p className="text-xs text-muted-foreground">Visual Acuity</p>
 
-          <p className="text-3xl font-bold text-foreground">{acuity}</p>
+          {acuityEmpty ? (
+            <p className="mt-1 text-lg font-medium italic text-muted-foreground/60">
+              Not recorded
+            </p>
+          ) : (
+            <p className="hc-figure mt-1 text-4xl font-bold text-foreground">
+              {acuity}
+            </p>
+          )}
         </div>
 
-        <div className="text-right">
+        <div className="shrink-0 text-right">
           <p className="text-xs text-muted-foreground">Corrected</p>
 
-          <p className="text-sm text-muted-foreground">{corrected}</p>
+          <p className="mt-1 text-sm font-medium text-foreground">
+            {corrected ?? "—"}
+          </p>
         </div>
       </div>
     </div>
@@ -2039,44 +2612,70 @@ function VisionCard({ eye, acuity, corrected }) {
 
 function ScreeningResult({ title, value, description }) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border bg-muted/40 p-4">
-      <div>
+    <div className="hc-tile flex items-center justify-between gap-3">
+      <div className="min-w-0">
         <p className="text-sm font-medium text-foreground">{title}</p>
 
-        <p className="text-xs text-muted-foreground">{description}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
       </div>
 
-      <Badge className="bg-success/10 text-success">{value}</Badge>
+      <Badge className="shrink-0 rounded-full bg-success/10 text-success">
+        {value}
+      </Badge>
     </div>
   );
 }
 
 function Result({ label, value }) {
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
+  // Values that fell through to the NOT_RECORDED placeholder are dimmed so a
+  // genuinely blank field is never mistaken for a real clinical finding.
+  const isEmpty =
+    value === NOT_RECORDED ||
+    value === "--" ||
+    value === null ||
+    value === undefined ||
+    value === "";
 
-      <p className="mt-1 text-sm font-medium text-foreground">{value}</p>
+  return (
+    /* Report-style key/value row: hairline separated, label in small caps —
+       the same language the report uses in its summary tables. */
+    <div className="min-w-0 border-t border-border/60 pt-2">
+      <p className="text-[10px] font-semibold tracking-[0.07em] text-muted-foreground uppercase">
+        {label}
+      </p>
+
+      <p
+        className={`mt-1 text-sm font-medium ${
+          isEmpty ? "italic text-muted-foreground/60" : "text-foreground"
+        }`}
+      >
+        {isEmpty ? "Not recorded" : value}
+      </p>
     </div>
   );
 }
 
 function InfoCard({ title, children }) {
   return (
-    <div className="rounded-xl border border-border bg-muted/40 p-4">
-      <p className="mb-4 text-sm font-semibold text-foreground">{title}</p>
+    <div className="hc-panel">
+      <div className="hc-panel-head">
+        <p className="text-sm font-semibold text-foreground">{title}</p>
+        <div className="hc-rule mt-2 h-0.5 w-10 rounded-full" />
+      </div>
 
-      {children}
+      <div className="p-4">{children}</div>
     </div>
   );
 }
 
 function Note({ text }) {
   return (
-    <div className="rounded-xl border border-border p-4">
-      <p className="text-xs text-muted-foreground">Remarks</p>
+    <div className="hc-tile hc-tile--accent border-warning/30 bg-warning/5">
+      <p className="text-xs font-medium tracking-wide text-warning uppercase">
+        Remarks
+      </p>
 
-      <p className="mt-1 text-sm text-muted-foreground">{text}</p>
+      <p className="mt-1.5 text-sm text-foreground/80">{text}</p>
     </div>
   );
 }
@@ -2094,10 +2693,12 @@ function StatusLine({ label, value }) {
 function HistoryItem({ label, value }) {
   return (
     <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {label}
+      </p>
 
-      <div className="mt-1 rounded-lg border border-border bg-muted/40 px-3 py-2">
-        <p className="text-sm text-muted-foreground">{value}</p>
+      <div className="mt-1.5 rounded-lg border border-border/70 bg-card/60 px-3 py-2">
+        <p className="text-sm text-foreground/80">{value}</p>
       </div>
     </div>
   );
@@ -2105,24 +2706,32 @@ function HistoryItem({ label, value }) {
 
 function SummaryValue({ label, value }) {
   return (
-    <div className="rounded-xl border border-border bg-muted/40 p-4 text-center">
-      <p className="text-xs text-muted-foreground">{label}</p>
+    <div className="hc-tile text-center">
+      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {label}
+      </p>
 
-      <p className="mt-1 text-lg font-semibold text-foreground">{value}</p>
+      <p className="hc-figure mt-1.5 text-2xl font-semibold text-foreground">
+        {value}
+      </p>
     </div>
   );
 }
 
 function OverallItem({ title, value }) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border bg-muted/40 p-4">
-      <div>
-        <p className="text-xs text-muted-foreground">{title}</p>
+    <div className="hc-tile flex items-center justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          {title}
+        </p>
 
         <p className="mt-1 text-sm font-medium text-foreground">{value}</p>
       </div>
 
-      <CheckCircle2 className="h-5 w-5 text-success" />
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-success/10">
+        <CheckCircle2 className="size-4 text-success" />
+      </span>
     </div>
   );
 }
@@ -2309,19 +2918,31 @@ function BmiMiniGauge({ bmi, size = 150 }) {
 // Six-axis radar chart summarizing Growth / Vision / Hearing / Dental /
 // ENT / Immunization at a glance.
 const RADAR_AXES = [
-  { key: "growth", label: "Growth" },
-  { key: "vision", label: "Vision" },
-  { key: "hearing", label: "Hearing" },
-  { key: "dental", label: "Dental" },
-  { key: "ent", label: "ENT" },
-  { key: "immunization", label: "Immun." },
+  { key: "growth", label: "Growth", screening: "general" },
+  { key: "vision", label: "Vision", screening: "vision" },
+  { key: "hearing", label: "Hearing", screening: "hearing" },
+  { key: "dental", label: "Dental", screening: "dental" },
+  { key: "ent", label: "ENT", screening: "ent" },
+  { key: "immunization", label: "Immun.", screening: "general" },
 ];
 
-function SystemsRadarChart({ values, size = 260 }) {
+function SystemsRadarChart({ values, size = 260, assignedScreeningKeys = [] }) {
+  // Only plot the systems this camp actually ran, so the chart never advertises
+  // a screening that is hidden from the page. Empty list = plot everything.
+  const assignedAxes = assignedScreeningKeys.length
+    ? RADAR_AXES.filter((axis) =>
+        assignedScreeningKeys.includes(axis.screening),
+      )
+    : RADAR_AXES;
+
+  // A radar polygon needs at least 3 axes to read as a shape — a 1 or 2 axis
+  // camp degenerates into a line, so fall back to the full set.
+  const axes = assignedAxes.length >= 3 ? assignedAxes : RADAR_AXES;
+
   const cx = size / 2;
   const cy = size / 2;
   const maxR = size / 2 - 34;
-  const n = RADAR_AXES.length;
+  const n = axes.length;
   const angleStep = (Math.PI * 2) / n;
 
   function pointAt(index, fraction) {
@@ -2331,7 +2952,7 @@ function SystemsRadarChart({ values, size = 260 }) {
   }
 
   const ringLevels = [0.25, 0.5, 0.75, 1];
-  const dataPoints = RADAR_AXES.map((axis, i) =>
+  const dataPoints = axes.map((axis, i) =>
     pointAt(i, (values[axis.key] ?? 0) / 100),
   );
   const polygonPoints = dataPoints.map((p) => `${p.x},${p.y}`).join(" ");
@@ -2339,7 +2960,7 @@ function SystemsRadarChart({ values, size = 260 }) {
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       {ringLevels.map((level) => {
-        const ringPoints = RADAR_AXES.map((_, i) => {
+        const ringPoints = axes.map((_, i) => {
           const p = pointAt(i, level);
           return `${p.x},${p.y}`;
         }).join(" ");
@@ -2354,7 +2975,7 @@ function SystemsRadarChart({ values, size = 260 }) {
         );
       })}
 
-      {RADAR_AXES.map((axis, i) => {
+      {axes.map((axis, i) => {
         const edge = pointAt(i, 1);
         return (
           <line
@@ -2376,7 +2997,7 @@ function SystemsRadarChart({ values, size = 260 }) {
       />
       {dataPoints.map((p, i) => (
         <circle
-          key={RADAR_AXES[i].key}
+          key={axes[i].key}
           cx={p.x}
           cy={p.y}
           r={3.5}
@@ -2384,7 +3005,7 @@ function SystemsRadarChart({ values, size = 260 }) {
         />
       ))}
 
-      {RADAR_AXES.map((axis, i) => {
+      {axes.map((axis, i) => {
         const label = pointAt(i, 1.18);
         return (
           <text

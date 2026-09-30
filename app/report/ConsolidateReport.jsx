@@ -5,28 +5,24 @@ import useStudentFilter from "./utilities/useStudentFilter";
 import HealthCheckContent from "./components/HealthCheckContent";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
-import {
-  ClipboardPlus,
-  FileSpreadsheet,
-  Search,
-  Stethoscope,
-} from "lucide-react";
-import { toast } from "sonner";
+import { ClipboardPlus, FileSpreadsheet, Search } from "lucide-react";
 import SchoolStudentFilter from "../students/utilities/SchoolStudentFilter";
 import { useAppSelector } from "@/lib/hooks";
-import { selectUserAccount } from "@/lib/features/auth-slice";
+import {
+  selectAuthUser,
+  selectIsPrimaryDoctorRole,
+  selectUserAccount,
+} from "@/lib/features/auth-slice";
 import { useDispatch } from "react-redux";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useAuthRole } from "@/lib/user-role";
 import { getAllSchoolBranches } from "@/lib/features/registerSchoolBranchSlice";
-import { getCampId } from "@/lib/camp-utils";
+import { getCampId, getScreeningIds, getScreeningKeys } from "@/lib/camp-utils";
 import PrimaryDoctorTab from "./components/PrimaryDoctorTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 
-// Numeric role ids expected by SchoolStudentFilter's internal map
-// ({ 1: "admin", 2: "school", 3: "teacher" }). Used as a fallback when the
-// account object doesn't carry a user_type_id.
 const ROLE_IDS = { admin: 1, school: 2, teacher: 3 };
 
 function ReportEmptyState() {
@@ -46,35 +42,50 @@ function ReportEmptyState() {
   );
 }
 
+/* Shown when a camp is selected but has no screenings assigned to it. */
+function NoScreeningsAssignedState() {
+  return (
+    <div className="rounded-xl border border-dashed border-border bg-card p-6 my-8">
+      <EmptyState
+        title="No Screenings Assigned"
+        description="This camp has no screenings assigned. Select a different camp to view its report."
+      />
+    </div>
+  );
+}
+
 export default function ConsolidateReport() {
   const dispatch = useDispatch();
-  const { filterProps, selectedStudent, selectedCamp, assignedEvents, classFilter, sectionFilter } =
-    useStudentFilter();
+  const {
+    filterProps,
+    doctorFilterProps,
+    selectedStudent,
+    selectedCamp,
+    assignedEvents,
+    classFilter,
+    sectionFilter,
+  } = useStudentFilter();
   const [selectedBranch, setSelectedBranch] = useState(null);
   const [activeTab, setActiveTab] = useState("single-report");
   const selectUser = useAppSelector(selectUserAccount);
-
   const getRole = useAuthRole();
-
+  const isPrimaryDoctorRole = useAppSelector(selectIsPrimaryDoctorRole);
   const activeCampEvent = useMemo(() => {
     const eventList = Array.isArray(assignedEvents) ? assignedEvents : [];
     const id = getCampId(selectedCamp);
-    console.log(selectedCamp,"selectedCamp");
-    
-
     if (!id) return null;
-
     return eventList.find((event) => getCampId(event) === id) ?? null;
   }, [assignedEvents, selectedCamp]);
+  const isPrimaryDoctor = activeCampEvent?.primary_doctor === Number(1);
+  console.log(selectedCamp, "selectedCamp");
+  console.log(assignedEvents, "assignedEvents");
 
-  console.log(activeCampEvent, "activeCampEvent");
+  const assignedScreeningIds = getScreeningIds(activeCampEvent);
+  const assignedScreeningKeys = getScreeningKeys(activeCampEvent);
+  const hasUnknownScreeningIds =
+    assignedScreeningIds.length > 0 && assignedScreeningKeys.length === 0;
 
-  const {
-    data: ownBranchRecord,
-    error: ownBranchError,
-    status: ownBranchStatus,
-    isLoading: ownBranchLoading,
-  } = useQuery({
+  const { data: ownBranchRecord } = useQuery({
     queryKey: ["getSchoolBranch"],
     queryFn: () => dispatch(getAllSchoolBranches()).unwrap(),
     enabled: getRole !== "doctor" && Boolean(getRole),
@@ -82,11 +93,8 @@ export default function ConsolidateReport() {
     refetchOnWindowFocus: false,
   });
 
-  console.log(ownBranchRecord, "ownBranchRecord");
-
   const defaultBranch = useMemo(() => {
     const record = ownBranchRecord?.data ?? ownBranchRecord ?? null;
-    console.log(record, "recordsss");
 
     const firstDefined = (...values) => {
       const found = values.find(
@@ -156,10 +164,7 @@ export default function ConsolidateReport() {
       ),
     };
   }, [selectUser, ownBranchRecord]);
-
-  const handleSaveReport = () => {
-    toast.success("Changes saved successfully");
-  };
+console.log(selectedBranch, "defaultBranch");
 
   return (
     <div className="min-h-screen">
@@ -171,14 +176,51 @@ export default function ConsolidateReport() {
       >
         <div className="sticky top-14 z-10 flex flex-col gap-3 p-5 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
           <div className="w-full">
-            <h1 className="font-sf text-2xl font-semibold tracking-tight text-foreground lg:text-3xl">
+            <h1 className=" text-2xl font-semibold tracking-tight text-foreground lg:text-3xl">
               Health Check Report
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Academic Year: {"2026-2027"}
             </p>
           </div>
-          <TabsList className="grid w-full grid-cols-2 md:w-9/12">
+
+          {(isPrimaryDoctor || isPrimaryDoctorRole) && (
+            // <div className="">
+            <TabsList className="grid w-full grid-cols-2 md:w-9/12">
+              <TabsTrigger
+                value="single-report"
+                title="Single Report"
+                className={cn(
+                  "min-w-0 gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
+                  "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  "data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-cyan-500",
+                  "data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-blue-500/20",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                )}
+              >
+                <ClipboardPlus className="size-4 shrink-0" />
+                <span className="min-w-0 truncate">Single Report</span>
+              </TabsTrigger>
+
+              <TabsTrigger
+                value="report-table"
+                title="All Student Reports"
+                className={cn(
+                  "min-w-0 gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
+                  "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  "data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-cyan-500",
+                  "data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-blue-500/20",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                )}
+              >
+                <FileSpreadsheet className="size-4 shrink-0" />
+                <span className="min-w-0 truncate">All Student Reports</span>
+              </TabsTrigger>
+            </TabsList>
+
+            // </div>
+          )}
+          {/* <TabsList className="grid w-full grid-cols-2 md:w-9/12">
             <TabsTrigger
               value="single-report"
               title="Single Report"
@@ -197,15 +239,15 @@ export default function ConsolidateReport() {
               <span className="min-w-0 truncate">All Student Reports</span>
             </TabsTrigger>
 
-            {/* <TabsTrigger
+            <TabsTrigger
               value="primary-doctor"
               title="Primary Doctor"
               className="min-w-0 gap-2"
             >
               <Stethoscope className="size-4 shrink-0" />
               <span className="min-w-0 truncate">Primary Doctor</span>
-            </TabsTrigger> */}
-          </TabsList>
+            </TabsTrigger>
+          </TabsList> */}
         </div>
 
         {/* {getRole === "doctor" ? (
@@ -221,25 +263,29 @@ export default function ConsolidateReport() {
           />
         ) : null} */}
         {getRole === "doctor" ? (
-        <StudentFilter {...filterProps} />
-      ) : (
-        <SchoolStudentFilter
-
-          selectRole={selectUser?.user_type_id ?? ROLE_IDS[getRole]}
-          {...filterProps}
-          onSelectedBranchChange={setSelectedBranch}
-          ownBranch={defaultBranch}
-        />
-      )}
+          // Camp props only reach the doctor filter — <SchoolStudentFilter />
+          // scopes by branch and has no camp concept.
+          <StudentFilter {...filterProps} {...doctorFilterProps} />
+        ) : (
+          <SchoolStudentFilter
+            selectRole={selectUser?.user_type_id ?? ROLE_IDS[getRole]}
+            {...filterProps}
+            onSelectedBranchChange={setSelectedBranch}
+            ownBranch={defaultBranch}
+          />
+        )}
         {/* Tab content — every <TabsContent> is a direct child of <Tabs>. */}
         <TabsContent value="single-report">
-          {selectedStudent ? (
+          {hasUnknownScreeningIds ? (
+            <NoScreeningsAssignedState />
+          ) : selectedStudent ? (
             <div className="space-y-3">
               <HealthCheckContent
                 selectUser={selectUser}
                 student={selectedStudent}
                 branch={defaultBranch ?? selectedBranch}
                 camp={selectedCamp}
+                assignedScreeningIds={assignedScreeningIds}
                 {...filterProps}
               />
             </div>
@@ -250,21 +296,28 @@ export default function ConsolidateReport() {
 
         <TabsContent value="report-table">
           {/* {selectedStudent ? ( */}
+          {hasUnknownScreeningIds ? (
+            <NoScreeningsAssignedState />
+          ) : (
             <div className="space-y-3">
               {/* <HealthCheckContent
-                selectUser={selectUser}
-                student={selectedStudent}
-                branch={defaultBranch ?? selectedBranch}
+                  selectUser={selectUser}
+                  student={selectedStudent}
+                  branch={defaultBranch ?? selectedBranch}
+                  camp={selectedCamp}
+                /> */}
+              <PrimaryDoctorTab
+                event={activeCampEvent}
                 camp={selectedCamp}
-              /> */}
-              <PrimaryDoctorTab event={activeCampEvent}
-              camp={selectedCamp}
-              student={selectedStudent}
-              classFilter={classFilter}
-              sectionFilter={sectionFilter}/>
+                student={selectedStudent}
+                assignedScreeningIds={assignedScreeningIds}
+                classFilter={classFilter}
+                sectionFilter={sectionFilter}
+              />
             </div>
+          )}
           {/* ) : ( */}
-            {/* <ReportEmptyState /> */}
+          {/* <ReportEmptyState /> */}
           {/* )} */}
         </TabsContent>
 

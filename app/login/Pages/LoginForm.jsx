@@ -1,7 +1,8 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
-import { Eye, EyeOff } from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowRight, Eye, EyeOff, Loader2, LogIn, ShieldCheck } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
@@ -47,6 +48,7 @@ const LoginForm = () => {
         setAuthSession({
           role: result.role,
           account_type: result.account_type,
+          primary_doctor: result.primary_doctor,
           username: result.username,
           user: {
             ...result.user,
@@ -64,9 +66,6 @@ const LoginForm = () => {
         }),
       );
 
-      // Arm the proactive refresh timer right away — Providers only schedules
-      // it at page load, so a client-side login would otherwise wait for the
-      // next window focus or API call before the first automatic renewal.
       scheduleProactiveRefresh(60, dispatch);
 
       setSuccessMessage(`Welcome ${result.label}. Redirecting...`);
@@ -93,66 +92,93 @@ const LoginForm = () => {
   };
   return (
     <>
-      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_top,hsl(var(--primary)/0.18),transparent_45%),radial-gradient(circle_at_bottom_right,hsl(var(--secondary)/0.18),transparent_40%)]" />
-
-      <Card className="relative z-10 w-full max-w-max border border-brand-blue shadow-2xs sm:max-w-max">
-        <CardHeader className="space-y-1">
-          <div className="flex flex-row items-center gap-2">
-            <Image
-              src="/logo.svg"
-              alt="Svastha Logo"
-              width={50}
-              height={50}
-              className=""
-            />
-            <div className="flex flex-col">
-              <span className="truncate font-sf text-2xl font-semibold text-brand-blue transition-all tracking-wide duration-200">
-              Svas<span className="text-brand-green">t</span>ha
-            </span>
-            <small className=" text-brand-blue" >Care that follows <span className="text-brand-green">every child</span></small>
+      <Card className="relative z-10 w-full max-w-2/3 border-0 bg-transparent shadow-none">
+        <CardHeader className="space-y-4">
+          <motion.div
+            className="flex items-center gap-2.5"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <motion.span
+              className="grid size-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-primary to-brand-blue shadow-lg shadow-primary/25"
+              initial={{ scale: 0.8, rotate: -8 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ duration: 0.5, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <Image
+                src="/logo.svg"
+                alt="Svastha Logo"
+                width={24}
+                height={24}
+                className="brightness-0 invert"
+              />
+            </motion.span>
+            <div className="flex min-w-0 flex-col">
+              <span className="login-wordmark text-[1.6rem]">
+                Svas<em>t</em>ha
+              </span>
+              <small className="login-tagline">
+                Healthy Roots <span className="text-brand-green">Rising Stars</span>
+              </small>
             </div>
-          </div>
-          <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>
-            Please Enter your details and access your Account.
-            {/* Sign in with your username and password. */}
-          </CardDescription>
+          </motion.div>
+
+          <motion.div
+            className="space-y-1.5"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <CardTitle className="font-sf text-2xl font-semibold tracking-tight">
+              Welcome back
+            </CardTitle>
+            <CardDescription className="text-[0.85rem] leading-relaxed">
+              Sign in to access your account and manage student health records.
+            </CardDescription>
+          </motion.div>
         </CardHeader>
 
         <CardContent>
-          <form className="space-y-4" onSubmit={handleSubmit}>
+          <motion.form
+            className="space-y-4"
+            onSubmit={handleSubmit}
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, delay: 0.18, ease: [0.22, 1, 0.36, 1] }}
+          >
             <div className="space-y-2">
-              {/* <label className="text-sm font-medium">Username</label>
-              <Input
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-                placeholder="Enter username"
-                autoComplete="username"
-              /> */}
               <TextField
                 label="Username"
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
                 placeholder="Enter username"
                 autoComplete="username"
-              /> 
+                inputClassName="h-11 rounded-xl bg-background/70 transition-colors focus-visible:border-primary"
+              />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Password</label>
+              <label
+                htmlFor="login-password"
+                className="block text-sm font-medium leading-none text-foreground"
+              >
+                Password
+              </label>
               <div className="relative">
                 <Input
+                  id="login-password"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="Enter password"
                   autoComplete="current-password"
-                  className="pr-10"
+                  className="h-11 rounded-xl bg-background/70 pr-11 transition-colors focus-visible:border-primary"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
+                  className="absolute inset-y-0 right-0 flex items-center rounded-r-xl px-3 text-muted-foreground transition-colors hover:text-foreground"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
@@ -165,35 +191,67 @@ const LoginForm = () => {
             </div>
 
             {errorMessage ? (
-              <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <motion.p
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive"
+                role="alert"
+              >
                 {errorMessage}
-              </p>
+              </motion.p>
             ) : null}
 
             {successMessage ? (
-              <p className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
+              <motion.p
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-xl border border-success/30 bg-success/10 px-3 py-2.5 text-sm text-success"
+                role="status"
+              >
                 {successMessage}
-              </p>
+              </motion.p>
             ) : null}
-            <div className="flex flex-row gap-2 w-full py-4">
+
+            <div className="flex w-full flex-row gap-3 pt-2">
               <Button
                 variant="outline"
-                className="w-1/2"
+                className="h-11 w-2/5 rounded-xl bg-background/60"
                 type="reset"
                 onClick={handleReset}
               >
                 Reset
               </Button>
-              <Button className="w-1/2" type="submit" disabled={loginLoading}>
-                {loginLoading ? `Signing In..` : `Sign In`}
+              <Button
+                className="h-11 w-3/5 gap-2 rounded-xl bg-gradient-to-r from-primary to-brand-blue shadow-lg shadow-primary/25 transition-transform hover:brightness-105 active:scale-[0.98]"
+                type="submit"
+                disabled={loginLoading}
+              >
+                {loginLoading ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                    Signing In...
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="size-4" aria-hidden="true" />
+                    Sign In
+                    <ArrowRight
+                      className="size-4 transition-transform group-hover/button:translate-x-0.5"
+                      aria-hidden="true"
+                    />
+                  </>
+                )}
               </Button>
             </div>
 
-            {/* <div className="rounded-md border border-border/70 bg-muted/50 p-3 text-xs text-muted-foreground">
-              <p className="font-medium text-foreground">Demo credentials</p>
-              
-            </div> */}
-          </form>
+            <p className="login-note pt-1">
+              <ShieldCheck className="size-4 shrink-0 text-primary" aria-hidden="true" />
+              <span>
+                <span className="login-note__title">Secure sign-in.</span> Your session
+                is protected and activity is logged.
+              </span>
+            </p>
+          </motion.form>
         </CardContent>
       </Card>
     </>

@@ -40,6 +40,7 @@ import {
   resetRegisterSchoolState,
 } from "@/lib/features/registerSchoolSlice";
 import { TextareaField, TextField } from "@/components/ui/text-field";
+import { RegistrationSuccess } from "@/components/register/registration-success-dialog";
 
 const steps = [
   {
@@ -125,6 +126,9 @@ export default function SchoolRegistrationPage() {
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [formErrors, setFormErrors] = useState({});
+  // Holds what the success dialog needs to describe what was just created.
+  // Null means the dialog is closed.
+  const [registeredSchool, setRegisteredSchool] = useState(null);
 
 
   // const updateField = (field, value) => {
@@ -311,14 +315,27 @@ const updateBranch = (index, field, value) => {
       await dispatch(createRegisterSchool(result.data)).unwrap();
 
       toast.success("School registered successfully! You can now sign in.");
+
+      // Capture what was created BEFORE the form is reset below - after
+      // `setForm(initialForm)` these values are gone.
+      const createdName =
+        result.data?.school_name ||
+        result.data?.school_name_with_location ||
+        "";
+      const createdBranchCount = Array.isArray(result.data?.branches)
+        ? result.data.branches.length
+        : 0;
+
       setForm(initialForm);
       setFormErrors({});
       setCurrentStep(1);
       dispatch(resetRegisterSchoolState());
 
-      window.setTimeout(() => {
-        router.push("/login");
-      }, 600);
+      // Show the confirmation instead of silently bouncing to /login.
+      setRegisteredSchool({
+        schoolName: createdName,
+        branchCount: createdBranchCount,
+      });
     } catch (submitError) {
       toast.error(
         typeof submitError === "string"
@@ -516,6 +533,19 @@ const updateBranch = (index, field, value) => {
           </div>
         </div>
       </div>
+
+      <RegistrationSuccess
+        open={Boolean(registeredSchool)}
+        onOpenChange={(next) => {
+          if (!next) setRegisteredSchool(null);
+        }}
+        schoolName={registeredSchool?.schoolName}
+        branchCount={registeredSchool?.branchCount}
+        onGoToLogin={() => {
+          setRegisteredSchool(null);
+          router.push("/login");
+        }}
+      />
     </main>
   );
 }

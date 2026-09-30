@@ -78,8 +78,8 @@ export const useAllScreeningReport = (options = {}) => {
     getId = "",
     campId = "",
 
-    classFilter = "all",
-    sectionFilter = "all",
+    classFilter = "",
+    sectionFilter = "",
   } = options ?? {};
   const dispatch = useAppDispatch();
 
@@ -94,8 +94,8 @@ export const useAllScreeningReport = (options = {}) => {
 
   const screeningFilterKey = [
     selectedCampId,
-    String(classFilter ?? "all").trim(),
-    String(sectionFilter ?? "all").trim(),
+    String(classFilter ?? "").trim(),
+    String(sectionFilter ?? "").trim(),
   ].join("|");
 
   const screeningPages = pagesByFilterKey[screeningFilterKey] ?? DEFAULT_SCREENING_PAGES;
@@ -166,6 +166,9 @@ export const useAllScreeningReport = (options = {}) => {
 
     staleTime: 60_000,
   });
+
+  console.log(screeningReportPayload,"screeningReportPayload");
+  
 
   const {
     data: visionScreeningReportPayload,

@@ -46,12 +46,44 @@ function StatusPill({ status }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[status]} || bg-muted text-primary`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ring-current/20 ${statusStyles[status]} || "bg-muted text-primary"}`}
     >
-      <Icon className="size-3.5" />
+      <Icon className="size-3.5 shrink-0" />
       {status}
     </span>
   );
+}
+
+// Compact chip for short, low-variance values (gender, class/section).
+function ValueChip({ value, dotClass }) {
+  return (
+    <span className="sl-chip">
+      {dotClass ? <span className={`sl-chip-dot ${dotClass}`} /> : null}
+      {value || "--"}
+    </span>
+  );
+}
+
+// Deterministic accent per student so the same person always gets the same
+// avatar tint across reloads and across the list. Purely presentational.
+const AVATAR_TINTS = [
+  "bg-sky-500/12 text-sky-600 dark:text-sky-300",
+  "bg-violet-500/12 text-violet-600 dark:text-violet-300",
+  "bg-emerald-500/12 text-emerald-600 dark:text-emerald-300",
+  "bg-amber-500/14 text-amber-700 dark:text-amber-300",
+  "bg-rose-500/12 text-rose-600 dark:text-rose-300",
+  "bg-teal-500/12 text-teal-600 dark:text-teal-300",
+];
+
+function tintFor(seed = "") {
+  const text = String(seed);
+  let hash = 0;
+
+  for (let index = 0; index < text.length; index += 1) {
+    hash = (hash * 31 + text.charCodeAt(index)) | 0;
+  }
+
+  return AVATAR_TINTS[Math.abs(hash) % AVATAR_TINTS.length];
 }
 
 function SelectCheckbox({
@@ -110,16 +142,58 @@ function TruncatedWithTooltip({ value, className = "", maxLength = 25 }) {
   );
 }
 
+/**
+ * Resolves the two identifiers independently.
+ *
+ * `normalizeStudent` in getAllStudentSlice collapses cus_id / id / studentId
+ * into a single `studentId` field, so a shared fallback chain would make both
+ * columns render the same value. These resolvers therefore read *disjoint*
+ * field sets: the Svastha column only accepts a genuine Svastha identifier and
+ * shows an em dash when the API does not supply one, rather than silently
+ * duplicating the Student ID.
+ */
+function resolveStudentId(student = {}) {
+  const value =
+    student.cus_id ??
+    student.student_cus_id ??
+    student.student_id ??
+    student.studentId ??
+    student.id ??
+    "";
+
+  return value === null || value === undefined ? "" : String(value);
+}
+
+function resolveSvasthaId(student = {}) {
+  const value =
+    student.svastha_id ??
+    student.svastha_student_id ??
+    student.svasthaId ??
+    "";
+
+  return value === null || value === undefined ? "" : String(value);
+}
+
 const columns = [
   {
     accessorKey: "studentId",
     header: "Student ID",
-    cell: ({ row }) => {
-      const studentId =
-        row.original.cus_id ?? row.original.studentId ?? row.original.id ?? "";
-
-      return <TruncatedWithTooltip value={studentId} />;
-    },
+    cell: ({ row }) => (
+      <TruncatedWithTooltip
+        value={resolveStudentId(row.original) || "--"}
+        className="sl-num"
+      />
+    ),
+  },
+  {
+    accessorKey: "svastha_id",
+    header: "Svastha ID",
+    cell: ({ row }) => (
+      <TruncatedWithTooltip
+        value={resolveSvasthaId(row.original) || "--"}
+        className="sl-num"
+      />
+    ),
   },
   {
     accessorKey: "name",
@@ -129,10 +203,19 @@ const columns = [
 
       return (
         <div className="flex items-center gap-2.5">
-          <span className="inline-flex size-8 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
+          <span
+            className={`sl-avatar ${tintFor(
+              row.original.cus_id ?? row.original.id ?? name,
+            )}`}
+          >
             {getInitials(name)}
           </span>
-          <TruncatedWithTooltip value={name} className="font-medium" />
+          <span className="min-w-0">
+            <TruncatedWithTooltip
+              value={name}
+              className="block font-semibold leading-tight"
+            />
+          </span>
         </div>
       );
     },
@@ -145,46 +228,65 @@ const columns = [
         row.original.gender ?? row.original.Gender ?? "",
       );
 
-      return <TruncatedWithTooltip value={genderValue || "--"} />;
+      return (
+        <ValueChip
+          value={genderValue || "--"}
+          dotClass={
+            genderValue === "Female"
+              ? "bg-rose-500"
+              : genderValue === "Male"
+                ? "bg-sky-500"
+                : "bg-muted-foreground/50"
+          }
+        />
+      );
     },
   },
   {
-    accessorKey: "Class",
-    header: "Class",
+    accessorKey: "Class & Section",
+    header: "Class & Section",
     cell: ({ row }) => {
       const classValue =
         row.original.Class ?? row.original.class ?? row.original.grade ?? "";
-
-      return <TruncatedWithTooltip value={classValue || "--"} />;
-    },
-  },
-  {
-    accessorKey: "sec",
-    header: "Section",
-    cell: ({ row }) => {
       const sectionValue = row.original.sec ?? row.original.section ?? "";
 
-      return <TruncatedWithTooltip value={sectionValue || "--"} />;
+      return (
+        <span className="flex items-center gap-1.5">
+          <ValueChip value={classValue || "--"} />
+          {sectionValue ? (
+            <span className="sl-chip sl-chip--section">{sectionValue}</span>
+          ) : null}
+        </span>
+      );
     },
   },
-  {
-    accessorKey: "fatherName",
-    header: "Father Name",
-    cell: ({ row }) => {
-      const fatherName = row.original.fatherName ?? "";
+  // {
+  //   accessorKey: "sec",
+  //   header: "Section",
+  //   cell: ({ row }) => {
+  //     const sectionValue = row.original.sec ?? row.original.section ?? "";
 
-      return <TruncatedWithTooltip value={fatherName} />;
-    },
-  },
-  {
-    accessorKey: "motherName",
-    header: "Mother Name",
-    cell: ({ row }) => {
-      const motherName = row.original.motherName ?? "";
+  //     return <TruncatedWithTooltip value={sectionValue || "--"} />;
+  //   },
+  // },
+  // {
+  //   accessorKey: "fatherName",
+  //   header: "Father Name",
+  //   cell: ({ row }) => {
+  //     const fatherName = row.original.fatherName ?? "";
 
-      return <TruncatedWithTooltip value={motherName} />;
-    },
-  },
+  //     return <TruncatedWithTooltip value={fatherName} />;
+  //   },
+  // },
+  // {
+  //   accessorKey: "motherName",
+  //   header: "Mother Name",
+  //   cell: ({ row }) => {
+  //     const motherName = row.original.motherName ?? "";
+
+  //     return <TruncatedWithTooltip value={motherName} />;
+  //   },
+  // },
   {
     accessorKey: "status",
     header: "Status",
@@ -192,20 +294,13 @@ const columns = [
   },
 ];
 
-export function StudentsDataTable({
-  data = [],
-  backQuery = "",
-  onDeleted,
-}) {
+export function StudentsDataTable({ data = [], backQuery = "", onDeleted }) {
   const router = useRouter();
   const dispatch = useDispatch();
   const [selectedIds, setSelectedIds] = React.useState(() => new Set());
   const [deleting, setDeleting] = React.useState(false);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
-
-  const getStudentId = (student) =>
-    student.cus_id ?? student.studentId ?? student.id ?? null;
-
+  const getStudentId = (student) => resolveStudentId(student) || null;
   const selectedCount = selectedIds.size;
 
   const allSelected =
@@ -259,7 +354,9 @@ export function StudentsDataTable({
     setSelectedIds(new Set());
 
     if (failed === 0) {
-      toast.success(`${ids.length} student${ids.length > 1 ? "s" : ""} deleted`);
+      toast.success(
+        `${ids.length} student${ids.length > 1 ? "s" : ""} deleted`,
+      );
     } else {
       toast.error(`${ids.length - failed} deleted · ${failed} failed`);
     }
@@ -268,39 +365,35 @@ export function StudentsDataTable({
   };
   const clearSelection = () => setSelectedIds(new Set());
 
-  const columnsWithSelection = [
-    {
-      id: "select",
-      header: () => (
-        <SelectCheckbox
-          checked={allSelected}
-          indeterminate={someSelected}
-          onChange={toggleSelectAll}
-          aria-label="Select all students"
-        />
-      ),
-      cell: ({ row }) => {
-        const studentId = getStudentId(row.original);
+  // The checkbox is rendered as a leading select rail by DataTable rather than
+  // as a column definition, so it does not take a slot in the column order and
+  // every data column keeps its own index and width.
+  const selectAllCheckbox = (
+    <SelectCheckbox
+      checked={allSelected}
+      indeterminate={someSelected}
+      onChange={toggleSelectAll}
+      aria-label="Select all students"
+    />
+  );
 
-        return (
-          <div data-no-row-click="true">
-            <SelectCheckbox
-              checked={studentId !== null && selectedIds.has(studentId)}
-              onChange={() => toggleSingleRow(studentId)}
-              aria-label={`Select ${row.original.name ?? "student"}`}
-            />
-          </div>
-        );
-      },
-    },
-    ...columns,
-  ];
+  const renderSelectCell = (row) => {
+    const studentId = getStudentId(row.original);
+
+    return (
+      <SelectCheckbox
+        checked={studentId !== null && selectedIds.has(studentId)}
+        onChange={() => toggleSingleRow(studentId)}
+        aria-label={`Select ${row.original.name ?? "student"}`}
+      />
+    );
+  };
 
   return (
     <TooltipProvider>
       {selectedCount > 0 && (
-        <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border bg-muted/40 p-2 px-3">
-          <span className="text-sm text-muted-foreground">
+        <div className="sl-bulk mb-3 flex flex-wrap items-center gap-3 px-3 py-2">
+          <span className="text-sm font-medium text-foreground">
             {selectedCount} selected
           </span>
           <Button
@@ -317,8 +410,19 @@ export function StudentsDataTable({
         </div>
       )}
       <DataTable
-        columns={columnsWithSelection}
+        columns={columns}
         data={data}
+        // Checkbox rail, rendered outside the column model.
+        selectHeader={selectAllCheckbox}
+        selectCell={renderSelectCell}
+        selectWidth="3.5rem"
+        rootClassName="sl-root"
+        shellClassName="sl-shell"
+        tableClassName="sl-table"
+        headClassName="sl-head"
+        rowClassName="sl-row"
+        withCellLabels
+        columnWidths={["9rem", "11rem", "auto", "8rem", "11rem", "9rem"]}
         emptyState={
           <EmptyState
             title="No students found"
@@ -349,9 +453,8 @@ export function StudentsDataTable({
               Delete student{selectedCount === 1 ? "" : "s"}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete {selectedCount} selected
-              student{selectedCount === 1 ? "" : "s"}. This action cannot
-              be undone.
+              This will permanently delete {selectedCount} selected student
+              {selectedCount === 1 ? "" : "s"}. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -192,11 +192,7 @@ export default function ClassSectionManager({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incomingKey]);
 
-  // Push classSections up to the parent form whenever it changes —
-  // emitted in the previleges array format [{ class, section }, …].
-  // The very first run is skipped: echoing the initial value straight back
-  // would overwrite the form's privileges with an empty list (e.g. while
-  // editing an account whose privileges came back as a flat string).
+
   const didEmitInitial = useRef(false);
   useEffect(() => {
     if (!onClassSectionsChange) return;
@@ -207,9 +203,6 @@ export default function ClassSectionManager({
     onClassSectionsChange(mapToPrevileges(classSections));
   }, [classSections, onClassSectionsChange]);
 
-  // Resolve classes and sections: prefer the authorized branch data, fall back to
-  // the sub-account's own branch (from the login payload) when the full list isn't
-  // accessible (e.g. school_sub_account 401s on /schools/branch/all).
   const branchData =
     getSchoolBranch && Object.keys(getSchoolBranch).length > 0
       ? getSchoolBranch

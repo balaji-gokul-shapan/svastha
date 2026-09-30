@@ -2,7 +2,7 @@ import { TextField } from "@/components/ui/text-field";
 import { FramerCard } from "@/util/FramerCard";
 import React from "react";
 import { cn } from "@/lib/utils";
-import { Check } from "lucide-react";
+import { Check, ListChecks } from "lucide-react";
 import { FieldLabel } from "@/components/ui/screening-fields";
 import { Input } from "@/components/ui/input";
 
@@ -11,13 +11,29 @@ const OtherFindings = ({
   toggleFinding,
   otherFindingsOptions,
 }) => {
+  /* Live tally in the panel subtitle — derived, no new state. */
+  const activeCount = otherFindingsOptions.filter(
+    (option) => otherFindings[option.id],
+  ).length;
+
   return (
     <FramerCard>
-      <article className="space-y-3 rounded-xl border border-border bg-card p-4">
-        <h3 className="text-sm font-semibold text-foreground">
-          Other Findings
-        </h3>
-        <div className="mt-3 space-y-2.5">
+      <div className="gs-panel">
+        <div className="gs-panel__head">
+          <span className="gs-panel__icon">
+            <ListChecks className="size-4" />
+          </span>
+
+          <div className="min-w-0">
+            <p className="gs-panel__title">Other Findings</p>
+
+            <p className="gs-panel__sub">
+              {activeCount} finding{activeCount === 1 ? "" : "s"} selected
+            </p>
+          </div>
+        </div>
+
+        <div className="gs-panel__body space-y-3">
           <div className="flex flex-wrap gap-2">
             {otherFindingsOptions.map((opt) => {
               const isActive = !!otherFindings[opt.id];
@@ -41,7 +57,7 @@ const OtherFindings = ({
             })}
           </div>
 
-          {otherFindingsOptions.some((option) => otherFindings[option.id]) ? (
+          {activeCount > 0 ? (
             <div className="pt-1">
               {/* <TextField
                 label="Other Findings Notes"
@@ -67,7 +83,7 @@ const OtherFindings = ({
             </div>
           ) : null}
         </div>
-      </article>
+      </div>
     </FramerCard>
   );
 };

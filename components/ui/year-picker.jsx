@@ -48,77 +48,88 @@ const YearPicker = React.forwardRef(function YearPicker(
           {label}
         </label>
       ) : null}
-      <CalendarDays className="absolute left-3 top-2/3 size-4 -translate-y-1/2 text-muted-foreground z-10" />
-      <DatePicker
-        ref={ref}
-        id={id}
-        name={name}
-        selected={selectedDate}
-        onChange={(date) =>
-          onValueChange?.(date ? date.getFullYear().toString() : "")
-        }
-        onKeyDown={(event) => {
-          event.preventDefault();
-        }}
-        showYearPicker
-        calendarStartYear={1900}
-        calendarEndYear={new Date().getFullYear()}
-        maxDate={maxDate}
-        dateFormat="yyyy"
-        placeholderText={placeholder}
-        className={cn(
-          "block h-10 w-full rounded-md [text-indent:1.5rem] border border-input bg-background px-3 py-2 text-sm text-foreground shadow-xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
-          inputClassName,
-        )}
-        wrapperClassName="w-full block"
-        withPortal={withPortal}
-        portalId={portalId}
-        renderCustomHeader={({
-          value,
-          changeYear,
-          decreaseYear,
-          increaseYear,
-        }) => (
-          <div className="flex items-center justify-between px-2 py-2 border-b border-border">
-            <button
-              type="button"
-              onClick={decreaseYear}
-              className="px-2 py-1 text-lg font-medium text-muted-foreground hover:text-foreground focus:outline-none  pointer-events-auto z-1 relative"
-            >
-              <ChevronLeft />
-            </button>
-            <select
-              value={value ? value.getFullYear() : new Date().getFullYear()}
-              onChange={({ target: { value: year } }) => changeYear(+year)}
-              className="appearance-none border-none bg-transparent text-center text-sm font-medium text-foreground focus:outline-none  pointer-events-auto z-1 relative"
-            >
-              {Array.from(
-                {
-                  length:
-                    (!allowFutureYears
-                      ? new Date().getFullYear()
-                      : new Date().getFullYear()) -
-                    minYear +
-                    1,
-                },
-                (_, i) => minYear + i,
-              ).map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={increaseYear}
-              className="px-2 py-1 text-lg font-medium text-muted-foreground hover:text-foreground focus:outline-none pointer-events-auto z-1 relative"
-            >
-              <ChevronRight />
-            </button>
-          </div>
-        )}
-        {...props}
-      />
+
+      {/* The icon must be positioned against the INPUT, not this wrapper —
+          the wrapper also contains the label, so `top-2/3` resolved below the
+          field and the icon rendered underneath it. */}
+      <div className="relative">
+        <CalendarDays
+          aria-hidden="true"
+          className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground"
+        />
+        <DatePicker
+          ref={ref}
+          id={id}
+          name={name}
+          selected={selectedDate}
+          onChange={(date) =>
+            onValueChange?.(date ? date.getFullYear().toString() : "")
+          }
+          onKeyDown={(event) => {
+            event.preventDefault();
+          }}
+          showYearPicker
+          calendarStartYear={1900}
+          calendarEndYear={new Date().getFullYear()}
+          maxDate={maxDate}
+          dateFormat="yyyy"
+          placeholderText={placeholder}
+          className={cn(
+            // `text-indent` reserves the gutter the icon sits in; `pl-9` is the
+            // equivalent padding so the caret never runs under the icon.
+            "block h-10 w-full rounded-md border border-input bg-background py-2 pl-9 pr-3 text-sm text-foreground shadow-xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+            inputClassName,
+          )}
+          wrapperClassName="w-full block"
+          withPortal={withPortal}
+          portalId={portalId}
+          renderCustomHeader={({
+            value,
+            changeYear,
+            decreaseYear,
+            increaseYear,
+          }) => (
+            <div className="flex items-center justify-between px-2 py-2 border-b border-border">
+              <button
+                type="button"
+                onClick={decreaseYear}
+                className="px-2 py-1 text-lg font-medium text-muted-foreground hover:text-foreground focus:outline-none  pointer-events-auto z-1 relative"
+              >
+                <ChevronLeft />
+              </button>
+              <select
+                value={value ? value.getFullYear() : new Date().getFullYear()}
+                onChange={({ target: { value: year } }) => changeYear(+year)}
+                className="appearance-none border-none bg-transparent text-center text-sm font-medium text-foreground focus:outline-none  pointer-events-auto z-1 relative"
+              >
+                {Array.from(
+                  {
+                    length:
+                      (!allowFutureYears
+                        ? new Date().getFullYear()
+                        : new Date().getFullYear()) -
+                      minYear +
+                      1,
+                  },
+                  (_, i) => minYear + i,
+                ).map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={increaseYear}
+                className="px-2 py-1 text-lg font-medium text-muted-foreground hover:text-foreground focus:outline-none pointer-events-auto z-1 relative"
+              >
+                <ChevronRight />
+              </button>
+            </div>
+          )}
+          {...props}
+        />
+      </div>
     </div>
   );
 });

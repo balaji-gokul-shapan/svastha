@@ -269,7 +269,6 @@ import { ArrowRight } from "lucide-react";
 import LoginForm from "./Pages/LoginForm";
 import SideRays from "../components/ui/SideRays";
 
-
 function OrbitRing({ radius }) {
   return (
     <div
@@ -344,7 +343,7 @@ function OrbitVisual() {
         size={11}
         toneClass="text-info"
       >
-        <img
+        <Image
           src="/login/images/vision.svg"
           alt=""
           draggable={false}
@@ -359,7 +358,7 @@ function OrbitVisual() {
         size={11}
         toneClass="text-success"
       >
-        <img
+        <Image
           src="/login/images/cardiac.svg"
           alt=""
           draggable={false}
@@ -376,7 +375,7 @@ function OrbitVisual() {
         size={11}
         toneClass="text-info"
       >
-        <img
+        <Image
           src="/login/images/general.svg"
           alt=""
           draggable={false}
@@ -392,7 +391,7 @@ function OrbitVisual() {
         size={11}
         toneClass="text-success"
       >
-        <img
+        <Image
           src="/login/images/hearing.svg"
           alt=""
           draggable={false}
@@ -408,7 +407,7 @@ function OrbitVisual() {
         size={11}
         toneClass="text-info"
       >
-        <img
+        <Image
           src="/login/images/immunization.svg"
           alt=""
           draggable={false}
@@ -423,7 +422,7 @@ function OrbitVisual() {
         size={11}
         toneClass="text-success"
       >
-        <img
+        <Image
           src="/login/images/dental.svg"
           alt=""
           draggable={false}
@@ -476,10 +475,10 @@ export default function LoginPage() {
           <section className="relative isolate flex h-screen w-full items-center justify-center overflow-hidden">
             <div className="relative h-full w-full">
               <div className="flex min-h-screen items-center justify-center  p-4">
-<div className="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-border bg-card shadow-2xl md:grid-cols-2">
+                <div className="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-border bg-card shadow-2xl md:grid-cols-2">
                   {/* LEFT — orbit visual, hidden below lg since it's decorative and
             the form alone carries mobile layout */}
-<div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-primary/5 to-transparent p-8 md:flex">
+                  <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-primary/5 to-transparent p-8 md:flex">
                     <div className="flex items-center gap-2">
                       <Image
                         src="/logo.svg"
@@ -503,7 +502,7 @@ export default function LoginPage() {
                         href="#"
                         className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-brand-blue"
                       >
-                        See what's new
+                        See what&rsquo;s new
                         <ArrowRight className="size-3.5" />
                       </a>
                     </div>

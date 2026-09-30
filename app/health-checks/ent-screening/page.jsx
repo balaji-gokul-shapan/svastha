@@ -5,9 +5,12 @@ import dynamic from "next/dynamic";
 import {
   AlertCircle,
   BadgeCheck,
+  ChevronLeft,
+  ChevronRight,
   HeartPulse,
   Loader2,
   Moon,
+  PanelLeft,
   Save,
   Stethoscope,
   Wind,
@@ -18,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -37,6 +40,8 @@ import StudentProfileCard from "@/app/students/utilities/studentProfileCard";
 import AssessmentCard from "@/app/ui/AssessmentCard";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FramerCard } from "@/util/FramerCard";
+import { EntSummaryCard } from "./components/EntSummaryCard";
+import { cn } from "@/lib/utils";
 
 import {
   BooleanCard,
@@ -95,6 +100,32 @@ const ENT_STEPS = [
 const ScreeningSectionLoading = () => (
   <div className="min-h-24 rounded-xl border border-border bg-card p-4" />
 );
+
+// localStorage key for the ENT Screening left-rail collapse preference.
+const RAIL_KEY = "ent-screening:rail-collapsed";
+const RAIL_EVENT = "ent-screening:rail-change";
+
+const getRailSnapshot = () => {
+  try {
+    return window.localStorage.getItem(RAIL_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+
+// The server has no localStorage, so it always renders the expanded rail.
+// useSyncExternalStore then re-renders with the real value after hydration.
+const getServerRailSnapshot = () => false;
+
+const subscribeRail = (onStoreChange) => {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(RAIL_EVENT, onStoreChange);
+
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(RAIL_EVENT, onStoreChange);
+  };
+};
 
 const EarExamination = dynamic(() => import("./components/EarExamination"), {
   loading: ScreeningSectionLoading,
@@ -209,6 +240,36 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
 
   const [isSaving, setIsSaving] = useState(false);
   const [activeEntStep, setActiveEntStep] = useState("nose");
+
+  // Left-rail collapse, persisted so the screener's chosen workspace width
+  // survives navigation between screening pages.
+  //
+  // useSyncExternalStore (not a lazy useState initializer) is deliberate: this
+  // file is "use client" but still SSR'd, so reading localStorage during the
+  // first render would mismatch the server HTML. It also avoids a
+  // setState-in-effect hydration flash.
+  const isRailCollapsed = useSyncExternalStore(
+    subscribeRail,
+    getRailSnapshot,
+    getServerRailSnapshot,
+  );
+
+  const setRailCollapsed = React.useCallback((next) => {
+    try {
+      window.localStorage.setItem(RAIL_KEY, next ? "1" : "0");
+    } catch {
+      // Storage unavailable (private mode) — fall back to session-only.
+    }
+
+    // Same-tab subscribers aren't notified of a storage write by the spec, so
+    // announce the change ourselves.
+    window.dispatchEvent(new Event(RAIL_EVENT));
+  }, []);
+
+  const toggleRail = React.useCallback(
+    () => setRailCollapsed(!isRailCollapsed),
+    [isRailCollapsed, setRailCollapsed],
+  );
 
   const isSavingRef = React.useRef(false);
   const savedStudentKeyRef = React.useRef(null);
@@ -696,19 +757,19 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
           HEADER
       ===================================================== */}
 
-      <div className="sticky top-14 z-10 mb-4 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
-        <div>
-          <div className="flex items-center gap-2 py-3">
-            <div className="flex size-12 aspect-square items-center justify-center rounded-xl bg-primary/10 text-primary">
+      <div className="sticky top-14 z-10 mb-4 flex flex-col gap-3 border-b border-border/60 bg-background/85 px-0 backdrop-blur supports-backdrop-filter:bg-background/70 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-3 py-3">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-md shadow-primary/20">
               <Stethoscope className="size-6" />
             </div>
 
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight">
+            <div className="min-w-0">
+              <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
                 ENT Screening
               </h1>
 
-              <p className="text-sm text-muted-foreground">
+              <p className="truncate text-sm text-muted-foreground">
                 Ear, nose, throat, speech and respiratory assessment
               </p>
             </div>
@@ -775,28 +836,93 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
           <>
             <StudentProfileCard student={selectedStudent} />
 
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
+            <div
+              className={cn(
+                "grid grid-cols-1 gap-4 transition-[grid-template-columns] duration-300 ease-out",
+                isRailCollapsed
+                  ? "xl:grid-cols-[3.25rem_minmax(0,1fr)]"
+                  : "xl:grid-cols-[300px_minmax(0,1fr)]",
+              )}
+            >
               {/* =================================================
                   LEFT COLUMN
               ================================================= */}
 
               <div className="space-y-4">
-                <AssessmentCard
-                  data={getSelectedStudentScreeningData}
-                  studentOptions={assessmentStudentOptions}
-                  studentValue={studentSelectValue}
-                  isScreening={false}
-                  schoolName={schoolName}
-                  onStudentChange={handleAssessmentStudentChange}
-                  authUser={authUser}
-                />
+                {isRailCollapsed ? (
+                  // Collapsed: a narrow vertical handle. The rail's contents are
+                  // unmounted rather than hidden so their controls don't stay
+                  // in the tab order while visually collapsed.
+                  <button
+                    type="button"
+                    onClick={toggleRail}
+                    aria-label="Expand assessment panel"
+                    aria-expanded={false}
+                    title="Expand assessment panel"
+                    className="flex w-full flex-col items-center gap-3 rounded-2xl border border-border bg-card px-1 py-4 text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  >
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <PanelLeft className="size-4" />
+                    </span>
+
+                    {/* Vertical label — lets the rail stay narrow without
+                        hiding what the panel is. */}
+                    <span className="hidden text-[11px] font-semibold uppercase tracking-wider [writing-mode:vertical-rl] xl:block">
+                      Assessment
+                    </span>
+
+                    <ChevronRight className="hidden size-4 shrink-0 xl:block" />
+
+                    {/* Below xl the rail is full-width, so the label and
+                        chevron are already legible horizontally. */}
+                    <span className="text-xs font-semibold uppercase tracking-wider xl:hidden">
+                      Assessment
+                    </span>
+                    <ChevronRight className="size-4 shrink-0 xl:hidden" />
+                  </button>
+                ) : (
+                  <>
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        onClick={toggleRail}
+                        aria-label="Collapse assessment panel"
+                        aria-expanded={true}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <ChevronLeft className="size-4" />
+                        <span className="hidden sm:inline">Collapse</span>
+                      </Button>
+                    </div>
+
+                    <AssessmentCard
+                      data={getSelectedStudentScreeningData}
+                      studentOptions={assessmentStudentOptions}
+                      studentValue={studentSelectValue}
+                      isScreening={false}
+                      schoolName={schoolName}
+                      onStudentChange={handleAssessmentStudentChange}
+                      authUser={authUser}
+                    />
+
+                    {/* ENT Summary — sits directly under the Assessment Details card
+                        in the same left rail. Read-only: it renders the page's
+                        existing `form` state, so no behaviour is added. */}
+                    <EntSummaryCard form={form} />
+                  </>
+                )}
               </div>
 
               {/* =================================================
                   RIGHT / CENTER COLUMN
               ================================================= */}
 
-              <div className="min-w-0">
+              {/* The grid track (minmax(0,1fr)) already controls this column's
+                  width, so a max-w cap + mx-auto only fought it: collapsing the
+                  rail handed back space the content then refused to fill. */}
+              <div className="w-full min-w-0">
                 <ScreeningStepper
                   activeStep={activeEntStep}
                   setActiveStep={setActiveEntStep}

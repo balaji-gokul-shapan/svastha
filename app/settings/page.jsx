@@ -595,7 +595,7 @@ import React, { useMemo, useRef, useState } from "react";
 import Aside from "./pages/aside";
 import { initialAccounts, settingsNav } from "./datas/settingsData";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { selectAuthUser, selectUserAccount } from "@/lib/features/auth-slice";
+import { selectAuthUser, selectIsPrimaryDoctorRole, selectUserAccount } from "@/lib/features/auth-slice";
 import { useAuthRole } from "@/lib/user-role";
 import {
   resetAppearanceSettings,
@@ -614,7 +614,8 @@ import {
   createSubAccount,
   deleteSubAccount,
   getAllSubAccount,
-  updateSubAccount,
+  updatePrivileges,
+  getPrivileges,
 } from "@/lib/features/registerStaffAccount";
 import { useQuery } from "@tanstack/react-query";
 import { buildSubAccountSchema } from "./validation/sub-account-validation-schema";
@@ -666,6 +667,8 @@ const Page = () => {
   const dispatch = useAppDispatch();
 
   const authUser = useAppSelector(selectAuthUser);
+  
+  
 
   const getRole = useAuthRole();
   console.log(getRole, "getRole");
@@ -826,6 +829,12 @@ const Page = () => {
     authUser?.username ??
     account?.user_name ??
     "";
+  const profileEmail =
+    authUser?.email ??
+    authUser?.email_address ??
+    authUser?.user_email ??
+    account?.email ??
+    "";
 
     console.log(authUser,"authUsersssssssssss");
     
@@ -834,14 +843,12 @@ const Page = () => {
     name: profileName,
     username: profileUsername,
     password: "********",
-    signature: "",
     phoneNumber: authUser?.phone_number ?? account?.phone_number ?? "7299431420",
+    email: profileEmail,
   });
 
 
   const touchedFieldsRef = React.useRef(new Set());
-
-
   React.useEffect(() => {
     setSettingsFormData((prev) => {
       const next = { ...prev };
@@ -860,9 +867,14 @@ const Page = () => {
         changed = true;
       }
 
+      if (!touchedFieldsRef.current.has("email") && next.email !== profileEmail) {
+        next.email = profileEmail;
+        changed = true;
+      }
+
       return changed ? next : prev;
     });
-  }, [profileName, profileUsername]);
+  }, [profileName, profileUsername, profileEmail]);
 
 console.log(settingsFormData,"settingsFormData");
 
@@ -896,8 +908,7 @@ console.log(settingsFormData,"settingsFormData");
 
   const visibleNav = React.useMemo(
     () => getVisibleItems(settingsNav, getRole),
-    // `settingsNav` is a module-level import (never changes) — keeping it out
-    // of the deps avoids react-hooks/exhaustive-deps' outer-scope warning.
+
     [getRole, getVisibleItems],
   );
   console.log(getRole,"getRole");
@@ -908,8 +919,13 @@ console.log(settingsFormData,"settingsFormData");
   const appearanceSettings = useAppSelector(
     (state) => state.appearanceSettings,
   );
-  const { theme, transparentSidebar, sidebarFeature, tableView } =
-    appearanceSettings ?? {};
+  const {
+    theme,
+    transparentSidebar,
+    sidebarPosition,
+    tableView,
+    fontFamily,
+  } = appearanceSettings ?? {};
 
   const handleAppearanceChange = (field, value) => {
     dispatch(setAppearanceField({ field, value }));
@@ -930,8 +946,9 @@ console.log(settingsFormData,"settingsFormData");
         JSON.stringify({
           theme,
           transparentSidebar,
-          sidebarFeature,
+          sidebarPosition,
           tableView,
+          fontFamily,
         }),
       );
     } catch {
@@ -963,20 +980,16 @@ console.log(settingsFormData,"settingsFormData");
     queryFn: () => dispatch(getSchoolBranch()).unwrap(),
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
-    // Only school accounts have a branch PROFILE of their own — the backend
-    // 401s this route for admin / doctor / school_sub_account. Don't call it
-    // for them: their branch comes from the full branch list / login payload
-    // (see subAccountBranch and getBranchDataForSubAccount below).
-    enabled: getRole === "school" || getRole === "school_admin",
+
+    enabled:
+      getRole === "school" ||
+      getRole === "school_admin" ||
+      getRole === "school_sub_account",
   });
+
   console.log(getSchoolBranchData, "getSchoolBranchData");
 
-  // Branch options for the sub-account form. Built from the FULL branch list
-  // (/schools/branch/all) so multiple branches appear; falls back to the
-  // single /schools/branch record when the list isn't available.
   const getBranchDataForSubAccount = useMemo(() => {
-    // Each option carries: id (branch id), value (branch name) plus the
-    // class/section assigned to that branch.
     const toOption = (branch) => ({
       id: String(branch?.id ?? branch?.branch_id ?? "").trim(),
       value: String(branch?.branch_name ?? branch?.name ?? "").trim(),
@@ -987,6 +1000,7 @@ console.log(settingsFormData,"settingsFormData");
         branch?.section ?? branch?.section_name ?? branch?.Section ?? "",
       ).trim(),
     });
+  
 
     const list = Array.isArray(getAllSchoolBranch)
       ? getAllSchoolBranch
@@ -1009,9 +1023,7 @@ console.log(settingsFormData,"settingsFormData");
   // getBranchDataWithClassSection
 
   console.log(getAllSchoolBranch, "getAllSchoolBranch");
-  // Class/section of the branch this school_sub_account belongs to. The
-  // /schools/branch/all response carries class + section per branch, so look
-  // up the branch matching their branch_id and read it from there.
+
   const branchClassSection = React.useMemo(() => {
     const list = Array.isArray(getAllSchoolBranch)
       ? getAllSchoolBranch
@@ -1024,6 +1036,7 @@ console.log(settingsFormData,"settingsFormData");
       (b) => String(b?.id ?? b?.branch_id ?? "").trim() === subAccountBranch.id,
     );
     if (!branch) return { class: "", section: "" };
+  console.log(branchClassSection, "branchClassSection");
 
     const rawClass =
       branch.class ??
@@ -1065,10 +1078,7 @@ console.log(settingsFormData,"settingsFormData");
     return { class: toText(rawClass), section: toText(rawSection) };
   }, [getAllSchoolBranch, subAccountBranch.id]);
 
-  // Branch options for the team-account form. Normally derived from the fetched
-  // school branches. A school_sub_account can't call /schools/branch/all (the
-  // backend returns 401 for that role), so build their list from their own
-  // account's branch instead.
+
   const branchOptions = React.useMemo(() => {
     if (getRole === "school_sub_account") {
       const { id, name } = subAccountBranch;
@@ -1089,28 +1099,116 @@ console.log(settingsFormData,"settingsFormData");
 
   console.log(getAllSchoolBranch, "getAllSchoolBranch");
   // console.log(subAccountBranch, "subAccountBranch");
-  console.log(branchClassSection, "branchClassSection");
   const [accounts, setAccounts] = useState(initialAccounts);
   const [selectedIds, setSelectedIds] = useState([]);
   const [isSavingAccount, setIsSavingAccount] = useState(false);
 
-  // Branch-scoped team list. A school_sub_account only sees the accounts that
-  // belong to THEIR branch (the ones their school created) — accounts created
-  // by the admin for other branches are hidden.
-  const visibleAccounts = React.useMemo(() => {
-    if (getRole !== "school_sub_account") return accounts;
-    const myBranchId = (subAccountBranch?.id ?? "").trim();
-    if (!myBranchId) return accounts;
 
-    const filtered = accounts.filter((acc) => {
+  const accountIdsNeedingPrivileges = React.useMemo(() => {
+    const list = Array.isArray(accounts) ? accounts : [];
+
+    return Array.from(
+      new Set(
+        list
+          .map((account) => account?.apiId ?? account?.id ?? null)
+          .filter((id) => id !== null && id !== "" && id !== undefined)
+          .filter(
+            (id) =>
+              !String(id).startsWith("local-") &&
+              !Array.isArray(
+                list.find((account) => (account?.apiId ?? account?.id) === id)
+                  ?.previleges,
+              ) &&
+              !String(
+                list.find((account) => (account?.apiId ?? account?.id) === id)
+                  ?.previleges ??
+                  "",
+              ).trim(),
+          )
+          .map((id) => String(id)),
+      ),
+    ).join(",");
+  }, [accounts]);
+
+
+  const canManageTeam =
+    getRole === "admin" ||
+    getRole === "school" ||
+    getRole === "school_admin" ||
+    getRole === "school_sub_account";
+
+  const { data: privilegesByAccount = {} } = useQuery({
+    queryKey: ["sub-account-privileges", accountIdsNeedingPrivileges],
+    enabled: canManageTeam && accountIdsNeedingPrivileges.length > 0,
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      const ids = accountIdsNeedingPrivileges.split(",");
+
+      // Fetch in parallel, but never let one failure blank the whole list.
+      const settled = await Promise.allSettled(
+        ids.map((id) => dispatch(getPrivileges({ id })).unwrap()),
+      );
+
+      return settled.reduce((acc, result, index) => {
+        if (result.status !== "fulfilled") {
+          console.warn(
+            `Unable to load privileges for sub account ${ids[index]}`,
+            result.reason,
+          );
+          return acc;
+        }
+
+    
+        const response = result.value;
+
+        const privileges =
+          response?.previleges ??
+          response?.privileges ??
+          response?.data?.previleges ??
+          response?.data?.privileges ??
+          (Array.isArray(response?.data)
+            ? response.data
+            : (response?.data?.data ?? response));
+
+        if (Array.isArray(privileges) && privileges.length > 0) {
+          acc[ids[index]] = privileges;
+        }
+
+        return acc;
+      }, {});
+    },
+  });
+
+  // Fold the fetched privileges into the rows without mutating `accounts`.
+  const accountsWithPrivileges = React.useMemo(() => {
+    if (!privilegesByAccount || Object.keys(privilegesByAccount).length === 0) {
+      return accounts;
+    }
+
+    return accounts.map((account) => {
+      const key = String(account?.apiId ?? account?.id ?? "");
+
+      if (!privilegesByAccount[key]) return account;
+
+      return { ...account, previleges: privilegesByAccount[key] };
+    });
+  }, [accounts, privilegesByAccount]);
+
+  const visibleAccounts = React.useMemo(() => {
+    if (getRole !== "school_sub_account") return accountsWithPrivileges;
+    const myBranchId = (subAccountBranch?.id ?? "").trim();
+    if (!myBranchId) return accountsWithPrivileges;
+
+    const filtered = accountsWithPrivileges.filter((acc) => {
       const accBranch = String(
         acc?.branchId ?? acc?.branch_id ?? acc?.branch?.id ?? "",
       ).trim();
       if (!accBranch) return true;
       return accBranch === myBranchId;
     });
-    return filtered.length > 0 ? filtered : accounts;
-  }, [getRole, accounts, subAccountBranch]);
+    return filtered.length > 0 ? filtered : accountsWithPrivileges;
+  }, [getRole, accountsWithPrivileges, subAccountBranch]);
 
   console.log(visibleAccounts, "44444");
 
@@ -1163,8 +1261,7 @@ console.log(settingsFormData,"settingsFormData");
     queryFn: () => dispatch(getAllSubAccount()).unwrap(),
     staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
-    // Sub-account list. A school_sub_account IS allowed to read this endpoint —
-    // they just see only their own branch's accounts (see visibleAccounts).
+
     enabled: Boolean(getRole),
   });
 
@@ -1173,8 +1270,7 @@ console.log(settingsFormData,"settingsFormData");
   const subAccountsRef = React.useRef(null);
 
   React.useEffect(() => {
-    // Tolerate all common response shapes: a raw array, { data: [...] },
-    // or a paginated { data: { data: [...] } }.
+
     const list = Array.isArray(subAccountsData)
       ? subAccountsData
       : Array.isArray(subAccountsData?.data)
@@ -1205,19 +1301,19 @@ console.log(settingsFormData,"settingsFormData");
   const [formErrors, setFormErrors] = useState({});
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingAccount, setEditingAccount] = useState(null);
+console.log(editingAccount,"editingAccount");
+  // True while the edit dialog is fetching the account's saved privileges.
+  const [isLoadingPrivileges, setIsLoadingPrivileges] = useState(false);
 
-  // A school_sub_account belongs to exactly one branch, so when there's only
-  // ONE branch option available, pre-select it in the team form instead of
-  // making them pick it manually. Only fills an EMPTY branchId so editing an
-  // existing team member's branch is never overwritten.
+  const editingAccountIdRef = React.useRef(null);
+
+
   React.useEffect(() => {
     if (getRole !== "school_sub_account") return;
     if (branchOptions.length !== 1) return;
     const onlyBranchId = branchOptions[0]?.value;
     if (!onlyBranchId) return;
-    // Seed the form with the single available branch once options arrive —
-    // an intentional effect write (skipped when already set).
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+
     setSubAccount((prev) =>
       prev.branchId ? prev : { ...prev, branchId: onlyBranchId },
     );
@@ -1237,10 +1333,13 @@ console.log(settingsFormData,"settingsFormData");
     setShowPassword(false);
     setFormErrors({});
     setEditingAccount(null);
+
+    editingAccountIdRef.current = null;
+    setIsLoadingPrivileges(false);
   };
 
   // Edit
-  const handleEditAccount = (account) => {
+  const handleEditAccount = async (account) => {
     setEditingAccount(account);
     setSubAccount({
       name: account.name || "",
@@ -1249,11 +1348,49 @@ console.log(settingsFormData,"settingsFormData");
       password: "",
       user_type_id: account.user_type_id || "",
       branchId: account.branchId || "",
+
       previleges: account.previleges || "",
     });
     setShowPassword(false);
     setFormErrors({});
     setIsAddOpen(true);
+
+    const apiId = account?.apiId ?? account?.id ?? null;
+
+    // Local-only (seed/demo) rows have no API id — nothing to fetch.
+    if (apiId == null || apiId === "") return;
+
+    // Tag the request so we can discard it if the user moves on.
+    editingAccountIdRef.current = String(apiId);
+
+    try {
+      setIsLoadingPrivileges(true);
+
+      const response = await dispatch(getPrivileges({ id: apiId })).unwrap();
+
+      if (editingAccountIdRef.current !== String(apiId)) return;
+      const privileges =
+        response?.previleges ??
+        response?.data?.previleges ??
+        (Array.isArray(response?.data)
+          ? response.data
+          : (response?.data?.data ?? response));
+
+      setSubAccount((prev) => ({ ...prev, previleges: privileges ?? "" }));
+    } catch (error) {
+      // Keep the row's cached value; the dialog is still usable.
+      if (editingAccountIdRef.current !== String(apiId)) return;
+
+      toast.error("Failed to load privileges", {
+        description:
+          typeof error === "string" ? error : (error?.message ?? undefined),
+      });
+    } finally {
+      if (editingAccountIdRef.current === String(apiId)) {
+        editingAccountIdRef.current = null;
+        setIsLoadingPrivileges(false);
+      }
+    }
   };
 
   // Dialog open/close
@@ -1497,14 +1634,8 @@ console.log(settingsFormData,"settingsFormData");
       try {
         setIsSavingAccount(true);
         await dispatch(
-          updateSubAccount({
+          updatePrivileges({
             id: apiId,
-            // name,
-            // phone_number: phoneNumber,
-            // user_name: userName,
-            // ...(password ? { password } : {}),
-            // usertype_id: subAccount.user_type_id,
-            // branch_id: subAccount.branchId,
             previleges: previlegesResult,
           }),
         ).unwrap();
@@ -1597,13 +1728,17 @@ console.log(settingsFormData,"settingsFormData");
             onTransparentSidebarChange={(value) =>
               handleAppearanceChange("transparentSidebar", value)
             }
-            sidebarFeature={sidebarFeature}
-            onSidebarFeatureChange={(value) =>
-              handleAppearanceChange("sidebarFeature", value)
+            sidebarPosition={sidebarPosition}
+            onSidebarPositionChange={(value) =>
+              handleAppearanceChange("sidebarPosition", value)
             }
             tableView={tableView}
             onTableViewChange={(value) =>
               handleAppearanceChange("tableView", value)
+            }
+            fontFamily={fontFamily}
+            onFontFamilyChange={(value) =>
+              handleAppearanceChange("fontFamily", value)
             }
             onCancel={handleAppearanceCancel}
             onSave={handleAppearanceSave}
@@ -1636,6 +1771,7 @@ console.log(settingsFormData,"settingsFormData");
             username={settingsFormData.username}
             password={settingsFormData.password}
             phoneNumber={settingsFormData.phoneNumber}
+            email={settingsFormData.email}
             onChange={handleSettingsChange}
           />
         );
@@ -1689,6 +1825,7 @@ console.log(settingsFormData,"settingsFormData");
             subAccountBranch={subAccountBranch}
             getBranchDataForSubAccount={getBranchDataForSubAccount}
             isSaving={isSavingAccount}
+            isLoadingPrivileges={isLoadingPrivileges}
             authAccName={account}
             // newName={newName}
             // setNewName={setNewName}

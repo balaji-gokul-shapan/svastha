@@ -1,12 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import dynamic from "next/dynamic";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   AlertTriangle,
   Calendar,
+  ChevronLeft,
+  ChevronRight,
   ClipboardCheckIcon,
   Eye,
   EyeDashed,
@@ -14,6 +23,7 @@ import {
   Glasses,
   LensConvex,
   Loader2,
+  PanelLeft,
   Save,
   Search,
   Send,
@@ -59,10 +69,37 @@ import { selectAuthUser } from "@/lib/features/auth-slice";
 import { TextareaField, TextField } from "@/components/ui/text-field";
 import { SelectField } from "./utilities/selectField";
 import ScreeningStepper from "@/components/ScreeningStepper";
+import { cn } from "@/lib/utils";
 
 const VisionSectionLoading = () => (
   <div className="min-h-24 rounded-xl border border-border bg-card p-4" />
 );
+
+// localStorage key for the Vision Screening left-rail collapse preference.
+const RAIL_KEY = "vision-screening:rail-collapsed";
+const RAIL_EVENT = "vision-screening:rail-change";
+
+const getRailSnapshot = () => {
+  try {
+    return window.localStorage.getItem(RAIL_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+
+// The server has no localStorage, so it always renders the expanded rail.
+// useSyncExternalStore then re-renders with the real value after hydration.
+const getServerRailSnapshot = () => false;
+
+const subscribeRail = (onStoreChange) => {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(RAIL_EVENT, onStoreChange);
+
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(RAIL_EVENT, onStoreChange);
+  };
+};
 
 const VisionSnapshotCard = dynamic(
   () => import("./components/VisionSnapshotCard"),
@@ -87,6 +124,10 @@ const RefferalPlan = dynamic(() => import("./components/RefferalPlan"), {
 });
 const QuickSummaryFindings = dynamic(
   () => import("./components/QuickSummaryFindings"),
+  { loading: VisionSectionLoading },
+);
+const VisionSummaryCard = dynamic(
+  () => import("./components/VisionSummaryCard"),
   { loading: VisionSectionLoading },
 );
 
@@ -303,6 +344,36 @@ export default function VisionScreeningPage() {
   );
   const [refractiveErrorRemarks, setRefractiveErrorRemarks] = useState("");
   const [isCaDrawerOpen, setIsCaDrawerOpen] = useState(false);
+
+  // Left-rail collapse, persisted so the screener's chosen workspace width
+  // survives navigation between screening pages.
+  //
+  // useSyncExternalStore (not a lazy useState initializer) is deliberate: this
+  // file is "use client" but still SSR'd, so reading localStorage during the
+  // first render would mismatch the server HTML. It also avoids a
+  // setState-in-effect hydration flash.
+  const isRailCollapsed = useSyncExternalStore(
+    subscribeRail,
+    getRailSnapshot,
+    getServerRailSnapshot,
+  );
+
+  const setRailCollapsed = useCallback((next) => {
+    try {
+      window.localStorage.setItem(RAIL_KEY, next ? "1" : "0");
+    } catch {
+      // Storage unavailable (private mode) — fall back to session-only.
+    }
+
+    // Same-tab subscribers aren't notified of a storage write by the spec, so
+    // announce the change ourselves.
+    window.dispatchEvent(new Event(RAIL_EVENT));
+  }, []);
+
+  const toggleRail = useCallback(
+    () => setRailCollapsed(!isRailCollapsed),
+    [isRailCollapsed, setRailCollapsed],
+  );
 
   const [usesGlasses, setUsesGlasses] = useState("no");
   const [lensType, setLensType] = useState(lensTypeOptions[0]);
@@ -1245,22 +1316,19 @@ export default function VisionScreeningPage() {
 
   return (
     <section className="space-y-4">
-      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between mb-4">
-        <div>
-          <div className="flex items-center gap-2 py-3">
-            {/* <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Eye className="size-5" />
-            </div> */}
-            <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary aspect-square">
+      <div className="sticky top-14 z-10 mb-4 flex flex-col gap-3 border-b border-border/60 bg-background/85 px-0 backdrop-blur supports-backdrop-filter:bg-background/70 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-3 py-3">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-md shadow-primary/20">
               <Eye className="size-6" />
             </div>
 
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight">
+            <div className="min-w-0">
+              <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
                 Vision Screening
               </h1>
 
-              <p className="text-sm text-muted-foreground">
+              <p className="truncate text-sm text-muted-foreground">
                 Vision health screening and assessment
               </p>
               {/* <p className="text-xs text-muted-foreground">
@@ -1412,7 +1480,15 @@ export default function VisionScreeningPage() {
       {studentSelectValue?.length > 0 ? (
         <>
           <StudentProfileCard student={selectedStudent} />
-          <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start">
+          <div
+            className={cn(
+              "grid gap-4 transition-[grid-template-columns] duration-300 ease-out",
+              isRailCollapsed
+                ? "lg:grid-cols-[3.25rem_minmax(0,1fr)]"
+                : "lg:grid-cols-[300px_minmax(0,1fr)]",
+              "lg:items-start",
+            )}
+          >
             {/* ---------------- Left column ---------------- */}
             <div className="space-y-4">
               {/* <article className="rounded-xl border border-border bg-card p-4">
@@ -1468,19 +1544,89 @@ export default function VisionScreeningPage() {
             </div>
           </article> */}
               <div className="relative md:relative lg:sticky lg:top-24 z-10 self-start space-y-5">
-                <FramerCard>
-                  <AssessmentCard
-                    form={{}}
-                    data={getSelectedStudentScreeningData}
-                    studentOptions={assessmentStudentOptions}
-                    studentValue={studentSelectValue}
-                    schoolName={schoolName}
-                    onStudentChange={handleAssessmentStudentChange}
-                    onSave={handleSaveAssessment}
-                    onCancel={handleCancelAssessment}
-                    authUser={authUser}
-                  />
-                </FramerCard>
+                {isRailCollapsed ? (
+                  // Collapsed: a narrow vertical handle. The rail's contents are
+                  // unmounted rather than hidden so their controls don't stay
+                  // in the tab order while visually collapsed.
+                  <button
+                    type="button"
+                    onClick={toggleRail}
+                    aria-label="Expand assessment panel"
+                    aria-expanded={false}
+                    title="Expand assessment panel"
+                    className="flex w-full flex-col items-center gap-3 rounded-2xl border border-border bg-card px-1 py-4 text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  >
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <PanelLeft className="size-4" />
+                    </span>
+
+                    {/* Vertical label — lets the rail stay narrow without
+                        hiding what the panel is. */}
+                    <span className="hidden text-[11px] font-semibold uppercase tracking-wider [writing-mode:vertical-rl] lg:block">
+                      Assessment
+                    </span>
+
+                    <ChevronRight className="hidden size-4 shrink-0 lg:block" />
+
+                    {/* On mobile the rail is full-width, so the label and
+                        chevron are already legible horizontally. */}
+                    <span className="text-xs font-semibold uppercase tracking-wider lg:hidden">
+                      Assessment
+                    </span>
+                    <ChevronRight className="size-4 shrink-0 lg:hidden" />
+                  </button>
+                ) : (
+                  <>
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        onClick={toggleRail}
+                        aria-label="Collapse assessment panel"
+                        aria-expanded={true}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <ChevronLeft className="size-4" />
+                        <span className="hidden sm:inline">Collapse</span>
+                      </Button>
+                    </div>
+
+                    <FramerCard>
+                      <AssessmentCard
+                        form={{}}
+                        data={getSelectedStudentScreeningData}
+                        studentOptions={assessmentStudentOptions}
+                        studentValue={studentSelectValue}
+                        schoolName={schoolName}
+                        onStudentChange={handleAssessmentStudentChange}
+                        onSave={handleSaveAssessment}
+                        onCancel={handleCancelAssessment}
+                        authUser={authUser}
+                      />
+                    </FramerCard>
+
+                    {/* Vision Summary — sits directly under the Assessment Details
+                    card in the same left rail. Read-only: every value is the
+                    page's existing state, so no behaviour is added. */}
+                    <FramerCard>
+                      <VisionSummaryCard
+                        od={od}
+                        os={os}
+                        ou={ou}
+                        odStatus={odStatus}
+                        osStatus={osStatus}
+                        colorVisionStatus={colorVisionStatus}
+                        coverTest={coverTest}
+                        strabismus={strabismus}
+                        usesGlasses={usesGlasses}
+                        lensType={lensType}
+                        referral={referral}
+                        followUp={followUp}
+                      />
+                    </FramerCard>
+                  </>
+                )}
               </div>
 
               {/* <div className="flex gap-2">
@@ -1501,7 +1647,10 @@ export default function VisionScreeningPage() {
               </div> */}
             </div>
 
-            <div className="min-w-0">
+            {/* The grid track (minmax(0,1fr)) already controls this column's
+                width, so a max-w cap + mx-auto only fought it: collapsing the
+                rail handed back space the content then refused to fill. */}
+            <div className="w-full min-w-0">
               <ScreeningStepper
                 activeStep={activeVisionStep}
                 setActiveStep={setActiveVisionStep}

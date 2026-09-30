@@ -6,10 +6,14 @@ import {
   Activity,
   AlertCircle,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardCheck,
   Cross,
   Droplet,
   Heart,
   Loader2,
+  PanelLeft,
   Ruler,
   Save,
   Search,
@@ -58,6 +62,10 @@ import { selectAuthUser } from "@/lib/features/auth-slice";
 import ScreeningStepper from "@/components/ScreeningStepper";
 import StudentProfileCard from "@/app/students/utilities/studentProfileCard";
 import { ToggleGroup } from "../vision-screening/utilities/toggleGroup";
+import { cn } from "@/lib/utils";
+
+// localStorage key for the General Screening left-rail collapse preference.
+const RAIL_KEY = "general-screening:rail-collapsed";
 
 const GeneralSectionLoading = () => (
   <div className="min-h-24 rounded-xl border border-border bg-card p-4" />
@@ -202,21 +210,36 @@ function SummaryRow({ icon: Icon, label, value, tone = "muted" }) {
     muted: "bg-muted text-muted-foreground",
   };
 
+  /* A reading that was never entered ("—", "" or 0 for a numeric field) is
+     dimmed + italic so it is never mistaken for a real clinical finding. */
+  const isEmpty =
+    value === "—" ||
+    value === "" ||
+    value === null ||
+    value === undefined ||
+    /^\s*(0\s*)?(cm|kg|%|bpm|°C)?\s*$/i.test(String(value ?? ""));
+
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
-      <div className="flex items-center gap-2">
-        <span
-          className={`flex size-7 items-center justify-center rounded-md ${
-            toneStyles[tone] ?? toneStyles.muted
-          }`}
-        >
-          <Icon className="size-3.5" />
-        </span>
+    /* One line per reading: icon · micro-caps label · right-aligned tabular
+       value. The rail colour doubles as a filled/blank indicator, so a glance
+       down the column shows which measurements were actually captured. */
+    <div
+      className={`gs-readout ${isEmpty ? "gs-readout--blank" : "gs-readout--filled"}`}
+      title={`${label}: ${value || "—"}`}
+    >
+      <span
+        className={`flex size-5 shrink-0 items-center justify-center rounded-md ${
+          toneStyles[tone] ?? toneStyles.muted
+        }`}
+      >
+        <Icon className="size-3" />
+      </span>
 
-        <span className="text-sm text-muted-foreground">{label}</span>
-      </div>
+      <span className="gs-readout__label">{label}</span>
 
-      <span className="text-sm font-medium text-foreground">{value}</span>
+      <span className="gs-readout__value">
+        <span className={isEmpty ? "gs-empty" : ""}>{value || "—"}</span>
+      </span>
     </div>
   );
 }
@@ -551,7 +574,7 @@ export default function GeneralScreeningPage() {
         "height-weight-standards",
         "immunizations",
         "vital-signs",
-        "posture-findings"
+        "posture-findings",
       ]),
     [masterScreeningData],
   );
@@ -579,6 +602,34 @@ export default function GeneralScreeningPage() {
   const academicYearOptions = ["2026-2027", "2025-2026", "2024-2025"];
 
   const [isCaDrawerOpen, setIsCaDrawerOpen] = useState(false);
+
+  // Left-rail collapse. Persisted so the screener's chosen workspace width
+  // survives navigation between screening pages. Read in an effect (not at
+  // module scope) because this file is "use client" but still SSR'd — touching
+  // localStorage during render would throw on the server.
+  const [isRailCollapsed, setIsRailCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      setIsRailCollapsed(window.localStorage.getItem(RAIL_KEY) === "1");
+    } catch {
+      // Private mode / storage disabled — fall back to expanded.
+    }
+  }, []);
+
+  const toggleRail = useCallback(() => {
+    setIsRailCollapsed((prev) => {
+      const next = !prev;
+
+      try {
+        window.localStorage.setItem(RAIL_KEY, next ? "1" : "0");
+      } catch {
+        // Non-fatal: the toggle still works for this session.
+      }
+
+      return next;
+    });
+  }, []);
 
   const [activeStep, setActiveStep] = useState("growth");
 
@@ -616,18 +667,11 @@ export default function GeneralScreeningPage() {
 
   const [notes, setNotes] = useState("");
 
-  /**
-   * Referral & follow-up consultation (general screening).
-   * Values mirror the radio choices in the card UI:
-   *   required / followUpRequired: "yes" | "no"
-   *   type: "specialist" | "hospital" | "other"
-   *   followUpPeriod: "2_weeks" | "1_month" | "3_months" | "6_months"
-   */
   const [referralFollowUp, setReferralFollowUp] = useState({
-    required: "",
+    required: "no",
     type: "",
     typeNotes: "",
-    followUpRequired: "",
+    followUpRequired: "no",
     followUpPeriod: "",
     followUpNotes: "",
   });
@@ -640,38 +684,33 @@ export default function GeneralScreeningPage() {
 
   const [savedStudentKey, setSavedStudentKey] = useState(null);
 
+  const defaultSkinAssessment = useMemo(
+    () =>
+      skinOptions.find((item) => item.name === "Normal")?.name ??
+      skinOptions[0]?.name ??
+      "Normal",
+    [skinOptions],
+  );
+
   const [clinicalSigns, setClinicalSigns] = useState({
     pallor: "",
     clubbing: "",
     edema: "",
-    skinAssessment:
-      skinOptions.find((item) => item.name === "Normal")?.name ??
-      skinOptions?.[0]?.name ??
-      "Normal",
+    skinAssessment: defaultSkinAssessment,
     medicalCondition: "",
     currentComplaints: "",
     regularMedication: "",
   });
 
-  useEffect(() => {
-    setClinicalSigns((prev) => {
-      if (
-        prev.skinAssessment &&
-        (skinOptions.length === 0 ||
-          skinOptions.some((item) => item.name === prev.skinAssessment))
-      ) {
-        return prev;
-      }
+  const resolvedSkinAssessment = useMemo(() => {
+    const currentSkinAssessment = clinicalSigns.skinAssessment;
+    const isStillValid =
+      Boolean(currentSkinAssessment) &&
+      (skinOptions.length === 0 ||
+        skinOptions.some((item) => item.name === currentSkinAssessment));
 
-      return {
-        ...prev,
-        skinAssessment:
-          skinOptions.find((item) => item.name === "Normal")?.name ??
-          skinOptions[0]?.name ??
-          "Normal",
-      };
-    });
-  }, [skinOptions]);
+    return isStillValid ? currentSkinAssessment : defaultSkinAssessment;
+  }, [clinicalSigns.skinAssessment, defaultSkinAssessment, skinOptions]);
 
   const [physicalExamination, setPhysicalExamination] = useState({
     generalAppearance: appearanceOptions?.[0]?.name ?? "",
@@ -694,7 +733,6 @@ export default function GeneralScreeningPage() {
   });
 
   const [formErrors, setFormErrors] = useState(null);
-
   const resetAfterSaveRef = useRef(false);
 
   const clearFormError = (field) =>
@@ -774,25 +812,19 @@ export default function GeneralScreeningPage() {
     error: assignEventError,
   } = useQuery({
     queryKey: ["get-event", authUser?.id ?? authUser?.Id ?? null],
-
     queryFn: () => {
       const userId = authUser?.id ?? authUser?.Id;
-
       if (!userId) {
         throw new Error("Signed-in user not available yet");
       }
-
       return dispatch(
         getAssignEvent({
           id: userId,
         }),
       ).unwrap();
     },
-
     enabled: Boolean(authUser?.id ?? authUser?.Id),
-
     staleTime: 0,
-
     refetchOnWindowFocus: true,
   });
 
@@ -847,6 +879,22 @@ export default function GeneralScreeningPage() {
       }
 
       return text;
+    };
+
+    // Records may store the referral / follow-up flags as booleans, 1 / 0, or
+    // "yes" / "no" strings — normalize to the ToggleGroup option values.
+    const normalizeYesNo = (value, fallback = "no") => {
+      const text = String(value ?? "")
+        .trim()
+        .toLowerCase();
+
+      if (!text) return fallback;
+
+      if (["1", "true", "yes", "y"].includes(text)) return "yes";
+
+      if (["0", "false", "no", "n"].includes(text)) return "no";
+
+      return fallback;
     };
 
     setHeight(getMetricValue(screeningRecord?.height));
@@ -1018,18 +1066,18 @@ export default function GeneralScreeningPage() {
 
     setReferralFollowUp((prev) => ({
       ...prev,
-      required: normalizeText(
+      required: normalizeYesNo(
         screeningRecord?.referral_required,
-        prev.required || "",
+        "no",
       ),
       type: normalizeText(screeningRecord?.referral_type, prev.type || ""),
       typeNotes: normalizeText(
         screeningRecord?.referral_type_notes,
         prev.typeNotes || "",
       ),
-      followUpRequired: normalizeText(
+      followUpRequired: normalizeYesNo(
         screeningRecord?.follow_up_required,
-        prev.followUpRequired || "",
+        "no",
       ),
       followUpPeriod: normalizeText(
         screeningRecord?.follow_up_period,
@@ -1477,7 +1525,7 @@ export default function GeneralScreeningPage() {
       allergy,
       chronicDisease,
       immunization,
-      skin: clinicalSigns.skinAssessment || "",
+      skin: resolvedSkinAssessment || "",
       regular_medication: clinicalSigns.regularMedication || "",
       current_complaints: clinicalSigns.currentComplaints || "",
       general_appearance: physicalExamination.generalAppearance || "",
@@ -1580,7 +1628,7 @@ export default function GeneralScreeningPage() {
 
     const skinAssessmentEntry = getExaminationMastersId(
       skinOptions,
-      clinicalSigns.skinAssessment,
+      resolvedSkinAssessment,
     );
 
     /**
@@ -1613,6 +1661,8 @@ export default function GeneralScreeningPage() {
       bp: bloodPressure || "",
 
       spo2: spo2 ? Number(spo2) : 0,
+
+      bmi: Number(bmi) || 0,
 
       height_standard_id: STANDARD_MAP[heightStandardResult?.standard] || 2,
 
@@ -1650,13 +1700,23 @@ export default function GeneralScreeningPage() {
 
       referral: physicalExamination.referral || "",
 
-      referral_required: referralFollowUp.required || "",
+      referral_required:
+        referralFollowUp.required === "yes"
+          ? true
+          : referralFollowUp.required === "no"
+            ? false
+            : null,
 
       referral_type: referralFollowUp.type || "",
 
       referral_type_notes: referralFollowUp.typeNotes || "",
 
-      follow_up_required: referralFollowUp.followUpRequired || "",
+      follow_up_required:
+        referralFollowUp.followUpRequired === "yes"
+          ? true
+          : referralFollowUp.followUpRequired === "no"
+            ? false
+            : null,
 
       follow_up_period: referralFollowUp.followUpPeriod || "",
 
@@ -1790,6 +1850,7 @@ export default function GeneralScreeningPage() {
     pulse,
     isFemale,
     skinOptions,
+    resolvedSkinAssessment,
     nutritionOptions,
     consciousnessOptions,
     appearanceOptions,
@@ -1820,10 +1881,7 @@ export default function GeneralScreeningPage() {
       pallor: "",
       clubbing: "",
       edema: "",
-      skinAssessment:
-        skinOptions.find((item) => item.name === "Normal")?.name ??
-        skinOptions?.[0]?.name ??
-        "Normal",
+      skinAssessment: defaultSkinAssessment,
       medicalCondition: "",
       currentComplaints: "",
       regularMedication: "",
@@ -1850,10 +1908,10 @@ export default function GeneralScreeningPage() {
     });
 
     setReferralFollowUp({
-      required: "",
+      required: "no",
       type: "",
       typeNotes: "",
-      followUpRequired: "",
+      followUpRequired: "no",
       followUpPeriod: "",
       followUpNotes: "",
     });
@@ -1862,7 +1920,7 @@ export default function GeneralScreeningPage() {
     setActiveStep("growth");
   }, [
     bloodGroupOption,
-    skinOptions,
+    defaultSkinAssessment,
     appearanceOptions,
     postureFindingsOptions,
     nutritionOptions,
@@ -1969,38 +2027,31 @@ export default function GeneralScreeningPage() {
     [bloodGroupOption],
   );
 
-  const immunizationToggleOptions = useMemo(
-    () => {
-      const source =
-        immunizationMasterOptions.length > 0
-          ? immunizationMasterOptions
-          : immunizationOptionsFromData;
+  const immunizationToggleOptions = useMemo(() => {
+    const source =
+      immunizationMasterOptions.length > 0
+        ? immunizationMasterOptions
+        : immunizationOptionsFromData;
 
-      return source.map((item) => {
-        const value =
-          typeof item === "string"
-            ? item
-            : item?.value ?? item?.name ?? item;
-        const label =
-          typeof item === "string"
-            ? item
-            : item?.label ?? item?.name ?? value;
-        const tone =
-          typeof item === "object" && item?.tone
-            ? item.tone
-            : value === "up_to_date"
-              ? "good"
-              : value === "partial"
-                ? "warn"
-                : value === "overdue"
-                  ? "bad"
-                  : "neutral";
+    return source.map((item) => {
+      const value =
+        typeof item === "string" ? item : (item?.value ?? item?.name ?? item);
+      const label =
+        typeof item === "string" ? item : (item?.label ?? item?.name ?? value);
+      const tone =
+        typeof item === "object" && item?.tone
+          ? item.tone
+          : value === "up_to_date"
+            ? "good"
+            : value === "partial"
+              ? "warn"
+              : value === "overdue"
+                ? "bad"
+                : "neutral";
 
-        return { value, label, tone };
-      });
-    },
-    [immunizationMasterOptions, immunizationOptionsFromData],
-  );
+      return { value, label, tone };
+    });
+  }, [immunizationMasterOptions, immunizationOptionsFromData]);
 
   const nutritionToggleOptions = useMemo(
     () =>
@@ -2081,7 +2132,6 @@ export default function GeneralScreeningPage() {
     [appearanceOptions],
   );
 
-  
   const postureFindingsToggleOptions = useMemo(
     () =>
       (postureFindingsOptions.length
@@ -2138,19 +2188,19 @@ export default function GeneralScreeningPage() {
 
   return (
     <section className="space-y-4">
-      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
-        <div>
-          <div className="flex items-center gap-2 py-3">
-            <div className="flex size-12 aspect-square items-center justify-center rounded-xl bg-primary/10 text-primary">
+      <div className="sticky top-14 z-10 flex flex-col gap-3 border-b border-border/60 bg-background/85 px-0 backdrop-blur supports-backdrop-filter:bg-background/70 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-3 py-3">
+            <div className="relative flex size-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-md shadow-primary/20">
               <Cross className="size-6" />
             </div>
 
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight">
+            <div className="min-w-0">
+              <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
                 General Screening
               </h1>
 
-              <p className="text-sm text-muted-foreground">
+              <p className="truncate text-sm text-muted-foreground">
                 General health screening and assessment
               </p>
             </div>
@@ -2226,28 +2276,86 @@ export default function GeneralScreeningPage() {
           <>
             <StudentProfileCard student={selectedStudent} />
 
-            <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)] xl:items-start">
+            <div
+              className={cn(
+                "grid gap-4 transition-[grid-template-columns] duration-300 ease-out",
+                isRailCollapsed
+                  ? "lg:grid-cols-[3.25rem_minmax(0,1fr)] xl:grid-cols-[3.25rem_minmax(0,1fr)]"
+                  : "lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)]",
+                "xl:items-start",
+              )}
+            >
               <div className="relative z-10 self-start md:relative lg:sticky top-0 lg:top-36">
-                <FramerCard>
-                  <AssessmentCard
-                    onChange={handleAssessmentChange}
-                    form={assessmentForm}
-                    data={getSelectedStudentScreeningData}
-                    studentOptions={assessmentStudentOptions}
-                    studentValue={studentSelectValue}
-                    isScreeningLoading={studentsLoading}
-                    isScreeningError={studentsError}
-                    isScreening={true}
-                    schoolName={schoolName}
-                    onStudentChange={handleAssessmentStudentChange}
-                    onSave={handleSaveAssessment}
-                    onCancel={handleCancelAssessment}
-                    authUser={authUser}
-                  />
-                </FramerCard>
+                {isRailCollapsed ? (
+                  /* Collapsed: a narrow vertical handle. The Assessment form is
+                     unmounted rather than hidden so its selects don't stay in
+                     the tab order while visually collapsed. */
+                  <button
+                    type="button"
+                    onClick={toggleRail}
+                    aria-label="Expand assessment panel"
+                    aria-expanded={false}
+                    title="Expand assessment panel"
+                    className="flex w-full flex-col items-center gap-3 rounded-2xl border border-border bg-card px-1 py-4 text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 lg:sticky lg:top-36"
+                  >
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <PanelLeft className="size-4" />
+                    </span>
+
+                    {/* Vertical label — lets the rail stay narrow without
+                        hiding what the panel is. */}
+                    <span className="hidden text-[11px] font-semibold uppercase tracking-wider [writing-mode:vertical-rl] lg:block">
+                      Assessment
+                    </span>
+
+                    <ChevronRight className="hidden size-4 shrink-0 lg:block" />
+
+                    {/* On mobile the rail is full-width, so the label and
+                        chevron are already legible horizontally. */}
+                    <span className="text-xs font-semibold uppercase tracking-wider lg:hidden">
+                      Assessment
+                    </span>
+                    <ChevronRight className="size-4 shrink-0 lg:hidden" />
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        onClick={toggleRail}
+                        aria-label="Collapse assessment panel"
+                        aria-expanded={true}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <ChevronLeft className="size-4" />
+                        <span className="hidden sm:inline">Collapse</span>
+                      </Button>
+                    </div>
+
+                    <FramerCard>
+                      <AssessmentCard
+                        onChange={handleAssessmentChange}
+                        form={assessmentForm}
+                        data={getSelectedStudentScreeningData}
+                        studentOptions={assessmentStudentOptions}
+                        studentValue={studentSelectValue}
+                        isScreeningLoading={studentsLoading}
+                        isScreeningError={studentsError}
+                        isScreening={true}
+                        schoolName={schoolName}
+                        onStudentChange={handleAssessmentStudentChange}
+                        onSave={handleSaveAssessment}
+                        onCancel={handleCancelAssessment}
+                        authUser={authUser}
+                      />
+                    </FramerCard>
+                  </div>
+                )}
               </div>
 
-              <div className="min-w-0">
+              <div className="w-full ">
                 <ScreeningStepper
                   activeStep={activeStep}
                   setActiveStep={setActiveStep}
@@ -2280,7 +2388,10 @@ export default function GeneralScreeningPage() {
                   />
 
                   <ClinicalSignsCard
-                    data={clinicalSigns}
+                    data={{
+                      ...clinicalSigns,
+                      skinAssessment: resolvedSkinAssessment,
+                    }}
                     onChange={handleClinicalSignChange}
                     skinAssessmentToggleOptions={skinAssessmentToggleOptions}
                   />
@@ -2439,7 +2550,7 @@ export default function GeneralScreeningPage() {
                             ]}
                           /> */}
                           <ToggleGroup
-                           name="follow-up-required"
+                            name="follow-up-required"
                             label="Follow-up required ?"
                             options={yesNoOptions("no")}
                             value={referralFollowUp.followUpRequired}
@@ -2491,18 +2602,27 @@ export default function GeneralScreeningPage() {
                   </div>
 
                   <FramerCard>
-                    <div className="space-y-4">
-                      <article className="rounded-xl border border-border bg-card p-4">
-                        <h3 className="text-sm font-semibold text-foreground">
-                          Review & Submit
-                        </h3>
+                    <div className="gs-panel">
+                      <div className="gs-panel__head">
+                        <span className="gs-panel__icon">
+                          <ClipboardCheck className="size-4" />
+                        </span>
 
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          Please review all the information before saving the
-                          screening.
-                        </p>
+                        <div className="min-w-0">
+                          <p className="gs-panel__title">Review &amp; Submit</p>
 
-                        <div className="mt-4 space-y-2">
+                          <p className="gs-panel__sub">
+                            Confirm every reading before saving
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="gs-panel__body p-2.5">
+                        {/* Readout rows, not tiles: 7 vitals in a 2/3/4-column
+                            grid of tiles pushes the review list far down the
+                            page. These sit two-per-row at every size, so the
+                            whole summary stays visible without scrolling. */}
+                        <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
                           <SummaryRow
                             icon={Ruler}
                             label="Height"
@@ -2552,7 +2672,7 @@ export default function GeneralScreeningPage() {
                             tone="info"
                           />
                         </div>
-                      </article>
+                      </div>
                     </div>
                   </FramerCard>
                 </ScreeningStepper>

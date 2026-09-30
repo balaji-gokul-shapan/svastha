@@ -9,7 +9,6 @@ import React, { useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 const SchoolStudentFilter = ({
-
   formData = {},
   setFormData = () => {},
   selectRole,
@@ -31,8 +30,7 @@ const SchoolStudentFilter = ({
   };
 
   const getRole = roles[selectRole] ?? "";
-  // Only admin/school roles get the School Name (branch) picker — teachers
-  // and others don't need it, so the grid drops a column for them.
+
   const showSchoolName = getRole === "admin" || getRole === "school";
 
   const {
@@ -42,17 +40,11 @@ const SchoolStudentFilter = ({
   } = useQuery({
     queryKey: ["getSchoolAllBranch"],
     queryFn: () => dispatch(getAllSchoolBranches()).unwrap(),
-    // Admins and school users can fetch the full branch list. Other roles
-    // (e.g. teacher, school_sub_account) either don't need it or get 401'd —
-    // they fall back to their OWN branch via the `ownBranch` prop.
     enabled: getRole === "admin" || getRole === "school",
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 
-  // Single branch of the signed-in school (/schools/branch). Used as the
-  // fallback when the full list isn't available (same pattern as the
-  // settings page's getBranchDataForSubAccount memo).
   const {
     data: getSchoolBranchData = {},
     isLoading: getSchoolBranchLoading,
@@ -61,18 +53,12 @@ const SchoolStudentFilter = ({
     queryKey: ["getSchoolBranch"],
     queryFn: () => dispatch(getSchoolBranch()).unwrap(),
     staleTime: 5 * 60 * 1000,
-    // School accounts only. The backend 401s this route for admin (and for
-    // school_sub_account / doctor), so admins rely on the FULL branch list
-    // above — which is available to them and already feeds the dropdown.
     enabled: getRole === "school" || getRole === "school_admin",
     refetchOnWindowFocus: false,
   });
 
-  // Seed the branch from the signed-in account (`ownBranch`) when the parent
-  // hasn't set one. Every query below is gated on `formData.branchName`
-  // (`enabled: Boolean(formData.branchName)`), so a parent that starts empty —
-  // the report pages' useStudentFilter hook does — left the branch dropdown,
-  // the academic years and the class/section/student options empty.
+console.log(getSchoolBranchData,"getSchoolBranchData");
+
   const ownBranchValue = String(ownBranch?.value ?? "").trim();
   React.useEffect(() => {
     if (formData?.branchName) return;
@@ -93,9 +79,7 @@ const SchoolStudentFilter = ({
       dispatch(
         getFilterStudent({
           branch_id: formData.branchName,
-          // Fetch ALL academic years for the branch. Filtering by year here
-          // would leave the Academic Year dropdown with only the single
-          // currently-active year, making it impossible to switch years.
+
           academicYear: "all",
           // classes:
         }),
@@ -144,9 +128,7 @@ const SchoolStudentFilter = ({
   //   });
   // }, [students, schoolName, academicYear]);
   const academicYearOptions = useMemo(() => {
-    // Build this from the FULL branch roster (all years), not from `students`
-    // (which is already narrowed to the active year). Otherwise the dropdown
-    // would only ever list the currently-selected year.
+
     const allItems = Array.isArray(getAllFilterStudent?.items)
       ? getAllFilterStudent.items
       : [];
@@ -291,11 +273,7 @@ const SchoolStudentFilter = ({
     return options;
   }, [filteredStudents]);
 
-  // Get ALL branches and show only their ID (dropdown value) and NAME
-  // (dropdown label) — same mapping shape used for the sub-account options
-  // in the settings page. When the full list isn't available (e.g. the role
-  // gets 401 on /schools/branch/all), fall back to the single branch from
-  // /schools/branch (getSchoolBranchData).
+
   const fetchedBranchOptions = useMemo(() => {
     const list = Array.isArray(getAllSchoolBranch)
       ? getAllSchoolBranch
@@ -340,12 +318,7 @@ const SchoolStudentFilter = ({
     return options;
   }, [getAllSchoolBranch, getSchoolBranchData]);
 
-  // Fallback for roles that can't call /schools/branch/all (e.g.
-  // school_sub_account gets 401 there). They pass their OWN branch via the
-  // `ownBranch` prop, so the Camp Name dropdown still shows their branch.
-  // It is also added when the SELECTED value is missing from the fetched list —
-  // a Select renders blank when no option matches its value, even though
-  // `formData.branchName` (and every query gated on it) is set.
+
   const branchOptions = React.useMemo(() => {
     const options = fetchedBranchOptions.length
       ? [...fetchedBranchOptions]
@@ -367,11 +340,9 @@ const SchoolStudentFilter = ({
     return options;
   }, [fetchedBranchOptions, ownBranch, formData?.branchName]);
 
-  // Report the resolved branch option to the parent whenever the branch value
-  // changes, so consumers that need the full record (school name + address —
-  // e.g. the report header) get it automatically, without the user having to
-  // re-pick the branch. Guarded by a ref so it fires once per value, even if
-  // the parent's callback identity changes on every render.
+  
+
+
   const lastReportedBranchRef = React.useRef(null);
   React.useEffect(() => {
     if (!onSelectedBranchChange) return;
@@ -406,11 +377,6 @@ const SchoolStudentFilter = ({
       return next;
     });
 
-    // Notify the parent so the main student table refetches with the new
-    // filters AND the selection is written back into the URL query string.
-    // Persisting EVERY filter (school/year/class/section/student) in the URL
-    // is what lets the whole selection survive a round trip through a
-    // student's detail page and back, and on browser back/forward.
     if (name === "branchName") {
       onSchoolNameChange?.(value || "all");
       onSelectedBranchChange?.(

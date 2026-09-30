@@ -40,7 +40,7 @@ assert.equal(allowed("/", ADMIN), true);
 assert.equal(allowed("/settings", SUB_ACCOUNT), true);
 assert.equal(allowed("/settings", STAFF), true);
 assert.equal(allowed("/students-archive", DOCTOR), true, "prefix must be exact");
-assert.equal(allowed("/api/students/filter", STAFF), true, "api is not a page");
+assert.equal(allowed("/api/v1/students/filter", STAFF), true, "api is not a page");
 assert.equal(getAllowedUserTypeIdsForPath("/settings"), null);
 assert.equal(getAllowedRolesForPath("/settings"), null);
 

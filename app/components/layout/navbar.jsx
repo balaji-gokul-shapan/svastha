@@ -4,11 +4,12 @@ import { Bell, ChevronDown, LogOut, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { clearAuthSession } from "@/lib/features/auth-slice";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ThemeToggle } from "./themeToggle";
 
-export function Navbar({ title = "Dashboard" }) {
+export function Navbar({ title = "Dashboard", sticky = true }) {
   const router = useRouter();
   const dispatch = useDispatch();
   const authUser = useSelector((state) => state.auth?.user);
@@ -28,7 +29,14 @@ export function Navbar({ title = "Dashboard" }) {
   }
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-none border-border bg-background/80 px-4 backdrop-blur supports-backdrop-filter:bg-background/60 sm:px-6">
+    <header
+      className={cn(
+        "flex h-16 items-center gap-4 border-none border-border bg-background/80 px-4 backdrop-blur supports-backdrop-filter:bg-background/60 sm:px-6",
+        // In top-nav mode the TopNav bar already sticks to the viewport, so a
+        // second sticky header would stack underneath it.
+        sticky && "sticky top-0 z-40",
+      )}
+    >
       {/* <h1 className="font-display text-lg font-semibold text-foreground sm:text-xl">
         {title}
       </h1> */}

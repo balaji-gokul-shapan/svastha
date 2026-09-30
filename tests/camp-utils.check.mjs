@@ -1,10 +1,4 @@
-// Camp helper checks — label/date normalisation used by the Camp dropdown.
-//
-// lib/camp-utils.js is dependency-free ESM, but package.json has no
-// "type": "module" — so this harness loads its SOURCE through a data: URL
-// instead of importing the .js file directly (which Node would treat as CJS).
-//
-// Run with:  node tests/camp-utils.check.mjs
+
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -22,9 +16,143 @@ const {
   getCampDate,
   getCampDisplayLabel,
   getCampDoctorIds,
+  getCampId,
   getCampPrimaryDoctorId,
   formatCampDate,
+  getCampSchoolId,
+  getCampBranchId,
+  getCampBranchName,
+  getCampStatus,
+  isCampActive,
+  buildCampSummary,
+  EMPTY_CAMP_SUMMARY,
 } = mod;
+
+// ---- buildCampSummary: the fallback-mixing fix -------------------------
+// Two camps at the SAME school, with genuinely different location /
+// registration. The old `{ ...fallback, ...picked }` produced a mixed object.
+const campA = {
+  id: 14, name: "svasta dev",
+  camp_date: "2026-09-15T00:00:00.000000Z",
+  status: false, doctor_ids: [88, 100],
+  primary_doctor_id: 88, primary_doctor: 1,
+  screening_ids: [1, 4, 3],
+  school_id: 1, branch_id: 2,
+  school: { id: 1, school_name: "Oakridge Public School",
+            registration_number: "CBSE-TN-2026-02841", area: "Adyar", city: "Chennai" },
+  branch: { id: 2, branch_name: "Oakridge Public School - Madipakkam" },
+};
+const campB = {
+  id: 15, name: "Balaji's Camp",
+  camp_date: "2026-09-23T00:00:00.000000Z",
+  status: true, doctor_ids: [88],
+  primary_doctor_id: 88, primary_doctor: 1,
+  screening_ids: [1, 2, 3, 4, 5],
+  school_id: 1, branch_id: 2,
+  school: { id: 1, school_name: "Oakridge Public School",
+            registration_number: "REG-B-DIFFERENT", area: "Velachery", city: "Chennai" },
+  branch: { id: 2, branch_name: "Oakridge Public School - Madipakkam" },
+};
+
+const sumA = buildCampSummary(campA);
+const sumB = buildCampSummary(campB);
+
+// Every field of sumB must come from campB, never campA.
+assert.equal(sumB.id, "15");
+assert.equal(sumB.name, "Balaji's Camp");
+assert.equal(sumB.date, "2026-09-23T00:00:00.000000Z");
+assert.equal(sumB.status, true);
+assert.deepEqual(sumB.doctorIds, ["88"]);
+assert.deepEqual(sumB.screeningIds, ["1", "2", "3", "4", "5"]);
+assert.equal(sumB.registrationNumber, "REG-B-DIFFERENT", "must not leak campA's reg no");
+assert.equal(sumB.location, "Velachery, Chennai", "must not leak campA's location");
+assert.equal(sumB.branchId, "2");
+assert.equal(sumB.schoolId, "1");
+assert.equal(sumB.primaryDoctorId, "88");
+assert.equal(sumB.primaryDoctor, true);
+
+assert.equal(sumA.registrationNumber, "CBSE-TN-2026-02841");
+assert.equal(sumA.location, "Adyar, Chennai");
+assert.equal(sumA.status, false);
+assert.deepEqual(sumA.doctorIds, ["88", "100"]);
+
+// A missing camp yields the neutral shape with a null id.
+const none = buildCampSummary(null);
+assert.equal(none.id, null, "id null means nothing selected");
+assert.equal(none.name, "all");
+assert.deepEqual(none.doctorIds, []);
+assert.deepEqual(none.screeningIds, []);
+assert.equal(none.location, null);
+
+console.log("buildCampSummary: ALL PASS");
+
+// ---- new helpers, against the REAL /assigned payload -------------------
+// Camp 15 (status true) and camp 14 (status false) from the live API.
+const camp15 = {
+  id: 15,
+  name: "Balaji's Camp",
+  school_id: 1,
+  branch_id: 2,
+  camp_date: "2026-09-23T00:00:00.000000Z",
+  screening_ids: [1, 2, 3, 4, 5],
+  status: true,
+  doctor_ids: [88],
+  primary_doctor_id: 88,
+  primary_doctor: 1,
+  school: { id: 1, school_name: "Oakridge Public School" },
+  branch: { id: 2, branch_name: "Oakridge Public School - Madipakkam" },
+};
+
+const camp14 = {
+  ...camp15,
+  id: 14,
+  name: "svasta dev",
+  status: false,
+  doctor_ids: [88, 100],
+  screening_ids: [1, 4, 3],
+};
+
+// ids
+assert.equal(getCampSchoolId(camp15), "1");
+assert.equal(getCampBranchId(camp15), "2");
+assert.equal(getCampBranchId(camp14), "2", "same branch as camp 15");
+assert.equal(
+  getCampBranchName(camp15),
+  "Oakridge Public School - Madipakkam",
+);
+// nested-only shapes
+assert.equal(getCampSchoolId({ school: { id: 7 } }), "7");
+assert.equal(getCampBranchId({ branch: { id: 9 } }), "9");
+assert.equal(getCampSchoolId(null), "");
+assert.equal(getCampBranchId(undefined), "");
+
+// status coercion across shapes
+assert.equal(getCampStatus(camp15), true);
+assert.equal(getCampStatus(camp14), false);
+assert.equal(getCampStatus({ status: 1 }), true);
+assert.equal(getCampStatus({ status: 0 }), false);
+assert.equal(getCampStatus({ status: "true" }), true);
+assert.equal(getCampStatus({ status: "0" }), false);
+assert.equal(getCampStatus({}), null, "absent -> null, not false");
+assert.equal(getCampStatus(null), null);
+
+// isCampActive: only an explicit false hides a camp
+assert.equal(isCampActive(camp15), true);
+assert.equal(isCampActive(camp14), false);
+assert.equal(isCampActive({}), true, "missing status must not hide a camp");
+assert.equal(isCampActive(null), true);
+
+// primary_doctor FLAG is distinct from primary_doctor_id
+assert.equal(getCampPrimaryDoctorId(camp15), "88");
+assert.deepEqual(getCampDoctorIds(camp15), ["88"]);
+assert.deepEqual(getCampDoctorIds(camp14), ["88", "100"]);
+assert.equal(getCampStatus({ status: camp14.primary_doctor }), true);
+
+// both camps share a school but are different events
+assert.notEqual(getCampId(camp14), getCampId(camp15));
+assert.equal(camp14.school.school_name, camp15.school.school_name);
+
+console.log("camp-utils new helpers: ALL PASS");
 
 // The real /api/v1/medical-event/assigned record (camp id 14).
 const apiCamp = {

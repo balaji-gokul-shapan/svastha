@@ -1,0 +1,114 @@
+<!-- Svastha Official Verified Student Health Membership Circular Seal -->
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 200 200" fill="none">
+  <defs>
+    <!-- Metallic Specular 24K Aurum Gold Gradient -->
+    <linearGradient id="sealGoldGrad" x1="10" y1="10" x2="190" y2="190" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#fffbeb" />
+      <stop offset="18%" stop-color="#fef08a" />
+      <stop offset="42%" stop-color="#f59e0b" />
+      <stop offset="70%" stop-color="#b45309" />
+      <stop offset="88%" stop-color="#d97706" />
+      <stop offset="100%" stop-color="#78350f" />
+    </linearGradient>
+
+    <!-- Deep Obsidian Vitreous Enamel Surface -->
+    <radialGradient id="sealEnamelCore" cx="100" cy="100" r="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="65%" stop-color="#06181f" />
+      <stop offset="100%" stop-color="#020617" />
+    </radialGradient>
+
+    <!-- Plaque Background Gradient -->
+    <linearGradient id="tagBgGrad" x1="50" y1="150" x2="150" y2="175" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#090d16" />
+      <stop offset="50%" stop-color="#111827" />
+      <stop offset="100%" stop-color="#090d16" />
+    </linearGradient>
+
+    <!-- Realistic Drop Shadows -->
+    <filter id="sealOuterShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.6" />
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#fffbeb" flood-opacity="0.25" />
+    </filter>
+
+    <filter id="cyanGlow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="2" stdDeviation="5" flood-color="#1AA3D9" flood-opacity="0.6" />
+    </filter>
+  </defs>
+
+  <!-- 1. Outer 24K Gold Beveled Seal Edge with Serrated Relief -->
+  <circle cx="100" cy="100" r="94" fill="url(#sealGoldGrad)" filter="url(#sealOuterShadow)" />
+  <circle cx="100" cy="100" r="88" fill="#1c1917" />
+  <circle cx="100" cy="100" r="86" fill="url(#sealGoldGrad)" />
+
+  <!-- 2. Deep Obsidian Vitreous Enamel Core -->
+  <circle cx="100" cy="100" r="82" fill="url(#sealEnamelCore)" />
+
+  <!-- 3. Concentric Guilloché Anti-Counterfeit Wave Lines -->
+  <g opacity="0.2" stroke="#eab308" fill="none" stroke-width="0.75">
+    <circle cx="100" cy="100" r="76" stroke-dasharray="2 3" />
+    <circle cx="100" cy="100" r="68" />
+    <circle cx="100" cy="100" r="58" stroke-dasharray="3 3" />
+    <circle cx="100" cy="100" r="46" />
+    <path d="M 40 100 Q 100 50, 160 100 Q 100 150, 40 100 Z" />
+    <path d="M 45 85 Q 100 140, 155 85 Q 100 30, 45 85 Z" />
+  </g>
+
+  <!-- 4. Perimeter Micro-Security Circular Text with "SVASTHA - POWERED BY SMS24HRS" -->
+  <path id="sealTextPath" d="M 100, 100 m -74, 0 a 74,74 0 1,1 148,0 a 74,74 0 1,1 -148,0" fill="none" />
+  <text font-size="9.1" fill="#fde047" font-weight="900" letter-spacing="0.19em">
+    <textPath href="#sealTextPath" startOffset="0%">
+      • SVASTHA - POWERED BY SMS24HRS • VERIFIED STUDENT HEALTH MEMBER 
+    </textPath>
+  </text>
+
+  <!-- 5. Inner Golden Separation Inset Ring -->
+  <circle cx="100" cy="100" r="62" stroke="url(#sealGoldGrad)" stroke-width="1.2" fill="none" opacity="0.8" />
+  <circle cx="100" cy="100" r="60" stroke="#fde047" stroke-width="0.5" stroke-dasharray="2 2" fill="none" opacity="0.5" />
+
+  <!-- 6. Official Svastha Insignia (Head & Dual Concentric Wellness Arcs) -->
+  <g transform="translate(100, 92) scale(0.20) translate(-230, -235)" filter="url(#cyanGlow)">
+    <!-- head -->
+    <circle cx="230" cy="105" r="55" fill="#fef08a" />
+    <!-- Specular gloss dot on head -->
+    <circle cx="212" cy="88" r="16" fill="#ffffff" opacity="0.45" />
+
+    <!-- inner arc -->
+    <path d="M 55 275
+             A 250 250 0 0 1 405 275"
+          fill="none"
+          stroke="#f59e0b"
+          stroke-width="40"
+          stroke-linecap="round" />
+    <path d="M 75 270 A 250 250 0 0 1 385 270" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" opacity="0.3" />
+
+    <!-- outer arc -->
+    <path d="M 30 400
+             A 300 300 0 0 1 430 400"
+          fill="none"
+          stroke="#d97706"
+          stroke-width="40"
+          stroke-linecap="round" />
+    <path d="M 50 395 A 300 200 0 0 1 410 395" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" opacity="0.25" />
+  </g>
+
+  <!-- 7. Bottom Accreditation Plaque: "svastha • Powered by SMS24hrs" -->
+  <!-- <g transform="translate(110, 140)"> -->
+    <!-- Background plaque -->
+    <!-- <rect x="-55" y="-5" width="100" height="18" rx="9" fill="url(#tagBgGrad)" stroke="url(#sealGoldGrad)" stroke-width="1.2" /> -->
+    
+    <!-- Twin Star Accents -->
+    <!-- <polygon points="-56, -1 -54,3 -50,3 -53,6 -52,10 -56,7 -60,10 -59,6 -62,3 -58,3" fill="#fde047" transform="scale(0.65) translate(-19, 2)" /> -->
+    <!-- <polygon points="56,-1 58,3 62,3 59,6 60,10 56,7 52,10 53,6 50,3 54,3" fill="#fde047" transform="scale(0.65) translate(5, 2)" /> -->
+
+    <!-- Typography -->
+    <!-- <text x="-5" y="5.5" text-anchor="middle" fill="#ffffff" font-size="6.5" font-weight="900" font-family="system-ui, sans-serif" letter-spacing="0.08em"> -->
+      <!-- <tspan fill="#38bdf8">svastha</tspan> -->
+      <!-- <tspan fill="#94a3b8" font-size="5.5" font-weight="600"> •  by </tspan> -->
+      <!-- <tspan fill="#fde047" font-weight="bold">SMS24hrs</tspan> -->
+    <!-- </text> -->
+  <!-- </g> -->
+
+  <!-- 8. Outer Convex Glass Cabochon Sheen -->
+  <path d="M 35 60 C 45 35, 70 22, 100 22 C 130 22, 155 35, 165 60 C 140 46, 60 46, 35 60 Z" fill="#ffffff" opacity="0.15" />
+</svg>

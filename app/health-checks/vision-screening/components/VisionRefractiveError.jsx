@@ -29,8 +29,8 @@ const VisionRefractiveError = ({
           />
           <TextField
             label="Remarks"
-            value={refractiveErrorRemarks}
-            onChange={setRefractiveErrorRemarks}
+            value={refractiveErrorRemarks ?? ""}
+            onChange={(e) => setRefractiveErrorRemarks(e.target.value)}
             placeholder="Optional"
           />
         </div>

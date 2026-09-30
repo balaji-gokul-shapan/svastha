@@ -48,14 +48,14 @@ const LensCorrection = ({
           />
           <TextField
             label="Lens Power"
-            value={lensPower}
-            onChange={setLensPower}
+            value={lensPower ?? ""}
+            onChange={(e) => setLensPower(e.target.value)}
             placeholder="e.g. -1.50 DS"
           />
           <TextField
             label="Lens Remarks"
-            value={lensRemarks}
-            onChange={setLensRemarks}
+            value={lensRemarks ?? ""}
+            onChange={(e) => setLensRemarks(e.target.value)}
             placeholder="Optional"
           />
         </div>

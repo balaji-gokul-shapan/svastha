@@ -19,6 +19,8 @@ import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import {
   registerStudent,
   resetRegisterStudentState,
+  extractStudentId,
+  uploadStudentProfileImage,
 } from "@/lib/features/registerStudentSlice";
 
 const GENDER_OPTIONS = ["Male", "Female", "Other"];
@@ -61,9 +63,13 @@ export default function AddStudentPage() {
   const [profileImageFile, setProfileImageFile] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
   const [imageError, setImageError] = useState("");
-  const { loading, success, error } = useAppSelector(
+  const { loading, uploadingImage, error } = useAppSelector(
     (state) => state.registerStudent,
   );
+
+  // Registering and uploading the photo are two requests, so the button stays
+  // disabled for both — otherwise a second click could fire a duplicate POST.
+  const isSubmitting = loading || uploadingImage;
 
   const [formValues, setFormValues] = useState(INITIAL_FORM_VALUES);
 
@@ -158,29 +164,71 @@ export default function AddStudentPage() {
       return;
     }
 
-    try {
-      await dispatch(
-        registerStudent({
-          student: formValues,
-          profileImage: profileImageFile, // optional — may be null
-        }),
-      ).unwrap();
-
-      toast.success("Student registered successfully.");
-      setFormValues(INITIAL_FORM_VALUES);
-      clearProfileImage();
-      dispatch(resetRegisterStudentState());
-
-      window.setTimeout(() => {
-        router.push("/students");
-      }, 600);
-    } catch (submitError) {
-      toast.error(
+    const readError = (submitError, fallback) => {
+      const message =
         typeof submitError === "string"
           ? submitError
-          : submitError?.message || "Unable to register the student.",
-      );
+          : submitError?.message || submitError?.payload;
+
+      return typeof message === "string" && message.trim()
+        ? message
+        : fallback;
+    };
+
+    // The record first, then the photo to its own endpoint — the same two-step
+    // order used when editing a student, so both flows stay consistent.
+    let createdStudent;
+
+    try {
+      createdStudent = await dispatch(
+        registerStudent({
+          student: formValues,
+          // The photo is uploaded separately below, not folded into this body.
+        }),
+      ).unwrap();
+    } catch (submitError) {
+      toast.error(readError(submitError, "Unable to register the student."));
+      return;
     }
+
+    const newStudentId = extractStudentId(createdStudent);
+
+    if (profileImageFile) {
+      if (!newStudentId) {
+        // Registered, but with no id to attach the photo to.
+        toast.warning(
+          "Student registered, but the photo could not be uploaded (no student id returned).",
+        );
+      } else {
+        try {
+          await dispatch(
+            uploadStudentProfileImage({
+              studentId: newStudentId,
+              image: profileImageFile,
+            }),
+          ).unwrap();
+
+          toast.success("Student and photo registered successfully.");
+        } catch (uploadError) {
+          toast.error(
+            `Student registered, but the photo upload failed: ${readError(
+              uploadError,
+              "please try again.",
+            )}`,
+          );
+        }
+      }
+    } else {
+      toast.success("Student registered successfully.");
+    }
+
+    setFormValues(INITIAL_FORM_VALUES);
+    clearProfileImage();
+    dispatch(resetRegisterStudentState());
+
+    window.setTimeout(() => {
+      router.push("/students");
+    }, 600);
   };
   return (
     <section className="space-y-6">
@@ -499,18 +547,26 @@ export default function AddStudentPage() {
 
         <div className="flex items-center justify-end gap-2">
           <Link href="/students">
-            <Button variant="outline" size="default" type="button" disabled={loading}>
+            <Button
+              variant="outline"
+              size="default"
+              type="button"
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
           </Link>
-          <Button variant="default" size="default" type="submit" disabled={loading}>
-            {loading ? (
+          <Button
+            variant="default"
+            size="default"
+            type="submit"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />
-                Saving...
+                {uploadingImage ? "Uploading photo..." : "Saving..."}
               </>
-            ) : success ? (
-              "Saved!"
             ) : (
               "Save Student"
             )}

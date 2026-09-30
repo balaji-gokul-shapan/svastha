@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { getAllStudent } from "@/lib/features/getAllStudentSlice";
-import { updateStudent } from "@/lib/features/updateStudentSlice";
+import { updateStudent, uploadStudentPhoto } from "@/lib/features/updateStudentSlice";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import HealthCheckModal from "@/components/students/health-check-modal";
 import { getStudentSlug } from "../datas/student-data";
@@ -249,6 +249,12 @@ function StudentDetailPageInner() {
     setShowCropper(false);
   };
 
+  const [submitState, setSubmitState] = React.useState({
+    status: "idle", // "idle" | "success" | "error"
+    message: "",
+    partial: false,
+  });
+
   const updateStudentMutation = useMutation({
     mutationFn: async ({ studentId, studentData: payload }) =>
       dispatch(
@@ -257,15 +263,15 @@ function StudentDetailPageInner() {
           studentData: payload,
         }),
       ).unwrap(),
-    onSuccess: () => {
-      setIsImageModalOpen(false);
-      setShowCropper(false);
-      setImagePreviewUrl("");
-      setUploadedImageFile(null);
-      setUploadError("");
-      dispatch(getAllStudent({ page: 1, limit: 1000 }));
-    },
   });
+
+  const uploadStudentPhotoMutation = useMutation({
+    mutationFn: async ({ studentId, image }) =>
+      dispatch(uploadStudentPhoto({ studentId, image })).unwrap(),
+  });
+
+  const isSubmitting =
+    updateStudentMutation.isPending || uploadStudentPhotoMutation.isPending;
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -287,15 +293,81 @@ function StudentDetailPageInner() {
     formData.set("dob", dobValue ?? "");
     formData.set("age", ageValue ?? "");
 
-    if (uploadedImageFile) {
-      formData.set("profile_image", uploadedImageFile);
+    formData.delete("profile_image");
+    formData.delete("profileImage");
+
+    setSubmitState({ status: "idle", message: "", partial: false });
+    updateStudentMutation.reset();
+    uploadStudentPhotoMutation.reset();
+
+    let detailsSaved = false;
+    let photoSaved = !uploadedImageFile;
+    let detailsError = null;
+    let photoError = null;
+
+    try {
+      await updateStudentMutation.mutateAsync({ studentId, studentData: formData });
+      detailsSaved = true;
+    } catch (error) {
+      detailsError = error;
     }
 
-    updateStudentMutation.reset();
-    await updateStudentMutation.mutateAsync({
-      studentId,
-      studentData: formData,
+    if (detailsSaved && uploadedImageFile) {
+      try {
+        await uploadStudentPhotoMutation.mutateAsync({
+          studentId,
+          image: uploadedImageFile,
+        });
+        photoSaved = true;
+      } catch (error) {
+        photoError = error;
+      }
+    }
+
+    const readError = (error, fallback) => {
+      const message = error?.message || error?.payload || error?.data?.message;
+
+      return typeof message === "string" && message.trim()
+        ? message
+        : fallback;
+    };
+
+    if (!detailsSaved) {
+      setSubmitState({
+        status: "error",
+        message: readError(detailsError, "Unable to update student details."),
+        partial: false,
+      });
+      return;
+    }
+
+    if (!photoSaved) {
+      setSubmitState({
+        status: "error",
+        message: `Details saved, but the photo upload failed: ${readError(
+          photoError,
+          "please try again.",
+        )}`,
+        partial: true,
+      });
+      dispatch(getAllStudent({ page: 1, limit: 1000 }));
+      return;
+    }
+
+    setSubmitState({
+      status: "success",
+      message: uploadedImageFile
+        ? "Student and photo updated successfully."
+        : "Student updated successfully.",
+      partial: false,
     });
+
+    setIsImageModalOpen(false);
+    setShowCropper(false);
+    setImagePreviewUrl("");
+    setUploadedImageFile(null);
+    setUploadError("");
+    dispatch(getAllStudent({ page: 1, limit: 1000 }));
   };
 
   if (loading && !student) {
@@ -662,17 +734,14 @@ function StudentDetailPageInner() {
 
         {/* Sticky update bar — stays pinned to the bottom of the viewport while the form scrolls */}
         <div className="sticky bottom-2 z-10 flex items-center justify-end gap-2 rounded-lg border border-border bg-background/95 px-3 py-2 backdrop-blur supports-backdrop-filter:bg-background/80 sm:px-4">
-          {updateStudentMutation.error ? (
+          {submitState.status === "error" ? (
             <p className="mr-auto text-xs text-destructive">
-              {String(
-                updateStudentMutation.error?.message ||
-                  "Unable to update student",
-              )}
+              {submitState.message}
             </p>
           ) : null}
-          {updateStudentMutation.isSuccess ? (
+          {submitState.status === "success" ? (
             <p className="mr-auto text-xs text-success">
-              Student updated successfully.
+              {submitState.message}
             </p>
           ) : null}
           <Link href={backHref}>
@@ -680,9 +749,9 @@ function StudentDetailPageInner() {
               Cancel
             </Button>
           </Link>
-          <Button type="submit" disabled={updateStudentMutation.isPending}>
+          <Button type="submit" disabled={isSubmitting}>
             <GraduationCap className="size-4" />
-            {updateStudentMutation.isPending ? "Updating..." : "Update Student"}
+            {isSubmitting ? "Updating..." : "Update Student"}
           </Button>
         </div>
       </form>

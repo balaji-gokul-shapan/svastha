@@ -1,4 +1,3 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FramerCard } from "@/util/FramerCard";
 import { Activity, Ear, ShieldAlert } from "lucide-react";
 import React from "react";
@@ -7,29 +6,79 @@ import { SummaryRow } from "../utilities/SummaryRow";
 const HearingSummary = ({reHearingResult, leHearingResult, form}) => {
   return (
     <FramerCard>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Hearing Summary</CardTitle>
-        </CardHeader>
+      {/* Same "Clinical Slate" language as the other screening pages, with a
+          colour rail per ear so left and right are never confused. */}
+      <div className="gs-panel">
+        <div className="gs-panel__head">
+          <span className="gs-panel__icon">
+            <Activity className="size-4" />
+          </span>
 
-        <CardContent className="space-y-2">
+          <div className="min-w-0">
+            <p className="gs-panel__title">Hearing Summary</p>
+
+            <p className="gs-panel__sub">
+              PTA and classification for each ear
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-2 p-2.5">
+          {/* Per-ear sub-panels: the PTA reading is the headline number, so it
+              gets a tinted block of its own rather than one row in a list. */}
+          <div className="gs-subpanel gs-subpanel--od">
+            <p className="gs-subpanel__head">Right Ear (RE)</p>
+
+            <div className="pl-2">
+              <SummaryRow
+                icon={Ear}
+                label="Pure Tone Average"
+                value={
+                  reHearingResult.classification
+                    ? `${reHearingResult.pta.toFixed(1)} dB`
+                    : "Not assessed"
+                }
+                tone="info"
+              />
+            </div>
+          </div>
+
+          <div className="gs-subpanel gs-subpanel--os">
+            <p className="gs-subpanel__head">Left Ear (LE)</p>
+
+            <div className="pl-2">
+              <SummaryRow
+                icon={Ear}
+                label="Pure Tone Average"
+                value={
+                  leHearingResult.classification
+                    ? `${leHearingResult.pta.toFixed(1)} dB`
+                    : "Not assessed"
+                }
+                tone="info"
+              />
+            </div>
+          </div>
+
+          <p className="gs-readout__group">Findings</p>
+
           <SummaryRow
             icon={Ear}
-            label="Right Ear"
-            value={
-              reHearingResult.classification
-                ? `${reHearingResult.pta.toFixed(1)} dB · ${reHearingResult.classification.severity}`
-                : form.overall_status_re || "Not assessed"
+            label="RE Classification"
+            value={reHearingResult.classification?.severity ?? "Not assessed"}
+            tone={
+              reHearingResult.classification?.tone ??
+              (reHearingResult.classification ? "info" : "muted")
             }
           />
 
           <SummaryRow
             icon={Ear}
-            label="Left Ear"
-            value={
-              leHearingResult.classification
-                ? `${leHearingResult.pta.toFixed(1)} dB · ${leHearingResult.classification.severity}`
-                : form.overall_status_le || "Not assessed"
+            label="LE Classification"
+            value={leHearingResult.classification?.severity ?? "Not assessed"}
+            tone={
+              leHearingResult.classification?.tone ??
+              (leHearingResult.classification ? "info" : "muted")
             }
           />
 
@@ -37,15 +86,19 @@ const HearingSummary = ({reHearingResult, leHearingResult, form}) => {
             icon={Activity}
             label="Overall Status"
             value={form.overall_status || "Not assessed"}
+            tone="muted"
           />
+
+          <p className="gs-readout__group">Plan</p>
 
           <SummaryRow
             icon={ShieldAlert}
             label="Referral"
             value={form.referral_priority || "None"}
+            tone={form.referral_required ? "warning" : "success"}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </FramerCard>
   );
 };

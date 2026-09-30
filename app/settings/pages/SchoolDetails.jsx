@@ -22,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import AnimatedModal from "@/components/ui/AnimatedModal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { YearPicker } from "@/components/ui/year-picker";
@@ -117,6 +116,10 @@ const SchoolDetails = ({
   const [currentStep, setCurrentStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
   const isSavingRef = useRef(false);
+  // Timestamp of the last "Next" click. Used to swallow the synthetic click
+  // that the browser dispatches on the Save button when step 4 -> 5 swaps it
+  // in underneath a pointer that is still held down.
+  const stepAdvancedAtRef = useRef(0);
   const dispatch = useDispatch();
   const queryClient = useQueryClient();
 
@@ -126,7 +129,6 @@ const SchoolDetails = ({
 
   const [selectedClassIds, setSelectedClassIds] = useState([]);
   const [selectedSectionIds, setSelectedSectionIds] = useState([]);
-  console.log(getSchoolBranchData, "getAllSchoolBranch---schl");
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -229,8 +231,14 @@ const SchoolDetails = ({
     return true;
   };
 
-  const handleNext = () => {
+  // `fromPointer` distinguishes a real click on the "Next" button from the
+  // Enter-key path in handleSave. Only the former can leave a held pointer
+  // sitting over the slot that is about to become the Save button, so only the
+  // former arms the swap guard.
+  const handleNext = (fromPointer = false) => {
     if (!validateStep(currentStep)) return;
+
+    if (fromPointer) stepAdvancedAtRef.current = Date.now();
     setCurrentStep((s) => Math.min(s + 1, steps.length));
   };
 
@@ -265,8 +273,29 @@ const SchoolDetails = ({
       : String(message);
   }
 
+  // A click that lands within this window of advancing a step is the browser's
+  // synthetic click from the button swap, not a real user intent.
+  const STEP_SWAP_GUARD_MS = 400;
+
   const handleSave = (e) => {
     e.preventDefault();
+
+    // Guard against the step 4 -> 5 button swap: the "Next" button is replaced
+    // by the submit button in the same slot, so a pointer still held down gets
+    // its trailing click delivered to Save. Ignore anything that lands within
+    // STEP_SWAP_GUARD_MS of advancing — a deliberate click cannot be that fast.
+    if (Date.now() - stepAdvancedAtRef.current < STEP_SWAP_GUARD_MS) return;
+
+    // The whole wizard is ONE <form>, so pressing Enter in any text field
+    // (or clicking a submit-typed control) fires onSubmit regardless of which
+    // step is showing. Without this guard, Enter on step 1 would try to save a
+    // half-filled branch. Only the final step may actually submit — on every
+    // other step Enter advances the wizard, which is what users expect.
+    if (currentStep < steps.length) {
+      handleNext();
+      return;
+    }
+
     if (isSavingRef.current) return;
     if (!validateStep(currentStep)) return;
 
@@ -320,8 +349,7 @@ const SchoolDetails = ({
     //   requestPayload = formPayload;
     // }
 
-    // Edit mode: PATCH the existing branch; create mode: POST a new one.
-    // Tolerates both `id` and `branch_id` id keys from the backend record.
+ 
     const editingId = editingBranch?.id ?? editingBranch?.branch_id;
     const request = editingId
       ? dispatch(
@@ -438,10 +466,6 @@ const SchoolDetails = ({
 
   const isLastStep = currentStep === steps.length;
 
-  // Branch list visible to the current role. A school_sub_account only sees
-  // the branch THEY belong to — matched by the login payload's branch id, with
-  // a fallback built from the login payload itself when the API list isn't
-  // available (the backend 401s school_sub_account on /schools/branch/all).
   const allBranches = Array.isArray(getAllSchoolBranch?.data)
     ? getAllSchoolBranch.data
     : [];
@@ -467,9 +491,7 @@ const SchoolDetails = ({
     return allBranches;
   }, [getRole, allBranches, myBranchId, subAccountBranch]);
 
-  // user_type_id 2 = "school" — on first login (or while the branch still has
-  // no logo), auto-open the edit wizard so the school completes its details.
-  // Runs at most once per browser session per branch (sessionStorage guard).
+
   const autoOpenedBranchRef = useRef(null);
 
   useEffect(() => {
@@ -516,8 +538,6 @@ const SchoolDetails = ({
 
   const getAllBranch = branches.length;
 
-  // getSchoolBranchData is a single-record query response (the thunk already
-  // unwraps `data`), NOT an array — normalise it to an array for rendering.
   const branchRecords = useMemo(() => {
     const raw = getSchoolBranchData?.data ?? getSchoolBranchData;
     if (Array.isArray(raw)) return raw.filter(Boolean);
@@ -529,6 +549,16 @@ const SchoolDetails = ({
   }, [getSchoolBranchData, branches]);
 
   console.log(branchRecords, "branchRecords");
+
+  const totalStudentsAcrossBranches = branchRecords.reduce(
+    (sum, branch) => sum + (Number(branch?.total_students) || 0),
+    0,
+  );
+  const branchCityCount = new Set(
+    branchRecords
+      .map((branch) => String(branch?.city ?? "").trim())
+      .filter(Boolean),
+  ).size;
 
   const activeStep = steps[currentStep - 1];
   const ActiveIcon = activeStep.icon;
@@ -722,154 +752,190 @@ const SchoolDetails = ({
     setOpen(false);
   };
 
+
   return (
-    <section className="overflow-hidden rounded-xl border border-border bg-card">
-      {/* <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold">School Branches</h2>
-          <p className="text-sm text-muted-foreground">
-            {getAllBranch > 0
-              ? `${getAllBranch} branch${getAllBranch > 1 ? "es" : ""} registered`
-              : "No branches yet — add your first branch"}
-          </p>
-        </div>
-        <Button onClick={openModal}>
-          <Building2 className="mr-2 size-4" /> Add Branch
-        </Button>
-      </div> */}
-      {/* <div className="flex items-start justify-between gap-4 p-5 pb-4">
-        <div>
-          <h2 className="text-lg font-semibold text-foreground">
-            Campus Details
-          </h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            Your school profile and assigned health camps.
-          </p>
-        </div>
-      </div> */}
-      <div className="flex items-start justify-between gap-4 p-5 pb-4">
-        <div className="flex items-start gap-3">
-          <div className="sd-icon-badge size-10">
-            <Building2 className="size-5" />
+    <section className="sd-school-shell">
+      <header className="sd-school-hero">
+        <div className="sd-school-hero__content">
+          <div className="sd-school-hero__eyebrow">
+            <span className="sd-icon-badge sd-icon-badge--large">
+              <Building2 className="size-6 text-white" aria-hidden="true" />
+            </span>
+            <div>
+              <div className="flex items-baseline gap-2">
+                <span className="profile-settings-eyebrow__dot" />
+                <p className="sd-school-hero__kicker">Campus administration</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="sd-school-hero__title">School Details</h2>
+                <Badge
+                  variant={branchRecords.length > 0 ? "success" : "secondary"}
+                >
+                  {getAllBranch > 0
+                    ? `${getAllBranch} branch${getAllBranch > 1 ? "es" : ""}`
+                    : "No branches"}
+                </Badge>
+              </div>
+            </div>
           </div>
 
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-xl font-semibold text-foreground">
-                School Details
-              </h2>
-              <Badge
-                variant={branchRecords.length > 0 ? "success" : "secondary"}
-              >
-                {getAllBranch > 0
-                  ? `${getAllBranch} branch${getAllBranch > 1 ? "es" : ""}`
-                  : "No branches"}
-              </Badge>
-            </div>
+          <p className="sd-school-hero__description">
+            Keep every campus profile, academic setup, and contact detail in one
+            organized place.
+          </p>
 
-            <p className="field-hint mt-1 max-w-full !text-sm !leading-6">
-              Create and manage your school branches, update branch information,
-              and keep all school details organized in one place.
+          {getUserAccount?.user_type_id !== 2 ? (
+            <Button type="button" onClick={openModal} className="sd-add-branch">
+              <Building2 className="size-4" aria-hidden="true" />
+              Add Branch
+            </Button>
+          ) : null}
+        </div>
+
+        <div className="sd-school-hero__summary" aria-label="School branch summary">
+          <div className="sd-summary-stat">
+            <span className="sd-summary-stat__icon sd-summary-stat__icon--blue">
+              <Building2 className="size-4" aria-hidden="true" />
+            </span>
+            <div>
+              <p className="sd-summary-stat__label">Registered branches</p>
+              <p className="sd-summary-stat__value">{getAllBranch}</p>
+            </div>
+          </div>
+          <div className="sd-summary-stat">
+            <span className="sd-summary-stat__icon sd-summary-stat__icon--green">
+              <Users className="size-4" aria-hidden="true" />
+            </span>
+            <div>
+              <p className="sd-summary-stat__label">Students enrolled</p>
+              <p className="sd-summary-stat__value">
+                {totalStudentsAcrossBranches.toLocaleString()}
+              </p>
+            </div>
+          </div>
+          <div className="sd-summary-stat">
+            <span className="sd-summary-stat__icon sd-summary-stat__icon--amber">
+              <MapPin className="size-4" aria-hidden="true" />
+            </span>
+            <div>
+              <p className="sd-summary-stat__label">Cities covered</p>
+              <p className="sd-summary-stat__value">
+                {branchCityCount > 0 ? branchCityCount : "—"}
+              </p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="sd-branches-panel">
+        <div className="sd-branches-panel__header">
+          <div>
+            <p className="sd-branches-panel__eyebrow">Your campuses</p>
+            <h3 className="sd-branches-panel__title">Branch directory</h3>
+            <p className="sd-branches-panel__description">
+              Select a campus to view or update its profile and academic setup.
             </p>
           </div>
+          <Badge variant="outline" className="sd-branch-count">
+            {branchRecords.length} {branchRecords.length === 1 ? "campus" : "campuses"}
+          </Badge>
         </div>
-        {getUserAccount?.user_type_id !== 2 && (
-          <Button type="button" onClick={openModal}>
-            <Building2 className="mr-2 size-4" /> Add Branch
-          </Button>
-        )}
-      </div>
-      <Separator />
+
+        <div className="sd-branch-directory">
 
       {branchRecords.length === 0 ? (
-        // <EmptyState
-        //   title="No school branches"
-        //   description="Click Add Branch to register your first school branch."
-        //   icon={Building2}
-        //   action={<Button onClick={openModal}>Add Branch</Button>}
-        // />
         <div className="sd-branch-empty">
           <EmptyState
-            title="No Student Data"
+            title="No school branches yet"
             icon={Building2}
-            description="Select a camp and student to view and edit general screening details."
+            description={
+              getUserAccount?.user_type_id !== 2
+                ? "Add your first campus to manage academic details, contacts, and student statistics."
+                : "Your school profile does not have a campus available yet."
+            }
             action={
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => openModal(true)}
-              >
-                <Building2 className="size-4" />
-                Select Student
-              </Button>
+              getUserAccount?.user_type_id !== 2 ? (
+                <Button type="button" variant="outline" onClick={() => openModal(true)}>
+                  <Building2 className="size-4" />
+                  Add your first branch
+                </Button>
+              ) : null
             }
           />
         </div>
       ) : (
-        <div
-          className={`grid gap-4 p-4 sm:grid-cols-2 ${
-            branchRecords.length > 4 ? "xl:grid-cols-2" : "xl:grid-cols-1"
-          }`}
-        >
+        <div className="sd-branch-grid">
           {branchRecords.map((b, i) => (
             <Card
               key={b.id ?? b.branch_name ?? i}
-              className="cursor-pointer transition-colors hover:border-primary/40 p-4"
+              className="sd-branch-card"
               onClick={() => handleEditBranch(b)}
             >
-              <div className="flex items-center gap-2">
-                {typeof (b.branch_logo ?? b.branch_logo_url) === "string" &&
-                (b.branch_logo ?? b.branch_logo_url) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={b.branch_logo ?? b.branch_logo_url}
-                    alt={`${b.branch_name ?? "Branch"} logo`}
-                    className="size-9 shrink-0 rounded-full border border-border object-cover"
-                  />
-                ) : (
-                  <span className="sd-icon-badge size-9">
-                    <Building2 className="size-4" />
-                  </span>
-                )}
-                <div>
-                  <p className="text-sm font-semibold leading-tight">
-                    {b.branch_name ?? "Unnamed branch"}
-                  </p>
-                  <p className="field-hint">
-                    {[b.city, b.state].filter(Boolean).join(", ") || "—"}
-                  </p>
+              <div className="sd-branch-card__top">
+                <div className="sd-branch-card__identity">
+                  {typeof (b.branch_logo ?? b.branch_logo_url) === "string" &&
+                  (b.branch_logo ?? b.branch_logo_url) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={b.branch_logo ?? b.branch_logo_url}
+                      alt={`${b.branch_name ?? "Branch"} logo`}
+                      className="sd-branch-card__logo"
+                    />
+                  ) : (
+                    <span className="sd-branch-card__logo sd-branch-card__logo--fallback">
+                      <Building2 className="size-5" />
+                    </span>
+                  )}
+                  <div className="min-w-0">
+                    <p className="sd-branch-card__name">
+                      {b.branch_name ?? "Unnamed branch"}
+                    </p>
+                    <p className="sd-branch-card__location">
+                      <MapPin className="size-3.5" aria-hidden="true" />
+                      <span>
+                        {[b.city, b.state].filter(Boolean).join(", ") || "Location not added"}
+                      </span>
+                    </p>
+                  </div>
                 </div>
+                <span className="sd-branch-card__arrow" aria-hidden="true">
+                  <ChevronRight className="size-4" />
+                </span>
               </div>
-              <dl className="sd-branch-meta">
-                {b.registration_number ? (
-                  <div className="sd-branch-meta__row">
-                    <dt>Reg. No</dt>
-                    <dd className="sd-branch-meta__value">
-                      {b.registration_number}
-                    </dd>
-                  </div>
-                ) : null}
+
+              <dl className="sd-branch-card__metrics">
                 {b.total_students != null ? (
-                  <div className="sd-branch-meta__row">
+                  <div>
                     <dt>Students</dt>
-                    <dd className="sd-branch-meta__value">
-                      {b.total_students}
-                    </dd>
+                    <dd>{Number(b.total_students).toLocaleString()}</dd>
                   </div>
                 ) : null}
-                {b.contact_person_name ? (
-                  <div className="sd-branch-meta__row">
-                    <dt>Contact</dt>
-                    <dd className="sd-branch-meta__value">
-                      {b.contact_person_name}
-                    </dd>
+                {b.total_teaching_staff != null ? (
+                  <div>
+                    <dt>Teaching staff</dt>
+                    <dd>{Number(b.total_teaching_staff).toLocaleString()}</dd>
+                  </div>
+                ) : null}
+                {b.registration_number ? (
+                  <div>
+                    <dt>Registration</dt>
+                    <dd>{b.registration_number}</dd>
                   </div>
                 ) : null}
               </dl>
+
+              {b.contact_person_name ? (
+                <div className="sd-branch-card__contact">
+                  <Users className="size-3.5" aria-hidden="true" />
+                  <span>{b.contact_person_name}</span>
+                </div>
+              ) : null}
             </Card>
           ))}
         </div>
       )}
+        </div>
+      </div>
 
       <AnimatedModal
         open={open}
@@ -1210,17 +1276,17 @@ const SchoolDetails = ({
                   ) : editingBranch ? (
                     <>
                       <SaveCheck scale={14} />
-                      "Save Changes"
+                      Save Changes
                     </>
                   ) : (
                     <>
                       <University scale={14} />
-                      "Save Branch"
+                      Save Branch
                     </>
                   )}
                 </Button>
               ) : (
-                <Button type="button" onClick={handleNext}>
+                <Button type="button" onClick={() => handleNext(true)}>
                   Next <ChevronRight className="ml-1 size-4" />
                 </Button>
               )}

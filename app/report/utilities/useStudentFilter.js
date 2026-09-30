@@ -1,27 +1,16 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { selectAuthUser } from "@/lib/features/auth-slice";
-import useAssignedEvents, { findSelectedCamp } from "@/lib/useAssignedEvents";
+import useAssignedEvents, { findSelectedCampEvent } from "@/lib/useAssignedEvents";
+import { buildCampSummary, EMPTY_CAMP_SUMMARY, getCampId } from "@/lib/camp-utils";
 import { getStudentByEvent } from "@/lib/features/getEventAssignSlice";
 import { getFilterStudent } from "@/lib/features/getFilterStudent";
 
 /**
  * useStudentFilter — reusable hook for report pages.
- *
- * Encapsulates ALL of the following so consumers don't have to:
- *   - Filter state (schoolName, academicYear, class/section/student filters)
- *   - The camp-student-roster reverse-lookup query (campStudentMap)
- *   - The /students/filter query (filterPayload)
- *   - Derived `students` list + `selectedStudent` lookup
- *   - All filter-change handlers (with proper dependent-filter resets)
- *   - The resolved `selectedCamp` from assigned events
- *
- * Usage:
- *   const { filterProps, students, selectedStudent } = useStudentFilter();
- *   <StudentFilter {...filterProps} />
  */
 export default function useStudentFilter() {
   const dispatch = useAppDispatch();
@@ -37,9 +26,6 @@ export default function useStudentFilter() {
   const [studentFilter, setStudentFilter] = useState("all");
   const [studentId, setStudentId] = useState("");
 
-  // Form state consumed by <SchoolStudentFilter /> — the same shape the
-  // Students page passes (filterFormData). Without it that component crashes
-  // reading `formData.branchName` in its own query.
   const [formData, setFormData] = useState({
     branchName: "",
     AcademicYear: "",
@@ -48,10 +34,56 @@ export default function useStudentFilter() {
     BeneficiaryId: "",
   });
 
-  const selectedCamp = useMemo(
-    () => findSelectedCamp(assignedEvents, schoolName),
-    [assignedEvents, schoolName],
-  );
+  /* ----------------------------------------------------------------------
+     Camp selection (DOCTORS ONLY)
+     ----------------------------------------------------------------------
+     Only <StudentFilter /> renders the camp dropdown (it is gated on
+     `isDoctor`), so camps are a doctor concept. <SchoolStudentFilter />
+     scopes by branch instead and never receives campSelection.                                     */
+  const isDoctor =
+    authUser?.account_type === "doctor" || authUser?.account_type === "staff";
+
+  const [campSelection, setCampSelection] = useState("all");
+
+
+  const selectedCamp = useMemo(() => {
+    if (!isDoctor) {
+      return EMPTY_CAMP_SUMMARY;
+    }
+
+    const campList = Array.isArray(assignedEvents) ? assignedEvents : [];
+
+    if (campSelection && campSelection !== "all") {
+      const wantedId = String(campSelection).trim();
+      const pickedCamp = campList.find(
+        (camp) => getCampId(camp) === wantedId,
+      );
+      if (pickedCamp) {
+        return buildCampSummary(pickedCamp);
+      }
+    }
+
+
+    return buildCampSummary(
+      findSelectedCampEvent(assignedEvents, schoolName),
+      { schoolName },
+    );
+  }, [assignedEvents, schoolName, campSelection, isDoctor]);
+
+  useEffect(() => {
+    if (!isDoctor || !campSelection || campSelection === "all") {
+      return;
+    }
+
+    const campList = Array.isArray(assignedEvents) ? assignedEvents : [];
+    const stillThere = campList.some(
+      (camp) => getCampId(camp) === String(campSelection).trim(),
+    );
+
+    if (!stillThere) {
+      setCampSelection("all");
+    }
+  }, [assignedEvents, campSelection]);
 
   console.log(schoolName,"schoolName");
   
@@ -113,7 +145,10 @@ export default function useStudentFilter() {
       }
       return map;
     },
-    enabled: assignedEventIds.length > 0,
+    // Doctor-only: this roster map exists to resolve a student's camp. A
+    // non-doctor has no camp concept (SchoolStudentFilter scopes by branch),
+    // so firing one request per assigned camp would be pure waste.
+    enabled: isDoctor && assignedEventIds.length > 0,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
@@ -165,10 +200,6 @@ export default function useStudentFilter() {
   /* ---------------------------------------------------------------------- */
   /* Students query                                                         */
   /* ---------------------------------------------------------------------- */
-  // When the <SchoolStudentFilter /> flow picked a branch, scope the students
-  // query by branch_id (that's what SchoolStudentFilter uses). The health-checks
-  // <StudentFilter /> flow has no formData.branchName, so it keeps using
-  // schoolName — passing the branch id as `school` would match nothing.
   const selectedBranchId = (formData?.branchName ?? "").trim();
 
   const { data: filterPayload, isLoading } = useQuery({
@@ -178,8 +209,6 @@ export default function useStudentFilter() {
         getFilterStudent({
           all: true,
           status: "all",
-          // Branch picked via SchoolStudentFilter -> filter by branch_id and
-          // omit the `school` param (a branch id is not a school name).
           schoolName: selectedBranchId ? "all" : schoolName,
           branch_id: selectedBranchId,
           academicYear,
@@ -233,14 +262,21 @@ export default function useStudentFilter() {
     onClassFilterChange: handleClassFilterChange,
     onSectionFilterChange: handleSectionFilterChange,
     onStudentFilterChange: handleStudentFilterChange,
+    authUser,
+  };
+
+
+  const doctorFilterProps = {
+    campSelection,
+    setCampSelection,
     assignedEvents,
     assignEventLoading,
     assignEventError,
-    authUser,
   };
 
   return {
     filterProps,
+    doctorFilterProps,
     academicYear,
     setAcademicYear,
     schoolName,
@@ -256,6 +292,8 @@ export default function useStudentFilter() {
     students,
     selectedStudent,
     selectedCamp,
+    campSelection,
+    setCampSelection,
     campStudentMap,
     filterPayload,
     isLoading,

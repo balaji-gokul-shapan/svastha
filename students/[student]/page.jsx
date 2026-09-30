@@ -295,6 +295,7 @@ function StudentDetailPageInner() {
       studentId,
       studentData: formData,
     });
+    
   };
 
   if (loading && !student) {

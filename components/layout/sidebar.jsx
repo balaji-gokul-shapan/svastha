@@ -26,6 +26,7 @@ import {
   Cross,
   SquareActivity,
   Syringe,
+  ReceiptIndianRupee,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -187,6 +188,12 @@ export function Sidebar() {
       icon: BarChart3,
       roles: ["admin", "school_admin", "school"],
     },
+    {
+      label: "Billing & Tax Invoices",
+      href: "/billingInvoice",
+      icon: ReceiptIndianRupee,
+      roles: ["admin", "school_admin", "school"],
+    },
   ];
 
 
@@ -207,7 +214,6 @@ export function Sidebar() {
       icon: HelpCircle,
 
       roles: [
-        
       ],
     },
   ];

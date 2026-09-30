@@ -24,11 +24,6 @@ export function NumberStepperField({
     return result;
   };
 
-  // Emits the same `{ target: { name, value } }` shape a native input event
-  // has, so shared handlers like `handleChange` (which read
-  // `e.target.name` / `e.target.value`) work for BOTH typing and the
-  // stepper buttons. Previously `onChange(number)` was passed, which broke
-  // event-style parents on every click.
   const emitChange = (next) =>
     onChange?.({ target: { name, value: String(next) } });
 
@@ -50,7 +45,8 @@ export function NumberStepperField({
       <div
         className={`relative flex h-10 w-full items-center rounded-md border border-input bg-background focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/30 ${
           hasError ? "border-destructive" : ""
-        }`}>
+        }`}
+      >
         <input
           type="number"
           value={value ?? ""}
@@ -62,12 +58,12 @@ export function NumberStepperField({
           aria-required={required}
           onChange={(event) => {
             const raw = event.target.value;
-            // Keep an empty field empty instead of forcing "0".
+
             emitChange(raw === "" ? "" : clamp(Number(raw)));
           }}
           className={`h-full w-full rounded-md bg-transparent px-3 text-sm text-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
             unit ? "pr-16" : "pr-9"
-          } [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
+          } appearance-none [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none`}
         />
         {unit ? (
           <span className="pointer-events-none absolute right-9 text-xs text-muted-foreground">
@@ -89,6 +85,7 @@ export function NumberStepperField({
           >
             <ChevronUp className="size-3" />
           </button>
+
           <button
             type="button"
             tabIndex={-1}

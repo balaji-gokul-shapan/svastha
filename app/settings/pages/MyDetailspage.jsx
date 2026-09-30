@@ -4,35 +4,20 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   Camera,
-  CheckCircle2,
-  Circle,
   Clock,
   Fingerprint,
+  KeyRound,
   Mail,
   ShieldCheck,
   UserRound,
   X,
 } from "lucide-react";
+import { getRoleLabel, useAuthRole } from "@/lib/user-role";
 import { CompletenessRing } from "../components/CompletenessRing";
-import { ActivitySparkline } from "../components/ActivitySparkline";
-import {
-  PasswordStrengthMeter,
-  scorePassword,
-} from "../components/PasswordStrengthMeter";
 import FormField from "../components/FormField";
-
-// import { CompletenessRing } from "@/components/profile/completeness-ring";
-// import { ActivitySparkline } from "@/components/profile/activity-sparkline";
-// import { PasswordStrengthMeter, scorePassword } from "@/components/profile/password-strength-meter";
-
-// Mock recent login activity — replace with real data from your API.
-const ACTIVITY_DATA = [1, 0, 2, 1, 3, 2, 4];
-
-const SECURITY_ITEMS = [
-  { key: "email", label: "Email verified", done: true },
-  { key: "password", label: "Strong password", check: "password" },
-  { key: "2fa", label: "Two-factor authentication", done: false },
-];
+import { LoginActivity } from "../components/LoginActivity";
+import { DeviceSession } from "../components/DeviceSession";
+import { AccountAccess } from "../components/AccountAccess";
 
 export default function MyDetailsPage({
   profileImageFile,
@@ -43,23 +28,26 @@ export default function MyDetailsPage({
   onChange,
 }) {
   const profileInputRef = useRef(null);
-  // Preview URL is DERIVED from the parent-owned `profileImageFile` via the
-  // effect below instead of living in local state: switching tabs unmounts
-  // this component and would otherwise drop a purely local preview (and a
-  // photo picked in the Profile tab now shows up here too). The effect owns
-  // blob-URL creation + revocation, doubling as unmount cleanup.
-  const [imagePreviewUrl, setImagePreviewUrl] = useState("");
   const [imageError, setImageError] = useState("");
 
-  useEffect(() => {
-    if (!profileImageFile) {
-      setImagePreviewUrl("");
-      return undefined;
-    }
-    const url = URL.createObjectURL(profileImageFile);
-    setImagePreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [profileImageFile]);
+  // Role as a string ("admin" | "school" | "school_sub_account" | "doctor" | …).
+  const role = useAuthRole();
+  const roleLabel = getRoleLabel(role);
+
+  // Preview URLs follow the parent-owned file so this module also reflects a
+  // photo selected elsewhere in Settings. Revoke each object URL when it is
+  // replaced or when this module unmounts.
+  const imagePreviewUrl = useMemo(
+    () => (profileImageFile ? URL.createObjectURL(profileImageFile) : ""),
+    [profileImageFile],
+  );
+
+  useEffect(
+    () => () => {
+      if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    },
+    [imagePreviewUrl],
+  );
 
   const clearProfileImage = () => {
     setProfileImageFile(null); // effect cleanup revokes the stale URL
@@ -103,219 +91,173 @@ export default function MyDetailsPage({
     return Math.round((done / checks.length) * 100);
   }, [profileImageFile, name, username, password]);
 
-  const passwordStrong = scorePassword(password).score >= 3;
-
   return (
-    <section className="space-y-4">
-      <div>
-        <h2 className="text-2xl font-bold text-foreground">OverAll Profile</h2>
-        <p className="text-sm text-muted-foreground">
-          Update your personal details and contact information.
-        </p>
-      </div>
+    <section className="my-details-shell space-y-5">
+      <header className="my-details-heading overflow-hidden rounded-2xl border border-border p-4 sm:p-6">
+        <div className="my-details-heading__grid" aria-hidden="true" />
+        <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="my-details-heading__icon flex size-14 shrink-0 items-center justify-center rounded-2xl text-white shadow-lg shadow-primary/20 sm:size-16">
+              <UserRound className="size-7" aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <p className="my-details-eyebrow">
+                <span className="my-details-eyebrow__dot" />
+                Personal workspace
+              </p>
+              <h2 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                My details
+              </h2>
+              <p className="mt-1 max-w-2/3 text-sm leading-6 text-muted-foreground sm:text-base">
+                Keep your profile current and review your account security at a glance.
+              </p>
+            </div>
+          </div>
 
-      {/* HERO */}
-      <div className="grid gap-4 lg:grid-cols-[1fr_auto_auto]">
-        <article className="flex flex-wrap items-center gap-5 rounded-lg border border-border bg-card p-5">
-           <div className="relative inline-block shrink-0">
-          <button
-            type="button"
-            // onClick={openProfilePicker}
-            aria-label="Upload profile image"
-            className="group block size-24 overflow-hidden rounded-full border border-dashed border-foreground/25 bg-background"
-          >
-            {imagePreviewUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={imagePreviewUrl}
-                alt="Profile preview"
-                className="size-full object-cover"
-              />
-            ) : (
-              <span className="flex size-full items-center justify-center text-muted-foreground">
-                <UserRound className="size-10" />
-              </span>
-            )}
+          {roleLabel ? (
+            <div className="my-details-status inline-flex items-center gap-2 self-start rounded-full px-3 py-2 text-sm font-semibold sm:self-auto">
+              <ShieldCheck className="size-3.5 shrink-0" aria-hidden="true" />
+              {roleLabel}
+            </div>
+          ) : null}
+        </div>
+      </header>
 
-            {/* Hover overlay */}
-            {/* <span className="absolute inset-0 flex items-center justify-center rounded-full bg-foreground/50 text-background opacity-0 transition-opacity group-hover:opacity-100">
-              <Camera className="size-6" />
-            </span> */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(230px,0.55fr)_minmax(230px,0.55fr)]">
+        <article className="my-details-identity flex flex-col gap-5 rounded-2xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:p-5">
+          <div className="relative shrink-0 self-center sm:self-auto">
+            <button
+              type="button"
+              onClick={openProfilePicker}
+              aria-label="Upload profile image"
+              className="my-details-avatar group block size-24 overflow-hidden rounded-full border border-dashed border-primary/30 bg-muted/30 transition-all sm:size-28"
+            >
+              {imagePreviewUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={imagePreviewUrl} alt="Profile preview" className="size-full object-cover" />
+              ) : (
+                <span className="flex size-full items-center justify-center text-muted-foreground transition-colors group-hover:text-primary">
+                  <UserRound className="size-10" />
+                </span>
+              )}
+            </button>
+            <span className="my-details-avatar__badge" aria-hidden="true">
+              <Camera className="size-3.5" />
+            </span>
+            <input
+              ref={profileInputRef}
+              id="profile-image-upload"
+              type="file"
+              accept="image/*"
+              onChange={handleProfileImageUpload}
+              className="hidden"
+            />
+          </div>
 
-            {/* Remove */}
-            {/* {profileImageFile && (
-              <span
-                role="button"
-                tabIndex={0}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  clearProfileImage();
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.stopPropagation();
-                    clearProfileImage();
-                  }
-                }}
-                aria-label="Remove selected profile image"
-                className="absolute right-0 top-0 rounded-full bg-destructive p-1 text-destructive-foreground shadow"
-              >
-                <X className="size-3" />
-              </span>
-            )} */}
-          </button>
-
-           </div>
-          <input
-            ref={profileInputRef}
-            id="profile-image-upload"
-            type="file"
-            accept="image/*"
-            onChange={handleProfileImageUpload}
-            className="hidden"
-          />
-
-          <div className="min-w-0">
-            <p className="truncate text-lg font-semibold text-foreground">
+          <div className="min-w-0 text-center sm:text-left">
+            <p className="my-details-label">Profile identity</p>
+            <h3 className="truncate text-xl font-semibold tracking-tight text-foreground">
               {name || "Your name"}
+            </h3>
+            <p className="mt-1 flex items-center justify-center gap-1.5 text-sm text-muted-foreground sm:justify-start">
+              <Mail className="size-3.5 shrink-0" />
+              {username ? `${username}@svastha.app` : "Add a username to see your handle"}
             </p>
-            <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Mail className="size-3.5" />
-              {username
-                ? `${username}@svastha.app`
-                : "Add a username to see your handle"}
-            </p>
-            {imageError && (
-              <p className="mt-1 text-xs text-destructive">{imageError}</p>
-            )}
+            {imageError ? <p className="mt-2 text-xs font-medium text-destructive">{imageError}</p> : null}
+            <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
+              <button
+                type="button"
+                onClick={openProfilePicker}
+                className="my-details-action"
+              >
+                <Camera className="size-3.5" />
+                {profileImageFile ? "Replace photo" : "Add photo"}
+              </button>
+              {profileImageFile ? (
+                <button type="button" onClick={clearProfileImage} className="my-details-action my-details-action--quiet">
+                  <X className="size-3.5" />
+                  Remove
+                </button>
+              ) : null}
+            </div>
           </div>
         </article>
 
-        <article className="flex items-center gap-3 rounded-lg border border-border bg-card p-5">
+        <article className="my-details-metric my-details-metric--primary flex items-center gap-4 rounded-2xl border border-border bg-card p-5">
           <CompletenessRing percent={completeness} />
           <div>
-            <p className="text-xs text-muted-foreground">Profile</p>
-            <p className="text-sm font-semibold text-foreground">
-              Completeness
-            </p>
+            <p className="my-details-label">Profile completeness</p>
+            <p className="text-lg font-semibold text-foreground">Looking good</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">Complete your profile for a smoother experience.</p>
           </div>
         </article>
 
-        <article className="flex items-center gap-3 rounded-lg border border-border bg-card p-5">
-          <span className="flex size-11 items-center justify-center rounded-full bg-success/10 text-success">
+        <article className="my-details-metric my-details-metric--success flex items-center gap-4 rounded-2xl border border-border bg-card p-5">
+          <span className="my-details-metric__icon flex size-11 shrink-0 items-center justify-center rounded-2xl bg-success/10 text-success">
             <ShieldCheck className="size-5" />
           </span>
           <div>
-            <p className="text-xs text-muted-foreground">Account Status</p>
-            <p className="text-sm font-semibold text-success">Active</p>
+            <p className="my-details-label">Account status</p>
+            <p className="text-lg font-semibold text-success">Active</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">Your account is in good standing.</p>
           </div>
         </article>
       </div>
 
-      {/* ACTIVITY + SECURITY */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <article className="rounded-lg border border-border bg-card p-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Activity className="size-4 text-primary" />
-              <h3 className="text-sm font-semibold text-foreground">
-                Login Activity
-              </h3>
+        <article className="my-details-panel my-details-panel--activity overflow-hidden rounded-2xl border border-border bg-card">
+          <div className="my-details-panel__header">
+            <div className="my-details-panel__heading">
+              <span className="my-details-panel__icon my-details-panel__icon--blue">
+                <Activity className="size-4" aria-hidden="true" />
+              </span>
+              <div>
+                <p className="my-details-label">Account pulse</p>
+                <h3 className="my-details-panel__title">Login activity</h3>
+              </div>
             </div>
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Clock className="size-3" />
-              Last 7 days
+            <span className="my-details-period">
+              <Clock className="size-3.5" aria-hidden="true" />
+              Last 5 sign-ins
             </span>
           </div>
-          <div className="mt-4">
-            <ActivitySparkline data={ACTIVITY_DATA} />
-          </div>
+          <LoginActivity />
         </article>
 
-        <article className="rounded-lg border border-border bg-card p-5">
-          <div className="flex items-center gap-2">
-            <Fingerprint className="size-4 text-primary" />
-            <h3 className="text-sm font-semibold text-foreground">
-              Security Checklist
-            </h3>
+        <article className="my-details-panel my-details-panel--security overflow-hidden rounded-2xl border border-border bg-card">
+          <div className="my-details-panel__header">
+            <div className="my-details-panel__heading">
+              <span className="my-details-panel__icon my-details-panel__icon--green">
+                <Fingerprint className="size-4" aria-hidden="true" />
+              </span>
+              <div>
+                <p className="my-details-label">This session</p>
+                <h3 className="my-details-panel__title">Device &amp; session</h3>
+              </div>
+            </div>
           </div>
-          <div className="mt-3 space-y-2">
-            {SECURITY_ITEMS.map((item) => {
-              const done =
-                item.check === "password" ? passwordStrong : item.done;
-              return (
-                <div
-                  key={item.key}
-                  className="flex items-center gap-2.5 text-sm"
-                >
-                  {done ? (
-                    <CheckCircle2 className="size-4 shrink-0 text-success" />
-                  ) : (
-                    <Circle className="size-4 shrink-0 text-muted-foreground" />
-                  )}
-                  <span
-                    className={
-                      done ? "text-foreground" : "text-muted-foreground"
-                    }
-                  >
-                    {item.label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+          <DeviceSession />
         </article>
       </div>
 
-      {/* EDIT FORM */}
-      {/* <article className="rounded-lg border border-border bg-card p-5">
-        <h3 className="text-sm font-semibold text-foreground">Edit Details</h3>
-        <form className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <FormField
-            id="name"
-            label="Name"
-            placeholder="Enter your name"
-            value={name}
-            onChange={(value) => onChange("name", value)}
-          />
-
-          <FormField
-            id="username"
-            label="Username"
-            placeholder="Enter your username"
-            value={username}
-            onChange={(value) => onChange("username", value)}
-          />
-
-          <div className="space-y-1.5">
-            <FormField
-              id="password"
-              label="Password"
-              placeholder="Enter your password"
-              type="password"
-              value={password}
-              onChange={(value) => onChange("password", value)}
-            />
-
-            <PasswordStrengthMeter password={password} />
+      <article className="my-details-panel my-details-panel--access overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="my-details-panel__header">
+          <div className="my-details-panel__heading">
+            <span className="my-details-panel__icon my-details-panel__icon--green">
+              <KeyRound className="size-4" aria-hidden="true" />
+            </span>
+            <div>
+              <p className="my-details-label">Identity &amp; access</p>
+              <h3 className="my-details-panel__title">Account details</h3>
+            </div>
           </div>
-        </form>
-
-        <div className="mt-5 flex justify-end gap-2 border-t border-border pt-4">
-          <button
-            type="button"
-            className="h-10 rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Save Changes
-          </button>
+          <span className="my-details-period">
+            <ShieldCheck className="size-3.5" aria-hidden="true" />
+            {roleLabel || "Your account"}
+          </span>
         </div>
-      </article> */}
+        <AccountAccess />
+      </article>
     </section>
   );
 }

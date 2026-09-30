@@ -1,35 +1,75 @@
-export function SummaryRow({ icon: Icon, label, value }) {
+const NA_VALUES = new Set([
+  "—",
+  "",
+  "Not assessed",
+  "Pending",
+  "None",
+  "No",
+]);
+
+const isBlank = (value) => {
+  const text = String(value ?? "").trim();
+
+  return !text || NA_VALUES.has(text);
+};
+
+const TONE_CLASS = {
+  success: "text-success bg-success/10",
+  info: "text-info bg-info/10",
+  warning: "text-warning bg-warning/10",
+  destructive: "text-destructive bg-destructive/10",
+  muted: "text-muted-foreground bg-muted",
+};
+
+export function SummaryRow({ icon: Icon, label, value, tone = "muted" }) {
+  const blank = isBlank(value);
+
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border/70 p-3">
-      <div className="flex items-center gap-3">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-muted">
-          <Icon className="size-4 text-muted-foreground" />
-        </div>
+    /* One line per reading: icon · micro-caps label · right-aligned value.
+       The left rail doubles as a filled/blank indicator. */
+    <div
+      className={`gs-readout ${blank ? "gs-readout--blank" : "gs-readout--filled"}`}
+      title={`${label}: ${value || "—"}`}
+    >
+      <span
+        className={`flex size-5 shrink-0 items-center justify-center rounded-md ${
+          TONE_CLASS[tone] ?? TONE_CLASS.muted
+        }`}
+      >
+        <Icon className="size-3" />
+      </span>
 
-        <span className="text-sm">{label}</span>
-      </div>
+      <span className="gs-readout__label">{label}</span>
 
-      <span className="max-w-[110px] truncate text-xs font-medium text-muted-foreground">
-        {value || "—"}
+      <span className="gs-readout__value">
+        <span className={blank ? "gs-empty" : ""}>{value || "—"}</span>
       </span>
     </div>
   );
 }
 
 export function StatusItem({ label, value }) {
+  const blank = isBlank(value);
+
   return (
-    <div className="flex items-center justify-between rounded-lg border border-border/70 p-3">
-      <span className="text-xs text-muted-foreground">{label}</span>
+    <div
+      className={`gs-readout ${blank ? "gs-readout--blank" : "gs-readout--filled"}`}
+      title={`${label}: ${value || "Pending"}`}
+    >
+      {/* The dot keeps its original semantic: green when recorded, muted when
+          pending — just tightened and aligned to the new single-line row. */}
+      <span
+        className={`size-1.5 shrink-0 rounded-full ${
+          blank ? "bg-muted-foreground" : "bg-success"
+        }`}
+        aria-hidden="true"
+      />
 
-      <div className="flex items-center gap-2">
-        <span
-          className={`size-1.5 rounded-full ${
-            value ? "bg-success" : "bg-muted-foreground"
-          }`}
-        />
+      <span className="gs-readout__label">{label}</span>
 
-        <span className="text-xs font-medium">{value || "Pending"}</span>
-      </div>
+      <span className="gs-readout__value">
+        <span className={blank ? "gs-empty" : ""}>{value || "Pending"}</span>
+      </span>
     </div>
   );
 }

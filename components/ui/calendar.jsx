@@ -106,9 +106,8 @@ export function Calendar({ mode, selected, onSelect, defaultMonth, maxDate }) {
         >
           <ChevronLeft className="size-4" />
         </Button>
-        <div className="flex items-center gap-2 !z-100">
+        <div className="flex items-center gap-2">
           <Select
-            className="!z-100"
             value={String(currentMonth.getMonth())}
             onValueChange={(value) => {
               const nextMonth = Number(value);
@@ -124,7 +123,11 @@ export function Calendar({ mode, selected, onSelect, defaultMonth, maxDate }) {
             <SelectTrigger className="h-8 w-28 text-xs">
               <SelectValue placeholder="Month" />
             </SelectTrigger>
-            <SelectContent className="max-h-64">
+            {/* z-130: the month/year list is portalled to <body>, so it must
+                stack above the Popover popup that renders this calendar
+                (PopoverContent uses z-121). Without this the list paints
+                behind the date-picker popup. */}
+            <SelectContent className="z-130 max-h-64">
               {monthLabels.map((label, index) => (
                 <SelectItem key={label} value={String(index)}>
                   {label}
@@ -134,7 +137,6 @@ export function Calendar({ mode, selected, onSelect, defaultMonth, maxDate }) {
           </Select>
 
           <Select
-            className="!z-100"
             value={String(currentMonth.getFullYear())}
             onValueChange={(value) => {
               const nextYear = Number(value);
@@ -150,7 +152,7 @@ export function Calendar({ mode, selected, onSelect, defaultMonth, maxDate }) {
             <SelectTrigger className="h-8 w-24 text-xs">
               <SelectValue placeholder="Year" />
             </SelectTrigger>
-            <SelectContent className="max-h-64">
+            <SelectContent className="z-130 max-h-64">
               {years.map((year) => (
                 <SelectItem key={year} value={String(year)}>
                   {year}

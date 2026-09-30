@@ -6,11 +6,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Activity,
+  ChevronLeft,
+  ChevronRight,
   Ear,
   EarOff,
   Headphones,
   Loader2,
   Mic,
+  PanelLeft,
   Radio,
   Save,
   Search,
@@ -43,10 +46,38 @@ import { getAllMasterScreening } from "@/lib/features/masterScreeningSlice";
 import { selectAuthUser } from "@/lib/features/auth-slice";
 import { getAssignEvent } from "@/lib/features/getEventAssignSlice";
 import ScreeningStepper from "@/components/ScreeningStepper";
+import { NumberStepperField } from "@/components/ui/numberStepperField";
+import { cn } from "@/lib/utils";
 
 const HearingSectionLoading = () => (
   <div className="min-h-24 rounded-xl border border-border bg-card p-4" />
 );
+
+// localStorage key for the Hearing Screening left-rail collapse preference.
+const RAIL_KEY = "hearing-screening:rail-collapsed";
+const RAIL_EVENT = "hearing-screening:rail-change";
+
+const getRailSnapshot = () => {
+  try {
+    return window.localStorage.getItem(RAIL_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+
+// The server has no localStorage, so it always renders the expanded rail.
+// useSyncExternalStore then re-renders with the real value after hydration.
+const getServerRailSnapshot = () => false;
+
+const subscribeRail = (onStoreChange) => {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(RAIL_EVENT, onStoreChange);
+
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(RAIL_EVENT, onStoreChange);
+  };
+};
 
 const HearingSummary = dynamic(() => import("./components/HearingSummary"), {
   loading: HearingSectionLoading,
@@ -113,7 +144,6 @@ export default function HearingScreening({ screening = {} }) {
   const queryClient = useQueryClient();
   const authUser = useAppSelector(selectAuthUser);
   const isSavingRef = React.useRef(false);
-  
 
   const [form, setForm] = React.useState({
     pta_250hz_re: screening.pta_250hz_re ?? "",
@@ -189,9 +219,9 @@ export default function HearingScreening({ screening = {} }) {
 
     follow_up_required: toYesNo(screening.follow_up_required),
   });
-    const [isSaving, setIsSaving] = React.useState(false);
-      const savedStudentKeyRef = React.useRef(null);
-      const [savedStudentKey, setSavedStudentKey] = React.useState(null);
+  const [isSaving, setIsSaving] = React.useState(false);
+  const savedStudentKeyRef = React.useRef(null);
+  const [savedStudentKey, setSavedStudentKey] = React.useState(null);
 
   const {
     data: masterScreeningData = {},
@@ -308,41 +338,41 @@ export default function HearingScreening({ screening = {} }) {
   };
 
   function getBackendErrorMessage(error) {
-  let payload = error;
+    let payload = error;
 
-  if (typeof payload === "string") {
-    try {
-      payload = JSON.parse(payload);
-    } catch {
-     return /<!doctype html|<html[\s>]/i.test(payload) || payload.length > 240
-        ? "Unable to save screening. Please try again."
-        : payload;
+    if (typeof payload === "string") {
+      try {
+        payload = JSON.parse(payload);
+      } catch {
+        return /<!doctype html|<html[\s>]/i.test(payload) ||
+          payload.length > 240
+          ? "Unable to save screening. Please try again."
+          : payload;
+      }
     }
+
+    if (!payload || typeof payload !== "object") {
+      return "Something went wrong. Please try again.";
+    }
+
+    const fieldMessages = Object.values(payload.errors ?? {})
+      .flatMap((messages) => (Array.isArray(messages) ? messages : [messages]))
+      .filter(Boolean);
+
+    // return (
+    const message =
+      fieldMessages[0] ??
+      payload.message ??
+      payload.error ??
+      payload.detail ??
+      "Something went wrong. Please try again.";
+
+    return /<!doctype html|<html[\s>]/i.test(String(message)) ||
+      String(message).length > 240
+      ? "Unable to save screening. Please try again."
+      : String(message);
+    // );
   }
-
-  if (!payload || typeof payload !== "object") {
-    return "Something went wrong. Please try again.";
-  }
-
-  const fieldMessages = Object.values(payload.errors ?? {})
-    .flatMap((messages) => (Array.isArray(messages) ? messages : [messages]))
-    .filter(Boolean);
-
-  // return (
-   const message =
-
-    fieldMessages[0] ??
-    payload.message ??
-    payload.error ??
-    payload.detail ??
-    "Something went wrong. Please try again."
-
-     return /<!doctype html|<html[\s>]/i.test(String(message)) ||
-    String(message).length > 240
-    ? "Unable to save screening. Please try again."
-    : String(message);
-  // );
-}
 
   // { fieldName: "message" } — populated when zod validation fails.
   const [formErrors, setFormErrors] = React.useState(null);
@@ -412,17 +442,23 @@ export default function HearingScreening({ screening = {} }) {
 
       ...screening,
       ...form,
+
+      // The API stores these as booleans ("must be true or false"), but the
+      // form toggles + zod schema work with "yes" / "no" strings. Convert only
+      // on the way out so the UI and validation keep their string shape.
+      referral_required: form.referral_required === "yes",
+      follow_up_required: form.follow_up_required === "yes",
     };
- setIsSaving(true);
- isSavingRef.current = true;
+    setIsSaving(true);
+    isSavingRef.current = true;
     dispatch(createHearingScreening(data))
       .unwrap()
       .then(() => {
-         setIsSaving(false);
-         isSavingRef.current = false;
+        setIsSaving(false);
+        isSavingRef.current = false;
         // Refresh the react-query cache; the ["hearing-screening"] query's
         // queryFn re-dispatches getHearingScreening, keeping Redux in sync.
-         savedStudentKeyRef.current = String(rawStudentId);
+        savedStudentKeyRef.current = String(rawStudentId);
         setSavedStudentKey(String(rawStudentId));
         queryClient.invalidateQueries({ queryKey: ["hearing-screening"] });
 
@@ -433,18 +469,48 @@ export default function HearingScreening({ screening = {} }) {
         });
       })
       .catch((error) => {
-         setIsSaving(false);
-         isSavingRef.current = false;
+        setIsSaving(false);
+        isSavingRef.current = false;
         console.error("Unable to save hearing screening:", error);
 
         toast.error("Failed to save hearing screening", {
-          description:
-           getBackendErrorMessage(error),
+          description: getBackendErrorMessage(error),
         });
       });
   };
 
   const [isCaDrawerOpen, setIsCaDrawerOpen] = React.useState(false);
+
+  // Left-rail collapse, persisted so the screener's chosen workspace width
+  // survives navigation between screening pages.
+  //
+  // useSyncExternalStore (not a lazy useState initializer) is deliberate: this
+  // file is "use client" but still SSR'd, so reading localStorage during the
+  // first render would mismatch the server HTML. It also avoids a
+  // setState-in-effect hydration flash.
+  const isRailCollapsed = React.useSyncExternalStore(
+    subscribeRail,
+    getRailSnapshot,
+    getServerRailSnapshot,
+  );
+
+  const setRailCollapsed = React.useCallback((next) => {
+    try {
+      window.localStorage.setItem(RAIL_KEY, next ? "1" : "0");
+    } catch {
+      // Storage unavailable (private mode) — fall back to session-only.
+    }
+
+    // Same-tab subscribers aren't notified of a storage write by the spec, so
+    // announce the change ourselves.
+    window.dispatchEvent(new Event(RAIL_EVENT));
+  }, []);
+
+  const toggleRail = React.useCallback(
+    () => setRailCollapsed(!isRailCollapsed),
+    [isRailCollapsed, setRailCollapsed],
+  );
+
   // const [selectedCampId, setSelectedCampId] = React.useState(1);
   const [studentId, setStudentId] = React.useState("");
   const [academicYear, setAcademicYear] = React.useState("2026-2027");
@@ -862,7 +928,8 @@ export default function HearingScreening({ screening = {} }) {
   }, [studentsArray, studentFilter, studentId]);
 
   // Fallback roster from the Redux slice (source of truth for the camp's students).
-  const eventRoster = useAppSelector((state) => state.eventAssign?.students) || [];
+  const eventRoster =
+    useAppSelector((state) => state.eventAssign?.students) || [];
 
   const selectedStudent = React.useMemo(() => {
     if (selectedStudentFromFilter) {
@@ -893,7 +960,13 @@ export default function HearingScreening({ screening = {} }) {
     }
 
     return null;
-  }, [studentsArray, selectedStudentFromFilter, studentFilter, studentId, eventRoster]);
+  }, [
+    studentsArray,
+    selectedStudentFromFilter,
+    studentFilter,
+    studentId,
+    eventRoster,
+  ]);
 
   const selectedStudentKey = String(
     selectedStudent?.id ?? selectedStudent?.studentId ?? "",
@@ -1036,19 +1109,19 @@ export default function HearingScreening({ screening = {} }) {
           HEADER
       ===================================================== */}
 
-      <div className="sticky top-14 z-10 flex flex-col gap-3 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between mb-4">
+      <div className="sticky top-14 z-10 mb-4 flex flex-col gap-3 border-b border-border/60 bg-background/85 px-0 backdrop-blur supports-backdrop-filter:bg-background/70 md:flex-row md:items-center md:justify-between">
         <>
-          <div className="flex items-center gap-2 py-3">
-            <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary aspect-square">
+          <div className="flex items-center gap-3 py-3">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-md shadow-primary/20">
               <Ear className="size-6" />
             </div>
 
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight">
+            <div className="min-w-0">
+              <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
                 Hearing Screening
               </h1>
 
-              <p className="text-sm text-muted-foreground">
+              <p className="truncate text-sm text-muted-foreground">
                 Audiological assessment and hearing health
               </p>
 
@@ -1123,7 +1196,9 @@ export default function HearingScreening({ screening = {} }) {
             </div>
           )}
 
-          <Button onClick={handleSave}  disabled={
+          <Button
+            onClick={handleSave}
+            disabled={
               isSaving ||
               (selectedStudent &&
                 savedStudentKey ===
@@ -1134,7 +1209,8 @@ export default function HearingScreening({ screening = {} }) {
                       selectedStudent?.studentId ??
                       studentId,
                   ))
-            }>
+            }
+          >
             {isSaving ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
@@ -1184,15 +1260,71 @@ export default function HearingScreening({ screening = {} }) {
       {studentSelectValue?.length > 0 ? (
         <>
           <StudentProfileCard student={selectedStudent} />
-          <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start">
+          <div
+            className={cn(
+              "grid gap-4 transition-[grid-template-columns] duration-300 ease-out",
+              isRailCollapsed
+                ? "lg:grid-cols-[3.25rem_minmax(0,1fr)]"
+                : "lg:grid-cols-[300px_minmax(0,1fr)]",
+              "lg:items-start",
+            )}
+          >
             {/* =================================================
             LEFT COLUMN
         ================================================= */}
             <div className="space-y-4">
               <div className="relative md:relative lg:sticky lg:top-24 z-10 self-start space-y-5">
-                <FramerCard>
-                  {/* Assessment Details */}
-                  {/* <Card>
+                {isRailCollapsed ? (
+                  // Collapsed: a narrow vertical handle. The rail's contents are
+                  // unmounted rather than hidden so their controls don't stay
+                  // in the tab order while visually collapsed.
+                  <button
+                    type="button"
+                    onClick={toggleRail}
+                    aria-label="Expand assessment panel"
+                    aria-expanded={false}
+                    title="Expand assessment panel"
+                    className="flex w-full flex-col items-center gap-3 rounded-2xl border border-border bg-card px-1 py-4 text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  >
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <PanelLeft className="size-4" />
+                    </span>
+
+                    {/* Vertical label — lets the rail stay narrow without
+                        hiding what the panel is. */}
+                    <span className="hidden text-[11px] font-semibold uppercase tracking-wider [writing-mode:vertical-rl] lg:block">
+                      Assessment
+                    </span>
+
+                    <ChevronRight className="hidden size-4 shrink-0 lg:block" />
+
+                    {/* On mobile the rail is full-width, so the label and
+                        chevron are already legible horizontally. */}
+                    <span className="text-xs font-semibold uppercase tracking-wider lg:hidden">
+                      Assessment
+                    </span>
+                    <ChevronRight className="size-4 shrink-0 lg:hidden" />
+                  </button>
+                ) : (
+                  <>
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        onClick={toggleRail}
+                        aria-label="Collapse assessment panel"
+                        aria-expanded={true}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <ChevronLeft className="size-4" />
+                        <span className="hidden sm:inline">Collapse</span>
+                      </Button>
+                    </div>
+
+                    <FramerCard>
+                      {/* Assessment Details */}
+                      {/* <Card>
             <CardHeader>
               <CardTitle className="text-base">Assessment Details</CardTitle>
             </CardHeader>
@@ -1207,26 +1339,28 @@ export default function HearingScreening({ screening = {} }) {
               <Field label="Assistant" placeholder="Assistant name" />
             </CardContent>
           </Card> */}
-                  <AssessmentCard
-                    // onChange={handleAssessmentChange}
-                    // form={assessmentForm}
-                    data={getSelectedStudentScreeningData}
-                    studentOptions={assessmentStudentOptions}
-                    studentValue={studentSelectValue}
-                    schoolName={schoolName}
-                    onStudentChange={handleAssessmentStudentChange}
-                    authUser={authUser}
-                    // onSave={handleSaveAssessment}
-                    // onCancel={handleCancelAssessment}
-                  />
-                </FramerCard>
+                      <AssessmentCard
+                        // onChange={handleAssessmentChange}
+                        // form={assessmentForm}
+                        data={getSelectedStudentScreeningData}
+                        studentOptions={assessmentStudentOptions}
+                        studentValue={studentSelectValue}
+                        schoolName={schoolName}
+                        onStudentChange={handleAssessmentStudentChange}
+                        authUser={authUser}
+                        // onSave={handleSaveAssessment}
+                        // onCancel={handleCancelAssessment}
+                      />
+                    </FramerCard>
 
-                <HearingSummary
-                  reHearingResult={reHearingResult}
-                  leHearingResult={leHearingResult}
-                  form={form}
-                />
-                <HearingQuickFinding form={form} />
+                    <HearingSummary
+                      reHearingResult={reHearingResult}
+                      leHearingResult={leHearingResult}
+                      form={form}
+                    />
+                    <HearingQuickFinding form={form} />
+                  </>
+                )}
               </div>
               {/* Hearing Summary */}
               {/* Quick Status */}
@@ -1234,7 +1368,10 @@ export default function HearingScreening({ screening = {} }) {
             {/* =================================================
             CENTER COLUMN
         ================================================= */}
-            <div className="min-w-0">
+            {/* The grid track (minmax(0,1fr)) already controls this column's
+                width, so a max-w cap + mx-auto only fought it: collapsing the
+                rail handed back space the content then refused to fill. */}
+            <div className="w-full min-w-0">
               <ScreeningStepper
                 activeStep={activeHearingStep}
                 setActiveStep={setActiveHearingStep}
@@ -1266,20 +1403,20 @@ export default function HearingScreening({ screening = {} }) {
 
                 {/* ------------------- Ear Health & Examination ------------------- */}
                 <div className="space-y-4">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <EarHealth
-                    form={form}
-                    formErrors={formErrors}
-                    updateField={updateField}
-                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <EarHealth
+                      form={form}
+                      formErrors={formErrors}
+                      updateField={updateField}
+                    />
 
-                  <EarExaminationCard
-                    form={form}
-                    updateField={updateField}
-                    formErrors={formErrors}
-                    examinationOptions={examinationOptions}
-                  />
-                 </div>
+                    <EarExaminationCard
+                      form={form}
+                      updateField={updateField}
+                      formErrors={formErrors}
+                      examinationOptions={examinationOptions}
+                    />
+                  </div>
                 </div>
 
                 {/* ------------------- Tympanometry ------------------- */}
@@ -1430,10 +1567,7 @@ function Audiogram({ form, updateField }) {
 
       {/* Chart */}
       <div className="overflow-x-auto rounded-xl border border-border/70 bg-background p-3 ">
-        <svg
-          viewBox={`0 0 ${width} ${height}`}
-          className="min-w-125 w-full"
-        >
+        <svg viewBox={`0 0 ${width} ${height}`} className="min-w-125 w-full">
           {/* Horizontal grid */}
           {Array.from({ length: 14 }, (_, index) => {
             const db = index * 10;
@@ -1613,7 +1747,7 @@ function Audiogram({ form, updateField }) {
 
               return (
                 <div key={field} className="p-2">
-                  <Input
+                  <NumberStepperField
                     type="number"
                     value={form[field]}
                     onChange={(e) =>
@@ -1621,7 +1755,12 @@ function Audiogram({ form, updateField }) {
                     }
                     min={PTA_MIN_DB}
                     max={PTA_MAX_DB}
-                    className="h-9 text-center text-xs"
+                    className={cn(
+                      "appearance-none",
+                      "[&::-webkit-inner-spin-button]:appearance-none",
+                      "[&::-webkit-outer-spin-button]:appearance-none",
+                      "h-9 text-center text-xs",
+                    )}
                   />
                 </div>
               );
@@ -1641,7 +1780,7 @@ function Audiogram({ form, updateField }) {
 
               return (
                 <div key={field} className="p-2">
-                  <Input
+                  <NumberStepperField
                     type="number"
                     value={form[field]}
                     onChange={(e) =>
@@ -1649,7 +1788,12 @@ function Audiogram({ form, updateField }) {
                     }
                     min={PTA_MIN_DB}
                     max={PTA_MAX_DB}
-                    className="h-9 text-center text-xs"
+                    className={cn(
+                      "appearance-none",
+                      "[&::-webkit-inner-spin-button]:appearance-none",
+                      "[&::-webkit-outer-spin-button]:appearance-none",
+                      "h-9 text-center text-xs",
+                    )}
                   />
                 </div>
               );

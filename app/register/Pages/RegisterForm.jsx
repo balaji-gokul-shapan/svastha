@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Building2,
   MapPin,
@@ -14,6 +14,7 @@ import {
   Loader2,
   User,
 } from "lucide-react";
+import confetti from "canvas-confetti";
 import { TextField, TextareaField } from "@/components/ui/text-field";
 import ReusableSelect from "@/components/ui/reusable-select";
 import { NumberStepperField } from "@/components/ui/numberStepperField";
@@ -36,6 +37,104 @@ import {
   createRegisterSchool,
   resetRegisterSchoolState,
 } from "@/lib/features/registerSchoolSlice";
+import { YearPicker } from "@/components/ui/year-picker";
+import { useQuery } from "@tanstack/react-query";
+
+import { getPincodeDetails } from "@/lib/features/getPincode.slice";
+
+/* ==========================================================================
+   usePincodeOptions
+   Looks up a pincode once 6 digits are present and returns DE-DUPED option
+   lists per field, plus the best single guess for autofill.
+.
+   ========================================================================== */
+
+const toOptions = (values) => values.map((value) => ({ value, label: value }));
+
+export function usePincodeOptions(pincode) {
+  const dispatch = useAppDispatch();
+  const normalized = String(pincode ?? "").trim();
+  const isReady = normalized.length === 6;
+
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error,
+  } = useQuery({
+    queryKey: ["pincode-details", normalized],
+  
+    queryFn: () => dispatch(getPincodeDetails(normalized)).unwrap(),
+    enabled: isReady,
+    retry: false,
+    // Postal data changes rarely — avoid refetching on every step change.
+    staleTime: 1000 * 60 * 30,
+  });
+
+  /* options[key] -> [{ value, label }], distinct, source order preserved. */
+  const options = useMemo(() => {
+    const list = data?.options ?? [];
+
+    const collect = (key) => {
+      const seen = new Set();
+      const out = [];
+
+      list.forEach((entry) => {
+        const value = String(entry?.[key] ?? "").trim();
+        if (!value) return;
+
+        const dedupeKey = value.toLowerCase();
+        if (seen.has(dedupeKey)) return;
+
+        seen.add(dedupeKey);
+        out.push(value);
+      });
+
+      return out;
+    };
+
+    return {
+      city: toOptions(collect("city")),
+      state: toOptions(collect("state")),
+      district: toOptions(collect("district")),
+      area: toOptions(collect("taluk")),
+    };
+  }, [data]);
+
+  /* Best-guess values, for autofilling fields the user hasn't typed into. */
+  const autofill = useMemo(() => {
+    if (!data) return null;
+
+    return {
+      city: String(data.city ?? "").trim(),
+      state: String(data.state ?? "").trim(),
+      district: String(data.district ?? "").trim(),
+      area: String(data.taluk ?? "").trim(),
+      country: String(data.country ?? "").trim() || "India",
+    };
+  }, [data]);
+
+  const errorMessage =
+    (error && typeof error === "string" ? error : null) ??
+    (error?.message ?? null);
+
+  const isBusy = isReady && (isLoading || isFetching) && !errorMessage;
+
+  return {
+    isReady,
+    isBusy,
+    error: errorMessage,
+    options,
+    autofill,
+    /** Placeholder text that tells the user why the select is empty. */
+    emptyPlaceholder: isReady ? "Select" : "Enter a 6-digit pincode first",
+  };
+}
+
+
+// Step id of the optional "Branches" step — shown only when the school
+// declares it has more than one location.
+const BRANCH_STEP_ID = 3;
 
 const steps = [
   {
@@ -72,6 +171,7 @@ const initialBranch = {
   area: "",
   city: "",
   state: "",
+  district: "",
   country: "",
   pincode: "",
   contact_person_name: "",
@@ -86,6 +186,11 @@ const initialForm = {
   board: "",
   total_teaching_staff: 0,
   total_non_teaching_staff: 0,
+  // Kept as "" rather than a number so the untouched field fails the
+  // "is required" check with a real message instead of zod's
+  // "expected number, received undefined".
+  total_students: "",
+  year_of_establishment: "",
   ceeb_code: "",
   registration_number: "",
 
@@ -99,16 +204,105 @@ const initialForm = {
   area: "",
   city: "",
   state: "",
+  district: "",
   country: "India",
   pincode: "",
 
   branches: [],
+
+  // Drives whether the "Branches" step is shown at all. A single-location
+  // school skips it entirely; toggling it on reveals the step in the stepper.
+  has_multiple_branches: false,
 
   school_name_with_location: "",
   school_profile: "",
   school_website_url: "",
   is_active: true,
 };
+
+/* ==========================================================================
+   Registration celebration
+   A purely presentational side-effect for a successful registration. It is
+   deliberately kept OUT of the submit flow: it is fire-and-forget, never
+   awaited, and never throws into the caller, so it cannot delay, alter or fail
+   the request, the state reset or the redirect.
+   ========================================================================== */
+
+/* The brand tokens are authored as modern space-separated HSL
+   ("hsl(198 83% 49%)"), but a canvas fillStyle only guarantees the legacy
+   comma form, so the token is normalised before confetti uses it. */
+function toLegacyHsl(value, fallback) {
+  const parts = String(value ?? "").trim().split(/[\s,]+/).filter(Boolean);
+
+  if (parts.length !== 3) {
+    return fallback;
+  }
+
+  const [hue, saturation, lightness] = parts;
+  const isValid =
+    /^-?[\d.]+$/.test(hue) &&
+    /^[\d.]+%$/.test(saturation) &&
+    /^[\d.]+%$/.test(lightness);
+
+  return isValid ? `hsl(${hue}, ${saturation}, ${lightness})` : fallback;
+}
+
+function celebrateRegistration() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  // Someone who has asked the OS for calm UI gets the success toast only.
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+    return;
+  }
+
+  const styles = window.getComputedStyle(document.documentElement);
+
+  const colors = [
+    toLegacyHsl(
+      styles.getPropertyValue("--brand-blue"),
+      "hsl(198, 83%, 49%)",
+    ),
+    toLegacyHsl(
+      styles.getPropertyValue("--brand-green"),
+      "hsl(142, 62%, 65%)",
+    ),
+    "hsl(38, 92%, 50%)",
+    "hsl(350, 89%, 60%)",
+    "#ffffff",
+  ];
+
+  const burst = {
+    colors,
+    spread: 70,
+    startVelocity: 45,
+    ticks: 220,
+    zIndex: 9999,
+    disableForReducedMotion: true,
+  };
+
+  // One central burst plus two angled side cannons, so it reads as a
+  // celebration rather than a single pop.
+  void confetti({
+    ...burst,
+    particleCount: 90,
+    scalar: 1.05,
+    origin: { x: 0.5, y: 0.6 },
+  });
+  void confetti({
+    ...burst,
+    particleCount: 45,
+    angle: 60,
+    origin: { x: 0.15, y: 0.75 },
+  });
+  void confetti({
+    ...burst,
+    particleCount: 45,
+    angle: 120,
+    origin: { x: 0.85, y: 0.75 },
+  });
+}
 
 export default function SchoolRegistrationPage() {
   const router = useRouter();
@@ -119,6 +313,47 @@ export default function SchoolRegistrationPage() {
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [formErrors, setFormErrors] = useState({});
+
+  const visibleSteps = useMemo(
+    () =>
+      form.has_multiple_branches
+        ? steps
+        : steps.filter((step) => step.id !== BRANCH_STEP_ID),
+    [form.has_multiple_branches],
+  );
+
+  /* If the user is ON the branches step and switches the toggle off (only
+     reachable via Back), move them somewhere valid instead of stranding them
+     on a step that is no longer rendered. This is a render-phase adjustment
+     (the pattern React recommends over an effect): when `visibleSteps`
+     changes we re-check validity and correct `currentStep` before painting,
+     so the hidden step is never rendered for a frame. */
+  const [visibleStepsForBranchToggle, setVisibleStepsForBranchToggle] =
+    useState(visibleSteps);
+
+  if (visibleStepsForBranchToggle !== visibleSteps) {
+    setVisibleStepsForBranchToggle(visibleSteps);
+
+    if (
+      currentStep === BRANCH_STEP_ID &&
+      !visibleSteps.some((step) => step.id === currentStep)
+    ) {
+      setCurrentStep(visibleSteps[visibleSteps.length - 1]?.id ?? 1);
+    }
+  }
+
+  // The active step object, resolved by id (not index) so hidden steps are safe.
+  const activeStep =
+    visibleSteps.find((step) => step.id === currentStep) ?? visibleSteps[0];
+
+  // Position within the VISIBLE list (1-based). Ids stay 1..4 even when the
+  // Branches step is hidden, so the raw id would print "Step 3 of 3".
+  const currentStepIndex = Math.max(
+    1,
+    visibleSteps.findIndex((step) => step.id === currentStep) + 1,
+  );
+
+  const isLastStep = currentStep === visibleSteps[visibleSteps.length - 1]?.id;
 
   // const updateField = (field, value) => {
   //   setForm((prev) => ({
@@ -193,6 +428,32 @@ export default function SchoolRegistrationPage() {
     }));
   };
 
+  const toggleMultipleBranches = (next) => {
+    const value = Boolean(next);
+
+    setForm((prev) => ({
+      ...prev,
+      has_multiple_branches: value,
+      // Turning it off while branches exist would leave data behind that the
+      // user can no longer reach (the Branches step is hidden), so clear it.
+      branches: !value && prev.branches.length ? [] : prev.branches,
+    }));
+
+    setFormErrors((prev) => {
+      if (!prev?.has_multiple_branches) return prev;
+
+      const next2 = { ...prev };
+      delete next2.has_multiple_branches;
+      return next2;
+    });
+
+    if (!value && form.branches.length) {
+      toast.info(
+        "Added branches were cleared because multi-branch was turned off.",
+      );
+    }
+  };
+
   const validateStep = () => {
     let schema;
     let values;
@@ -207,6 +468,8 @@ export default function SchoolRegistrationPage() {
           board: form.board,
           registration_number: form.registration_number,
           ceeb_code: form.ceeb_code,
+          total_students: form.total_students,
+          year_of_establishment: form.year_of_establishment,
           total_teaching_staff: form.total_teaching_staff,
           total_non_teaching_staff: form.total_non_teaching_staff,
         };
@@ -222,6 +485,7 @@ export default function SchoolRegistrationPage() {
           area: form.area,
           city: form.city,
           state: form.state,
+          district: form.district,
           country: form.country,
           pincode: form.pincode,
           contact_person_name: form.contact_person_name,
@@ -281,11 +545,19 @@ export default function SchoolRegistrationPage() {
   const nextStep = () => {
     if (!validateStep()) return;
 
-    setCurrentStep((prev) => Math.min(prev + 1, steps.length));
+    // Advance through the VISIBLE steps only, so "Continue" from Contact
+    // jumps straight to Review when the Branches step is hidden.
+    const index = visibleSteps.findIndex((step) => step.id === currentStep);
+    const next = visibleSteps[index + 1];
+
+    if (next) setCurrentStep(next.id);
   };
 
   const previousStep = () => {
-    setCurrentStep((prev) => Math.max(prev - 1, 1));
+    const index = visibleSteps.findIndex((step) => step.id === currentStep);
+    const prev = visibleSteps[index - 1];
+
+    if (prev) setCurrentStep(prev.id);
   };
 
   const handleSubmit = async () => {
@@ -301,15 +573,18 @@ export default function SchoolRegistrationPage() {
     try {
       await dispatch(createRegisterSchool(result.data)).unwrap();
 
+      // Celebration only - fire-and-forget, so the flow below is untouched.
+      celebrateRegistration();
+
       toast.success("School registered successfully! You can now sign in.");
       setForm(initialForm);
       setFormErrors({});
       setCurrentStep(1);
       dispatch(resetRegisterSchoolState());
 
-      window.setTimeout(() => {
-        router.push("/login");
-      }, 600);
+      // window.setTimeout(() => {
+      //   router.push("/login");
+      // }, 1000);
     } catch (submitError) {
       toast.error(
         typeof submitError === "string"
@@ -322,120 +597,220 @@ export default function SchoolRegistrationPage() {
     return errors?.branches?.[index]?.[field]?._errors?.[0] || "";
   };
 
+
+  const {
+    isReady: pincodeReady,
+    isBusy: pincodeLoading,
+    error: pincodeError,
+    options: pincodeFieldOptions,
+    autofill: pincodeAutofill,
+  } = usePincodeOptions(form.pincode);
+
+  const lastFilledRef = useRef({});
+
+  useEffect(() => {
+    if (!pincodeReady || !pincodeAutofill || pincodeError) return;
+
+    setForm((prev) => {
+      const next = { ...prev };
+      let changed = false;
+
+      Object.entries(pincodeAutofill).forEach(([field, value]) => {
+        const clean = String(value ?? "").trim();
+        if (!clean) return;
+
+        const current = String(prev[field] ?? "").trim();
+        if (current && current !== lastFilledRef.current[field]) return;
+
+        if (current !== clean) {
+          next[field] = clean;
+          changed = true;
+        }
+        lastFilledRef.current[field] = clean;
+      });
+
+      return changed ? next : prev;
+    });
+  }, [pincodeAutofill, pincodeError, pincodeReady]);
+
   return (
-    <main className="container-page px-4 py-6 md:px-8 lg:px-12 h-full overflow-auto no-scrollbar">
-      <div className="mx-auto max-w-7xl">
+    <main className="container-page relative flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden px-3 py-3 sm:px-6 sm:py-5 md:px-8 lg:px-12">
+      {/* Ambient brand wash — purely decorative, sits behind all content. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-72 bg-[radial-gradient(60%_100%_at_50%_0%,color-mix(in_oklch,var(--primary)_14%,transparent),transparent_70%)]"
+      />
+
+      {/* flex column + min-h-0 is what lets the Card body claim the leftover
+          height and scroll INSIDE it, keeping the footer always on screen. */}
+      <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col">
         {/* Header */}
-        <div className="mb-8">
-          <div className="mb-2 flex items-center gap-3">
-            <div className="flex size-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-              <Building2 className="size-5" />
+        <div className="mb-4 shrink-0 sm:mb-5 md:mb-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3.5">
+              <div className="relative flex size-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-brand-green text-primary-foreground shadow-lg shadow-primary/20">
+                <Building2 className="size-6" />
+              </div>
+
+              <div>
+                <h1 className="text-xl font-bold tracking-tight text-balance sm:text-2xl md:text-3xl">
+                  School Registration
+                </h1>
+
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  Register your school and branch information
+                </p>
+              </div>
             </div>
 
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">
-                School Registration
-              </h1>
+            {/* Live progress read-out — mirrors currentStep, no new state. */}
+            <div className="flex shrink-0 items-center gap-3 self-start rounded-full border bg-card/80 px-4 py-2 shadow-sm backdrop-blur sm:self-auto">
+              <div className="flex items-center gap-1.5">
+                {visibleSteps.map((step) => (
+                  <span
+                    key={step.id}
+                    aria-hidden="true"
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      step.id <= currentStep ? "w-6 bg-primary" : "w-1.5 bg-muted-foreground/30"
+                    }`}
+                  />
+                ))}
+              </div>
 
-              <p className="text-sm text-muted-foreground">
-                Register your school and branch information
-              </p>
+              <span className="whitespace-nowrap text-xs font-semibold text-foreground">
+                Step {currentStepIndex} of {visibleSteps.length}
+              </span>
             </div>
           </div>
         </div>
 
         {/* Stepper */}
-        <div className="mb-8 rounded-2xl border bg-background p-4 shadow-sm md:p-6">
-          <div className="flex items-start justify-between">
-            {steps.map((step, index) => {
-              const Icon = step.icon;
+        <nav
+          aria-label="Registration progress"
+          className="mb-4 shrink-0 overflow-hidden rounded-2xl border bg-card shadow-sm sm:mb-5 md:mb-6"
+        >
+          {/* Mobile: compact single track */}
+          <div className="px-4 py-4 sm:hidden">
+            <div className="mb-2.5 flex items-center justify-between">
+              <p className="text-xs font-semibold text-foreground">
+                Step {currentStepIndex} of {visibleSteps.length}
+              </p>
 
-              const completed = currentStep > step.id;
-              const active = currentStep === step.id;
+              <p className="text-xs text-muted-foreground">
+                {activeStep.title}
+              </p>
+            </div>
 
-              return (
-                <React.Fragment key={step.id}>
-                  <div className="flex min-w-0 flex-1 flex-col items-center">
-                    <div
-                      className={`
-                        flex size-10 items-center justify-center rounded-full
-                        border-2 transition-all
-                        ${
-                          completed
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : active
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "border-muted-foreground/30 bg-background text-muted-foreground"
-                        }
-                      `}
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-primary to-brand-green transition-[width] duration-500 ease-out"
+                style={{
+                  width: `${(currentStepIndex / visibleSteps.length) * 100}%`,
+                }}
+              />
+            </div>
+          </div>
+
+          {/* sm+: full step nodes with labels */}
+          <div className="hidden px-6 py-5 sm:block md:px-8 md:py-6">
+            <ol className="flex items-start">
+              {visibleSteps.map((step, index) => {
+                const Icon = step.icon;
+
+                const completed = currentStep > step.id;
+                const active = currentStep === step.id;
+
+                return (
+                  <React.Fragment key={step.id}>
+                    <li
+                      aria-current={active ? "step" : undefined}
+                      className="flex min-w-0 flex-1 flex-col items-center"
                     >
-                      {completed ? (
-                        <Check className="size-5" />
-                      ) : (
-                        <Icon className="size-5" />
-                      )}
-                    </div>
+                      <div
+                        className={`flex size-11 items-center justify-center rounded-xl border-2 transition-all duration-300 ${
+                          completed
+                            ? "border-transparent bg-gradient-to-br from-primary to-brand-green text-primary-foreground shadow-md shadow-primary/25"
+                            : active
+                              ? "scale-105 border-primary bg-primary/10 text-primary shadow-sm ring-4 ring-primary/10"
+                              : "border-border bg-muted/40 text-muted-foreground"
+                        }`}
+                      >
+                        {completed ? (
+                          <Check className="size-5" />
+                        ) : (
+                          <Icon className="size-5" />
+                        )}
+                      </div>
 
-                    <div className="mt-2 hidden text-center sm:block">
                       <p
-                        className={`text-sm font-semibold ${
-                          active || completed
+                        className={`mt-2.5 text-center text-sm font-semibold transition-colors ${
+                          active
                             ? "text-foreground"
-                            : "text-muted-foreground"
+                            : completed
+                              ? "text-foreground/80"
+                              : "text-muted-foreground"
                         }`}
                       >
                         {step.title}
                       </p>
 
-                      <p className="mt-0.5 text-xs text-muted-foreground">
+                      <p className="mt-0.5 hidden text-center text-xs text-muted-foreground md:block">
                         {step.description}
                       </p>
-                    </div>
+                    </li>
 
-                    <p className="mt-2 text-xs font-medium sm:hidden">
-                      {step.id}/{steps.length}
-                    </p>
-                  </div>
-
-                  {index !== steps.length - 1 && (
-                    <div className="mt-5 h-0.5 flex-1 bg-muted">
-                      <div
-                        className="h-full bg-primary transition-all duration-300"
-                        style={{
-                          width: currentStep > step.id ? "100%" : "0%",
-                        }}
-                      />
-                    </div>
-                  )}
-                </React.Fragment>
-              );
-            })}
+                    {index !== visibleSteps.length - 1 && (
+                      <li
+                        aria-hidden="true"
+                        className="mt-[22px] h-0.5 min-w-6 flex-1 overflow-hidden rounded-full bg-muted"
+                      >
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-primary to-brand-green transition-[width] duration-500 ease-out"
+                          style={{
+                            width: currentStep > step.id ? "100%" : "0%",
+                          }}
+                        />
+                      </li>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </ol>
           </div>
-        </div>
+        </nav>
 
         {/* Form Card — ui Card */}
-        <Card className="overflow-hidden rounded-xl shadow-sm sm:rounded-2xl">
-          {/* Card Header */}
-          <div className="border-b px-4 py-4 sm:px-6 sm:py-5 md:px-8">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-primary sm:text-xs">
-              Step {currentStep} of {steps.length}
-            </p>
+        <Card className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border-border/60 shadow-sm">
+          <div className="flex shrink-0 items-center gap-3 border-b bg-card px-4 py-3 sm:gap-3.5 sm:px-6 sm:py-4 md:px-8">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              {(() => {
+                const ActiveIcon = activeStep.icon;
+                return <ActiveIcon className="size-5" />;
+              })()}
+            </div>
 
-            <h2 className="mt-1 text-lg font-semibold tracking-tight text-balance sm:text-xl md:text-2xl">
-              {steps[currentStep - 1].title}
-            </h2>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-primary sm:text-xs">
+                Step {currentStepIndex} of {visibleSteps.length}
+              </p>
 
-            <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground sm:text-sm">
-              {steps[currentStep - 1].description}
-            </p>
+              <h2 className="mt-0.5 truncate text-base font-semibold tracking-tight text-balance sm:text-lg md:text-xl">
+                {activeStep.title}
+              </h2>
+
+              <p className="mt-0.5 hidden text-[13px] leading-relaxed text-muted-foreground sm:block">
+                {activeStep.description}
+              </p>
+            </div>
           </div>
 
-          <CardContent className="p-4 sm:p-6 md:p-8 min-h-[280px] sm:min-h-[320px] lg:min-h-[360px] md:max-h-[calc(100dvh-340px)] md:overflow-y-auto md:overscroll-contain">
+          <CardContent className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-5 md:p-6 lg:p-7">
             {currentStep === 1 && (
               <SchoolDetails
                 form={form}
                 updateField={updateField}
                 errors={formErrors}
+                toggleMultipleBranches={toggleMultipleBranches}
               />
             )}
 
@@ -444,6 +819,10 @@ export default function SchoolRegistrationPage() {
                 form={form}
                 updateField={updateField}
                 errors={formErrors}
+                pincodeOptions={pincodeFieldOptions}
+                pincodeLoading={pincodeLoading}
+                pincodeError={pincodeError}
+                pincodeReady={pincodeReady}
               />
             )}
 
@@ -458,12 +837,18 @@ export default function SchoolRegistrationPage() {
             )}
 
             {currentStep === 4 && (
-              <Review form={form} updateField={updateField} errors={formErrors} />
+              <Review
+                form={form}
+                updateField={updateField}
+                errors={formErrors}
+              />
             )}
           </CardContent>
 
-          {/* Footer - stacks full-width on mobile, inline on sm+ */}
-          <CardContent className="flex flex-col-reverse gap-2.5 border-t bg-muted/20 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-6 sm:py-4 md:px-8">
+          {/* Footer — always on screen because the card is a fixed-height flex
+              column and this row is shrink-0; only the body above scrolls.
+              Stacks full-width on phones, inline from sm up. */}
+          <CardContent className="flex shrink-0 flex-col-reverse gap-2 border-t bg-card px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-6 sm:py-3.5 md:px-8">
             <Button
               type="button"
               variant="outline"
@@ -475,7 +860,7 @@ export default function SchoolRegistrationPage() {
               Back
             </Button>
 
-            {currentStep < steps.length ? (
+            {!isLastStep ? (
               <Button
                 type="button"
                 onClick={nextStep}
@@ -532,14 +917,55 @@ function UiSelectField({ label, required, error, children }) {
     </div>
   );
 }
-function SchoolDetails({ form, updateField, errors }) {
+function SchoolDetails({ form, updateField, errors, toggleMultipleBranches }) {
   return (
     <div className="space-y-6 sm:space-y-8">
-      <SectionTitle
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2">
+        <SectionTitle
         icon={Building2}
         title="Basic Information"
         description="Enter the basic details of your school."
       />
+      <div
+          role="group"
+          onClick={() =>
+            toggleMultipleBranches(!form.has_multiple_branches)
+          }
+          className={`flex cursor-pointer items-start gap-3.5 rounded-xl border p-4 transition-colors hover:border-primary/40 focus-within:ring-2 focus-within:ring-ring/50 ${
+            form.has_multiple_branches
+              ? "border-primary/40 bg-primary/5"
+              : "border-border bg-muted/30 hover:bg-muted/50"
+          }`}
+        >
+          <span
+            className="shrink-0"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <Switch
+              id="has_multiple_branches"
+              checked={Boolean(form.has_multiple_branches)}
+              onCheckedChange={toggleMultipleBranches}
+              aria-label="This school has multiple branches"
+              className="mt-0.5"
+            />
+          </span>
+
+          <div className="min-w-0">
+            <label
+              htmlFor="has_multiple_branches"
+              className="block cursor-pointer text-sm font-medium text-foreground"
+            >
+              This school has multiple branches
+            </label>
+
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+              {form.has_multiple_branches
+                ? "A “Branches” step has been added to your registration. Add each campus with its own address and contact details."
+                : "Turn this on if your school runs more than one campus. Single-location schools can skip the branches step."}
+            </p>
+          </div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
         <TextField
@@ -548,7 +974,7 @@ function SchoolDetails({ form, updateField, errors }) {
           required
           value={form.school_name}
           onChange={(e) => updateField("school_name", e.target.value)}
-          placeholder="Enter school name"
+          placeholder="eg. Springfield High School"
           error={getError(errors, "school_name") || undefined}
           className="md:col-span-2"
         />
@@ -568,15 +994,11 @@ function SchoolDetails({ form, updateField, errors }) {
               { value: "Aided", label: "Aided" },
               { value: "Trust", label: "Trust" },
             ]}
-            placeholder="Select ownership"
+            placeholder="Select ownership (eg. Private, Government)"
           />
         </UiSelectField>
 
-        <UiSelectField
-          label="Board"
-          required
-          error={getError(errors, "board")}
-        >
+        <UiSelectField label="Board" required error={getError(errors, "board")}>
           <ReusableSelect
             withPortal
             value={form.board}
@@ -588,7 +1010,7 @@ function SchoolDetails({ form, updateField, errors }) {
               { value: "IB", label: "IB" },
               { value: "Other", label: "Other" },
             ]}
-            placeholder="Select board"
+            placeholder="Select board (eg. CBSE, ICSE)"
           />
         </UiSelectField>
 
@@ -598,7 +1020,7 @@ function SchoolDetails({ form, updateField, errors }) {
           required
           value={form.registration_number}
           onChange={(e) => updateField("registration_number", e.target.value)}
-          placeholder="Enter registration number"
+         placeholder="e.g. SCH/TN/2026/00125"
           error={getError(errors, "registration_number") || undefined}
         />
 
@@ -607,33 +1029,71 @@ function SchoolDetails({ form, updateField, errors }) {
           label="CEEB Code"
           value={form.ceeb_code}
           onChange={(e) => updateField("ceeb_code", e.target.value)}
-          placeholder="Enter CEEB code"
+          placeholder="eg. 12345"
           error={getError(errors, "ceeb_code") || undefined}
         />
 
-        <NumberStepperField
-          label="Teaching Staff"
-          name="total_teaching_staff"
-          required
-          min={0}
-          value={form.total_teaching_staff}
-          onChange={(e) =>
-            updateField("total_teaching_staff", Number(e.target.value))
-          }
-          error={getError(errors, "total_teaching_staff") || undefined}
+        {/* <TextField
+          id="year-of-establishment"
+          label="Year of Establishment"
+          value={form.year_of_establishment}
+          onChange={(e) => updateField("year_of_establishment", e.target.value)}
+          placeholder="Enter year of establishment"
+          error={getError(errors, "year_of_establishment") || undefined}
+        /> */}
+        <YearPicker
+          id="year_of_establishment"
+          name="year_of_establishment"
+          label="Year of Establishment"
+          labelClassName="field-label"
+          placeholder="Select year"
+          minYear={1800}
+          // withPortal
+          value={form.year_of_establishment || ""}
+          onValueChange={(v) => {
+            updateField("year_of_establishment", v);
+          }}
         />
 
-        <NumberStepperField
-          label="Non-Teaching Staff"
-          name="total_non_teaching_staff"
-          required  
-          min={0}
-          value={form.total_non_teaching_staff}
-          onChange={(e) =>
-            updateField("total_non_teaching_staff", Number(e.target.value))
-          }
-          error={getError(errors, "total_non_teaching_staff") || undefined}
-        />
+        {/* 1-up on phones — three steppers side by side is unusable there. */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <NumberStepperField
+            label="Total Number of Students"
+            name="total_students"
+            required
+            min={0}
+            value={form.total_students}
+            onChange={(e) =>
+              updateField("total_students", Number(e.target.value))
+            }
+            error={getError(errors, "total_students") || undefined}
+          />
+          <NumberStepperField
+            label="Teaching Staff"
+            name="total_teaching_staff"
+            required
+            min={0}
+            value={form.total_teaching_staff}
+            onChange={(e) =>
+              updateField("total_teaching_staff", Number(e.target.value))
+            }
+            error={getError(errors, "total_teaching_staff") || undefined}
+          />
+
+          <NumberStepperField
+            label="Non-Teaching Staff"
+            name="total_non_teaching_staff"
+            required
+            min={0}
+            value={form.total_non_teaching_staff}
+            onChange={(e) =>
+              updateField("total_non_teaching_staff", Number(e.target.value))
+            }
+            error={getError(errors, "total_non_teaching_staff") || undefined}
+          />
+        </div>
+
+        
       </div>
     </div>
   );
@@ -643,7 +1103,21 @@ function SchoolDetails({ form, updateField, errors }) {
    STEP 2
 ========================================================= */
 
-function ContactAddress({ form, updateField, errors }) {
+function ContactAddress({
+  form,
+  updateField,
+  errors,
+  pincodeOptions = {},
+  pincodeLoading = false,
+  pincodeError = null,
+  pincodeReady = false,
+}) {
+  const areaOptions = pincodeOptions.area ?? [];
+  const cityOptions = pincodeOptions.city ?? [];
+  const stateOptions = pincodeOptions.state ?? [];
+  const districtOptions = pincodeOptions.district ?? [];
+  const emptyHint = pincodeReady ? "Select" : "Enter a 6-digit pincode first";
+
   return (
     <div className="space-y-6 sm:space-y-8">
       <SectionTitle
@@ -674,44 +1148,6 @@ function ContactAddress({ form, updateField, errors }) {
         />
 
         <TextField
-          id="reg-area"
-          label="Area"
-          value={form.area}
-          onChange={(e) => updateField("area", e.target.value)}
-          placeholder="Enter area"
-          error={getError(errors, "area") || undefined}
-        />
-
-        <TextField
-          id="reg-city"
-          label="City"
-          required
-          value={form.city}
-          onChange={(e) => updateField("city", e.target.value)}
-          placeholder="Enter city"
-          error={getError(errors, "city") || undefined}
-        />
-
-        <TextField
-          id="reg-state"
-          label="State"
-          required
-          value={form.state}
-          onChange={(e) => updateField("state", e.target.value)}
-          placeholder="Enter state"
-          error={getError(errors, "state") || undefined}
-        />
-
-        <TextField
-          id="reg-country"
-          label="Country"
-          value={form.country}
-          onChange={(e) => updateField("country", e.target.value)}
-          placeholder="Enter country"
-          error={getError(errors, "country") || undefined}
-        />
-
-        <TextField
           id="reg-pincode"
           label="Pincode"
           required
@@ -719,80 +1155,235 @@ function ContactAddress({ form, updateField, errors }) {
           maxLength={6}
           value={form.pincode}
           onChange={(e) =>
-            updateField("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))
+            updateField(
+              "pincode",
+              e.target.value.replace(/\D/g, "").slice(0, 6),
+            )
           }
           placeholder="e.g. 600001"
           error={getError(errors, "pincode") || undefined}
         />
+
+        {/* Lookup status line — the selects below populate from this pincode. */}
+        {pincodeReady ? (
+          <p
+            className={`col-span-full -mt-1 text-xs ${
+              pincodeError ? "text-destructive" : "text-muted-foreground"
+            }`}
+            role="status"
+            aria-live="polite"
+          >
+            {pincodeError
+              ? pincodeError
+              : pincodeLoading
+                ? "Looking up pincode…"
+                : ""}
+          </p>
+        ) : null}
+
+        <Field label="Area / Taluk" error={getError(errors, "area")}>
+          <ReusableSelect
+            value={form.area}
+            onChange={(value) => updateField("area", value)}
+            options={areaOptions}
+            placeholder={areaOptions.length ? "Select area" : emptyHint}
+            disabled={!areaOptions.length}
+            withPortal
+          />
+        </Field>
+
+        <Field label="City" required error={getError(errors, "city")}>
+          <ReusableSelect
+            value={form.city}
+            onChange={(value) => updateField("city", value)}
+            options={cityOptions}
+            placeholder={cityOptions.length ? "Select city" : emptyHint}
+            disabled={!cityOptions.length}
+            withPortal
+          />
+        </Field>
+
+        <Field label="District" error={getError(errors, "district")}>
+          <ReusableSelect
+            value={form.district}
+            onChange={(value) => updateField("district", value)}
+            options={districtOptions}
+            placeholder={districtOptions.length ? "Select district" : emptyHint}
+            disabled={!districtOptions.length}
+            withPortal
+          />
+        </Field>
+
+        <Field label="State" required error={getError(errors, "state")}>
+          <ReusableSelect
+            value={form.state}
+            onChange={(value) => updateField("state", value)}
+            options={stateOptions}
+            placeholder={stateOptions.length ? "Select state" : emptyHint}
+            disabled={!stateOptions.length}
+            withPortal
+          />
+        </Field>
+
+        <Field label="Country" error={getError(errors, "country")}>
+          <ReusableSelect
+            value={form.country}
+            onChange={(value) => updateField("country", value)}
+            options={[{ value: "India", label: "India" }]}
+            placeholder="Select country"
+            withPortal
+          />
+        </Field>
       </div>
 
-      <Card className="bg-muted/20">
+     <div className="grid grid-cols-2 gap-2">
+       <Card className="bg-muted/20">
         <CardContent className="pt-5">
-        <div className="mb-5 flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <User className="size-4" />
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <User className="size-4" />
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold">Primary Contact Person  (Correspondent)</h3>
+              <p className="text-xs text-muted-foreground">
+                Person responsible for school communication
+              </p>
+            </div>
           </div>
 
-          <div>
-            <h3 className="text-sm font-semibold">Primary Contact Person</h3>
+          <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
+            <TextField
+              id="reg-contact-name"
+              label="Contact Person Name"
+              required
+              value={form.contact_person_name}
+              onChange={(e) =>
+                updateField("contact_person_name", e.target.value)
+              }
+              placeholder="Full name"
+              error={getError(errors, "contact_person_name") || undefined}
+            />
 
-            <p className="text-xs text-muted-foreground">
-              Person responsible for school communication
-            </p>
+            <TextField
+              id="reg-contact-designation"
+              label="Designation"
+              value={"Correspondent" || form.contact_person_designation}
+              onChange={(e) =>
+                updateField("contact_person_designation", e.target.value)
+              }
+              placeholder="Correspondent"
+              error={
+                getError(errors, "contact_person_designation") || undefined
+              }
+              readOnly
+            />
+
+            <TextField
+              id="reg-contact-phone"
+              label="Phone"
+              required
+              type="tel"
+              inputMode="tel"
+              maxLength={15}
+              value={form.contact_person_phone}
+              onChange={(e) =>
+                updateField(
+                  "contact_person_phone",
+                  e.target.value.replace(/[^\d+\s()-]/g, "").slice(0, 15),
+                )
+              }
+              placeholder="+91 XXXXX XXXXX"
+              error={getError(errors, "contact_person_phone") || undefined}
+            />
+
+            <TextField
+              id="reg-contact-email"
+              label="Email"
+              required
+              type="email"
+              value={form.email}
+              onChange={(e) => updateField("email", e.target.value)}
+              placeholder="school@example.com"
+              error={getError(errors, "email") || undefined}
+            />
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
-          <TextField
-            id="reg-contact-name"
-            label="Contact Person Name"
-            required
-            value={form.contact_person_name}
-            onChange={(e) => updateField("contact_person_name", e.target.value)}
-            placeholder="Full name"
-            error={getError(errors, "contact_person_name") || undefined}
-          />
-
-          <TextField
-            id="reg-contact-designation"
-            label="Designation"
-            value={form.contact_person_designation}
-            onChange={(e) => updateField("contact_person_designation", e.target.value)}
-            placeholder="Principal / Manager"
-            error={getError(errors, "contact_person_designation") || undefined}
-          />
-
-          <TextField
-            id="reg-contact-phone"
-            label="Phone"
-            required
-            type="tel"
-            inputMode="tel"
-            maxLength={15}
-            value={form.contact_person_phone}
-            onChange={(e) =>
-              updateField(
-                "contact_person_phone",
-                e.target.value.replace(/[^\d+\s()-]/g, "").slice(0, 15),
-              )
-            }
-            placeholder="+91 XXXXX XXXXX"
-            error={getError(errors, "contact_person_phone") || undefined}
-          />
-
-          <TextField
-            id="reg-contact-email"
-            label="Email"
-            required
-            type="email"
-            value={form.email}
-            onChange={(e) => updateField("email", e.target.value)}
-            placeholder="school@example.com"
-            error={getError(errors, "email") || undefined}
-          />
-        </div>
         </CardContent>
       </Card>
+      <Card className="bg-muted/20">
+        <CardContent className="pt-5">
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <User className="size-4" />
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold">Secondary Contact Person  (Principal)</h3>
+              <p className="text-xs text-muted-foreground">
+                Person responsible for school communication
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
+            <TextField
+              id="reg-secondary-contact-name"
+              label="Contact Person Name"
+              required
+              value={form.secondary_contact_person_name}
+              onChange={(e) =>
+                updateField("secondary_contact_person_name", e.target.value)
+              }
+              placeholder="Full name"
+              error={getError(errors, "secondary_contact_person_name") || undefined}
+            />
+
+            <TextField
+              id="reg-secondary-contact-designation"
+              label="Designation"
+              value={"Principal" || form.secondary_contact_person_designation}
+              onChange={(e) =>
+                updateField("secondary_contact_person_designation", e.target.value)
+              }
+              placeholder="Principal"
+              readOnly
+              error={
+                getError(errors, "secondary_contact_person_designation") || undefined
+              }
+            />
+
+            <TextField
+              id="reg-secondary-contact-phone"
+              label="Phone"
+              required
+              type="tel"
+              inputMode="tel"
+              maxLength={15}
+              value={form.secondary_contact_person_phone}
+              onChange={(e) =>
+                updateField(
+                  "secondary_contact_person_phone",
+                  e.target.value.replace(/[^\d+\s()-]/g, "").slice(0, 15),
+                )
+              }
+              placeholder="+91 XXXXX XXXXX"
+              error={getError(errors, "secondary_contact_person_phone") || undefined}
+            />
+
+            <TextField
+              id="reg-secondary-contact-email"
+              label="Email"
+              required
+              type="email"
+              value={form.secondary_contact_person_email}
+              onChange={(e) => updateField("secondary_contact_person_email", e.target.value)}
+              placeholder="school@example.com"
+              error={getError(errors, "secondary_contact_person_email") || undefined}
+            />
+          </div>
+        </CardContent>
+      </Card>
+     </div>
     </div>
   );
 }
@@ -800,6 +1391,116 @@ function ContactAddress({ form, updateField, errors }) {
 /* =========================================================
    STEP 3
 ========================================================= */
+
+/* One branch's address block.
+
+   A separate component (rather than inline inside the .map) is REQUIRED:
+   each branch has its own pincode, and React hooks cannot be called in a
+   loop. Rendering one per branch gives each its own usePincodeOptions
+   instance, so two branches can hold different pincodes and independent
+   option lists. */
+function BranchAddressFields({ index, branch, updateBranch, getError }) {
+  const { isReady, isBusy, error, options, autofill } =
+    usePincodeOptions(branch.pincode);
+
+  /* Same "don't stomp manual edits" rule as the school address. */
+  const lastFilledRef = useRef({});
+
+  useEffect(() => {
+    if (!isReady || !autofill || error) return;
+
+    Object.entries(autofill).forEach(([field, value]) => {
+      const clean = String(value ?? "").trim();
+      if (!clean) return;
+
+      const current = String(branch[field] ?? "").trim();
+      if (current && current !== lastFilledRef.current[field]) return;
+      if (current === clean) return;
+
+      updateBranch(index, field, clean);
+      lastFilledRef.current[field] = clean;
+    });
+    // branch is read for comparison only; including it would re-run this on
+    // every keystroke the autofill itself causes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autofill, error, isReady, index, updateBranch]);
+
+  const areaOptions = options.area ?? [];
+  const cityOptions = options.city ?? [];
+  const stateOptions = options.state ?? [];
+  const districtOptions = options.district ?? [];
+  const emptyHint = isReady ? "Select" : "Enter a 6-digit pincode first";
+
+  return (
+    <>
+      <div className="col-span-full -mt-1 text-xs">
+        {error ? (
+          <p className="text-destructive" role="status" aria-live="polite">
+            {error}
+          </p>
+        ) : isBusy ? (
+          <p className="text-muted-foreground" role="status" aria-live="polite">
+            Looking up pincode…
+          </p>
+        ) : null}
+      </div>
+
+      <Field label="Area / Taluk" error={getError("area")}>
+        <ReusableSelect
+          value={branch.area}
+          onChange={(value) => updateBranch(index, "area", value)}
+          options={areaOptions}
+          placeholder={areaOptions.length ? "Select area" : emptyHint}
+          disabled={!areaOptions.length}
+          withPortal
+        />
+      </Field>
+
+      <Field label="City" required error={getError("city")}>
+        <ReusableSelect
+          value={branch.city}
+          onChange={(value) => updateBranch(index, "city", value)}
+          options={cityOptions}
+          placeholder={cityOptions.length ? "Select city" : emptyHint}
+          disabled={!cityOptions.length}
+          withPortal
+        />
+      </Field>
+
+      <Field label="District" error={getError("district")}>
+        <ReusableSelect
+          value={branch.district}
+          onChange={(value) => updateBranch(index, "district", value)}
+          options={districtOptions}
+          placeholder={districtOptions.length ? "Select district" : emptyHint}
+          disabled={!districtOptions.length}
+          withPortal
+        />
+      </Field>
+
+      <Field label="State" required error={getError("state")}>
+        <ReusableSelect
+          value={branch.state}
+          onChange={(value) => updateBranch(index, "state", value)}
+          options={stateOptions}
+          placeholder={stateOptions.length ? "Select state" : emptyHint}
+          disabled={!stateOptions.length}
+          withPortal
+        />
+      </Field>
+
+      <Field label="Country" required error={getError("country")}>
+        <ReusableSelect
+          value={branch.country}
+          onChange={(value) => updateBranch(index, "country", value)}
+          options={[{ value: "India", label: "India" }]}
+          placeholder="Select country"
+          withPortal
+        />
+      </Field>
+    </>
+  );
+}
 
 function Branches({ form, addBranch, updateBranch, removeBranch, errors }) {
   // "Arm to delete" — each card's checkbox reveals its own delete button.
@@ -831,33 +1532,33 @@ function Branches({ form, addBranch, updateBranch, removeBranch, errors }) {
     <div className="space-y-6">
       <Card className="bg-muted/20">
         <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between md:p-6">
-        <SectionTitle
-          icon={GitBranch}
-          title="School Branches"
-          description="Add branches associated with this school."
-        />
+          <SectionTitle
+            icon={GitBranch}
+            title="School Branches"
+            description="Add branches associated with this school."
+          />
 
-        <Button
-          type="button"
-          onClick={addBranch}
-          className="w-full shrink-0 sm:w-auto"
-        >
-          <Plus className="size-4" />
-          Add Branch
-        </Button>
+          <Button
+            type="button"
+            onClick={addBranch}
+            className="w-full shrink-0 sm:w-auto"
+          >
+            <Plus className="size-4" />
+            Add Branch
+          </Button>
         </CardContent>
       </Card>
 
       {form.branches.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="p-10 text-center">
-          <GitBranch className="mx-auto size-10 text-muted-foreground" />
+            <GitBranch className="mx-auto size-10 text-muted-foreground" />
 
-          <h3 className="mt-3 text-sm font-semibold">No branches added</h3>
+            <h3 className="mt-3 text-sm font-semibold">No branches added</h3>
 
-          <p className="mt-1 text-sm text-muted-foreground">
-            Click &rdquo;Add Branch&rdquo; to add a school branch.
-          </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Click &rdquo;Add Branch&rdquo; to add a school branch.
+            </p>
           </CardContent>
         </Card>
       ) : (
@@ -865,168 +1566,150 @@ function Branches({ form, addBranch, updateBranch, removeBranch, errors }) {
           {form.branches.map((branch, index) => (
             <Card key={index}>
               <CardContent className="pt-5">
-              <div className="mb-6 flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold">Branch {index + 1}</h3>
+                <div className="mb-6 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold">Branch {index + 1}</h3>
 
-                  <p className="text-xs text-muted-foreground">
-                    Branch information
-                  </p>
+                    <p className="text-xs text-muted-foreground">
+                      Branch information
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-muted-foreground">
+                      <Checkbox
+                        checked={Boolean(armed[index])}
+                        onCheckedChange={() => toggleArm(index)}
+                        aria-label={`Arm delete Branch ${index + 1}`}
+                      />
+                      Delete
+                    </label>
+
+                    {armed[index] && (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        onClick={() => handleRemove(index)}
+                        aria-label={`Delete Branch ${index + 1}`}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-muted-foreground">
-                    <Checkbox
-                      checked={Boolean(armed[index])}
-                      onCheckedChange={() => toggleArm(index)}
-                      aria-label={`Arm delete Branch ${index + 1}`}
-                    />
-                    Delete
-                  </label>
+                <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
+                  <BranchField
+                    label="Branch Name"
+                    required
+                    value={branch.branch_name}
+                    error={getBranchError(index, "branch_name")}
+                    onChange={(value) =>
+                      updateBranch(index, "branch_name", value)
+                    }
+                  />
 
-                  {armed[index] && (
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      onClick={() => handleRemove(index)}
-                      aria-label={`Delete Branch ${index + 1}`}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  )}
+                  <BranchField
+                    label="Registration Number"
+                    required
+                    value={branch.registration_number}
+                    error={getBranchError(index, "registration_number")}
+                    onChange={(value) =>
+                      updateBranch(index, "registration_number", value)
+                    }
+                  />
+
+                  <BranchField
+                    label="Address Line 1"
+                    required
+                    value={branch.address_line_1}
+                    error={getBranchError(index, "address_line_1")}
+                    onChange={(value) =>
+                      updateBranch(index, "address_line_1", value)
+                    }
+                  />
+
+                  <BranchField
+                    label="Address Line 2"
+                    value={branch.address_line_2}
+                    error={getBranchError(index, "address_line_2")}
+                    onChange={(value) =>
+                      updateBranch(index, "address_line_2", value)
+                    }
+                  />
+
+                  {/* Area / City / District / State / Country are driven by this
+                      branch's own pincode, so they live in their own component. */}
+                  <BranchAddressFields
+                    index={index}
+                    branch={branch}
+                    updateBranch={updateBranch}
+                    getError={(field) => getBranchError(index, field)}
+                  />
+
+                  <BranchField
+                    label="Pincode"
+                    inputMode="numeric"
+                    maxLength={6}
+                    required
+                    value={branch.pincode}
+                    error={getBranchError(index, "pincode")}
+                    onChange={(value) =>
+                      updateBranch(
+                        index,
+                        "pincode",
+                        value.replace(/\D/g, "").slice(0, 6),
+                      )
+                    }
+                  />
+
+                  <BranchField
+                    label="Contact Person"
+                    required
+                    value={branch.contact_person_name}
+                    error={getBranchError(index, "contact_person_name")}
+                    onChange={(value) =>
+                      updateBranch(index, "contact_person_name", value)
+                    }
+                  />
+
+                  <BranchField
+                    label="Designation"
+                    value={branch.contact_person_designation}
+                    error={getBranchError(index, "contact_person_designation")}
+                    onChange={(value) =>
+                      updateBranch(index, "contact_person_designation", value)
+                    }
+                  />
+
+                  <BranchField
+                    label="Phone"
+                    type="tel"
+                    inputMode="tel"
+                    maxLength={15}
+                    required
+                    value={branch.contact_person_phone}
+                    error={getBranchError(index, "contact_person_phone")}
+                    onChange={(value) =>
+                      updateBranch(
+                        index,
+                        "contact_person_phone",
+                        value.replace(/[^\d+\s()-]/g, "").slice(0, 15),
+                      )
+                    }
+                  />
+
+                  <BranchField
+                    label="Contact Email"
+                    required
+                    value={branch.contact_person_email}
+                    error={getBranchError(index, "contact_person_email")}
+                    onChange={(value) =>
+                      updateBranch(index, "contact_person_email", value)
+                    }
+                  />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
-                <BranchField
-                  label="Branch Name"
-                  required
-                  value={branch.branch_name}
-                  error={getBranchError(index, "branch_name")}
-                  onChange={(value) =>
-                    updateBranch(index, "branch_name", value)
-                  }
-                />
-
-                <BranchField
-                  label="Registration Number"
-                  required
-                  value={branch.registration_number}
-                  error={getBranchError(index, "registration_number")}
-                  onChange={(value) =>
-                    updateBranch(index, "registration_number", value)
-                  }
-                />
-
-                <BranchField
-                  label="Address Line 1"
-                  required
-                  value={branch.address_line_1}
-                  error={getBranchError(index, "address_line_1")}
-                  onChange={(value) =>
-                    updateBranch(index, "address_line_1", value)
-                  }
-                />
-
-                <BranchField
-                  label="Address Line 2"
-                  value={branch.address_line_2}
-                  error={getBranchError(index, "address_line_2")}
-                  onChange={(value) =>
-                    updateBranch(index, "address_line_2", value)
-                  }
-                />
-
-                <BranchField
-                  label="Area"
-                  value={branch.area}
-                  error={getBranchError(index, "area")}
-                  onChange={(value) => updateBranch(index, "area", value)}
-                />
-
-                <BranchField
-                  label="City"
-                  required
-                  value={branch.city}
-                  error={getBranchError(index, "city")}
-                  onChange={(value) => updateBranch(index, "city", value)}
-                />
-
-                <BranchField
-                  label="State"
-                  required
-                  value={branch.state}
-                  error={getBranchError(index, "state")}
-                  onChange={(value) => updateBranch(index, "state", value)}
-                />
-
-                <BranchField
-                  label="Country"
-                  required
-                  value={branch.country}
-                  error={getBranchError(index, "country")}
-                  onChange={(value) => updateBranch(index, "country", value)}
-                />
-
-                <BranchField
-                  label="Pincode"
-                  inputMode="numeric"
-                  maxLength={6}
-                  required
-                  value={branch.pincode}
-                  error={getBranchError(index, "pincode")}
-                  onChange={(value) =>
-                    updateBranch(index, "pincode", value.replace(/\D/g, "").slice(0, 6))
-                  }
-                />
-
-                <BranchField
-                  label="Contact Person"
-                  required
-                  value={branch.contact_person_name}
-                  error={getBranchError(index, "contact_person_name")}
-                  onChange={(value) =>
-                    updateBranch(index, "contact_person_name", value)
-                  }
-                />
-
-                <BranchField
-                  label="Designation"
-                  value={branch.contact_person_designation}
-                  error={getBranchError(index, "contact_person_designation")}
-                  onChange={(value) =>
-                    updateBranch(index, "contact_person_designation", value)
-                  }
-                />
-
-                <BranchField
-                  label="Phone"
-                  type="tel"
-                  inputMode="tel"
-                  maxLength={15}
-                  required
-                  value={branch.contact_person_phone}
-                  error={getBranchError(index, "contact_person_phone")}
-                  onChange={(value) =>
-                    updateBranch(
-                      index,
-                      "contact_person_phone",
-                      value.replace(/[^\d+\s()-]/g, "").slice(0, 15),
-                    )
-                  }
-                />
-
-                <BranchField
-                  label="Contact Email"
-                  required
-                  value={branch.contact_person_email}
-                  error={getBranchError(index, "contact_person_email")}
-                  onChange={(value) =>
-                    updateBranch(index, "contact_person_email", value)
-                  }
-                />
-              </div>
               </CardContent>
             </Card>
           ))}
@@ -1067,9 +1750,7 @@ function Review({ form, updateField, errors }) {
           type="url"
           inputMode="url"
           value={form.school_website_url}
-          onChange={(e) =>
-            updateField("school_website_url", e.target.value)
-          }
+          onChange={(e) => updateField("school_website_url", e.target.value)}
           placeholder="https://example.com"
           error={getError(errors, "school_website_url") || undefined}
         />
@@ -1133,7 +1814,7 @@ function Review({ form, updateField, errors }) {
       </div>
 
       {/* Active Status — ui Switch */}
-      <Card>
+      {/* <Card>
         <CardContent className="flex cursor-pointer items-center justify-between gap-4 p-4">
           <div>
             <p className="text-sm font-semibold">School Status</p>
@@ -1149,22 +1830,26 @@ function Review({ form, updateField, errors }) {
             aria-label="School active status"
           />
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   );
 }
 
 function SectionTitle({ icon: Icon, title, description }) {
   return (
-    <div className="flex items-start gap-3">
-      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-        <Icon className="size-4" />
+    <div className="flex items-start gap-3.5">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-brand-green/10 text-primary ring-1 ring-inset ring-primary/10">
+        <Icon className="size-5" />
       </div>
 
-      <div>
-        <h3 className="text-base font-semibold">{title}</h3>
+      <div className="min-w-0">
+        <h3 className="text-base font-semibold tracking-tight sm:text-lg">
+          {title}
+        </h3>
 
-        <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground text-pretty">
+          {description}
+        </p>
       </div>
     </div>
   );
@@ -1186,7 +1871,17 @@ function Field({ label, required, error, children, className = "" }) {
   );
 }
 
-function BranchField({ label, value, onChange, error, id, type, inputMode, placeholder, ...rest }) {
+function BranchField({
+  label,
+  value,
+  onChange,
+  error,
+  id,
+  type,
+  inputMode,
+  placeholder,
+  ...rest
+}) {
   return (
     <TextField
       id={id}
@@ -1208,9 +1903,9 @@ function SummaryItem({ label, value }) {
   return (
     <Card className="bg-muted/20">
       <CardContent className="p-4">
-      <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="text-xs text-muted-foreground">{label}</p>
 
-      <p className="mt-1 truncate text-sm font-medium">{value || "-"}</p>
+        <p className="mt-1 truncate text-sm font-medium">{value || "-"}</p>
       </CardContent>
     </Card>
   );

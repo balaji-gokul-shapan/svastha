@@ -300,14 +300,17 @@ export default function HealthCheckModal({ student }) {
   // Number of visible status cards. Tailwind can't build a class from a
   // runtime value (e.g. `sm:grid-cols-${n}`), so map the count to explicit,
   // build-time-detectable class literals.
+  // sm halves the count so 5-6 cards stay readable on tablets;
+  // lg is where they reach the full one-row layout.
   const statusCardCount = getGridCount.length;
   const statusGridCols =
     {
       1: "sm:grid-cols-1",
       2: "sm:grid-cols-2",
       3: "sm:grid-cols-3",
-      4: "sm:grid-cols-4",
-      5: "sm:grid-cols-5",
+      4: "sm:grid-cols-2 lg:grid-cols-4",
+      5: "sm:grid-cols-3 lg:grid-cols-5",
+      6: "sm:grid-cols-3 lg:grid-cols-6",
     }[statusCardCount] ?? "sm:grid-cols-2";
 
 

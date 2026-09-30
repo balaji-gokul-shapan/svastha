@@ -248,6 +248,7 @@ export default function StudenthealthReport() {
 
   const {
     filterProps,
+    doctorFilterProps,
     selectedStudent,
     selectedCamp,
     schoolName,
@@ -645,7 +646,7 @@ export default function StudenthealthReport() {
         </div>
       </div>
       <div className="py-5">
-        <StudentFilter {...filterProps} />
+        <StudentFilter {...filterProps} {...doctorFilterProps} />
       </div>
       {/* HEADER */}
       {/* <header className="sticky top-0 z-20 border-b border-border bg-card/95 backdrop-blur">

@@ -40,6 +40,11 @@ export default function ReusableSelect({
   hasMore = false,
   isLoadingMore = false,
   onSearch = null,
+  // Fires with true/false whenever the dropdown opens/closes (trigger click,
+  // option pick, Escape, outside click). Additive — existing usages that don't
+  // pass it are unaffected. Lets parents drop caches that only apply while
+  // searching, e.g. server-side search results.
+  onOpenChange = null,
   withPortal=false
 }) {
   const [open, setOpen] = useState(false);
@@ -58,6 +63,24 @@ export default function ReusableSelect({
   // shortly after selection and can replace the result list containing the
   // selected option.
   const skipNextSearchRef = useRef(false);
+  // Keep the latest onOpenChange callback without re-firing on every render —
+  // parents usually pass an inline arrow whose identity changes each time.
+  const onOpenChangeRef = useRef(onOpenChange);
+  const openChangeMountedRef = useRef(false);
+
+  useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  }, [onOpenChange]);
+
+  useEffect(() => {
+    // Skip the mount pass, only report real transitions.
+    if (!openChangeMountedRef.current) {
+      openChangeMountedRef.current = true;
+      return;
+    }
+
+    onOpenChangeRef.current?.(open);
+  }, [open]);
   
 
   // ─── portal element (lazy, appended to body) ─────────────────────────────

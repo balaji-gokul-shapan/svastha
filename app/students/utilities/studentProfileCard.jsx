@@ -11,7 +11,6 @@ import {
   Venus,
 } from "lucide-react";
 // import { getNormaliseName } from "../students-cards";
-import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import { getNormaliseName } from "./students-cards";
 
@@ -85,15 +84,17 @@ function statusToneClass(status) {
 
 function InfoItem({ icon: Icon, label, value }) {
   return (
-    <div className="flex items-start gap-2.5">
+    <div className="gs-info">
       {Icon ? (
-        <span className="mt-0.5 flex size-8 shrink-0 items-center aspect-square justify-center rounded-lg bg-muted">
-          <Icon className="size-5 text-muted-foreground" strokeWidth={2} />
+        <span className="gs-info__icon">
+          <Icon className="size-4" strokeWidth={2} />
         </span>
       ) : null}
-      <div>
-        <p className="text-[11px] text-muted-foreground">{label}</p>
-        <p className="text-sm font-medium text-foreground">{value || "--"}</p>
+
+      <div className="min-w-0">
+        <p className="gs-info__label">{label}</p>
+
+        <p className="gs-info__value truncate">{value || "--"}</p>
       </div>
     </div>
   );
@@ -139,26 +140,31 @@ const StudentProfileCard = ({ student }) => {
   const getNormalise = getNormaliseName(getGender);
 
   return (
-    <article className="rounded-xl border border-border bg-card p-4 sm:p-5">
-      <div className="flex flex-col md:flex-row items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="inline-flex size-11 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
-            {getInitials(name)}
-          </span>
+    <article className="gs-panel">
+      <div className="flex flex-col items-start justify-between gap-3 p-4 pb-3 sm:flex-row sm:items-center sm:p-5 sm:pb-4">
+        <div className="flex min-w-0 items-center gap-3.5">
+          <span className="gs-avatar">{getInitials(name)}</span>
 
-          <div className="min-w-0 gap-5">
+          <div className="min-w-0">
             <p className="truncate text-base font-semibold text-foreground">
               {name}
             </p>
-           <div className="flex gap-2 my-1">
-             <Badge variant="secondary" className="text-xs border border-primary flex flex-row items-end gap-1">
-              <>
-              <Image src={"/logo.svg"} width={16} height={16} alt="svastha-id"/>
-              {studentCode}
-              </>
-              </Badge>
-            <Badge className="text-xs">{svasthaId}</Badge>
-           </div>
+
+            {/* Identity chips — tabular figures so the codes line up. */}
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <span className="gs-chip">
+                <Image
+                  src="/logo.svg"
+                  width={12}
+                  height={12}
+                  alt=""
+                  aria-hidden="true"
+                />
+                {studentCode}
+              </span>
+
+              <span className="gs-chip">{svasthaId}</span>
+            </div>
           </div>
         </div>
 
@@ -173,26 +179,29 @@ const StudentProfileCard = ({ student }) => {
         ) : null}
       </div>
 
-      <div className="mt-4 grid w-full grid-cols-2 gap-4 text-sm sm:mt-5 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7">
-        <InfoItem icon={Cake} label="DOB" value={formatDob(dobValue)} />
-        <InfoItem icon={Baby} label="Age" value={ageValue} />
-        <InfoItem
-          icon={genderIcon(getNormalise)}
-          label="Gender"
-          value={getNormalise}
-        />
-        <InfoItem icon={GraduationCap} label="Class" value={classValue} />
-        <InfoItem icon={BookOpen} label="Section" value={sectionValue} />
-        <InfoItem
-          icon={User}
-          label="Father"
-          value={student?.fatherName ?? student?.father_name ?? "--"}
-        />
-        <InfoItem
-          icon={UserRound}
-          label="Mother"
-          value={student?.motherName ?? student?.mother_name ?? "--"}
-        />
+      {/* Hairline separates identity from the detail rows. */}
+      <div className="border-t border-border/60 bg-muted/20 p-2.5 sm:p-3">
+        <div className="grid w-full grid-cols-1 gap-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          <InfoItem icon={Cake} label="DOB" value={formatDob(dobValue)} />
+          <InfoItem icon={Baby} label="Age" value={ageValue} />
+          <InfoItem
+            icon={genderIcon(getNormalise)}
+            label="Gender"
+            value={getNormalise}
+          />
+          <InfoItem icon={GraduationCap} label="Class" value={classValue} />
+          <InfoItem icon={BookOpen} label="Section" value={sectionValue} />
+          <InfoItem
+            icon={User}
+            label="Father"
+            value={student?.fatherName ?? student?.father_name ?? "--"}
+          />
+          <InfoItem
+            icon={UserRound}
+            label="Mother"
+            value={student?.motherName ?? student?.mother_name ?? "--"}
+          />
+        </div>
       </div>
     </article>
   );

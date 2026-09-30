@@ -1,6 +1,6 @@
 
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   CheckCircle2,
   Ear,
@@ -408,35 +408,34 @@ export function SectionCard({
   tone = "blue",
   children,
 }) {
+  // Tints are the ONLY thing that changes per section — the structure is the
+  // shared "Clinical Slate" panel used across the other screening pages, so
+  // ENT reads as the same product as General / Vision / Hearing.
   const tones = {
-    blue: "bg-primary/10 text-primary",
-    purple: "bg-purple-500/10 text-purple-600",
-    orange: "bg-orange-500/10 text-orange-600",
-    cyan: "bg-cyan-500/10 text-cyan-600",
-    green: "bg-green-500/10 text-green-600",
+    blue: "text-primary",
+    purple: "text-purple-500",
+    orange: "text-orange-500",
+    cyan: "text-cyan-500",
+    green: "text-green-500",
   };
 
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="border-b border-border/70 bg-muted/10">
-        <div className="flex items-center gap-3">
-          <div
-            className={`flex size-10 items-center justify-center rounded-xl ${tones[tone]}`}
-          >
-            <Icon className="size-5" />
-          </div>
+    <div className="gs-panel">
+      <div className="gs-panel__head">
+        <span className={`gs-panel__icon ${tones[tone] ?? tones.blue}`}>
+          {Icon ? <Icon className="size-4" /> : null}
+        </span>
 
-          <div>
-            <CardTitle className="text-base">{title}</CardTitle>
+        <div className="min-w-0">
+          <p className="gs-panel__title">{title}</p>
 
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {description}
-            </p>
-          </div>
+          {description ? (
+            <p className="gs-panel__sub">{description}</p>
+          ) : null}
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="p-5">{children}</CardContent>
-    </Card>
+      <div className="gs-panel__body">{children}</div>
+    </div>
   );
 }

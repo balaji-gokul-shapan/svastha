@@ -11,6 +11,7 @@ import { clearAuthSession } from "@/lib/features/auth-slice";
 import { AppBreadcrumb } from "./app-breadcrumb";
 import { Navbar } from "./navbar";
 import { Sidebar } from "./sidebar";
+import { TopNav } from "./top-nav";
 
 const CHROMELESS_ROUTES = ["/login", "/register"];
 
@@ -23,6 +24,12 @@ export function AppShell({ children }) {
   const isAuthenticated = useSelector(
     (state) => state.auth?.isAuthenticated === true,
   );
+  // Settings → Appearance → Sidebar position. Defaults to "side" so the rail is
+  // unchanged until the doctor explicitly picks "top".
+  const sidebarPosition = useSelector(
+    (state) => state.appearanceSettings?.sidebarPosition ?? "side",
+  );
+  const isTopNav = sidebarPosition === "top";
   const hideChrome = CHROMELESS_ROUTES.some((route) => pathname?.startsWith(route));
 
   // "Are we on the client?" without a setState-in-effect: the server snapshot is
@@ -39,12 +46,6 @@ export function AppShell({ children }) {
       return;
     }
 
-    // proxy.js lets every request through while the `svastha-auth` COOKIE
-    // exists, and bounces /login back to "/" for as long as it does. The
-    // session itself (tokens, user) lives in sessionStorage, which is PER TAB —
-    // so a new tab, or cleared site data, leaves "cookie yes / session no".
-    // Clearing the cookie here is what stops that ping-ponging / -> /login -> /
-    // behind a blank page.
     dispatch(clearAuthSession());
     router.replace("/login");
   }, [dispatch, hideChrome, isAuthenticated, router]);
@@ -56,31 +57,46 @@ export function AppShell({ children }) {
   if (!isClient || !isAuthenticated) {
     return (
       <FullScreenLoader
-        label={isAuthenticated ? "Loading your dashboard..." : "Restoring your session..."}
+        label={isAuthenticated ? "Loading your dashboard...!" : "Please wait, We are getting things ready...!"}
+        imageSrc="/GIFs/loader.gif"
       />
     );
   }
 
+  const content = (
+    <>
+      <Navbar title="Dashboard" sticky={!isTopNav} />
+      <AppBreadcrumb />
+      <main className="min-w-0 flex-1 p-4 py-1.5 sm:px-6">{children}</main>
+    </>
+  );
+
   return (
     <SidebarProvider className="min-h-screen bg-background">
-      <Sidebar />
+      {isTopNav ? (
+        <div className="flex min-w-0 flex-1 flex-col">
+          <TopNav />
+          {content}
+        </div>
+      ) : (
+        <>
+          <Sidebar />
 
-      {/*
-       * Mobile only: opens the off-canvas sidebar sheet.
-       */}
-      <SidebarTrigger className="fixed left-3 top-4 z-50 md:hidden" />
+          {/*
+           * Mobile only: opens the off-canvas sheet. The TopNav has no sheet of
+           * its own, so this trigger is hidden in that mode.
+           */}
+          <SidebarTrigger className="fixed left-3 top-4 z-50 md:hidden" />
 
-      {/*
-       * `min-w-0` is required here: this is a flex child of the sidebar row,
-       * so without it the column keeps `min-width: auto` and any wide child
-       * (e.g. a data table on mobile) stretches the whole page instead of
-       * scrolling inside its own container.
-       */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Navbar title="Dashboard" />
-        <AppBreadcrumb />
-        <main className="min-w-0 flex-1 p-4 py-1.5 sm:px-6">{children}</main>
-      </div>
+          {/*
+           * `min-w-0` is required here: this is a flex child of the sidebar row,
+           * so without it the column keeps `min-width: auto` and any wide child
+           * (e.g. a data table on mobile) stretches the whole page instead of
+           * scrolling inside its own container.
+           */}
+          <div className="flex min-w-0 flex-1 flex-col">{content}</div>
+        </>
+      )}
     </SidebarProvider>
   );
 }

@@ -145,7 +145,7 @@ const AssessmentCard = ({
 
         {isScreening && (
           <Card>
-            <CardHeader>
+            <CardHeader className="border-b border-border/70 bg-muted/30">
               <CardTitle className="flex items-center gap-2 text-sm">
                 <span className="flex size-8 items-center justify-center rounded-lg bg-success/10">
                   <ClipboardList className="size-4 text-success" />
@@ -154,7 +154,13 @@ const AssessmentCard = ({
               </CardTitle>
             </CardHeader>
 
-            <CardContent className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-2 space-y-2">
+            {/* Compact readout list rather than a tile grid: in this 300px rail a
+                2-column grid of tiles was cramped AND very tall. Grouped so the
+                eye reads "growth", then "vitals", and the left rail shows at a
+                glance which readings are actually filled. */}
+            <CardContent className="space-y-0.5 p-2">
+              <p className="gs-readout__group">Growth</p>
+
               <SummaryItem
                 label="Height"
                 value={
@@ -176,10 +182,9 @@ const AssessmentCard = ({
                 value={bmiDisplayValue}
                 status="Normal"
               />
-              <SummaryItem
-                label="Blood Group"
-                value={form.bloodGroup || "O+"}
-              />
+
+              <p className="gs-readout__group">Vitals</p>
+
               <SummaryItem
                 label="Blood Pressure"
                 value={form.bloodPressure || "O/0"}
@@ -193,6 +198,13 @@ const AssessmentCard = ({
                     ? `${form.temperature}°C / ${((parseFloat(form.temperature) * 9) / 5 + 32).toFixed(1)}°F`
                     : "0°C / 32°F"
                 }
+              />
+
+              <p className="gs-readout__group">Other</p>
+
+              <SummaryItem
+                label="Blood Group"
+                value={form.bloodGroup || "O+"}
               />
             </CardContent>
           </Card>
@@ -268,21 +280,32 @@ const AssessmentCard = ({
 export default AssessmentCard;
 
 function SummaryItem({ label, value, unit, status }) {
+  /* Placeholder defaults ("0 cm / 0 in", "0 bpm", "O/0") mean nothing was
+     entered. The rail goes neutral AND the value dims, so a blank reading is
+     never mistaken for a result. */
+  const isEmpty =
+    value === "—" ||
+    value === "" ||
+    value === null ||
+    value === undefined ||
+    /^\s*0(\s+0)?\s*(\/.*)?$/.test(String(value ?? ""));
+
+  const text = unit ? `${value} ${unit}` : String(value ?? "—");
+
   return (
-    <div className="flex items-center justify-between rounded-lg border border-border p-3">
-      <div>
-        <p className="text-sm font-medium">
-          {label} {unit ? `(${unit})` : ""}
-        </p>
+    <div
+      className={`gs-readout ${isEmpty ? "gs-readout--blank" : "gs-readout--filled"}`}
+      title={`${label}: ${text}`}
+    >
+      <span className="gs-readout__label">{label}</span>
 
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {unit ? `${value} ` : value}
-        </p>
-      </div>
+      <span className="gs-readout__value">
+        {status && !isEmpty ? (
+          <span className="mr-1 text-emerald-500">{status}</span>
+        ) : null}
 
-      {/* {status && (
-        <span className="text-xs font-medium text-emerald-500">{status}</span>
-      )} */}
+        <span className={isEmpty ? "gs-empty" : ""}>{text}</span>
+      </span>
     </div>
   );
 }

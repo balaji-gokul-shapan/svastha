@@ -3,15 +3,13 @@
 import { useEffect, useState } from "react";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
+import Image from "next/image";
 
 import { cn } from "@/lib/utils";
 
 /**
  * GLOBAL LOADER
  * -------------
- * Mounted once in app/providers.jsx — shows a slim animated progress bar
- * at the top of the viewport whenever ANY React Query fetch or mutation
- * is in flight anywhere in the app. No per-page wiring needed.
  */
 export function GlobalLoader() {
   const isFetching = useIsFetching();
@@ -50,20 +48,39 @@ export function GlobalLoader() {
  *
  *   {isSaving ? <FullScreenLoader label="Saving..." /> : null}
  */
-export function FullScreenLoader({ label = "Loading...", className }) {
+export function FullScreenLoader({
+  label = "Loading...",
+  className,
+  imageSrc = null,
+  imageAlt = "",
+  imageSize = 108,
+}) {
   return (
     <div
       role="status"
       aria-live="polite"
       className={cn(
-        "fixed inset-0 z-[90] flex flex-col items-center justify-center gap-3 bg-background/70 backdrop-blur-sm",
+        "fixed inset-0 z-[90] flex flex-col items-center justify-center gap-3 bg-background/50 backdrop-blur-sm",
         className,
       )}
     >
-      <span className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-        <Loader2 className="size-7 animate-spin" />
-      </span>
-      <p className="text-sm font-medium text-muted-foreground">{label}</p>
+      {imageSrc ? (
+        <Image
+          src={imageSrc}
+          alt={imageAlt}
+          width={imageSize}
+          height={imageSize}
+          unoptimized
+          className="h-auto w-auto object-contain"
+          style={{ width: imageSize, height: imageSize }}
+          priority
+        />
+      ) : (
+        <span className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          <Loader2 className="size-7 animate-spin" />
+        </span>
+      )}
+      <p className="text-lg font-medium text-muted-foreground">{label}</p>
     </div>
   );
 }

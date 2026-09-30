@@ -76,10 +76,6 @@ const getStudentName = (student) => {
   return student?.student_name ?? student?.name ?? "Unknown";
 };
 
-// Camp ids double as dropdown values, so the picked camp stays authoritative
-// while the school filter is cleared ("all") or the camp has no school. It is
-// only replaced when the filter names a different, real school — otherwise the
-// sync below would wipe the user's selection.
 const campSurvivesSchoolFilter = (camp, schoolName) => {
   const campSchool = getCampSchoolName(camp);
   const filter = String(schoolName ?? "").trim();
@@ -99,13 +95,11 @@ const StudentFilter = ({
   authUser,
   filterPayload,
   isLoading = false,
-
   schoolName = "all",
   academicYear = "all",
   classFilter = "all",
   sectionFilter = "all",
   studentFilter = "all",
-
   onSchoolNameChange,
   onAcademicYearChange,
   onClassFilterChange,
@@ -117,8 +111,6 @@ const StudentFilter = ({
 
   assignEventLoading = false,
   assignEventError = null,
-  // Optional: pages that need the resolved camp hoist it via this setter.
-  // Defaults to a no-op so pages that don't need it don't have to pass it.
   setSelectedCampDetails = () => {},
   getStudentDataByEvent,
   setGetStudentDataByEvent,
@@ -173,10 +165,6 @@ const StudentFilter = ({
   /* ------------------------------------------------------------------------ */
   /* Camp options                                                             */
   /* ------------------------------------------------------------------------ */
-
-  // Only dental-screening passes campSelection/setCampSelection, so the camp
-  // pick would otherwise be dropped and the trigger would fall back to the
-  // placeholder. Fall back to internal state when the parent doesn't control it.
   const isCampSelectionControlled =
     campSelection !== undefined && typeof setCampSelection === "function";
 
@@ -196,8 +184,6 @@ const StudentFilter = ({
 
     campList.forEach((camp) => {
       const id = getCampId(camp);
-      // Include the camp date — several camps can share the same name, so the
-      // dropdown would otherwise show indistinguishable duplicates.
       const label = getCampDisplayLabel(camp);
 
       if (id && label) {
@@ -227,17 +213,12 @@ const StudentFilter = ({
 
   const selectedCamp = useMemo(() => {
     const campList = Array.isArray(assignedEvents) ? assignedEvents : [];
-    
-
     const fallback = findSelectedCamp(assignedEvents, schoolName) ?? {
       id: null,
       name: "all",
       schoolName: "all",
     };
 
-    // The camp picked in the dropdown holds a camp id, so when it belongs to
-    // the school currently filtered it wins: camps can share a school, and
-    // findSelectedCamp would otherwise resolve to the first match.
     if (activeCampSelection && activeCampSelection !== "all") {
       const pickedCamp = campList.find(
         (camp) => getCampId(camp) === String(activeCampSelection).trim(),
@@ -249,7 +230,6 @@ const StudentFilter = ({
           id: getCampId(pickedCamp) || null,
           name: getCampName(pickedCamp) || "all",
           schoolName: getCampSchoolName(pickedCamp) || fallback.schoolName,
-          
           date: getCampDate(pickedCamp) || fallback.date || null,
         };
       }
@@ -270,8 +250,6 @@ const StudentFilter = ({
   }, [assignedEvents, selectedCamp?.id]);
 
   console.log(activeCampEvent?.primary_doctor,"activeCampEvent");
-  
-
   const primaryDoctorId = getCampPrimaryDoctorId(activeCampEvent) ?? "";
   
   console.log(primaryDoctorId,"primaryDoctorId");
@@ -420,19 +398,12 @@ const StudentFilter = ({
     },
 
     enabled: Boolean(selectedCamp?.id),
-
-    // IMPORTANT:
     // Do not keep filtered student combinations fresh for 5 minutes.
     // When the user goes back to "All Classes", the API should run again.
     staleTime: 0,
-
-    // IMPORTANT:
     // Always refetch when this query becomes active.
     refetchOnMount: "always",
-
     refetchOnWindowFocus: false,
-
-    // This makes the query run immediately whenever the query key changes.
     refetchOnReconnect: true,
   });
 
@@ -569,9 +540,7 @@ const StudentFilter = ({
 
   useEffect(() => {
     if (typeof setGetStudentDataByEvent === "function") {
-      // Send the full accumulated roster (all loaded pages), not just the
-      // page-1 query result — otherwise students picked from page 2+ can't
-      // be resolved by the parent.
+
       setGetStudentDataByEvent(eventStudents);
     }
   }, [eventStudents, setGetStudentDataByEvent]);
@@ -584,10 +553,6 @@ const StudentFilter = ({
 
   const studentPage = eventAssignState?.studentPage ?? 1;
 
-  // Page size the roster was actually loaded with (set by the fulfilled
-  // handler from the initial query's arg). Load-more MUST reuse it — mixing
-  // page sizes makes backend page N overlap already-loaded records, so the
-  // dedupe appends nothing and infinite scroll looks broken.
   const studentPerPage = eventAssignState?.studentPerPage ?? 1000;
 
   const studentTotalKnown = eventAssignState?.studentTotalKnown ?? false;
@@ -632,7 +597,11 @@ const StudentFilter = ({
     );
   }, [
     dispatch,
-    selectedCampIdForLoadMore,
+    // `selectedCamp` (not `selectedCamp?.id`): the compiler treats a property
+    // read on a memoized object as a dependency on the whole object, so listing
+    // the narrower `selectedCamp?.id` here is what triggers the "inferred
+    // dependency did not match" bail-out and skips the optimization.
+    selectedCamp,
     studentPage,
     studentPerPage,
     loadingMoreStudents,
@@ -1080,6 +1049,48 @@ const StudentFilter = ({
   }, [optionStudents]);
 
   /* ------------------------------------------------------------------------ */
+  /* Student options for the select                                            */
+  /* ------------------------------------------------------------------------ */
+
+  const studentSelectOptions = useMemo(() => {
+    const base = studentSearchOptions ?? studentOptions;
+    const selectedValue = String(studentFilter ?? "").trim();
+
+    if (
+      !selectedValue ||
+      selectedValue === "all" ||
+      base.some((option) => String(option?.value ?? "") === selectedValue)
+    ) {
+      return base;
+    }
+
+    const selected = [
+      ...(Array.isArray(optionStudents) ? optionStudents : []),
+      ...(Array.isArray(allStudentsForFilters) ? allStudentsForFilters : []),
+    ].find((student) => getStudentId(student) === selectedValue);
+
+    if (!selected) {
+      return base;
+    }
+
+    const code = getStudentCode(selected);
+
+    return [
+      {
+        value: selectedValue,
+        label: `${getStudentName(selected)}${code ? ` (${code})` : ""}`,
+      },
+      ...base,
+    ];
+  }, [
+    studentSearchOptions,
+    studentOptions,
+    studentFilter,
+    optionStudents,
+    allStudentsForFilters,
+  ]);
+
+  /* ------------------------------------------------------------------------ */
   /* Clear search when filters change                                         */
   /* ------------------------------------------------------------------------ */
 
@@ -1239,7 +1250,7 @@ const StudentFilter = ({
 
         <ReusableSelect
           label="Student"
-          options={studentSearchOptions ?? studentOptions}
+          options={studentSelectOptions}
           value={studentFilter}
           onChange={onStudentFilterChange}
           placeholder={
@@ -1248,6 +1259,17 @@ const StudentFilter = ({
           searchPlaceholder="Search student"
           disabled={isLoading}
           onSearch={handleStudentSearch}
+          /* Picking a student clears the select's search box internally, but
+             that clear is intentionally not forwarded to onSearch (see
+             skipNextSearchRef in reusable-select) — so the previous search's
+             results stayed cached and the next open kept showing them while
+             hiding newly loaded students. Drop the cache on open instead: the
+             dropdown then always starts from the live roster. */
+          onOpenChange={(isOpen) => {
+            if (isOpen) {
+              setStudentSearchOptions(null);
+            }
+          }}
           onLoadMore={handleLoadMoreStudents}
           hasMore={hasMoreStudents}
           isLoadingMore={loadingMoreStudents}

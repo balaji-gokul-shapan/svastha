@@ -1,33 +1,27 @@
 import React from "react";
 import { RiskToggle } from "../datas/ent-screening-data";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FramerCard } from "@/util/FramerCard";
 import { ShieldAlert } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { TextField } from "@/components/ui/text-field";
 
 const RiskAssessment = ({ form, updateField }) => {
   return (
     <FramerCard>
-      <Card className="overflow-hidden">
-        <CardHeader className="border-b border-border/70 bg-muted/20">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-warning/10 text-warning">
-              <ShieldAlert className="size-5" />
-            </div>
+      <div className="gs-panel">
+        <div className="gs-panel__head">
+          <span className="gs-panel__icon text-warning">
+            <ShieldAlert className="size-4" />
+          </span>
 
-            <div>
-              <CardTitle className="text-base">ENT Risk Assessment</CardTitle>
+          <div className="min-w-0">
+            <p className="gs-panel__title">ENT Risk Assessment</p>
 
-              <p className="text-xs text-muted-foreground">
-                Identify relevant risk factors
-              </p>
-            </div>
+            <p className="gs-panel__sub">Identify relevant risk factors</p>
           </div>
-        </CardHeader>
+        </div>
 
-        <CardContent className="p-5">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="gs-panel__body">
+          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             <RiskToggle
               label="Frequent Ear Infections"
               checked={form.risk_frequent_ear_infections}
@@ -81,8 +75,8 @@ const RiskAssessment = ({ form, updateField }) => {
               placeholder="Enter other risk factors..."
             />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </FramerCard>
   );
 };

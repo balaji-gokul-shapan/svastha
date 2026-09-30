@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import SignatureCanvas from "react-signature-canvas";
-import { PenLine, Type } from "lucide-react";
+import { PenLine, Signature, Type } from "lucide-react";
 
+import { normalizeSignatureUrl } from "@/lib/signature-utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -746,22 +747,123 @@ function HandwrittenEditor(props) {
 ========================================================= */
 
 export default function SignatureField(props) {
-  const { value = "", onChange } = props;
+  const {
+    value = "",
+    onChange,
+    onRemove,
+    onEventChange = null,
+    selectedEventId = "",
+    assignedEvents,
+    isEventsLoading = false,
+    eventsError = null,
+    isBusy = false,
+    disabled = false,
+    isPrimary,
+  } = props;
 
   const [open, setOpen] = useState(false);
 
   const [activeTab, setActiveTab] = useState("handwritten");
 
+  const [typedSignature, setTypedSignature] = useState("");
+  const [fontSize, setFontSize] = useState(48);
+  const [fontFamily, setFontFamily] = useState("cursive");
+  const [signatureColor, setSignatureColor] = useState("#172554");
+
+  const signatureCanvasRef = useRef(null);
+
+  // "loading" | "loaded" | "empty" | "error"
+  // Image load status per normalized URL. Stored per URL so a new signature
+  // value always starts at "loading" without any setState-in-effect sync.
+  const [imageStatus, setImageStatus] = useState({});
+
+  const handleImageLoad = () => {
+    setImageStatus((previous) => ({ ...previous, [normalizedValue]: "loaded" }));
+  };
+
+  const handleImageError = () => {
+    setImageStatus((previous) => ({ ...previous, [normalizedValue]: "error" }));
+  };
+
+  const handleClear = () => {
+    setTypedSignature("");
+    onChange?.("");
+  };
+
+  const handleRetryImage = () => {
+    setImageStatus((previous) => ({ ...previous, [normalizedValue]: "loading" }));
+  };
+
+  const isNewSignature =
+    typeof value === "string" && value.trim().startsWith("data:image/");
+  const normalizedValue = normalizeSignatureUrl(value);
+
+  const hasNormalizedValue = Boolean(normalizedValue);
+
+  const signatureImageState = hasNormalizedValue
+    ? imageStatus[normalizedValue] ?? "loading"
+    : "empty";
+
+  // A signature exists whenever we have a usable URL or a freshly drawn one;
+  // that is what decides "Preview + Replace + Remove" versus "Create".
+  const hasSignature = hasNormalizedValue || isNewSignature;
+
+  const openEditor = () => {
+    setActiveTab("handwritten");
+    setOpen(true);
+  };
+
+  // A freshly drawn signature is only local state — clearing it must not call
+  // the parent's delete handler for an already saved signature.
+  const handleRemoveSignature = () => {
+    if (isNewSignature || !onRemove) {
+      handleClear();
+      return;
+    }
+
+    onRemove();
+  };
+
+  const eventOptions = (() => {
+    const safeEvents = Array.isArray(assignedEvents) ? assignedEvents : [];
+
+    /* A leading "no camp" option so the picker can start unselected rather than
+       implicitly defaulting to the first event. Its value is "" — falsy — so
+       `resolvedEventId` below correctly reads it as "nothing chosen" instead
+       of silently selecting the first real camp. */
+    return [
+      { value: "", label: "Select an option" },
+      ...safeEvents.map((event) => ({
+        value: String(event?.id ?? event?.Id ?? event?.event_id ?? ""),
+        label: String(
+          event?.name ?? event?.event_name ?? event?.title ?? "Event",
+        ),
+      })),
+    ];
+  })();
+
+
+  const [internalEventId, setInternalEventId] = useState("");
+
+  const parentEventId = selectedEventId ? String(selectedEventId) : "";
+  const controlledEventId = parentEventId || internalEventId;
+
+  /* No implicit default: with nothing chosen the dropdown stays on the
+     "Select an option" placeholder. Reading `eventOptions[0]` would be a no-op
+     anyway — that entry IS the placeholder. */
+  const resolvedEventId = controlledEventId;
+
   return (
     <section
-      className="mt-6 border-t border-border pt-5"
+      className=""
       aria-labelledby="signature-heading"
     >
       {/* =====================================================
           HEADER
       ===================================================== */}
 
-      <h4 id="signature-heading" className="text-sm font-semibold">
+      <h4 id="signature-heading" className="text-sm font-semibold flex flex-row items-center gap-2">
+        <Signature color="#ffffff" />
         E-signature
       </h4>
 
@@ -770,58 +872,129 @@ export default function SignatureField(props) {
       </p>
 
       {/* =====================================================
-          SAVED SIGNATURE PREVIEW
-      ===================================================== */}
+          CAMP / EVENT PICKER
+          Paired with the signature actions rather than sitting on its own row:
+          it belongs to the signature, not the profile, so the association is
+          obvious at a glance.
+          ===================================================== */}
 
-      {value && (
-        <div className="mt-3 flex h-28 max-w-4xl items-center justify-center rounded-md border border-border bg-white p-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={value}
-            alt="Your signature preview"
-            className="max-h-full max-w-full object-contain"
-          />
+      {eventOptions.length > 1 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Camp</span>
+          <div className="min-w-[200px] flex-1">
+            <ReusableSelect
+              options={eventOptions}
+              value={resolvedEventId || undefined}
+              onChange={(nextValue) => {
+                const nextId = String(nextValue ?? "");
+                setInternalEventId(nextId);
+                onEventChange?.(nextId);
+              }}
+              placeholder={
+                isEventsLoading
+                  ? "Loading camps…"
+                  : eventsError
+                    ? "Could not load camps"
+                    : "Select a camp"
+              }
+            />
+          </div>
         </div>
       )}
 
       {/* =====================================================
-          ACTIONS
+          SAVED SIGNATURE PREVIEW
       ===================================================== */}
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => {
-            setActiveTab("handwritten");
-            setOpen(true);
-          }}
-        >
-          <PenLine className="size-4" />
+      {hasSignature && (
+        <div className="w-full overflow-hidden rounded-xl border bg-background">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+            <div>
+              <p className="text-sm font-medium">Signature Preview</p>
 
-          {value ? "Replace signature" : "Create signature"}
-        </Button>
+              <p className="text-xs text-muted-foreground">
+                {isNewSignature ? "Not saved yet" : "Saved signature"}
+              </p>
+            </div>
 
-        {value && (
-          <>
-            <a
-              href={value}
-              download="signature.png"
-              className="rounded-md px-3 py-2 text-sm font-medium text-primary underline focus-visible:outline-2"
-            >
-              Download PNG
-            </a>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={openEditor}
+                disabled={disabled || isBusy}
+              >
+                <PenLine className="size-4" />
+                Replace
+              </Button>
 
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onChange("")}
-            >
-              Remove
-            </Button>
-          </>
-        )}
-      </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleRemoveSignature}
+                disabled={disabled || isBusy}
+              >
+                Remove
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex min-h-[160px] w-full items-center justify-center bg-white p-4">
+            {signatureImageState === "error" ? (
+              <div className="flex flex-col items-center justify-center gap-2 text-center">
+                <p className="text-sm font-medium text-destructive">
+                  Signature preview unavailable
+                </p>
+
+                <p className="max-w-full text-xs text-muted-foreground">
+                  The saved signature image could not be loaded. You can
+                  replace it below.
+                </p>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRetryImage}
+                  disabled={isBusy}
+                >
+                  Reload
+                </Button>
+              </div>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={normalizedValue}
+                alt="Saved signature"
+                className="max-h-[180px] max-w-full object-contain"
+                referrerPolicy="no-referrer"
+                onLoad={handleImageLoad}
+                onError={handleImageError}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          CREATE ACTION (only when nothing is saved yet)
+      ===================================================== */}
+
+      {!hasSignature && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={openEditor}
+            disabled={disabled}
+          >
+            <PenLine className="size-4" />
+            Create signature
+          </Button>
+        </div>
+      )}
 
       {/* =====================================================
           DIALOG

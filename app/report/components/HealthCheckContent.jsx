@@ -1,8 +1,13 @@
 "use client";
 
-import { isValidElement, useRef, useState } from "react";
+import { isValidElement, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useAppDispatch } from "@/lib/hooks";
+import {
+  getScreeningIds,
+  getScreeningKey,
+  isScreeningKeyAssigned,
+} from "@/lib/camp-utils";
 
 import {
   Activity,
@@ -16,16 +21,15 @@ import {
   Droplet,
   Ear,
   Eye,
-  FileText,
-  Hash,
-  HeartPulse,
   IdCard,
   IdCardLanyard,
+  Mars,
   School,
   Syringe,
+  Transgender,
+  Venus,
 } from "lucide-react";
 import { toast } from "sonner";
-
 import { Button } from "@/components/ui/button";
 import { useScreeningRecord } from "@/components/students/getScreeningRecord";
 import html2canvas from "html2canvas-pro";
@@ -36,27 +40,21 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import WeightIcon from "@iconify-react/healthicons/weight";
 import HeightIcon from "@iconify-react/healthicons/height";
+import EarNoseThroatOutlineIcon from "@iconify-react/healthicons/ear-nose-throat-outline";
 import { cn } from "@/lib/utils";
+import { useScreeningRecordByFilter } from "@/components/students/getScreeningRecordByFilter";
+import { getDoctorSignature } from "@/lib/features/doctorSignatureSlice";
+import { selectAuthUser } from "@/lib/features/auth-slice";
+import {
+  getSignatureValue,
+  normalizeSignatureUrl,
+} from "@/lib/signature-utils";
+import { useDispatch } from "react-redux";
 
 /* -------------------------------------------------------------------------- */
 /* Sub-components                                                              */
 /* -------------------------------------------------------------------------- */
 
-function Info({ label, value }) {
-  return (
-    <div>
-      <h6 className="text-[11px] text-muted-foreground">{label}</h6>
-      <p className="text-sm font-medium text-foreground">{value}</p>
-    </div>
-  );
-}
-
-/* Small pill card: icon + muted label on top, bold value below, and a
-   click-to-copy icon button on the right when `hasCopy` is true.
-   `icon` accepts EITHER a lucide component (icon={Hash}) or a ready-made
-   React node (icon={<Image src="/logo.svg" width={16} height={16} alt="" />}).
-   `valueClass` lets IDs like SvasthaID keep their brand-green highlight.
-   `data-pdf-hide` keeps the copy chrome out of the exported PDF. */
 function CopyableInfo({
   label,
   value,
@@ -82,9 +80,6 @@ function CopyableInfo({
     }
   };
 
-  // icon can be either a component (lucide's Hash/FileText — which are
-  // forwardRef objects, not plain functions, so check isValidElement instead)
-  // or a ready-made element node like <Image src="/logo.svg" ... />.
   const IconNode = isValidElement(icon) ? icon : null;
   const LabelIcon = IconNode ? null : icon;
 
@@ -158,6 +153,12 @@ const DOMAIN_TONE = {
     iconClass:
       "bg-gradient-to-br from-domain-immunization to-domain-immunization/60 text-white shadow-sm",
   },
+  ent: {
+    toneClass:
+      "border-domain-ent-border bg-gradient-to-br from-domain-ent/25 via-domain-ent-soft to-domain-ent/[0.03] text-domain-ent-foreground",
+    iconClass:
+      "bg-gradient-to-br from-domain-ent to-domain-ent/60 text-white shadow-sm",
+  },
 };
 
 /* Status only decides the Badge variant — card background stays domain-owned. */
@@ -171,6 +172,7 @@ const STATUS_TONE = {
   uptodate: { variant: "good" },
   abnormal: { variant: "bad" },
   poor: { variant: "bad" },
+  needfollowup: { variant: "warning" },
 };
 
 function normalizeKey(value) {
@@ -193,26 +195,123 @@ function resolveDomain(toneOrTitle) {
   return found ? DOMAIN_TONE[found] : null;
 }
 
-function StatusCard({ icon: Icon, title, status, tone, toneClass, iconClass }) {
+// Acronyms that humanizeKey would otherwise mangle ("bmi" -> "Bmi").
+const DETAIL_LABEL_OVERRIDES = {
+  bmi: "BMI",
+  bp: "BP",
+  spo2: "SpO₂",
+  id: "ID",
+};
+
+function humanizeKey(key) {
+  const raw = String(key ?? "").trim();
+
+  const override = DETAIL_LABEL_OVERRIDES[raw.toLowerCase()];
+  if (override) return override;
+
+  const spaced = raw
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .trim();
+
+  if (!spaced) return "";
+
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
+}
+
+// Placeholders the report uses for "nothing recorded" — never worth printing.
+const EMPTY_DETAIL_VALUES = new Set([
+  "",
+  "--",
+  "-",
+  "NA",
+  "N/A",
+  "null",
+  "undefined",
+]);
+const REMARK_SEPARATOR = " · ";
+
+function buildRemark(pairs, hasRecord) {
+  const text = pairs
+    .filter(([, value]) => value && value !== "--")
+    .map(([label, value]) => (label ? `${label}: ${value}` : value))
+    .join(REMARK_SEPARATOR);
+
+  return (
+    text || (hasRecord ? "No vitals recorded" : "No screening record available")
+  );
+}
+
+function StatusCard({
+  icon: Icon,
+  title,
+  status,
+  tone,
+  toneClass,
+  iconClass,
+  iconProps,
+  iconSize = "size-4",
+  record,
+}) {
   const badgeTone = resolveTone(status);
+  console.log(badgeTone, "badgeTone");
+
   const domainTone = resolveDomain(tone ?? title);
   const resolvedTone = toneClass ?? domainTone?.toneClass ?? "";
   const resolvedIconBg = iconClass ?? domainTone?.iconClass ?? "";
   const resolvedVariant = badgeTone?.variant ?? "outline";
 
+  console.log(record, "ssssrecord");
+
+  // `record` is a flat { height, weight, bmi, … } summary. Render only the
+  // entries that carry a real value instead of dumping raw JSON.
+  const details = Object.entries(record ?? {})
+    .map(([key, value]) => [humanizeKey(key), String(value ?? "").trim()])
+    .filter(
+      ([label, value]) => label && value && !EMPTY_DETAIL_VALUES.has(value),
+    );
+
+  console.log(details, "details");
+
   return (
-    <div className={`rounded-lg border p-3 ${resolvedTone}`}>
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <div
-          className={`flex h-7 w-7 items-center justify-center rounded-full ${resolvedIconBg}`}
-        >
-          <Icon className="size-4" />
+    <div className={`status-card border ${resolvedTone}`}>
+      <div className="status-card__head">
+        <div className={`status-card__icon ${resolvedIconBg}`}>
+          <Icon
+            {...iconProps}
+            /* iconSize is a dedicated prop rather than something callers smuggle
+               through iconProps.className: twMerge resolves `size-4`/`size-5` by
+               class order, so the caller's size has to win deterministically. */
+            className={cn(iconSize, iconProps?.className)}
+          />
         </div>
-        <Badge variant={resolvedVariant} className="mt-0.5 text-xs opacity-85">
+        <p className="status-card__title">{title}</p>
+      </div>
+
+      {/* Badge sits on its own full-width line: sharing the icon's row is what
+          forced "Need Follow up" to wrap three deep. */}
+      <div className="status-card__status">
+        <Badge
+          variant={resolvedVariant}
+          className="text-xs leading-tight opacity-95"
+        >
           {status}
         </Badge>
       </div>
-      <p className="text-xs font-bold">{title}</p>
+
+      {details.length ? (
+        <>
+          <div className="status-card__rule" aria-hidden="true" />
+          <dl className="status-card__list">
+            {details.map(([label, value]) => (
+              <div key={label} className="status-card__row">
+                <dt className="status-card__label">{label}</dt>
+                <dd className="status-card__value">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -227,12 +326,20 @@ function ReportRow({
 }) {
   return (
     <tr data-pdf-section="report-header" data-pdf-row={pdfClass}>
-      <td className={`px-4 ${padClass} text-foreground`}>{area}</td>
-      <td className={`px-4 ${padClass} font-medium text-foreground`}>
+      <td className={`report-doc__area px-4 ${padClass} text-foreground`}>
+        {area}
+      </td>
+      <td
+        className={`report-doc__finding px-4 ${padClass} font-medium text-foreground`}
+      >
         {finding}
       </td>
       {showRemarks ? (
-        <td className={`px-4 ${padClass} text-muted-foreground`}>{remark}</td>
+        <td
+          className={`report-doc__remark px-4 ${padClass} text-muted-foreground`}
+        >
+          {remark}
+        </td>
       ) : null}
     </tr>
   );
@@ -240,10 +347,12 @@ function ReportRow({
 
 function MobileReportCard({ area, finding, remark, showRemarks = true }) {
   return (
-    <div className="rounded-lg border p-4">
+    <div className="report-doc__card rounded-lg border p-4">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-medium text-foreground">{area}</p>
-        <span className="rounded-full bg-success/10 px-2 py-1 text-xs font-medium text-success">
+        <p className="report-doc__area text-sm font-medium text-foreground">
+          {area}
+        </p>
+        <span className="report-doc__badge rounded-full bg-success/10 px-2 py-1 text-xs font-medium text-success">
           {finding}
         </span>
       </div>
@@ -304,7 +413,7 @@ function getRecordName(record, ...keys) {
     const value = record?.[key];
     const name =
       typeof value === "object" && value !== null
-        ? value.name ?? value.label
+        ? (value.name ?? value.label)
         : value;
     const text = String(name ?? "").trim();
 
@@ -323,9 +432,59 @@ export default function HealthCheckContent({
   student,
   branch: branchProp,
   camp,
+  assignedScreeningIds = [],
 }) {
+  const dispatch = useDispatch();
+
+  const authUser = useAppSelector(selectAuthUser);
+  const doctorId = useMemo(
+    () =>
+      authUser?.id ??
+      authUser?.Id ??
+      selectUser?.doctor_id ??
+      selectUser?.id ??
+      null,
+    [authUser, selectUser],
+  );
+  console.log(authUser, "authUser");
+
+  console.log(selectUser, "ldii");
   const reportRef = useRef(null);
+  const doctorSignatureState = useAppSelector((state) => state.doctorSignature);
+  const doctorSignatureUrl = normalizeSignatureUrl(
+    getSignatureValue(doctorSignatureState),
+  );
+console.log(branchProp, "dsdsdsdd");
+
+
+  const signatoryName = useMemo(() => {
+    const candidates = [
+      authUser?.label,
+      authUser?.emp_name,
+      authUser?.user_name,
+      authUser?.username,
+    ];
+
+    return (
+      candidates
+        .find((value) => typeof value === "string" && value.trim().length > 0)
+        ?.trim() ?? ""
+    );
+  }, [authUser]);
+
+  useEffect(() => {
+    // Doctor signature endpoints are role-scoped; other roles get a 401 there.
+    if (!doctorId) {
+      return;
+    }
+
+    dispatch(getDoctorSignature(doctorId));
+  }, [dispatch, doctorId]);
+
+  console.log(doctorSignatureState, "doctorSignatureState");
+
   console.log(camp, "campcamp");
+  console.log(student, "studentstudent");
 
   const studentName = student?.name ?? student?.student_name ?? "Student";
   const studentPhoto =
@@ -336,21 +495,40 @@ export default function HealthCheckContent({
     student?.photo ??
     "";
 
-    
-  // The selected branch is supplied by the School Name dropdown. Fall back to
-  // the signed-in account only when a branch has not been selected yet.
   const selectedSchool = branchProp ?? selectUser?.branch ?? selectUser;
   console.log(selectUser, "selectedSchool");
 
   const getGenderIcon = (gender) => {
+    const key = "gender-icon";
     if (!gender) return null;
     switch (gender.toLowerCase()) {
       case "male":
-        return "♂️";
+        return (
+          <Mars
+            key={key}
+            size={14}
+            aria-hidden="true"
+            className="text-primary"
+          />
+        );
       case "female":
-        return "♀️";
+        return (
+          <Venus
+            key={key}
+            size={14}
+            aria-hidden="true"
+            className="text-primary"
+          />
+        );
       default:
-        return null;
+        return (
+          <Transgender
+            key={key}
+            size={14}
+            aria-hidden="true"
+            className="text-muted-foreground"
+          />
+        );
     }
   };
 
@@ -402,6 +580,7 @@ export default function HealthCheckContent({
 
   const classValue = student?.class ?? student?.Class ?? "--";
   const sectionValue = student?.sec ?? student?.section ?? "--";
+
   const admissionNo = student?.admission_number ?? "--";
   const dobValue = student?.dob ?? "--";
   const uhid = student?.uhid ?? "--";
@@ -417,11 +596,35 @@ export default function HealthCheckContent({
   const reportSettings = useAppSelector((state) => state.reportSettings);
   const reportSection = reportSettings?.reportSection ?? {};
 
+  /* ---------------------------------------------------------------------- */
+  /* Camp screening assignment                                              */
+  /* The camp only allows a subset of screenings (screening_ids "1".."5").    */
+  /* ---------------------------------------------------------------------- */
+
+  const assignedScreeningIdsKey = Array.isArray(assignedScreeningIds)
+    ? assignedScreeningIds.join(",")
+    : "";
+
+  const assignedScreeningKeys = useMemo(() => {
+    const rawIds = assignedScreeningIdsKey
+      ? assignedScreeningIdsKey.split(",")
+      : getScreeningIds(camp);
+
+    return Array.from(
+      new Set(rawIds.map((id) => getScreeningKey(id)).filter(Boolean)),
+    );
+  }, [assignedScreeningIdsKey, camp]);
+
+  const isAssigned = (key) =>
+    isScreeningKeyAssigned(assignedScreeningKeys, key);
+
+  // Report-section setting AND camp assignment.
+  const showEnt = (reportSection.ent ?? true) && isAssigned("ent");
   const showStudentInfo = reportSection.student_info ?? true;
-  const showVitals = reportSection.vitals ?? true;
-  const showVision = reportSection.vision ?? true;
-  const showHearing = reportSection.hearing ?? true;
-  const showDental = reportSection.dental ?? true;
+  const showVitals = (reportSection.vitals ?? true) && isAssigned("general");
+  const showVision = (reportSection.vision ?? true) && isAssigned("vision");
+  const showHearing = (reportSection.hearing ?? true) && isAssigned("hearing");
+  const showDental = (reportSection.dental ?? true) && isAssigned("dental");
   const showImmunization = reportSection.immunization ?? true;
   const showRecommendations = reportSection.recommendations ?? true;
 
@@ -429,22 +632,20 @@ export default function HealthCheckContent({
     showVision,
     showHearing,
     showDental,
+    showEnt,
     showVitals,
     showImmunization,
   ].filter(Boolean);
-  console.log(getGridCount, "getGridCount");
 
-  // Number of visible status cards. Tailwind can't build a class from a
-  // runtime value (e.g. `sm:grid-cols-${n}`), so map the count to explicit,
-  // build-time-detectable class literals.
   const statusCardCount = getGridCount.length;
   const statusGridCols =
     {
       1: "sm:grid-cols-1",
       2: "sm:grid-cols-2",
       3: "sm:grid-cols-3",
-      4: "sm:grid-cols-4",
-      5: "sm:grid-cols-5",
+      4: "sm:grid-cols-2 lg:grid-cols-4",
+      5: "sm:grid-cols-3 lg:grid-cols-5",
+      6: "sm:grid-cols-3 lg:grid-cols-3",
     }[statusCardCount] ?? "sm:grid-cols-2";
 
   const reportTemplate = reportSettings?.reportTemplate ?? "detailed";
@@ -461,17 +662,16 @@ export default function HealthCheckContent({
     hearingScreeningRecord,
     dentalScreeningRecord,
     visionScreeningRecord,
+    entScreeningRecord,
     isLoading: screeningLoading,
-  } = useScreeningRecord({
+  } = useScreeningRecordByFilter({
     getId: studentIdentifier,
     campId: camp?.id ?? camp?.campId ?? "",
+    class: student?.class ?? "",
+    section: student?.sec ?? student?.section ?? "",
   });
+  console.log(hearingScreeningRecord, "hearingScreeningRecord");
 
-  console.log({ generalScreeningRecord }, "dddddd");
-  console.log({ visionScreeningRecord }, "ssssss");
-    console.log({ dentalScreeningRecord }, "vvvvvvvv");
-
-  
   const getBloodGroup = (bloodGroup) =>
     String(bloodGroup ?? "").trim() ||
     getRecordName(
@@ -488,7 +688,6 @@ export default function HealthCheckContent({
   const getWeight = (weight) =>
     formatMetric(weight ?? generalScreeningRecord?.weight, "kg");
 
-
   const getAllRecordForGeneral = () => ({
     height: getHeight(),
     weight: getWeight(),
@@ -501,6 +700,8 @@ export default function HealthCheckContent({
         "result",
         "status",
       ) || "--",
+    remarks:
+      getRecordName(generalScreeningRecord, "remarks", "remarks") || "--",
     regularMedication:
       getRecordName(
         generalScreeningRecord,
@@ -509,67 +710,213 @@ export default function HealthCheckContent({
       ) || "--",
   });
 
-  const getAllRecordForVision = () => ({
-    distanceWithout: visionScreeningRecord?.od_distance_without ?? "NA",
-    nearWithout: visionScreeningRecord?.od_near_without ?? "NA",
-    distanceWith: visionScreeningRecord?.od_distance_with ?? "NA",
-    nearWith: visionScreeningRecord?.od_near_with ?? "NA",
-    distanceWithoutOS: visionScreeningRecord?.os_distance_without ?? "NA",
-    nearWithoutOS: visionScreeningRecord?.os_near_without ?? "NA",
-    distanceWithOS: visionScreeningRecord?.os_distance_with ?? "NA",
-    nearWithOS: visionScreeningRecord?.os_near_with ?? "NA",
-    remarks: visionScreeningRecord?.remarks ?? "",
-    remarksOS: visionScreeningRecord?.os_remarks ?? "",
-    correction: visionScreeningRecord?.correction ?? "",
-    riskScore: visionScreeningRecord?.risk_score ?? "",
-    severityScore: visionScreeningRecord?.severity_score ?? "",
-    followUp: visionScreeningRecord?.follow_up ?? "",
-    remarks: visionScreeningRecord?.remarks ?? "",
-  });
+  const getAllRecordForVision = () => {
+    const r = visionScreeningRecord;
+    const yesNo = (value) =>
+      value === true ? "Yes" : value === false ? "No" : "";
+    return {
+      odDistanceWith: r?.od_distance_with ?? "NA",
+      odDistanceWithout: r?.od_distance_without ?? "NA",
+      odNearWith: r?.od_near_with ?? "NA",
+      odNearWithout: r?.od_near_without ?? "NA",
+      odRemarks: r?.od_remarks ?? "",
+
+      osDistanceWith: r?.os_distance_with ?? "NA",
+      osDistanceWithout: r?.os_distance_without ?? "NA",
+      osNearWith: r?.os_near_with ?? "NA",
+      osNearWithout: r?.os_near_without ?? "NA",
+      osRemarks: r?.os_remarks ?? "",
+
+      ouDistanceWith: r?.ou_distance_with ?? "NA",
+      ouDistanceWithout: r?.ou_distance_without ?? "NA",
+      ouNearWith: r?.ou_near_with ?? "NA",
+      ouNearWithout: r?.ou_near_without ?? "NA",
+      ouRemarks: r?.ou_remarks ?? "",
+
+      lensPower: r?.lens_power ?? "",
+      lensType: r?.lens_type ?? "",
+      lensRemarks: r?.lens_remarks ?? "",
+      correction: r?.correction ?? "",
+
+      strabismus: yesNo(r?.strabismus),
+      pupil: r?.pupil ?? "",
+      lids: r?.lids ?? "",
+      muscleBalanceRemarks: r?.muscle_balance_remarks ?? "",
+      refractiveError: r?.refractive_error ?? "",
+      refractiveErrorRemarks: r?.refractive_error_remarks ?? "",
+
+      referralRequired: yesNo(r?.referral_required),
+      referralReason: r?.referral_reason ?? "",
+      referralGrade: r?.referral_grade ?? "",
+
+      riskScore: r?.risk_score ?? "",
+      severityScore: r?.severity_score ?? "",
+      followUp: r?.follow_up ?? "",
+      remarks: r?.remarks ?? "",
+      usesGlassesOrLens: yesNo(r?.uses_glasses_or_lens),
+      status: getRecordName(r, "consolidate_report_result", "result", "status"),
+    };
+  };
+
+  const getDentalStatus = () =>
+    getRecordName(
+      dentalScreeningRecord,
+      "consolidate_report_result",
+      "result",
+      "status",
+    ) ||
+    getRecordName(
+      dentalScreeningRecord?.report,
+      "consolidate_report_result",
+      "result",
+      "status",
+    ) ||
+    "--";
 
   const getAllRecordForDental = () => ({
-    teethCondition: dentalScreeningRecord?.teeth_condition ?? "",
-    gumCondition: dentalScreeningRecord?.gum_condition ?? "",
-    riskScore: dentalScreeningRecord?.risk_score ?? "",
-    severityScore: dentalScreeningRecord?.severity_score ?? "",
-    followUp: dentalScreeningRecord?.follow_up ?? "",
-    remarks: dentalScreeningRecord?.remarks ?? "",
-    gingivaHealth: dentalScreeningRecord?.gingival_health ?? "",
-    referralReason: dentalScreeningRecord?.referral_reason ?? "",
-    healthyCount: dentalScreeningRecord?.healthy_count ?? "",
+    teethCondition: dentalScreeningRecord?.report?.teeth_condition ?? "",
+    gumCondition: dentalScreeningRecord?.report?.gum_condition ?? "",
+    riskScore: dentalScreeningRecord?.report?.risk_score ?? "",
+    severityScore: dentalScreeningRecord?.report?.severity_score ?? "",
+    followUp: dentalScreeningRecord?.report?.follow_up ?? "",
+    remarks: dentalScreeningRecord?.report?.remarks ?? "",
+    gingivaHealth: dentalScreeningRecord?.report?.gingival_health ?? "",
+    referralReason: dentalScreeningRecord?.report?.referral_reason ?? "",
+    healthyCount: dentalScreeningRecord?.report?.healthy_count ?? "",
+    status: getDentalStatus(),
+  });
+
+  const getAllRecordForHearing = () => ({
+    ear_exam_left: hearingScreeningRecord?.ear_exam_le ?? "",
+    ear_exam_right: hearingScreeningRecord?.ear_exam_re ?? "",
+    follow_up: hearingScreeningRecord?.follow_up ?? "",
+    overall_status: hearingScreeningRecord?.overall_status ?? "",
+    remarks: hearingScreeningRecord?.remarks ?? "",
+    overallStatusLeft: hearingScreeningRecord?.overall_status_le ?? "",
+    overallStatusRight: hearingScreeningRecord?.overall_status_re ?? "",
+    status: hearingScreeningRecord?.consolidate_report_result ?? "",
+    referralReason: hearingScreeningRecord?.referral_reason ?? "",
   });
 
   const generalRecord = getAllRecordForGeneral();
   const visionRecord = getAllRecordForVision();
   const dentalRecord = getAllRecordForDental();
-  console.log({ visionRecord }, "visionRecord");
-  console.log({ visionScreeningRecord }, "visionScreeningRecord");
-  console.log({ dentalRecord }, "dentalRecord");
-  console.log({ dentalScreeningRecord }, "dentalScreeningRecord");
+  const hearingRecord = getAllRecordForHearing();
+  console.log(hearingRecord, "hearingRecordsss");
 
+  const followUpSources = [
+    ["Physical", generalScreeningRecord],
+    ["Vision", visionScreeningRecord],
+    ["Hearing", hearingScreeningRecord],
+    ["Oral", dentalScreeningRecord],
+    ["ENT", entScreeningRecord],
+  ];
 
-  // Raw values kept for the header badges, which pass them in explicitly.
+  console.log(visionRecord, "visionRecord");
+
+  const followUpList = followUpSources
+    .map(([label, record]) => {
+      const value = String(
+        record?.follow_up ??
+          record?.follow_up_notes ??
+          record?.followUp ??
+          record?.referral_reason ??
+          record?.advice_suggestions ??
+          record?.report?.referral_reason ??
+          "",
+      ).trim();
+
+      return value ? { label, value } : null;
+    })
+    .filter(Boolean)
+    .filter(
+      (item, index, list) =>
+        list.findIndex(
+          (other) => other.value.toLowerCase() === item.value.toLowerCase(),
+        ) === index,
+    );
+  console.log(followUpSources, "followUpSources");
+  console.log(visionScreeningRecord, "visionScreeningRecord");
+
+  const generalCardRecord = {
+    bmi: generalRecord.bmi,
+  };
+
+  const dentalCardRecord = {
+    gingivaHealth: dentalRecord.gingivaHealth,
+    teethCondition: dentalRecord.teethCondition,
+    gumCondition: dentalRecord.gumCondition,
+    healthyCount: dentalRecord.healthyCount,
+    // hearingRemarks: hearingRecord.remarks,
+  };
+  const hearingCardRecord = {
+    overallStatusLeft: hearingRecord.overallStatusLeft,
+    overallStatusRight: hearingRecord.overallStatusRight,
+    overallStatus: hearingRecord.overall_status,
+    // referralReason: hearingRecord.referralReason,
+  };
+
+  const visionCardRecord = {
+    odDistanceWith: visionRecord.odDistanceWith,
+    odDistanceWithout: visionRecord.odDistanceWithout,
+    osNearWithout: visionRecord.osNearWithout,
+    osDistanceWith: visionRecord.osDistanceWith,
+    osDistanceWithout: visionRecord.osDistanceWithout,
+    osNearWith: visionRecord.osNearWith,
+    osNearWithout: visionRecord.osNearWithout,
+    // nearWithOS: visionRecord.nearWithOS,
+    // remarks: visionRecord.remarks,
+    // remarksOS: visionRecord.remarksOS,
+    // correction: visionRecord.correction,
+    // riskScore: visionRecord.riskScore,
+    // severityScore: visionRecord.severityScore,
+    // followUp: visionRecord.followUp,
+  };
+
   const heightValue = generalScreeningRecord?.height;
   const weightValue = generalScreeningRecord?.weight;
   const bloodGroupValue = generalRecord.bloodGroup;
   const physicalExamFinding = generalRecord.status;
-  const visionExamFinding = visionRecord.status;
-  const dentalExamFinding = dentalRecord.status;
 
-  const physicalExamRemark =
+  const visionStatus = visionRecord.status;
+  const visionExamFinding = [visionStatus, visionRecord.muscleBalanceRemarks]
+    .filter(Boolean)
+    .join(REMARK_SEPARATOR);
+
+  const dentalExamFinding = dentalRecord.status;
+  const hearingFinding = hearingRecord.status;
+
+  const physicalExamRemark = buildRemark(
     [
       // ["Height", generalRecord.height],
       // ["Weight", generalRecord.weight],
       // ["BMI", generalRecord.bmi],
       // ["Blood Group", generalRecord.bloodGroup],
-      ["", generalRecord.regularMedication],
-    ]
-      .filter(([, value]) => value && value !== "--")
-      .map(([label, value]) => (label ? `${label}: ${value}` : value))
-      .join(" · ") ||
-    (generalScreeningRecord
-      ? "No vitals recorded"
-      : "No screening record available");
+      // ["", generalRecord.regularMedication],
+      ["", generalRecord.remarks],
+    ],
+    generalScreeningRecord,
+  );
+
+  const dentalExamRemark = buildRemark(
+    [["", dentalRecord.remarks]],
+    dentalScreeningRecord,
+  );
+
+  const hearingExamRemark = buildRemark(
+    [["", hearingRecord.remarks]],
+    hearingScreeningRecord,
+  );
+  const visionExamRemark = buildRemark(
+    [
+      ["OD", visionRecord.odRemarks],
+      ["OS", visionRecord.osRemarks],
+      ["OU", visionRecord.ouRemarks],
+      ["", visionRecord.remarks],
+    ],
+    visionScreeningRecord,
+  );
+  console.log(hearingExamRemark, "hearingExamRemarksss");
 
   const handleDownloadPDF = async () => {
     const element = reportRef.current;
@@ -815,6 +1162,7 @@ export default function HealthCheckContent({
                 null
               )}
             </div> */}
+
             <div className="flex flex-col items-end gap-1">
               <Link
                 href="/"
@@ -887,16 +1235,18 @@ export default function HealthCheckContent({
                 </div>
               </div>
             </div> */}
-            <div className="flex flex-col w-full">
+            <div className="report-doc__identity flex flex-col w-full">
               <div className="flex flex-row gap-5">
-                <div className="flex justify-start sm:justify-end">
-                  <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+                <div className="flex justify-start sm:justify-end relative">
+                  <div className="report-doc__photo flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border bg-muted">
                     {studentPhoto ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+
+                      <Image
                         src={studentPhoto}
                         alt="Student"
-                        className="h-full w-full object-cover"
+                        width={96}
+                        height={96}
+                        className="size-full object-cover"
                       />
                     ) : (
                       <span className="text-xs text-muted-foreground">
@@ -904,6 +1254,15 @@ export default function HealthCheckContent({
                       </span>
                     )}
                   </div>
+                 
+
+                  <Image
+                    src={"/badge.svg"}
+                    alt="Svastha verified student health seal"
+                    width={8}
+                    height={8}
+                    className="size-8 shrink-0 object-contain absolute bottom-2 left-9/12 rotate-325"
+                  />
                 </div>
                 <div className="flex min-w-0 flex-col gap-1 w-full">
                   <div className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1">
@@ -919,9 +1278,9 @@ export default function HealthCheckContent({
                       </span>
                     </Badge>
                     <Badge variant="outline" className="w-fit">
-                      <span className="text-muted-foreground font-bold">
-                        {getGenderIcon(student?.gender) ?? "--"}{" "}
-                        {student?.gender}
+                      <span className="text-muted-foreground font-bold flex items-center gap-1">
+                        {getGenderIcon(student?.gender) ?? "--"}
+                        <span className="capitalize">{student?.gender}</span>
                       </span>
                     </Badge>
                   </div>
@@ -939,23 +1298,18 @@ export default function HealthCheckContent({
                     </div>
 
                     <div className="flex shrink-0">
-                      <Badge
-                        variant="normal"
-                        className=""
-                      >
+                      <Badge variant="normal" className="">
                         <span className="font-bold text-muted-foreground flex items-center gap-1">
-                          <HeightIcon className="text-primary size-4" />
+                          <HeightIcon className="text-primary size-4 stroke-2" />
                           {getHeight(heightValue)}
                         </span>
                       </Badge>
                     </div>
 
                     <div className="flex shrink-0">
-                      <Badge
-                        variant="warning"
-                      >
+                      <Badge variant="warning">
                         <span className="font-bold text-muted-foreground flex items-center gap-1">
-                          <WeightIcon className="text-primary size-4 " />
+                          <WeightIcon className="text-primary size-4 stroke-2" />
                           {getWeight(weightValue)}
                         </span>
                       </Badge>
@@ -971,11 +1325,9 @@ export default function HealthCheckContent({
                       </Badge>
                     </div> */}
                     <div className="flex shrink-0">
-                      <Badge
-                        variant="bad"
-                      >
+                      <Badge variant="bad">
                         <span className="font-bold text-muted-foreground flex items-center gap-1">
-                          <Droplet  className="text-destructive size-4" />
+                          <Droplet className="text-destructive size-4" />
                           {getBloodGroup(bloodGroupValue)}
                         </span>
                       </Badge>
@@ -983,7 +1335,7 @@ export default function HealthCheckContent({
                   </div>
                 </div>
               </div>
-              <div className="mt-6 flex flex-wrap items-stretch gap-3">
+              <div className="mt-4 flex flex-wrap items-stretch gap-3">
                 <CopyableInfo
                   label="Admission No"
                   value={admissionNo}
@@ -1025,57 +1377,78 @@ export default function HealthCheckContent({
               <StatusCard
                 icon={Activity}
                 title="Physical Health"
-                status="Normal"
+                status={physicalExamFinding || "Normal"}
                 tone="physical"
+                record={generalCardRecord}
               />
             ) : null}
             {showVision ? (
               <StatusCard
                 icon={Eye}
                 title="Vision"
-                status="Normal"
+                status={visionStatus || "Normal"}
                 tone="vision"
+                record={visionCardRecord}
               />
             ) : null}
             {showHearing ? (
               <StatusCard
                 icon={Ear}
                 title="Hearing"
-                status="Normal"
+                status={hearingFinding || "Normal"}
                 tone="hearing"
+                record={hearingCardRecord}
               />
             ) : null}
             {showDental ? (
               <StatusCard
                 icon={ToothIcon}
                 title="Oral Health"
-                status="poor"
+                status={dentalExamFinding || "Normal"}
                 tone="oral"
+                record={dentalCardRecord}
               />
             ) : null}
             {showImmunization ? (
               <StatusCard
                 icon={Syringe}
-                title="Immunization"
+                title="Vaccination"
                 status="Up to Date"
                 tone="immunization"
+              />
+            ) : null}
+
+            {showEnt ? (
+              <StatusCard
+                icon={EarNoseThroatOutlineIcon}
+                title="ENT"
+                status="Normal"
+                tone="ent"
+                iconSize="size-5"
+                iconProps={{
+                  className: "[&_g]:fill-none",
+                  stroke: "currentColor",
+                  strokeWidth: 1.5,
+                  strokeLinecap: "round",
+                  strokeLinejoin: "round",
+                }}
               />
             ) : null}
           </section>
         ) : null}
 
         <section>
-          <h3 className="mb-3 text-sm font-semibold text-foreground">
+          <h3 className="report-doc__heading mb-3 text-sm font-semibold text-foreground">
             Summary
           </h3>
           <div
-            className="hidden overflow-hidden rounded-lg border sm:block"
+            className="report-doc__table hidden overflow-hidden rounded-lg border sm:block"
             data-pdf-force-block
           >
             <table className="w-full text-sm">
               <thead
                 data-pdf-section="report-header"
-                className="bg-muted/40 text-left"
+                className="report-doc__thead text-left"
               >
                 <tr>
                   <th className="px-4 py-3 font-semibold">Area</th>
@@ -1085,7 +1458,7 @@ export default function HealthCheckContent({
                   ) : null}
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody className="report-doc__tbody divide-y">
                 {showVitals ? (
                   <ReportRow
                     area="Physical Examination"
@@ -1100,7 +1473,7 @@ export default function HealthCheckContent({
                   <ReportRow
                     area="Vision Screening"
                     finding={visionExamFinding}
-                    remark="6/6 in both eyes"
+                    remark={visionExamRemark}
                     pdfClass="vision"
                     showRemarks={showRemarks}
                     padClass={rowPadClass}
@@ -1110,7 +1483,7 @@ export default function HealthCheckContent({
                   <ReportRow
                     area="Hearing Screening"
                     finding="Normal"
-                    remark="Hearing normal in both ears"
+                    remark={hearingExamRemark}
                     pdfClass="hearing"
                     showRemarks={showRemarks}
                     padClass={rowPadClass}
@@ -1119,8 +1492,8 @@ export default function HealthCheckContent({
                 {showDental ? (
                   <ReportRow
                     area="Dental Check-up"
-                    finding="Good"
-                    remark="Mild plaque deposits. No caries."
+                    finding={dentalExamFinding}
+                    remark={dentalExamRemark}
                     pdfClass="dental"
                     showRemarks={showRemarks}
                     padClass={rowPadClass}
@@ -1160,15 +1533,16 @@ export default function HealthCheckContent({
               <MobileReportCard
                 area="Hearing Screening"
                 finding="Normal"
-                remark="Hearing normal in both ears"
+                remark={hearingExamRemark}
                 showRemarks={showRemarks}
               />
             ) : null}
             {showDental ? (
               <MobileReportCard
+                // record={dentalCardRecord}
                 area="Dental Check-up"
-                finding="Good"
-                remark="Mild plaque deposits. No caries."
+                finding={dentalExamFinding}
+                remark={dentalExamRemark}
                 showRemarks={showRemarks}
               />
             ) : null}
@@ -1187,45 +1561,61 @@ export default function HealthCheckContent({
           <>
             <section
               data-pdf-section="recommendations"
-              className="rounded-lg border bg-muted/40 p-4"
+              className="report-doc__recommendations rounded-lg border bg-muted/40 p-4"
             >
-              <h3 className="mb-3 text-sm font-semibold text-foreground">
+              <h3 className="report-doc__heading mb-3 text-sm font-semibold text-foreground">
                 Recommendations
               </h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li className="flex gap-2">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                  Maintain balanced diet and regular exercise.
-                </li>
-                <li className="flex gap-2">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                  Continue good oral hygiene practices.
-                </li>
-              </ul>
+              {followUpList.length ? (
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  {followUpList.map((item) => (
+                    <li
+                      key={`${item.label}-${item.value}`}
+                      className="flex gap-2"
+                    >
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                      <span>
+                        <span className="font-medium text-foreground">
+                          {item.label}:
+                        </span>{" "}
+                        {item.value}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No follow-up recommendations recorded.
+                </p>
+              )}
             </section>
 
-            <section className="flex flex-col items-end p-4">
+            {/* <section className="report-doc__signoff flex flex-col items-end p-4">
               <div className="flex justify-start sm:justify-end">
-                <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border-dotted border bg-muted">
-                  {studentPhoto ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={studentPhoto}
-                      alt="Student"
-                      className="h-full w-full object-cover"
+                <div className="relative h-28 w-72">
+                  {doctorSignatureUrl ? (
+                    
+                    <Image
+                      src={doctorSignatureUrl}
+                      alt="Doctor signature"
+                      fill
+                      sizes="288px"
+                      className="object-contain"
                     />
                   ) : (
-                    <span className="text-xs text-muted-foreground">
-                      No signature Photo
-                    </span>
+                    <div className="report-doc__photo flex h-28 w-72 items-center justify-center overflow-hidden rounded-lg border-dotted border bg-muted">
+                      <span className="text-xs text-muted-foreground">
+                        No signature
+                      </span>
+                    </div>
                   )}
                 </div>
               </div>
               <div className="flex items-baseline gap-2">
                 <h3 className="text-sm font-semibold text-foreground">
-                  Dr. Aravind
+                  {signatoryName || "School Health Officer"}
                 </h3>
-                <h6 className="text-[11px] text-muted-foreground">MBBS FRCS</h6>
+                <h6 className="text-[11px] text-muted-foreground">MBBS</h6>
               </div>
               <p className="text-xs text-muted-foreground">
                 School Health Officer
@@ -1233,7 +1623,106 @@ export default function HealthCheckContent({
               <p className="text-xs text-muted-foreground">
                 Svastha Health Services
               </p>
-            </section>
+            </section> */}
+            {/* Verification band: QR/attestation on the left, the Svastha seal in
+                the middle, the examining doctor's identity on the right. Purely
+                presentational — it reuses the ids already resolved above. */}
+            <div className="report-doc__verification relative flex flex-col gap-5 rounded-lg border border-border/70 bg-card/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3 sm:max-w-[calc(50%-4.5rem)]">
+                <div className="flex size-20 shrink-0 items-center justify-center rounded-md border border-dashed border-border bg-background">
+                  {studentPhoto ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={studentPhoto}
+                      alt="Student"
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    <span className="px-1 text-center text-[10px] leading-tight text-muted-foreground">
+                      QR / Photo
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  <p className="flex items-center gap-1.5 font-semibold text-primary">
+                    <CheckCircle2 className="size-3.5 shrink-0" />
+                    Digital Attestation &amp; Verification
+                  </p>
+                  <p>
+                    Scan QR or verify with UHID:{" "}
+                    <span className="font-semibold text-foreground">
+                      {uhid}
+                    </span>{" "}
+                    on Svastha Portal.
+                  </p>
+                  {schoolAddress.registration_number ? (
+                    <p>
+                      SHA-256 Verified Medicat Seal{" "}
+                      <span className="font-mono text-[11px]">
+                        #{schoolAddress.registration_number}
+                      </span>
+                    </p>
+                  ) : null}
+                  <span className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning">
+                    Awaiting Primary Doctor Sign-off
+                  </span>
+                </div>
+              </div>
+
+              {/* Seal: in normal flow while the band stacks, then lifted out and
+                  pinned to the band's centre from `sm` up. Static at mobile so
+                  it can't overlap the stacked columns. */}
+              <div className="flex size-28 shrink-0 flex-col items-center justify-center self-center rounded-full border-2 border-dashed border-primary/40 text-center rotate-325 sm:absolute sm:left-3/5 z-1 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2">
+                <Image src="/logo.svg" alt="Svastha" width={28} height={28} />
+                <span className="mt-1 font-sf text-sm font-bold tracking-wide text-brand-blue">
+                  Svastha
+                </span>
+                <span className="text-[9px] tracking-[0.18em] text-primary">
+                  Authorized Signatory
+                </span>
+                <span className="text-[9px] text-muted-foreground text-brand-green">SMS</span>
+              </div>
+
+              <div className="space-y-1 text-right sm:ml-auto sm:max-w-[calc(50%-4.5rem)]">
+                <div className="flex justify-end">
+                  <div className="relative h-28 w-72">
+                    {doctorSignatureUrl ? (
+                      <Image
+                        src={doctorSignatureUrl}
+                        alt="Doctor signature"
+                        fill
+                        sizes="288px"
+                        className="object-contain"
+                      />
+                    ) : (
+                      <div className="report-doc__photo flex h-28 w-72 items-center justify-center overflow-hidden rounded-lg border-dotted border bg-muted">
+                        <span className="text-xs text-muted-foreground">
+                          No signature
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <p className="text-sm font-semibold text-foreground">
+                  {signatoryName ? `${signatoryName}` : "Doctor"}
+                  <span className="ml-1 text-xs font-medium text-primary">
+                    MBBS
+                  </span>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {schoolName} &amp; Primary Examiner
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Svastha School Health &amp; Preventive Services
+                </p>
+                {schoolAddress.registration_number ? (
+                  <p className="text-xs font-medium text-primary">
+                    Reg. No: {schoolAddress.registration_number}
+                  </p>
+                ) : null}
+              </div>
+            </div>
           </>
         ) : null}
       </div>

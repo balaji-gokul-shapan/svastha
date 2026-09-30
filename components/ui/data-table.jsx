@@ -42,6 +42,22 @@ function compareValues(a, b) {
   });
 }
 
+/**
+ * Resolves a column header to plain text so it can be mirrored onto each body
+ * cell as `data-label`. Only string headers can be mirrored; a header rendered
+ * as a function (e.g. the select-all checkbox) yields an empty label and the
+ * stylesheet simply omits the caption for that cell.
+ */
+function getHeaderLabel(columnDef) {
+  const { header } = columnDef ?? {};
+
+  if (typeof header === "string" || typeof header === "number") {
+    return String(header);
+  }
+
+  return "";
+}
+
 
 export function DataTable({
   columns,
@@ -60,6 +76,20 @@ export function DataTable({
   // Applied to the inner <table>. Use it to force a `min-w-*` so narrow
   // screens scroll the table horizontally instead of squeezing every column.
   tableClassName,
+  // Opt-in presentation hooks. All default to undefined so existing callers
+  // keep their current markup exactly.
+  rootClassName,
+  shellClassName,
+  headClassName,
+  rowClassName,
+  footClassName,
+  // When true, each body cell receives `data-label` from its column header so
+  // a stylesheet can render the label when the table collapses into cards.
+  withCellLabels = false,
+  columnWidths,
+  selectHeader = null,
+  selectCell = null,
+  selectWidth = "3.5rem",
 }) {
   // `sort` is { id, desc } or null (unsorted). Page state is clamped on read so
   // a shrinking dataset can never render an out-of-range blank page.
@@ -77,9 +107,6 @@ export function DataTable({
 
   const rows = table.getRowModel().rows;
 
-  // Sort values are resolved through the column defs themselves, so sorting
-  // works for both `accessorFn` and `accessorKey` columns without touching the
-  // row-model internals.
   const getSortValue = React.useCallback(
     (rowOriginal, columnId) => {
       const column = columns.find(
@@ -161,12 +188,37 @@ export function DataTable({
   };
 
   return (
-    <div className={cn("space-y-4", className)}>
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+    <div className={cn("space-y-4", className, rootClassName)}>
+      <div
+        className={cn(
+          "overflow-hidden rounded-xl border border-border bg-card",
+          shellClassName,
+        )}
+      >
         <Table className={tableClassName}>
-          <TableHeader>
+          {columnWidths?.length || selectHeader ? (
+            <colgroup>
+              {selectHeader ? <col style={{ width: selectWidth }} /> : null}
+              {columnWidths?.map((width, index) => (
+                <col
+                  key={index}
+                  style={width ? { width } : undefined}
+                />
+              ))}
+            </colgroup>
+          ) : null}
+          <TableHeader className={headClassName}>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
+                {selectHeader ? (
+                  <TableHead
+                    key="select"
+                    className="sl-select"
+                    data-no-row-click="true"
+                  >
+                    {selectHeader}
+                  </TableHead>
+                ) : null}
                 {headerGroup.headers.map((header) => {
                   const columnDef = header.column.columnDef;
                   const columnId = header.column.id;
@@ -213,7 +265,10 @@ export function DataTable({
               pageRows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className={onRowClick ? "cursor-pointer" : undefined}
+                  className={cn(
+                    onRowClick ? "cursor-pointer" : undefined,
+                    rowClassName,
+                  )}
                   onClick={(event) => {
                     if (!onRowClick) {
                       return;
@@ -243,8 +298,24 @@ export function DataTable({
                   }}
                   tabIndex={onRowClick ? 0 : undefined}
                 >
+                  {selectCell ? (
+                    <TableCell
+                      key={`${row.id}-select`}
+                      className="sl-select"
+                      data-no-row-click="true"
+                    >
+                      {selectCell(row)}
+                    </TableCell>
+                  ) : null}
                   {row.getAllCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell
+                      key={cell.id}
+                      // Mirroring the header lets a stylesheet caption each
+                      // cell when the table collapses into stacked cards.
+                      {...(withCellLabels
+                        ? { "data-label": getHeaderLabel(cell.column.columnDef) }
+                        : {})}
+                    >
                       {cell.column.columnDef.cell
                         ? flexRender(cell.column.columnDef.cell, cell.getContext())
                         : String(cell.getValue() ?? "")}
@@ -254,7 +325,10 @@ export function DataTable({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell
+                  colSpan={columns.length + (selectHeader ? 1 : 0)}
+                  className="h-24 text-center"
+                >
                   {emptyState ?? emptyMessage}
                 </TableCell>
               </TableRow>
@@ -263,7 +337,12 @@ export function DataTable({
         </Table>
 
         {showFooter ? (
-          <div className="flex flex-col gap-2 border-t border-border px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+          <div
+            className={cn(
+              "flex flex-col gap-2 border-t border-border px-3 py-2 sm:flex-row sm:items-center sm:justify-between",
+              footClassName,
+            )}
+          >
             <p className="text-sm text-muted-foreground">
               Showing {firstRow}–{lastRow} of {totalRows}
               {isBusy ? " · loading…" : ""}

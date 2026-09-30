@@ -103,7 +103,7 @@ const LoginForm = () => {
               <span className="truncate font-sf text-2xl font-semibold text-brand-blue transition-all tracking-wide duration-200">
               Svas<span className="text-brand-green">t</span>ha
             </span>
-            <small className=" text-brand-blue" >Care that follows <span className="text-brand-green">every child</span></small>
+            <small className=" text-brand-blue" >Healthy Roots <span className="text-brand-green">Rising Stars</span></small>
             </div>
           </div>
           <CardTitle className="text-2xl">Login</CardTitle>

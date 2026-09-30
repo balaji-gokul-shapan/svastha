@@ -1,6 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import dynamic from "next/dynamic";
 
 const SignatureField = dynamic(() => import("../components/SignatureField"), {
@@ -17,6 +22,7 @@ import {
   Eye,
   EyeOff,
   Info,
+  Mail,
   Phone,
   UserRound,
   UserRoundKey,
@@ -34,7 +40,24 @@ import {
 } from "@/components/ui/dialog";
 import { changePassword } from "@/lib/features/changePasswordSlice";
 import { updateProfile } from "@/lib/features/registerStaffAccount";
-import { useAppDispatch } from "@/lib/hooks";
+import {
+  deleteProfileImage,
+  getProfileImage,
+  uploadProfileImage,
+} from "@/lib/features/profileImageRegister";
+import { getDisplayProfileImageUrl } from "@/lib/profile-image-utils";
+import {
+  getDoctorSignature,
+  removeDoctorSignature,
+  saveDoctorSignature,
+} from "@/lib/features/doctorSignatureSlice";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import useAssignedEvents from "@/lib/useAssignedEvents";
+import {
+  getSignatureValue,
+  normalizeSignatureUrl,
+} from "@/lib/signature-utils";
+import { selectAuthUser, selectUserAccount } from "@/lib/features/auth-slice";
 import { toast } from "sonner";
 import { changePasswordSchema } from "../validation/change-password-schema";
 import {
@@ -43,6 +66,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import Image from "next/image";
+
+// Pragmatic email shape check — catches typos and a missing "@" without
+// attempting to out-parse RFC 5322.
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 const ProfilePage = ({
   profileImageFile,
@@ -56,12 +84,160 @@ const ProfilePage = ({
   signature = "",
   onChange,
   phoneNumber,
+  email,
 }) => {
   const [imageError, setImageError] = useState("");
   const [showCropper, setShowCropper] = useState(false);
+  const [isDeleteImageOpen, setIsDeleteImageOpen] = useState(false);
+  const [isDeletingImage, setIsDeletingImage] = useState(false);
+  const dispatch = useAppDispatch();
+  const authUser = useAppSelector(selectAuthUser);
+  const authAccount = useAppSelector(selectUserAccount);
+  const doctorId = authUser?.id ?? authUser?.Id ?? null;
+  const doctorSignatureState = useAppSelector((state) => state.doctorSignature);
+  const profileImageState = useAppSelector((state) => state.profileImage);
+  const [isSavingSignature, setIsSavingSignature] = useState(false);
+  const [pendingSignature, setPendingSignature] = useState("");
+  const [signatureTouched, setSignatureTouched] = useState(false);
+  const { assignedEvents, assignEventLoading, assignEventError } = useAssignedEvents();
+  const [signatureEventId, setSignatureEventId] = useState("");
+
+  const roleValues = [
+    authUser?.account_type,
+    authUser?.role,
+    authUser?.user_type_id,
+    authUser?.userTypeId,
+    authUser?.user_type,
+    authUser?.user_type?.id,
+    authUser?.user_type?.name,
+    authAccount?.account_type,
+    authAccount?.role,
+    authAccount?.user_type_id,
+    authAccount?.userTypeId,
+    authAccount?.user_type,
+    authAccount?.user_type?.id,
+    authAccount?.user_type?.name,
+  ];
+
+  const isDoctorProfileRoute = roleValues.some((value) => {
+    if (value == null) return false;
+    if (typeof value === "number") return value === 5;
+    const normalized = String(value).trim().toLowerCase();
+    return normalized === "doctor" || normalized === "5";
+  });
+
+  const dispatchProfile = useCallback(
+    (payload) => dispatch(updateProfile(payload)),
+    [dispatch],
+  );
+
+  useEffect(() => {
+    dispatch(getProfileImage());
+  }, [dispatch]);
+
+
+  const savedProfileImageUrl = getDisplayProfileImageUrl(profileImageState);
+ 
+  const savedSignatureEventId = (() => {
+    const source = doctorSignatureState?.signature ?? {};
+
+    return String(source.event_id ?? source.eventId ?? "").trim();
+  })();
+
+
+  const resolvedSignatureEventId = signatureEventId || savedSignatureEventId;
+
+  const savedSignatureImage = getSignatureValue(doctorSignatureState);
+  const displayImageUrl = imagePreviewUrl || savedProfileImageUrl;
+  useEffect(() => {
+    // Doctor signature endpoints are role-scoped; other roles get a 401 there.
+    if (!doctorId || !isDoctorProfileRoute) {
+      return;
+    }
+
+    dispatch(getDoctorSignature(doctorId));
+  }, [dispatch, doctorId, isDoctorProfileRoute]);
+
+  useEffect(() => {
+    const savedSignature = getSignatureValue(doctorSignatureState);
+
+    if (!isDoctorProfileRoute) {
+      return;
+    }
+
+    if (signatureTouched) {
+      return;
+    }
+
+    if (!savedSignature) {
+      return;
+    }
+
+    const normalizedSignature = normalizeSignatureUrl(savedSignature);
+
+    if (normalizedSignature && normalizedSignature !== signature) {
+      onChange?.("signature", normalizedSignature);
+    }
+  }, [
+    doctorSignatureState,
+    isDoctorProfileRoute,
+    signatureTouched,
+    signature,
+    onChange,
+  ]);
+
+  const handleSignatureSave = (dataUrl, maybeField, maybeValue) => {
+    const staged =
+      typeof dataUrl === "string"
+        ? dataUrl
+        : typeof maybeValue === "string"
+          ? maybeValue
+          : "";
+
+    setSignatureTouched(true);
+
+    if (!staged) {
+      // "Replace" clicked — drop the staged value silently. The
+      // "create a signature" validation belongs to handleSubmit only.
+      setPendingSignature("");
+      onChange?.("signature", "");
+      return;
+    }
+
+    setPendingSignature(staged);
+    onChange?.("signature", staged);
+  };
+
+  const handleSignatureRemove = async () => {
+    if (isSavingSignature) {
+      return;
+    }
+
+    setSignatureTouched(true);
+    setPendingSignature("");
+    setIsSavingSignature(true);
+    onChange?.("signature", "");
+
+    if (!doctorId || !isDoctorProfileRoute) {
+      setIsSavingSignature(false);
+      return;
+    }
+
+    try {
+      await dispatch(removeDoctorSignature(doctorId)).unwrap();
+      toast.success("Signature removed successfully.");
+    } catch (error) {
+      const message =
+        typeof error === "object" && error !== null
+          ? error?.message || error?.detail || "Failed to remove signature."
+          : error || "Failed to remove signature.";
+      toast.error(message);
+    } finally {
+      setIsSavingSignature(false);
+    }
+  };
 
   // ---- Change Password dialog (dispatches `changePassword` thunk) ----
-  const dispatch = useAppDispatch();
   const [isPasswordOpen, setIsPasswordOpen] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [pwCurrent, setPwCurrent] = useState("");
@@ -110,15 +286,54 @@ const ProfilePage = ({
     setNameDraft("");
   };
 
-  const saveName = async () => {
+  // const saveName = async () => {
+  //   const trimmed = nameDraft.trim();
+
+  //   if (!trimmed) {
+  //     toast.error("Name is required.");
+  //     return;
+  //   }
+
+  //   if (isSavingName) return;
+
+  //   // Unchanged value — just close the editor.
+  //   if (trimmed === String(name ?? "").trim()) {
+  //     cancelEditingName();
+  //     return;
+  //   }
+
+  //   try {
+  //     setIsSavingName(true);
+  //     await dispatch(updateProfile({ name: trimmed })).unwrap();
+
+  //     // Sync the parent's settingsFormData so the header and the Profile
+  //     // form field both pick up the new value (this also marks the field as
+  //     // touched, so the auth re-sync effect won't overwrite it).
+  //     onChange?.("name", trimmed);
+
+  //     toast.success("Name updated successfully.");
+  //     cancelEditingName();
+  //   } catch (error) {
+  //     const message =
+  //       typeof error === "object" && error !== null
+  //         ? error?.message || error?.detail || "Unable to update name."
+  //         : error || "Unable to update name.";
+  //     toast.error(message);
+  //   } finally {
+  //     setIsSavingName(false);
+  //   }
+  // };
+  const saveName = () => {
     const trimmed = nameDraft.trim();
 
     if (!trimmed) {
       toast.error("Name is required.");
       return;
     }
-
-    if (isSavingName) return;
+    if (!(trimmed.length >= 3)) {
+      toast.error("Name must be at least 3 characters.");
+      return;
+    }
 
     // Unchanged value — just close the editor.
     if (trimmed === String(name ?? "").trim()) {
@@ -126,33 +341,14 @@ const ProfilePage = ({
       return;
     }
 
-    try {
-      setIsSavingName(true);
-      await dispatch(updateProfile({ name: trimmed })).unwrap();
-
-      // Sync the parent's settingsFormData so the header and the Profile
-      // form field both pick up the new value (this also marks the field as
-      // touched, so the auth re-sync effect won't overwrite it).
-      onChange?.("name", trimmed);
-
-      toast.success("Name updated successfully.");
-      cancelEditingName();
-    } catch (error) {
-      const message =
-        typeof error === "object" && error !== null
-          ? error?.message || error?.detail || "Unable to update name."
-          : error || "Unable to update name.";
-      toast.error(message);
-    } finally {
-      setIsSavingName(false);
-    }
+    onChange?.("name", trimmed);
+    toast.success("Name updated successfully.");
+    cancelEditingName();
   };
 
   const [isEditingPhoneNumber, setIsEditingPhoneNumber] = useState(false);
   const [phoneNumberDraft, setPhoneNumberDraft] = useState("");
   const [isSavingPhoneNumber, setIsSavingPhoneNumber] = useState(false);
-
-  // ---- Inline password editing: pencil → text field → Save/Cancel ----
   const [isEditingPassword, setIsEditingPassword] = useState(false);
   const [passwordDraft, setPasswordDraft] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -180,6 +376,44 @@ const ProfilePage = ({
     setIsPasswordOpen(true);
   };
 
+  // ---- Inline email editing: pencil -> text field -> Save/Cancel ----
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [emailDraft, setEmailDraft] = useState("");
+
+  const startEditingEmail = () => {
+    setEmailDraft(String(email ?? ""));
+    setIsEditingEmail(true);
+  };
+
+  const cancelEditingEmail = () => {
+    setIsEditingEmail(false);
+    setEmailDraft("");
+  };
+
+  const saveEmail = () => {
+    const trimmed = emailDraft.trim();
+
+    if (!trimmed) {
+      toast.error("Email is required.");
+      return;
+    }
+
+    if (!EMAIL_PATTERN.test(trimmed)) {
+      toast.error("Enter a valid email address.");
+      return;
+    }
+
+    // Unchanged value — just close the editor.
+    if (trimmed === String(email ?? "").trim()) {
+      cancelEditingEmail();
+      return;
+    }
+
+    onChange?.("email", trimmed);
+    toast.success("Email updated successfully.");
+    cancelEditingEmail();
+  };
+
   const startEditingPhoneNumber = () => {
     setPhoneNumberDraft(String(phoneNumber ?? ""));
     setIsEditingPhoneNumber(true);
@@ -192,6 +426,17 @@ const ProfilePage = ({
 
   const savePhoneNumber = async () => {
     const trimmed = phoneNumberDraft.trim();
+    const digits = phoneNumberDraft.replace(/\D/g, "");
+
+    if (!digits) {
+      toast.error("Phone number is required.");
+      return;
+    }
+
+    if (digits.length < 7 || digits.length > 15) {
+      toast.error("Phone number must be 7–15 digits.");
+      return;
+    }
 
     if (!trimmed) {
       toast.error("Phone number is required.");
@@ -205,27 +450,30 @@ const ProfilePage = ({
       cancelEditingPhoneNumber();
       return;
     }
+    onChange?.("phoneNumber", trimmed);
 
-    try {
-      setIsSavingPhoneNumber(true);
-      // Field name matches the backend convention used by sub-account/create.
-      await dispatch(updateProfile({ phone_number: trimmed })).unwrap();
+    toast.success("Phone number updated successfully.");
+    cancelEditingPhoneNumber();
+    // try {
+    //   setIsSavingPhoneNumber(true);
+    //   // Field name matches the backend convention used by sub-account/create.
+    //   await dispatch(updateProfile({ phone_number: trimmed })).unwrap();
 
-      // Sync the parent's settingsFormData so the masked display and the
-      // Profile form field both pick up the new value.
-      onChange?.("phoneNumber", trimmed);
+    //   // Sync the parent's settingsFormData so the masked display and the
+    //   // Profile form field both pick up the new value.
+    //   onChange?.("phoneNumber", trimmed);
 
-      toast.success("Phone number updated successfully.");
-      cancelEditingPhoneNumber();
-    } catch (error) {
-      const message =
-        typeof error === "object" && error !== null
-          ? error?.message || error?.detail || "Unable to update phone number."
-          : error || "Unable to update phone number.";
-      toast.error(message);
-    } finally {
-      setIsSavingPhoneNumber(false);
-    }
+    //   toast.success("Phone number updated successfully.");
+    //   cancelEditingPhoneNumber();
+    // } catch (error) {
+    //   const message =
+    //     typeof error === "object" && error !== null
+    //       ? error?.message || error?.detail || "Unable to update phone number."
+    //       : error || "Unable to update phone number.";
+    //   toast.error(message);
+    // } finally {
+    //   setIsSavingPhoneNumber(false);
+    // }
   };
 
   const handleChangePassword = async () => {
@@ -289,31 +537,106 @@ const ProfilePage = ({
   const handleSubmit = async (event) => {
     event?.preventDefault?.();
 
-    if (isSavingProfile) return;
+    if (isSavingProfile || isSavingSignature) return;
 
     const trimmedName = String(name ?? "").trim();
-    const trimmedUsername = String(username ?? "").trim();
+    const trimmedPhoneNumber = String(phoneNumber ?? "").trim();
+    const trimmedEmail = String(email ?? "").trim();
+
+   
+  
+
+    if (isDoctorProfileRoute) {
+      // Doctor saves ONLY the signature — never the profile image.
+      if (!doctorId) {
+        toast.error(
+          "Unable to save signature: doctor profile not loaded. Please reload the page and try again.",
+        );
+        return;
+      }
+
+      const stagedSignature = pendingSignature.startsWith("data:")
+        ? pendingSignature
+        : String(signature ?? "").trim();
+
+      if (!stagedSignature) {
+        toast.error("Please create a signature before saving.");
+        return;
+      }
+
+      if (!stagedSignature.startsWith("data:")) {
+
+        toast.success("Signature is already up to date.");
+        return;
+      }
+
+  
+      if (!resolvedSignatureEventId) {
+        toast.error("Please select a camp before saving the signature.");
+        return;
+      }
+
+      setIsSavingSignature(true);
+
+      try {
+
+        await dispatch(
+          saveDoctorSignature({
+            doctorId,
+            signature: stagedSignature,
+            eventId: resolvedSignatureEventId,
+          }),
+        ).unwrap();
+        setPendingSignature("");
+        // Allow the sync effect to adopt the canonical backend value now
+        // that the server copy matches what the user staged.
+        setSignatureTouched(false);
+        toast.success("Signature updated successfully.");
+      } catch (error) {
+        const message =
+          typeof error === "object" && error !== null
+            ? error?.message || error?.detail || "Failed to save signature."
+            : error || "Failed to save signature.";
+        toast.error(message);
+      } finally {
+        setIsSavingSignature(false);
+      }
+
+      return;
+    }
 
     if (!trimmedName) {
       toast.error("Name is required.");
       return;
     }
 
-    if (!trimmedUsername) {
-      toast.error("Username is required.");
+    if (!trimmedPhoneNumber) {
+      toast.error("Phone number is required.");
+      return;
+    }
+    if (!trimmedEmail) {
+      toast.error("Email is required.");
       return;
     }
 
-    const payload = {
+    const profilePayload = {
       name: trimmedName,
-      username: trimmedUsername,
-      signature: signature ?? "",
+      username: trimmedPhoneNumber,
+      email: trimmedEmail,
     };
 
+    setIsSavingProfile(true);
+
     try {
-      setIsSavingProfile(true);
-      await dispatch(updateProfile(payload)).unwrap();
-      toast.success("Profile updated successfully.");
+      await dispatchProfile(profilePayload).unwrap();
+
+      const imageError = await saveProfileImage();
+
+      if (imageError) {
+        toast.error(`Profile updated, but ${imageError}`);
+      } else {
+        toast.success("Profile updated successfully.");
+      }
     } catch (error) {
       const message =
         typeof error === "object" && error !== null
@@ -324,6 +647,26 @@ const ProfilePage = ({
       setIsSavingProfile(false);
     }
   };
+
+    const hasNewProfileImage =
+      typeof File !== "undefined" &&
+      (profileImageFile instanceof File || profileImageFile instanceof Blob);
+
+    const saveProfileImage = async () => {
+      if (!hasNewProfileImage) return null;
+
+      try {
+        await dispatch(
+          uploadProfileImage({ image: profileImageFile }),
+        ).unwrap();
+        dispatch(getProfileImage());
+        return null;
+      } catch (error) {
+        return typeof error === "object" && error !== null
+          ? error?.message || error?.detail || "Profile image upload failed."
+          : error || "Profile image upload failed.";
+      }
+    };
 
   const openProfilePicker = () => {
     profileInputRef.current?.click();
@@ -392,30 +735,79 @@ const ProfilePage = ({
     }
   };
 
-  return (
-    <article className="rounded-lg border border-border bg-card p-4 sm:p-5">
-      <h3 className="text-lg font-semibold text-foreground">Profile</h3>
+  const handleDeleteProfileImage = async () => {
+    // Drop the staged file/preview first so the UI responds immediately.
+    clearProfileImage();
 
-      <p className="mt-1 text-sm text-muted-foreground">
-        Update your personal details and contact information.
-      </p>
+    // Only hit the API when a photo is actually stored on the server.
+    if (!savedProfileImageUrl) {
+      setIsDeleteImageOpen(false);
+      toast.success("Profile image removed.");
+      return;
+    }
+
+    try {
+      setIsDeletingImage(true);
+      await dispatch(deleteProfileImage()).unwrap();
+      setIsDeleteImageOpen(false);
+      toast.success("Profile image removed.");
+    } catch (error) {
+      const message =
+        typeof error === "object" && error !== null
+          ? error?.message ||
+            error?.detail ||
+            "Unable to remove the profile image."
+          : error || "Unable to remove the profile image.";
+      toast.error(message);
+    } finally {
+      setIsDeletingImage(false);
+    }
+  };
+
+  return (
+    <article className="profile-settings-shell overflow-hidden rounded-2xl border border-border bg-card">
+      <header className="profile-settings-heading relative overflow-hidden px-5 py-6 sm:px-7 sm:py-7">
+        <div aria-hidden="true" className="profile-settings-heading__orb profile-settings-heading__orb--one" />
+        <div aria-hidden="true" className="profile-settings-heading__orb profile-settings-heading__orb--two" />
+        <div aria-hidden="true" className="profile-settings-heading__grid" />
+        <div className="relative z-10 flex items-center gap-3">
+          <span className="my-details-heading__icon flex size-14 shrink-0 items-center justify-center rounded-2xl text-white shadow-lg shadow-primary/20 sm:size-16">
+            <CircleUserRound className="size-6 text-white" aria-hidden="true" />
+          </span>
+          <div className="w-full">
+            <p className="profile-settings-eyebrow">
+              <span className="profile-settings-eyebrow__dot" />
+              Account workspace
+            </p>
+            <h3 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+              Profile
+            </h3>
+            <p className="mt-1 max-w-2/3 text-sm leading-6 text-muted-foreground">
+              Keep your identity, contact details, and professional signature in
+              one place.
+            </p>
+          </div>
+        </div>
+      </header>
 
       {/* Profile Image */}
-      <div className="flex flex-col items-start gap-3 p-5">
-        <div className="flex w-full min-w-0 flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-6">
+      <div className="profile-settings-identity p-4 sm:p-5 lg:p-6">
+        <div className="flex w-full min-w-0 flex-col items-center gap-3 py-3 sm:flex-row sm:items-center sm:gap-6">
           <div className="relative shrink-0">
             <button
               type="button"
               onClick={openProfilePicker}
               aria-label="Upload profile image"
-              className="group relative block size-24 overflow-hidden rounded-full border border-dashed border-foreground/25 bg-background transition-colors hover:border-primary/50 sm:size-28 md:size-32"
+              className="profile-settings-avatar group relative block size-24 overflow-hidden rounded-full bg-background transition-all sm:size-28 md:size-32"
             >
-              {imagePreviewUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={imagePreviewUrl}
+              {displayImageUrl ? (
+                <Image
+                  src={displayImageUrl}
                   alt="Profile preview"
+                  onError={() => setImageError("Unable to load the profile image.")}
                   className="size-full rounded-full object-cover"
+                  width={128}
+                  height={128}
                 />
               ) : (
                 <span className="flex size-full items-center justify-center text-muted-foreground">
@@ -428,27 +820,35 @@ const ProfilePage = ({
               </span>
             </button>
 
-            {profileImageFile && (
+            {(profileImageFile || savedProfileImageUrl) && (
               <button
                 type="button"
+                disabled={isDeletingImage}
                 onClick={(e) => {
                   e.stopPropagation();
+                  // A staged, not-yet-saved file clears locally; removing an
+                  // already-saved photo hits the API, so confirm first.
+                  if (savedProfileImageUrl) {
+                    setIsDeleteImageOpen(true);
+                    return;
+                  }
                   clearProfileImage();
                 }}
-                aria-label="Remove selected profile image"
-                className="absolute -right-1 -top-1 z-10 rounded-full bg-destructive p-1 text-destructive-foreground shadow"
+                aria-label="Remove profile image"
+                className="absolute -right-1 -top-1 z-10 rounded-full bg-destructive p-1 text-destructive-foreground shadow disabled:opacity-60"
               >
                 <X className="size-3" />
               </button>
             )}
           </div>
 
-          <div className="min-w-0 text-center sm:text-left">
+          <div className="profile-settings-identity__details min-w-0 text-center sm:text-left">
             <h2 className="truncate font-semibold text-foreground mb-2">
-              {username}
+              {username || "No username"}
             </h2>
 
-            {isEditingName ? (
+           <div className="grid grid-cols-2 gap-4">
+             {isEditingName ? (
               <span className="mt-1 inline-flex w-full min-w-0 items-center gap-1.5">
                 <Input
                   autoFocus
@@ -510,7 +910,12 @@ const ProfilePage = ({
                 <Input
                   autoFocus
                   value={phoneNumberDraft}
-                  onChange={(event) => setPhoneNumberDraft(event.target.value)}
+                  onChange={(event) =>
+                    setPhoneNumberDraft(event.target.value.replace(/\D/g, ""))
+                  }
+                  inputMode="numeric"
+                  autoComplete="tel"
+                  maxLength={15}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
                       event.preventDefault();
@@ -567,6 +972,62 @@ const ProfilePage = ({
                 </Button>
               </h6>
             )}
+            {isEditingEmail ? (
+              <span className="mt-1 inline-flex w-full min-w-0 items-center gap-1.5">
+                <Input
+                  type="email"
+                  autoFocus
+                  value={emailDraft}
+                  onChange={(event) => setEmailDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      saveEmail();
+                    } else if (event.key === "Escape") {
+                      event.preventDefault();
+                      cancelEditingEmail();
+                    }
+                  }}
+                  aria-label="Email"
+                  placeholder="name@example.com"
+                  className="h-7 w-full min-w-0 max-w-72 text-sm"
+                />
+
+                <Button
+                  type="button"
+                  size="xs"
+                  onClick={saveEmail}
+                  aria-label="Save email"
+                >
+                  <Check className="size-4" />
+                </Button>
+
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  onClick={cancelEditingEmail}
+                  aria-label="Cancel email edit"
+                >
+                  <X className="size-4" />
+                </Button>
+              </span>
+            ) : (
+              <h6 className="mt-0 truncate text-muted-foreground flex flex-row items-center">
+                <Mail className="size-4 mr-1 text-info" />
+                {email || "Not added"}
+                <Button
+                  type="button"
+                  variant="link"
+                  size="xs"
+                  className="text-xs font-medium text-primary hover:underline p-1"
+                  onClick={startEditingEmail}
+                  aria-label="Edit email"
+                >
+                  <Edit2 className="size-3" />
+                </Button>
+              </h6>
+            )}
             {isEditingPassword ? (
               <span className="mt-1 inline-flex w-full min-w-0 items-center gap-1.5">
                 <Input
@@ -586,7 +1047,6 @@ const ProfilePage = ({
                   aria-label="Password"
                   className="h-7 w-full min-w-0 max-w-56 text-sm"
                 />
-
 
                 <Button
                   type="button"
@@ -639,9 +1099,10 @@ const ProfilePage = ({
                 </Button>
               </h6>
             )}
+           </div>
           </div>
         </div>
-        <p className="text-xs font-medium text-foreground flex items-center gap-2">
+        <p className="profile-settings-photo-hint text-xs font-medium text-foreground">
           {profileImageFile ? null : "Profile Photo (optional)"}
           {profileImageFile ? null : (
             <>
@@ -677,7 +1138,7 @@ const ProfilePage = ({
         id="profile-form"
         noValidate
         onSubmit={handleSubmit}
-        className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        className="profile-settings-form mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
       >
         {/* <FormField
           id="name"
@@ -721,10 +1182,22 @@ const ProfilePage = ({
         </div> */}
       </form>
 
-      <SignatureField
-        value={signature}
-        onChange={(value) => onChange("signature", value)}
-      />
+      {isDoctorProfileRoute && (
+        <section className="profile-settings-signature mx-4 mt-6 rounded-2xl border border-border p-4 sm:mx-6 sm:p-5 lg:mx-8">
+          <SignatureField
+          value={signature || normalizeSignatureUrl(savedSignatureImage)}
+          onChange={handleSignatureSave}
+          onRemove={handleSignatureRemove}
+          isPrimary={true}
+          assignedEvents={assignedEvents}
+          selectedEventId={resolvedSignatureEventId}
+          onEventChange={setSignatureEventId}
+          isEventsLoading={assignEventLoading}
+          eventsError={assignEventError}
+          isBusy={isSavingSignature || doctorSignatureState?.loading}
+          />
+        </section>
+      )}
 
       {/* Reusable Image Cropper */}
       <ImageCropper
@@ -737,7 +1210,7 @@ const ProfilePage = ({
         title="Adjust Profile Photo"
         description="Drag the image and adjust the zoom."
       />
-      <div className="mt-5 flex justify-end gap-2 border-t border-border pt-4">
+      <div className="profile-settings-actions mt-5 flex flex-col-reverse gap-2 border-t border-border p-4 sm:flex-row sm:justify-end sm:px-6 lg:p-4">
         <Button
           type="button"
           className="h-10 rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted"
@@ -747,12 +1220,50 @@ const ProfilePage = ({
         <Button
           type="submit"
           form="profile-form"
-          disabled={isSavingProfile}
+          disabled={
+            isSavingProfile || isSavingSignature || profileImageState?.loading
+          }
           className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
-          {isSavingProfile ? "Saving..." : "Save Changes"}
+          {isSavingProfile || isSavingSignature || profileImageState?.loading
+            ? "Saving..."
+            : "Save Changes"}
         </Button>
       </div>
+
+      {/* ================================
+          Remove Profile Photo Modal
+      ================================= */}
+      <Dialog open={isDeleteImageOpen} onOpenChange={setIsDeleteImageOpen}>
+        <DialogContent className="w-full max-w-full sm:max-w-md">
+          <DialogHeader className="pb-4">
+            <DialogTitle>Remove profile photo?</DialogTitle>
+            <DialogDescription>
+              This deletes the profile image saved on your account. You can
+              upload a new one at any time.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsDeleteImageOpen(false)}
+              disabled={isDeletingImage}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteProfileImage}
+              disabled={isDeletingImage}
+            >
+              {isDeletingImage ? "Removing..." : "Remove"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ================================
           Change Password Modal

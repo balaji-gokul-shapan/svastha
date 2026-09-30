@@ -46,14 +46,14 @@ function CardDescription({ className, ...props }) {
 }
 
 function CardContent({ className, ...props }) {
-  return <div data-slot="card-content" className={cn("p-5 pt-0", className)} {...props} />;
+  return <div data-slot="card-content" className={cn("p-5", className)} {...props} />;
 }
 
 function CardFooter({ className, ...props }) {
   return (
     <div
       data-slot="card-footer"
-      className={cn("flex items-center p-5 pt-0", className)}
+      className={cn("flex items-center p-5", className)}
       {...props}
     />
   );

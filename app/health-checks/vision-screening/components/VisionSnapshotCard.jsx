@@ -1,5 +1,6 @@
 import { FramerCard } from "@/util/FramerCard";
 import React from "react";
+import { Eye } from "lucide-react";
 import { VisionSnapshot } from "../utilities/EyeSnapshot";
 import ReusableSelect from "@/components/ui/reusable-select";
 import { TextField } from "@/components/ui/text-field";
@@ -21,14 +22,12 @@ function AcuityRow({
   onChange,
   visionResultData,
   acuitySeverityMap,
+  railClass,
 }) {
   const severityFor = (value) => {
     const record = (acuitySeverityMap ?? {})[String(value ?? "").trim()];
     return record?.severity ?? "";
   };
-
-  console.log(eye,"eye");
-  
 
   const severityLine = (value) => {
     const severity = severityFor(value);
@@ -51,9 +50,10 @@ function AcuityRow({
     : ["NA", ...baseOptions];
 
   return (
-    <div className="rounded-lg border border-border/70 bg-background p-3 sm:p-4">
-      <p className="mb-3 text-sm font-semibold text-foreground">{label}</p>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className={`gs-subpanel ${railClass ?? ""}`}>
+      <p className="gs-subpanel__head">{label}</p>
+
+      <div className="grid grid-cols-2 gap-3 pl-2 lg:grid-cols-4">
         <div>
           <ReusableSelect
             label="Distance (Without)"
@@ -89,11 +89,12 @@ function AcuityRow({
           />
         </div>
       </div>
-      <div className="mt-3">
+
+      <div className="mt-3 pl-2">
         <TextField
           label="Remarks"
-          value={eye.remarks}
-          onChange={(v) => onChange({ ...eye, remarks: v })}
+          value={eye.remarks ?? ""}
+          onChange={(e) => onChange({ ...eye, remarks: e.target.value })}
           placeholder="Optional notes for this eye"
         />
       </div>
@@ -113,53 +114,65 @@ const VisionSnapshotCard = ({
   acuitySeverityMap
 }) => {
   return (
-    
     <section className="screening-card">
-      <article className="rounded-xl border border-border bg-card p-4 sm:p-5">
-        <h3 className="text-sm font-semibold text-foreground">
-          Visual Acuity Snapshot
-        </h3>
-        <div className="mt-4">
-          <FramerCard>
-          <VisionSnapshot
-            odDistanceWith={od.distanceWith}
-            odDistanceWithout={od.distanceWithout}
-            osDistanceWith={os.distanceWith}
-            osDistanceWithout={os.distanceWithout}
-          />
+      {/* Same "Clinical Slate" panel as General Screening, so the two
+          screening pages read as one product. */}
+      <div className="gs-panel">
+        <div className="gs-panel__head">
+          <span className="gs-panel__icon">
+            <Eye className="size-4" />
+          </span>
 
-          </FramerCard>
+          <div className="min-w-0">
+            <p className="gs-panel__title">Visual Acuity Snapshot</p>
+
+            <p className="gs-panel__sub">
+              Distance and near acuity, with and without correction
+            </p>
+          </div>
         </div>
 
-        <div className="mt-5 space-y-3">
+        <div className="gs-panel__body space-y-3">
           <FramerCard>
+            <VisionSnapshot
+              odDistanceWith={od.distanceWith}
+              odDistanceWithout={od.distanceWithout}
+              osDistanceWith={os.distanceWith}
+              osDistanceWithout={os.distanceWithout}
+            />
+          </FramerCard>
 
-          <AcuityRow
-            label="Right Eye (OD)"
-            eye={od}
-            onChange={setOd}
-            visionResultData={visionResultData}
-            acuitySeverityMap={acuitySeverityMap}
-          />
-          <AcuityRow
-            label="Left Eye (OS)"
-            eye={os}
-            onChange={setOs}
-            visionResultData={visionResultData}
-            acuitySeverityMap={acuitySeverityMap}
-          />
-          <AcuityRow
-            label="Both Eyes (OU)"
-            eye={ou}
-            onChange={setOu}
-            visionResultData={visionResultData}
-            acuitySeverityMap={acuitySeverityMap}
-          />
+          <FramerCard>
+            {/* Per-eye rail tints (OD / OS / OU) so left and right are never
+                confused when scanning the block. */}
+            <AcuityRow
+              label="Right Eye (OD)"
+              railClass="gs-subpanel--od"
+              eye={od}
+              onChange={setOd}
+              visionResultData={visionResultData}
+              acuitySeverityMap={acuitySeverityMap}
+            />
+            <AcuityRow
+              label="Left Eye (OS)"
+              railClass="gs-subpanel--os"
+              eye={os}
+              onChange={setOs}
+              visionResultData={visionResultData}
+              acuitySeverityMap={acuitySeverityMap}
+            />
+            <AcuityRow
+              label="Both Eyes (OU)"
+              railClass="gs-subpanel--ou"
+              eye={ou}
+              onChange={setOu}
+              visionResultData={visionResultData}
+              acuitySeverityMap={acuitySeverityMap}
+            />
           </FramerCard>
         </div>
-      </article>
+      </div>
     </section>
-    
   );
 };
 

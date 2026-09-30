@@ -1,17 +1,25 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FramerCard } from "@/util/FramerCard";
 import React from "react";
+import { Activity } from "lucide-react";
 import { StatusItem } from "../utilities/SummaryRow";
 
 const HearingQuickFinding = ({ form }) => {
   return (
     <FramerCard>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Quick Findings</CardTitle>
-        </CardHeader>
+      <div className="gs-panel">
+        <div className="gs-panel__head">
+          <span className="gs-panel__icon">
+            <Activity className="size-4" />
+          </span>
 
-        <CardContent className="space-y-2">
+          <div className="min-w-0">
+            <p className="gs-panel__title">Quick Findings</p>
+
+            <p className="gs-panel__sub">Ear examination and overall status</p>
+          </div>
+        </div>
+
+        <div className="space-y-0.5 p-2.5">
           <StatusItem label="Right Ear" value={form.ear_exam_re} />
 
           <StatusItem
@@ -22,8 +30,8 @@ const HearingQuickFinding = ({ form }) => {
           />
 
           <StatusItem label="Overall" value={form.overall_status} />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </FramerCard>
   );
 };

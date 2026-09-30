@@ -10,7 +10,7 @@
      Add/remove the "dark" class on <html>
    ========================================================================== */
 
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap");
+/* @import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"); */
 
 @import "tailwindcss";
 
@@ -132,14 +132,29 @@
   --chart-7: hsl(199 30% 55%);
 
   /* ------------------------------------------------------------------------
+     Dashboard tones
+     Semantic accents for dashboard cards, badges and chart series so the
+     light/dark pair is defined once instead of per component.
+     ------------------------------------------------------------------------ */
+
+  --tone-blue: hsl(221 83% 53%);
+  --tone-green: hsl(142 71% 45%);
+  --tone-orange: hsl(25 95% 53%);
+  --tone-purple: hsl(262 83% 58%);
+  --tone-red: hsl(0 84% 60%);
+  --tone-cyan: hsl(192 91% 43%);
+  --tone-yellow: hsl(45 93% 53%);
+
+  /* ------------------------------------------------------------------------
      Health domains
      ------------------------------------------------------------------------ */
 
   --domain-physical: hsl(152 55% 48%);
   --domain-vision: hsl(205 85% 56%);
   --domain-hearing: hsl(217 55% 46%);
-  --domain-oral: hsl(38 90% 50%);
+  --domain-oral: hsl(174.7 83.9% 31.6%);
   --domain-immunization: hsl(350 65% 55%);
+  --domain-ent: hsl(243 75% 59%);
 
   /* ------------------------------------------------------------------------
      Health domain soft colors
@@ -157,13 +172,17 @@
   --domain-hearing-border: hsl(217 45% 80%);
   --domain-hearing-foreground: hsl(217 55% 30%);
 
-  --domain-oral-soft: hsl(38 90% 92%);
-  --domain-oral-border: hsl(38 70% 78%);
-  --domain-oral-foreground: hsl(32 85% 30%);
+  --domain-oral-soft: hsl(175 60% 93%);
+  --domain-oral-border: hsl(175 45% 80%);
+  --domain-oral-foreground: hsl(175 70% 25%);
 
   --domain-immunization-soft: hsl(350 70% 93%);
   --domain-immunization-border: hsl(350 60% 82%);
   --domain-immunization-foreground: hsl(350 60% 36%);
+
+  --domain-ent-soft: hsl(243 75% 93%);
+  --domain-ent-border: hsl(243 60% 82%);
+  --domain-ent-foreground: hsl(243 60% 36%);
 
   /* ------------------------------------------------------------------------
      Female student domain
@@ -283,13 +302,24 @@
   --chart-6: hsl(262 70% 70%);
   --chart-7: hsl(199 35% 65%);
 
+  /* Dashboard tones — lifted for contrast on dark surfaces. */
+
+  --tone-blue: hsl(217 91% 65%);
+  --tone-green: hsl(142 69% 58%);
+  --tone-orange: hsl(28 95% 62%);
+  --tone-purple: hsl(263 80% 70%);
+  --tone-red: hsl(0 84% 68%);
+  --tone-cyan: hsl(188 86% 60%);
+  --tone-yellow: hsl(48 96% 65%);
+
   /* Domains */
 
   --domain-physical: hsl(152 60% 55%);
   --domain-vision: hsl(205 88% 62%);
   --domain-hearing: hsl(217 65% 62%);
-  --domain-oral: hsl(38 92% 58%);
+  --domain-oral: hsl(175 70% 45%);
   --domain-immunization: hsl(350 75% 65%);
+  --domain-ent: hsl(243 70% 66%);
 
   /* Domain surfaces */
 
@@ -305,13 +335,17 @@
   --domain-hearing-border: hsl(217 40% 30%);
   --domain-hearing-foreground: hsl(217 65% 74%);
 
-  --domain-oral-soft: hsl(38 50% 17%);
-  --domain-oral-border: hsl(38 50% 30%);
-  --domain-oral-foreground: hsl(38 92% 68%);
+  --domain-oral-soft: hsl(175 45% 16%);
+  --domain-oral-border: hsl(175 40% 30%);
+  --domain-oral-foreground: hsl(175 70% 72%);
 
   --domain-immunization-soft: hsl(350 45% 17%);
   --domain-immunization-border: hsl(350 45% 32%);
   --domain-immunization-foreground: hsl(350 75% 74%);
+
+  --domain-ent-soft: hsl(243 45% 17%);
+  --domain-ent-border: hsl(243 40% 32%);
+  --domain-ent-foreground: hsl(243 75% 78%);
 
   /* Female */
 
@@ -335,6 +369,203 @@
     );
 
   --shadow-color: hsl(222 60% 2%);
+}
+
+/* ==========================================================================
+   GLOBAL UI GRADIENTS
+   Reusable gradients for dashboard and profile surfaces.
+   ========================================================================== */
+
+.school-profile-gradient {
+  background-image:
+    radial-gradient(circle at 12% 18%, rgb(255 255 255 / 0.24) 0, transparent 30%),
+    linear-gradient(135deg, #1d4ed8 0%, #0ea5e9 52%, #22d3ee 100%);
+}
+
+.school-profile-gradient-dark {
+  background-image:
+    radial-gradient(circle at 12% 18%, rgb(255 255 255 / 0.12) 0, transparent 30%),
+    linear-gradient(135deg, #172554 0%, #075985 52%, #164e63 100%);
+}
+.dark .school-profile-gradient {
+  background-image:
+    radial-gradient(circle at 12% 18%, rgb(255 255 255 / 0.12) 0, transparent 30%),
+    linear-gradient(135deg, #172554 0%, #075985 52%, #164e63 100%);
+}
+
+/* Detailed-mode student screening modal */
+.student-screening-results {
+  border-color: hsl(199 80% 84%);
+  background-color: hsl(198 100% 99%);
+  background-image:
+    radial-gradient(circle at 100% 0%, hsl(187 86% 92% / 0.5) 0, transparent 34%),
+    linear-gradient(180deg, hsl(210 100% 98%) 0%, hsl(0 0% 100%) 100%);
+}
+
+.student-screening-results-header {
+  border-bottom: 1px solid hsl(199 75% 84%);
+  background-image: linear-gradient(
+    110deg,
+    hsl(214 100% 96%) 0%,
+    hsl(190 100% 98%) 55%,
+    hsl(187 86% 94%) 100%
+  );
+}
+
+/* Hero chips, stat tiles and the active-filter note */
+.student-screening-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid hsl(199 65% 82%);
+  border-radius: 9999px;
+  background-color: hsl(0 0% 100% / 0.78);
+  padding: 0.125rem 0.625rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: hsl(205 70% 30%);
+  white-space: nowrap;
+}
+
+.student-screening-stat {
+  border: 1px solid hsl(199 65% 82%);
+  border-radius: 0.75rem;
+  background-color: hsl(0 0% 100% / 0.82);
+  padding: 0.375rem 0.75rem;
+  text-align: center;
+}
+
+.student-screening-stat dt {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.student-screening-stat dd {
+  margin-top: 0.125rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.student-screening-filter-note {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.75rem;
+  border: 1px dashed hsl(38 85% 78%);
+  border-radius: 0.5rem;
+  background-color: hsl(38 100% 96%);
+  padding: 0.375rem 0.625rem;
+  font-size: 0.6875rem;
+  color: hsl(32 85% 30%);
+}
+
+/* Sticky category bar */
+.student-screening-nav {
+  border-color: hsl(199 70% 86%);
+  background-color: hsl(0 0% 100% / 0.88);
+  backdrop-filter: blur(8px);
+}
+
+
+.student-screening-result-section {
+  box-shadow: 0 1px 2px hsl(202 80% 20% / 0.05);
+}
+
+.student-screening-result-record {
+  box-shadow: 0 1px 3px hsl(202 80% 20% / 0.06);
+}
+
+.dark .student-screening-results {
+  border-color: hsl(200 55% 27%);
+  background-color: hsl(222 47% 7%);
+  background-image:
+    radial-gradient(circle at 100% 0%, hsl(187 70% 20% / 0.3) 0, transparent 34%),
+    linear-gradient(180deg, hsl(222 47% 9%) 0%, hsl(222 47% 6%) 100%);
+}
+
+.dark .student-screening-results-header {
+  border-bottom-color: hsl(200 55% 27%);
+  background-image: linear-gradient(
+    110deg,
+    hsl(220 65% 14%) 0%,
+    hsl(199 55% 13%) 55%,
+    hsl(187 45% 14%) 100%
+  );
+}
+
+.dark .student-screening-chip {
+  border-color: hsl(200 50% 30%);
+  background-color: hsl(222 40% 14% / 0.85);
+  color: hsl(199 80% 78%);
+}
+
+.dark .student-screening-stat {
+  border-color: hsl(200 50% 30%);
+  background-color: hsl(222 40% 14% / 0.85);
+}
+
+.dark .student-screening-filter-note {
+  border-color: hsl(38 60% 36%);
+  background-color: hsl(38 60% 14%);
+  color: hsl(38 92% 76%);
+}
+
+.dark .student-screening-nav {
+  border-color: hsl(200 50% 26%);
+  background-color: hsl(222 45% 9% / 0.9);
+}
+
+.dark .student-screening-result-section {
+  box-shadow: 0 1px 2px hsl(222 80% 2% / 0.2);
+}
+
+.dark .student-screening-result-record {
+  box-shadow: 0 1px 3px hsl(222 80% 2% / 0.28);
+}
+
+.school-profile-updated {
+  color: hsl(205 82% 30%);
+  background-color: hsl(199 89% 96%);
+  border-color: hsl(199 80% 84%);
+}
+
+.dark .school-profile-updated {
+  color: hsl(188 86% 70%);
+  background-color: hsl(202 80% 14%);
+  border-color: hsl(200 65% 28%);
+}
+
+.school-subaccount-filter {
+  border: 1px solid rgb(191 219 254 / 0.7);
+  border-radius: 1rem;
+  padding: 1rem;
+  background-image: linear-gradient(
+    135deg,
+    hsl(214 100% 97%) 0%,
+    hsl(0 0% 100%) 52%,
+    hsl(188 86% 96%) 100%
+  );
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+}
+
+.dark .school-subaccount-filter {
+  border-color: rgb(30 64 175 / 0.6);
+  background-image: linear-gradient(
+    135deg,
+    rgb(30 58 138 / 0.3) 0%,
+    hsl(222 47% 5%) 52%,
+    rgb(8 145 178 / 0.2) 100%
+  );
+}
+
+@media (min-width: 640px) {
+  .school-subaccount-filter {
+    padding: 1.25rem;
+  }
 }
 
 /* ==========================================================================
@@ -386,8 +617,9 @@
   --domain-physical: hsl(152 55% 48%);
   --domain-vision: hsl(205 85% 56%);
   --domain-hearing: hsl(217 55% 46%);
-  --domain-oral: hsl(38 90% 50%);
+  --domain-oral: hsl(174.7 83.9% 31.6%);
   --domain-immunization: hsl(350 65% 55%);
+  --domain-ent: hsl(243 75% 59%);
 
   --domain-physical-soft: hsl(152 55% 92%);
   --domain-physical-border: hsl(152 40% 78%);
@@ -401,13 +633,17 @@
   --domain-hearing-border: hsl(217 45% 80%);
   --domain-hearing-foreground: hsl(217 55% 30%);
 
-  --domain-oral-soft: hsl(38 90% 92%);
-  --domain-oral-border: hsl(38 70% 78%);
-  --domain-oral-foreground: hsl(32 85% 30%);
+  --domain-oral-soft: hsl(175 60% 93%);
+  --domain-oral-border: hsl(175 45% 80%);
+  --domain-oral-foreground: hsl(175 70% 25%);
 
   --domain-immunization-soft: hsl(350 70% 93%);
   --domain-immunization-border: hsl(350 60% 82%);
   --domain-immunization-foreground: hsl(350 60% 36%);
+
+  --domain-ent-soft: hsl(243 75% 93%);
+  --domain-ent-border: hsl(243 60% 82%);
+  --domain-ent-foreground: hsl(243 60% 36%);
 
   background-color: hsl(0 0% 100%);
   color: var(--foreground);
@@ -491,6 +727,18 @@
   --color-chart-7: var(--chart-7);
 
   /* ------------------------------------------------------------------------
+     Dashboard tones
+     ------------------------------------------------------------------------ */
+
+  --color-tone-blue: var(--tone-blue);
+  --color-tone-green: var(--tone-green);
+  --color-tone-orange: var(--tone-orange);
+  --color-tone-purple: var(--tone-purple);
+  --color-tone-red: var(--tone-red);
+  --color-tone-cyan: var(--tone-cyan);
+  --color-tone-yellow: var(--tone-yellow);
+
+  /* ------------------------------------------------------------------------
      Health domains
      ------------------------------------------------------------------------ */
 
@@ -499,6 +747,7 @@
   --color-domain-hearing: var(--domain-hearing);
   --color-domain-oral: var(--domain-oral);
   --color-domain-immunization: var(--domain-immunization);
+  --color-domain-ent: var(--domain-ent);
 
   --color-domain-physical-soft: var(--domain-physical-soft);
   --color-domain-physical-border: var(--domain-physical-border);
@@ -520,6 +769,10 @@
   --color-domain-immunization-border: var(--domain-immunization-border);
   --color-domain-immunization-foreground: var(--domain-immunization-foreground);
 
+  --color-domain-ent-soft: var(--domain-ent-soft);
+  --color-domain-ent-border: var(--domain-ent-border);
+  --color-domain-ent-foreground: var(--domain-ent-foreground);
+
   --color-domain-female: var(--domain-female);
   --color-domain-female-soft: var(--domain-female-soft);
   --color-domain-female-border: var(--domain-female-border);
@@ -540,15 +793,6 @@
     "Segoe UI",
     sans-serif;
 
-  --font-mono:
-    "JetBrains Mono",
-    ui-monospace,
-    "SFMono-Regular",
-    Menlo,
-    Monaco,
-    Consolas,
-    monospace;
-
   --font-sf:
     var(--font-sf-pro),
     "Inter",
@@ -559,9 +803,39 @@
     "Segoe UI",
     sans-serif;
 
+
+ 
+ 
+
   /* ------------------------------------------------------------------------
-     Radius
+
+     APP-WIDE FONT CHOICE
+     The user picks a typeface in Settings -> Appearance. Instead of touching
+     every font-sf usage (there are dozens app-wide), we point ONE variable at
+     the chosen family and let every existing rule keep reading it. The switch
+     is driven by a data-app-font attribute on <html>, which AppearanceWatcher
+     sets -- so the choice applies to the whole app with no per-component code
+     and no re-render.
      ------------------------------------------------------------------------ */
+
+  --font-comfortaa:
+    var(--font-comfortaa-pro),
+    "Comfortaa",
+    ui-rounded,
+    "Segoe UI",
+    system-ui,
+    sans-serif;
+
+  --font-fraunces-body:
+    var(--font-fraunces-pro),
+    "Fraunces",
+    ui-serif,
+    Georgia,
+    "Times New Roman",
+    serif;
+
+  /* Default (SF Pro) -- matches the pre-existing look exactly. */
+  --app-font-family: var(--font-sf);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: var(--radius);
@@ -591,10 +865,26 @@
     scroll-behavior: smooth;
   }
 
+/* --------------------------------------------------------------------------
+   APP FONT SWITCH
+
+   -------------------------------------------------------------------------- */
+  html[data-app-font="comfortaa"] {
+    --app-font-family: var(--font-comfortaa);
+  }
+
+  html[data-app-font="fraunces"] {
+    --app-font-family: var(--font-fraunces-body);
+  }
+
+  html[data-app-font="sf"] {
+    --app-font-family: var(--font-sf);
+  }
+
   body {
     margin: 0;
 
-    font-family: var(--font-sf);
+    font-family: var(--app-font-family);
 
     background-color: var(--color-background);
     background-image: var(--brand-gradient);
@@ -628,7 +918,7 @@
   h4 {
     margin: 0;
 
-    font-family: var(--font-sf);
+    font-family: var(--app-font-family);
 
     color: var(--color-foreground);
 
@@ -642,7 +932,7 @@
   h6 {
     margin: 0;
 
-    font-family: var(--font-sf);
+    font-family: var(--app-font-family);
 
     font-weight: 600;
     line-height: 1.35;
@@ -689,6 +979,8 @@
     margin: 0;
     line-height: 1.65;
     letter-spacing: 0.04em;
+        /* font-family: var(--app-font-family); */
+
   }
 
   /* ------------------------------------------------------------------------
@@ -1216,6 +1508,131 @@
      SCHOOL DETAILS
      ========================================================================== */
 
+  .sd-school-shell {
+    display: grid;
+    gap: 1.25rem;
+    width: 100%;
+  }
+
+  .sd-school-hero {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(19rem, 0.65fr);
+    gap: 2rem;
+    overflow: hidden;
+    border: 1px solid color-mix(in oklch, var(--color-primary) 20%, var(--color-border));
+    border-radius: 1.25rem;
+    background:
+      radial-gradient(circle at 88% 4%, color-mix(in oklch, var(--color-primary) 18%, transparent), transparent 34%),
+      radial-gradient(circle at 4% 100%, color-mix(in oklch, var(--domain-physical) 13%, transparent), transparent 38%),
+      var(--color-card);
+    padding: clamp(1.25rem, 3vw, 2rem);
+    box-shadow: 0 18px 45px -32px color-mix(in oklch, var(--color-primary) 45%, transparent);
+  }
+
+  .sd-school-hero::after {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    content: "";
+    opacity: 0.28;
+    background-image: linear-gradient(color-mix(in oklch, var(--color-primary) 16%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in oklch, var(--color-primary) 16%, transparent) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: linear-gradient(to left, black, transparent 64%);
+  }
+
+  .sd-school-hero__content,
+  .sd-school-hero__summary {
+    position: relative;
+    z-index: 1;
+  }
+
+  .sd-school-hero__eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+  }
+
+  .sd-icon-badge--large {
+    width: 3rem;
+    height: 3rem;
+    flex: 0 0 auto;
+    border-radius: 0.9rem;
+    background: linear-gradient(145deg, var(--color-primary), var(--domain-physical));
+    color: white;
+    box-shadow: 0 10px 24px -12px color-mix(in oklch, var(--color-primary) 70%, transparent);
+  }
+
+  .sd-school-hero__kicker,
+  .sd-branches-panel__eyebrow {
+    margin-bottom: 0.2rem;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+  }
+
+  .sd-school-hero__title {
+    font-size: clamp(1.5rem, 3vw, 2.15rem);
+    font-weight: 750;
+    line-height: 1.1;
+    letter-spacing: -0.035em;
+  }
+
+  .sd-school-hero__description {
+    max-width: 42rem;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    line-height: 1.65;
+    color: var(--color-muted-foreground);
+  }
+
+  .sd-add-branch {
+    margin-top: 1.25rem;
+    box-shadow: 0 12px 24px -14px color-mix(in oklch, var(--color-primary) 75%, transparent);
+  }
+
+  .sd-school-hero__summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-content: center;
+    gap: 0.75rem;
+  }
+
+  .sd-summary-stat {
+    display: flex;
+    min-width: 0;
+    min-height: 5.25rem;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    overflow: hidden;
+    border: 1px solid color-mix(in oklch, var(--color-border) 82%, transparent);
+    border-radius: 0.9rem;
+    background: color-mix(in oklch, var(--color-card) 84%, transparent);
+    padding: 0.85rem;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 10px 28px -24px color-mix(in oklch, var(--color-primary) 60%, transparent);
+  }
+
+  .sd-summary-stat__icon {
+    display: inline-flex;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.7rem;
+  }
+
+  .sd-summary-stat__icon--blue { background: color-mix(in oklch, var(--domain-vision) 14%, transparent); color: var(--domain-vision); }
+  .sd-summary-stat__icon--green { background: color-mix(in oklch, var(--domain-physical) 14%, transparent); color: var(--domain-physical); }
+  .sd-summary-stat__icon--amber { background: color-mix(in oklch, var(--domain-oral) 16%, transparent); color: var(--domain-oral); }
+  .sd-summary-stat__label { overflow: hidden; font-size: 0.68rem; font-weight: 600; color: var(--color-muted-foreground); text-overflow: ellipsis; white-space: nowrap; }
+  .sd-summary-stat__value { margin-top: 0.1rem; font-size: 1.2rem; font-weight: 750; line-height: 1; }
+
   .form-section-title {
     margin-bottom: 0.75rem;
 
@@ -1241,6 +1658,179 @@
 
     color: var(--color-primary);
   }
+
+  .sd-branches-panel {
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: 1.1rem;
+    background: color-mix(in oklch, var(--color-card) 96%, var(--color-muted));
+    box-shadow: 0 18px 45px -38px color-mix(in oklch, var(--color-foreground) 55%, transparent);
+  }
+
+  .sd-branches-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 1px solid color-mix(in oklch, var(--color-border) 75%, transparent);
+    background: color-mix(in oklch, var(--color-muted) 35%, transparent);
+    padding: 1.15rem clamp(1rem, 2.5vw, 1.5rem);
+  }
+
+  .sd-branches-panel__title {
+    font-size: 1.05rem;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+  }
+
+  .sd-branches-panel__description {
+    margin-top: 0.35rem;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--color-muted-foreground);
+  }
+
+  .sd-branch-count {
+    flex-shrink: 0;
+    border-color: color-mix(in oklch, var(--color-primary) 25%, var(--color-border));
+    background: color-mix(in oklch, var(--color-primary) 7%, var(--color-card));
+    color: var(--color-primary);
+    font-weight: 700;
+  }
+
+  .sd-branch-directory {
+    padding: clamp(0.85rem, 2.2vw, 1.25rem);
+  }
+
+  .sd-branch-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+  }
+
+  .sd-branch-card {
+    position: relative;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid color-mix(in oklch, var(--color-border) 90%, transparent);
+    border-radius: 0.95rem;
+    background:
+      linear-gradient(135deg, color-mix(in oklch, var(--color-primary) 5%, var(--color-card)), var(--color-card) 48%),
+      var(--color-card);
+    box-shadow: 0 10px 30px -25px color-mix(in oklch, var(--color-foreground) 65%, transparent);
+    cursor: pointer;
+    transition:
+      transform 180ms ease,
+      border-color 180ms ease,
+      box-shadow 180ms ease,
+      background-color 180ms ease;
+  }
+
+  .sd-branch-card::before {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    content: "";
+    background: linear-gradient(180deg, var(--color-primary), var(--domain-physical));
+  }
+
+  .sd-branch-card:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in oklch, var(--color-primary) 42%, var(--color-border));
+    background-color: color-mix(in oklch, var(--color-primary) 4%, var(--color-card));
+    box-shadow: 0 18px 36px -25px color-mix(in oklch, var(--color-primary) 65%, transparent);
+  }
+
+  .sd-branch-card:focus-visible {
+    outline: 3px solid color-mix(in oklch, var(--color-primary) 24%, transparent);
+    outline-offset: 2px;
+  }
+
+  .sd-branch-card__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem 1rem 0.8rem 1.1rem;
+  }
+
+  .sd-branch-card__identity {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .sd-branch-card__logo {
+    width: 2.75rem;
+    height: 2.75rem;
+    flex: 0 0 auto;
+    border: 1px solid color-mix(in oklch, var(--color-primary) 18%, var(--color-border));
+    border-radius: 0.8rem;
+    object-fit: cover;
+    box-shadow: 0 8px 18px -13px color-mix(in oklch, var(--color-primary) 80%, transparent);
+  }
+
+  .sd-branch-card__logo--fallback {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(145deg, color-mix(in oklch, var(--color-primary) 13%, var(--color-card)), color-mix(in oklch, var(--domain-physical) 12%, var(--color-card)));
+    color: var(--color-primary);
+  }
+
+  .sd-branch-card__name {
+    overflow: hidden;
+    font-size: 0.9rem;
+    font-weight: 750;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sd-branch-card__location {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.3rem;
+    margin-top: 0.3rem;
+    font-size: 0.7rem;
+    color: var(--color-muted-foreground);
+  }
+
+  .sd-branch-card__location span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sd-branch-card__location svg {
+    flex: 0 0 auto;
+  }
+
+  .sd-branch-card__arrow {
+    display: inline-flex;
+    width: 1.85rem;
+    height: 1.85rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: color-mix(in oklch, var(--color-primary) 8%, var(--color-muted));
+    color: var(--color-primary);
+    transition: transform 180ms ease, background-color 180ms ease;
+  }
+
+  .sd-branch-card:hover .sd-branch-card__arrow {
+    transform: translateX(2px);
+    background: color-mix(in oklch, var(--color-primary) 15%, var(--color-muted));
+  }
+
+  .sd-branch-card__metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.45rem; margin: 0 1rem 0 1.1rem; }
+  .sd-branch-card__metrics > div { min-width: 0; border-radius: 0.65rem; background: color-mix(in oklch, var(--color-muted) 58%, transparent); padding: 0.55rem; }
+  .sd-branch-card__metrics dt { overflow: hidden; font-size: 0.62rem; color: var(--color-muted-foreground); text-overflow: ellipsis; white-space: nowrap; }
+  .sd-branch-card__metrics dd { overflow: hidden; margin-top: 0.15rem; font-size: 0.75rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+  .sd-branch-card__contact { display: flex; align-items: center; gap: 0.4rem; margin: 0.75rem 1rem 0 1.1rem; border-top: 1px solid var(--color-border); padding: 0.65rem 0 0.85rem; font-size: 0.7rem; color: var(--color-muted-foreground); }
 
   .sd-progress-track {
     width: 100%;
@@ -1334,9 +1924,81 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .dark .sd-school-hero {
+    box-shadow: 0 22px 55px -34px color-mix(in oklch, var(--color-primary) 72%, transparent);
+  }
+
+  .dark .sd-summary-stat,
+  .dark .sd-branch-card {
+    background:
+      linear-gradient(135deg, color-mix(in oklch, var(--color-primary) 10%, var(--color-card)), var(--color-card) 52%),
+      var(--color-card);
+  }
+
+  .dark .sd-branch-card__metrics > div {
+    background: color-mix(in oklch, var(--color-muted) 75%, transparent);
+  }
+
+  @media (max-width: 1100px) {
+    .sd-school-hero {
+      grid-template-columns: 1fr;
+    }
+
+    .sd-school-hero__summary {
+      max-width: 46rem;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .sd-branch-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
   @media (max-width: 640px) {
-    .sd-stat-grid {
-      grid-template-columns: repeat(1, minmax(0, 1fr));
+    .sd-stat-grid,
+    .sd-school-hero__summary {
+      grid-template-columns: 1fr;
+    }
+
+    .sd-school-hero {
+      gap: 1.25rem;
+      border-radius: 1rem;
+    }
+
+    .sd-school-hero__eyebrow,
+    .sd-branches-panel__header {
+      align-items: flex-start;
+    }
+
+    .sd-school-hero__description {
+      font-size: 0.82rem;
+    }
+
+    .sd-add-branch {
+      width: 100%;
+    }
+
+    .sd-summary-stat {
+      min-height: 0;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+    }
+
+    .sd-branches-panel__header {
+      flex-direction: column;
+    }
+
+    .sd-branch-count {
+      align-self: flex-start;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sd-branch-card,
+    .sd-branch-card__arrow {
+      transition: none;
     }
   }
 
@@ -1438,7 +2100,612 @@
 }
 
 /* ==========================================================================
-   7. CUSTOM UTILITIES
+   7. PROFILE SETTINGS
+   ========================================================================== */
+
+@layer components {
+  .profile-settings-shell {
+    position: relative;
+    box-shadow: 0 24px 65px -42px color-mix(in oklch, var(--color-primary) 50%, transparent);
+  }
+
+  .profile-settings-heading {
+    isolation: isolate;
+    background:
+      radial-gradient(circle at 88% 20%, color-mix(in oklch, var(--color-brand-green) 22%, transparent), transparent 32%),
+      linear-gradient(125deg, color-mix(in oklch, var(--color-primary) 15%, var(--color-card)), var(--color-card) 55%);
+    border-bottom: 1px solid color-mix(in oklch, var(--color-primary) 12%, var(--color-border));
+  }
+
+  .profile-settings-heading__grid {
+    position: absolute;
+    inset: 0;
+    opacity: 0.3;
+    background-image:
+      linear-gradient(color-mix(in oklch, var(--color-primary) 12%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in oklch, var(--color-primary) 12%, transparent) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: linear-gradient(to left, black, transparent 72%);
+    pointer-events: none;
+  }
+
+  .profile-settings-heading__orb {
+    position: absolute;
+    border-radius: 999px;
+    filter: blur(2px);
+    pointer-events: none;
+  }
+
+  .profile-settings-heading__orb--one {
+    top: -4.5rem;
+    right: -2.5rem;
+    width: 11rem;
+    height: 11rem;
+    background: color-mix(in oklch, var(--color-primary) 13%, transparent);
+  }
+
+  .profile-settings-heading__orb--two {
+    right: 14rem;
+    bottom: -4rem;
+    width: 7rem;
+    height: 7rem;
+    background: color-mix(in oklch, var(--color-brand-green) 14%, transparent);
+  }
+
+  .profile-settings-heading__icon {
+    background: linear-gradient(135deg, var(--color-primary), color-mix(in oklch, var(--color-brand-blue) 72%, var(--color-primary)));
+  }
+
+  .profile-settings-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.68rem;
+    font-weight: 750;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+  }
+
+  .profile-settings-eyebrow__dot {
+    /* A bare <span> is inline by default, and width/height do not apply to
+       inline boxes — the dot collapses to zero size. Blockify it so it also
+       works outside .profile-settings-eyebrow (School Details, Appearance). */
+    display: inline-block;
+    flex-shrink: 0;
+    vertical-align: middle;
+    width: 0.38rem;
+    height: 0.38rem;
+    border-radius: 999px;
+    background: var(--color-domain-physical);
+    box-shadow: 0 0 0 4px color-mix(in oklch, var(--color-domain-physical) 14%, transparent);
+  }
+
+  .profile-settings-identity {
+    position: relative;
+    background: linear-gradient(145deg, var(--color-card), color-mix(in oklch, var(--color-primary) 3%, var(--color-card)));
+  }
+
+  .profile-settings-avatar {
+    border: 3px solid color-mix(in oklch, var(--color-primary) 16%, var(--color-border));
+    box-shadow: 0 0 0 6px color-mix(in oklch, var(--color-primary) 6%, transparent), 0 14px 32px -18px color-mix(in oklch, var(--color-primary) 60%, transparent);
+  }
+
+  .profile-settings-avatar:hover {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 7px color-mix(in oklch, var(--color-primary) 9%, transparent), 0 18px 38px -18px color-mix(in oklch, var(--color-primary) 70%, transparent);
+    transform: translateY(-2px);
+  }
+
+  .profile-settings-identity__details h2 {
+    font-size: 1.25rem;
+    letter-spacing: -0.02em;
+  }
+
+  .profile-settings-identity__details h4,
+  .profile-settings-identity__details h6 {
+    width: fit-content;
+    max-width: 100%;
+    margin-inline: auto;
+    gap: 0.45rem;
+    padding: 0.4rem 0.65rem;
+    border: 1px solid color-mix(in oklch, var(--color-border) 80%, transparent);
+    border-radius: 0.75rem;
+    background: color-mix(in oklch, var(--color-muted) 55%, transparent);
+  }
+
+  .profile-settings-identity__details span:has(> input) {
+    max-width: 29rem;
+    padding: 0.3rem;
+    border-radius: 0.8rem;
+    background: color-mix(in oklch, var(--color-muted) 65%, transparent);
+  }
+
+  .profile-settings-photo-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: fit-content;
+    margin-inline: auto;
+    padding: 0.35rem 0.6rem;
+    border-radius: 999px;
+    color: var(--color-muted-foreground);
+    background: color-mix(in oklch, var(--color-muted) 65%, transparent);
+  }
+
+  .profile-settings-signature {
+    background:
+      radial-gradient(circle at 95% 0%, color-mix(in oklch, var(--color-domain-physical) 8%, transparent), transparent 34%),
+      color-mix(in oklch, var(--color-muted) 34%, var(--color-card));
+  }
+
+  .profile-settings-actions {
+    background: color-mix(in oklch, var(--color-muted) 28%, var(--color-card));
+  }
+
+  @media (min-width: 640px) {
+    .profile-settings-identity__details h4,
+    .profile-settings-identity__details h6,
+    .profile-settings-photo-hint {
+      margin-inline: 0;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .profile-settings-heading {
+      padding-inline: 1rem;
+    }
+
+    .profile-settings-identity__details h4,
+    .profile-settings-identity__details h6 {
+      margin-inline: auto;
+    }
+
+    .profile-settings-signature {
+      margin-inline: 1rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .profile-settings-avatar {
+      transition: none;
+    }
+  }
+}
+
+/* ==========================================================================
+   MY DETAILS SETTINGS
+   ========================================================================== */
+
+@layer components {
+  .my-details-shell { position: relative; }
+
+  .my-details-heading {
+    isolation: isolate;
+    background:
+      radial-gradient(circle at 90% 12%, color-mix(in oklch, var(--color-domain-vision) 18%, transparent), transparent 34%),
+      radial-gradient(circle at 8% 110%, color-mix(in oklch, var(--color-domain-physical) 14%, transparent), transparent 36%),
+      linear-gradient(125deg, color-mix(in oklch, var(--color-primary) 11%, var(--color-card)), var(--color-card) 62%);
+    box-shadow: 0 18px 45px -38px color-mix(in oklch, var(--color-primary) 70%, transparent);
+  }
+
+  .my-details-heading__grid {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    opacity: 0.35;
+    background-image:
+      linear-gradient(color-mix(in oklch, var(--color-primary) 10%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in oklch, var(--color-primary) 10%, transparent) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: linear-gradient(to left, black, transparent 80%);
+    pointer-events: none;
+  }
+
+  .my-details-heading__icon {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-domain-vision));
+    box-shadow: 0 14px 30px -15px color-mix(in oklch, var(--color-primary) 85%, transparent);
+  }
+
+  .my-details-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.7rem;
+    font-weight: 750;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+  }
+
+  .my-details-eyebrow__dot {
+    display: inline-block;
+    flex-shrink: 0;
+    vertical-align: middle;
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 999px;
+    background: var(--color-domain-physical);
+    box-shadow: 0 0 0 4px color-mix(in oklch, var(--color-domain-physical) 14%, transparent);
+  }
+
+  .my-details-status {
+    border: 1px solid color-mix(in oklch, var(--color-primary) 25%, var(--color-border));
+    color: var(--color-primary);
+    background: color-mix(in oklch, var(--color-primary) 9%, var(--color-card));
+  }
+
+  .my-details-identity,
+  .my-details-metric,
+  .my-details-panel {
+    box-shadow: 0 14px 36px -34px color-mix(in oklch, var(--color-foreground) 70%, transparent);
+  }
+
+  .my-details-identity {
+    background: linear-gradient(145deg, var(--color-card), color-mix(in oklch, var(--color-primary) 3%, var(--color-card)));
+  }
+
+  .my-details-avatar {
+    box-shadow: 0 0 0 6px color-mix(in oklch, var(--color-primary) 7%, transparent), 0 16px 36px -18px color-mix(in oklch, var(--color-primary) 70%, transparent);
+  }
+
+  .my-details-avatar:hover {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 7px color-mix(in oklch, var(--color-primary) 10%, transparent), 0 20px 40px -18px color-mix(in oklch, var(--color-primary) 80%, transparent);
+    transform: translateY(-2px);
+  }
+
+  .my-details-avatar__badge {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    border: 3px solid var(--color-card);
+    border-radius: 999px;
+    color: white;
+    background: var(--color-primary);
+    box-shadow: 0 5px 12px -5px color-mix(in oklch, var(--color-primary) 80%, transparent);
+  }
+
+  .my-details-action {
+    display: inline-flex;
+    min-height: 2.25rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border: 1px solid color-mix(in oklch, var(--color-primary) 22%, var(--color-border));
+    border-radius: 0.7rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 650;
+    color: var(--color-primary);
+    background: color-mix(in oklch, var(--color-primary) 7%, var(--color-card));
+    transition: 150ms ease;
+  }
+
+  .my-details-action:hover {
+    border-color: color-mix(in oklch, var(--color-primary) 50%, var(--color-border));
+    background: color-mix(in oklch, var(--color-primary) 13%, var(--color-card));
+    transform: translateY(-1px);
+  }
+
+  .my-details-action--quiet {
+    color: var(--color-muted-foreground);
+    border-color: var(--color-border);
+    background: var(--color-card);
+  }
+
+  .my-details-label {
+    font-size: 0.67rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--color-muted-foreground);
+  }
+
+  .my-details-metric--primary {
+    background: linear-gradient(145deg, var(--color-card), color-mix(in oklch, var(--color-domain-vision) 7%, var(--color-card)));
+  }
+
+  .my-details-metric--success {
+    background: linear-gradient(145deg, var(--color-card), color-mix(in oklch, var(--color-success) 7%, var(--color-card)));
+  }
+
+  .my-details-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+    padding: 1rem 1.25rem;
+    background: color-mix(in oklch, var(--color-muted) 32%, var(--color-card));
+  }
+
+  .my-details-panel__heading {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.7rem;
+  }
+
+  .my-details-panel__icon {
+    display: grid;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    place-items: center;
+    border-radius: 0.75rem;
+  }
+
+  .my-details-panel__icon--blue {
+    color: var(--color-domain-vision);
+    background: color-mix(in oklch, var(--color-domain-vision) 10%, var(--color-card));
+  }
+
+  .my-details-panel__icon--green {
+    color: var(--color-domain-physical);
+    background: color-mix(in oklch, var(--color-domain-physical) 10%, var(--color-card));
+  }
+
+  .my-details-panel__title {
+    margin-top: 0.1rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--color-foreground);
+  }
+
+  .my-details-panel__body { padding: 1rem 1.25rem 1.25rem; }
+
+  .my-details-period,
+  .my-details-score {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.3rem;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    padding: 0.3rem 0.55rem;
+    font-size: 0.68rem;
+    font-weight: 650;
+    color: var(--color-muted-foreground);
+    background: var(--color-card);
+  }
+
+  /* ---------------------------------------------------------------------
+     ACCOUNT & ACCESS (role-aware identity / entitlement rows)
+     --------------------------------------------------------------------- */
+
+  .my-details-access {
+    display: grid;
+    gap: 0.85rem;
+  }
+
+  .my-details-access__grid {
+    display: grid;
+    gap: 0.5rem;
+    /* Auto-fit keeps this at two columns on a wide panel and one on a narrow
+       one, without needing a breakpoint per container width. */
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  }
+
+  .my-details-access__item {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    padding: 0.7rem 0.8rem;
+    background: var(--color-card);
+  }
+
+  .my-details-access__icon {
+    display: flex;
+    width: 1.9rem;
+    height: 1.9rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.6rem;
+    color: var(--color-domain-physical);
+    background: color-mix(in oklch, var(--color-domain-physical) 10%, var(--color-card));
+  }
+
+  .my-details-access__label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-muted-foreground);
+  }
+
+  .my-details-access__value {
+    margin-top: 0.1rem;
+    font-size: 0.85rem;
+    font-weight: 650;
+    color: var(--color-foreground);
+    /* A long privilege list must not stretch the grid track open. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .my-details-access__footer {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-top: 1px solid var(--color-border);
+    padding-top: 0.7rem;
+    font-size: 0.72rem;
+    color: var(--color-muted-foreground);
+  }
+
+  /* ---------------------------------------------------------------------
+     DEVICE & SESSION (replaces the empty Security checklist card)
+     --------------------------------------------------------------------- */
+
+  .my-details-device-list {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .my-details-device-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    padding: 0.5rem 0.8rem;
+    background: var(--color-card);
+  }
+
+  .my-details-device-status__dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: var(--color-muted-foreground);
+  }
+
+  /* Green pulse signals a live connection without needing a second icon. */
+  .my-details-device-status__dot--online {
+    background: var(--color-success);
+    animation: my-details-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes my-details-pulse {
+    0%,
+    100% {
+      opacity: 1;
+      box-shadow: 0 0 0 0 color-mix(in oklch, var(--color-success) 45%, transparent);
+    }
+    50% {
+      opacity: 0.75;
+      box-shadow: 0 0 0 4px color-mix(in oklch, var(--color-success) 0%, transparent);
+    }
+  }
+
+  .my-details-device-grid {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .my-details-device-row {
+    display: grid;
+    /* icon | label | value — the value takes the slack and truncates. */
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.15fr);
+    align-items: center;
+    gap: 0.6rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    padding: 0.65rem 0.75rem;
+    background: var(--color-card);
+  }
+
+  .my-details-device-row__icon {
+    display: flex;
+    width: 1.75rem;
+    height: 1.75rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.55rem;
+    color: var(--color-domain-physical);
+    background: color-mix(in oklch, var(--color-domain-physical) 10%, var(--color-card));
+  }
+
+  .my-details-device-row__label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--color-foreground);
+  }
+
+  .my-details-device-row__value {
+    /* Long values (e.g. a full IANA zone) ellipsis rather than wrap, so rows
+       keep a uniform height. The full text stays available via `title`. */
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-align: right;
+    color: var(--color-muted-foreground);
+  }
+
+
+
+  .my-details-login-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    padding: 0.7rem 0.8rem;
+    background: var(--color-card);
+  }
+
+  .my-details-login-item--current {
+    border-color: color-mix(in oklch, var(--color-success) 22%, var(--color-border));
+    background: color-mix(in oklch, var(--color-success) 5%, var(--color-card));
+  }
+
+  .my-details-login-item__icon {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    flex-shrink: 0;
+    place-items: center;
+    border-radius: 0.65rem;
+    color: var(--color-muted-foreground);
+    background: var(--color-muted);
+  }
+
+  .my-details-login-item--current .my-details-login-item__icon {
+    color: var(--color-success);
+    background: color-mix(in oklch, var(--color-success) 12%, var(--color-card));
+  }
+
+  .my-details-login-item__title {
+    font-size: 0.82rem;
+    font-weight: 650;
+    color: var(--color-foreground);
+  }
+
+  .my-details-login-item__meta {
+    margin-top: 0.15rem;
+    font-size: 0.7rem;
+    line-height: 1.1rem;
+    color: var(--color-muted-foreground);
+  }
+
+  .my-details-login-empty {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px dashed var(--color-border);
+    border-radius: 0.75rem;
+    padding: 0.9rem 0.8rem;
+    font-size: 0.8rem;
+    color: var(--color-muted-foreground);
+  }
+}
+
+@media (max-width: 639px) {
+  .my-details-panel__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .my-details-avatar,
+  .my-details-action { transition: none; }
+}
+
+/* ==========================================================================
+   8. CUSTOM UTILITIES
    ========================================================================== */
 
 @layer utilities {
@@ -1726,16 +2993,12 @@
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: auto;
-
   margin: 0;
-
   opacity: 1;
-
   cursor: pointer;
 }
 
 /* Firefox */
-
 input[type="number"] {
   -moz-appearance: textfield;
 }
@@ -1796,5 +3059,2355 @@ input[type="number"] {
   .print-avoid-break {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+}
+/* Remove native number input spinners */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* ==========================================================================
+   13. HEALTH REPORT DOCUMENT
+   Purely presentational. Scoped under .report-surface so it only ever applies to
+   the printable report, and every colour resolves through the tokens
+   .report-surface already redefines (light-only), so the report looks identical
+   in dark mode and in the exported PDF.
+   ========================================================================== */
+
+@layer components {
+  /* Paper: white base plus a faint tint so a long report does not read as a flat
+     slab. Gradients rather than a data-URI texture so nothing extra is fetched
+     and html2canvas can rasterise it. */
+  .report-surface {
+    position: relative;
+    background-color: #ffffff;
+    background-image: linear-gradient(
+      to bottom,
+      color-mix(in oklch, var(--primary) 3%, transparent),
+      transparent 22%
+    );
+  }
+
+  /* Accent rule pinned to the very top — the "letterhead" band. */
+  /* .report-surface::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 4px;
+    background: linear-gradient(
+      90deg,
+      var(--primary),
+      var(--accent, var(--success)) 55%,
+      var(--primary)
+    );
+  } */
+
+  /* ==========================================================================
+     A4 SHEET
+     A true 210mm x 297mm page that is ALSO responsive.
+
+     Why container queries: once the sheet is capped at 210mm (~794px), the
+     viewport breakpoint no longer describes the available width — a 27"
+     monitor and a laptop render the sheet at the same 210mm. Every layout
+     decision inside the sheet therefore has to key off the SHEET's own width,
+     not the window's. `@container` gives us that, and it is what makes the
+     inner grids collapse correctly on a phone while staying multi-column on a
+     desktop.
+
+     The sheet is `container-type: inline-size`, so descendants can use
+     `@sm` / `@md` / `@lg` style container breakpoints.
+     ========================================================================== */
+
+  .report-sheet {
+    /* Establishes the query context for everything inside the page. */
+    container-type: inline-size;
+    container-name: report-sheet;
+
+    /* A4 portrait. `max-width` (not `width`) so the sheet shrinks to fit a
+       narrow phone instead of forcing a horizontal scrollbar. */
+    width: 100%;
+    max-width: 210mm;
+    /* Proportional minimum height so a short report still reads as a full
+       sheet, but long reports are free to grow past one page. */
+    min-height: 297mm;
+    margin-inline: auto;
+
+    /* Print-safe padding: on screen we want breathing room, in print the
+       browser's own page margin does the work. */
+    padding: 1.5rem 1rem;
+
+    /* Neutralise the dark-mode tokens .report-surface sets up only where it
+       must; the sheet is always paper-white. */
+    background-color: #ffffff;
+    color: #111827;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    box-shadow:
+      0 1px 2px color-mix(in oklch, var(--foreground) 6%, transparent),
+      0 12px 32px -16px color-mix(in oklch, var(--foreground) 22%, transparent);
+  }
+
+  /* Progressive enhancement: the paddings above are the phone baseline, and
+     each step up adds room. Container queries (not media queries) so the
+     padding tracks the SHEET, which is what actually changed width. */
+  @container report-sheet (min-width: 480px) {
+    .report-sheet {
+      padding: 2.5rem 2rem;
+    }
+  }
+
+  @container report-sheet (min-width: 640px) {
+    .report-sheet {
+      padding: 3rem 2.5rem;
+    }
+  }
+
+  @container report-sheet (min-width: 720px) {
+    .report-sheet {
+      /* Full A4 margins once there is genuinely room for them. */
+      padding: 3rem 3rem;
+    }
+  }
+
+  /* Prevent long, unbreakable values (urls, ids, finding text) from forcing
+     the sheet wider than 210mm and breaking the page illusion. */
+  .report-sheet * {
+    min-width: 0;
+    overflow-wrap: break-word;
+  }
+
+  /* --------------------------------------------------------------------------
+     Responsive layout INSIDE the sheet.
+
+     The existing markup uses viewport breakpoints (`sm:` / `md:` / `lg:` /
+     `xl:`) for its grids. That is subtly wrong inside a fixed-width sheet: a
+     1440px monitor and a 1024px laptop both render the sheet at 210mm, so
+     `xl:grid-cols-[1fr_340px]` would NOT engage on the laptop even though the
+     sheet has ample room — the two-column layout silently never appears.
+
+     These container-scoped rules fix that by measuring the sheet. They
+     deliberately REPLACE the viewport behaviour rather than fight it, so the
+     sheet reads correctly at every screen size.
+     -------------------------------------------------------------------------- */
+
+  /* 2-up tiles (vision eyes, vitals, status cards) stay 2-up on a phone and
+     open up as the sheet gets wider. */
+  @container report-sheet (min-width: 520px) {
+    .report-sheet__grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @container report-sheet (min-width: 680px) {
+    .report-sheet__grid-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .report-sheet__grid-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  @container report-sheet (min-width: 600px) {
+    /* The two-column main/sidebar split. At 210mm minus padding there is
+       ~700px of content width, which comfortably fits 1fr + 260px. */
+    .report-sheet__split {
+      grid-template-columns: minmax(0, 1fr) 260px;
+    }
+  }
+
+  /* Student identity: photo + details beside the score ring once there is
+     room, stacked on a phone. */
+  @container report-sheet (min-width: 560px) {
+    .report-sheet__identity {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+  }
+
+  /* In print the sheet IS the page: no shadow, no border, no rounding, and
+     the browser supplies the margins. */
+  @media print {
+    .report-sheet {
+      width: auto;
+      max-width: none;
+      min-height: 0;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      background: #ffffff;
+    }
+
+    /* Keep a screening card from being sliced across two pages. */
+    .report-sheet .report-doc__block {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    /* A4 portrait with sane margins. */
+    @page {
+      size: A4 portrait;
+      margin: 12mm;
+    }
+  }
+
+  /* Section title with a rule running to the right edge, so headings read as
+     document sections rather than plain bold text. */
+  .report-doc__heading {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.65rem;
+    color: var(--foreground);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .report-doc__heading::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      color-mix(in oklch, var(--primary) 45%, var(--border)),
+      transparent
+    );
+  }
+
+  /* The global Tailwind divide helper zeroes its border widths:
+       `:where(.divide-y > :not(:last-child))` has zero specificity, so the
+     `border-*-width` lines are effectively disabled app-wide. Re-enable them
+     for the report header only. Scoping under `.report-surface` (0,1,0) is what
+     beats the `:where()` rule, and keeps every other divide-y list in the app
+     unchanged. */
+  .report-surface .report-doc__identity,
+  .report-surface .report-doc__thead {
+    --tw-divide-y-reverse: 0;
+  }
+
+  .report-surface .report-doc__identity {
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-top-style: solid;
+    border-bottom-style: solid;
+    border-color: color-mix(in oklch, var(--primary) 28%, var(--border));
+  }
+
+  /* Column headers get a heavier rule than the body rows so the header band
+     separates cleanly from the striped data beneath it. */
+  .report-surface .report-doc__thead th {
+    border-top-width: 1px;
+    border-bottom-width: 2px;
+    border-top-style: solid;
+    border-bottom-style: solid;
+    border-color: color-mix(in oklch, var(--primary) 32%, var(--border));
+  }
+
+  .report-doc__thead th:first-child {
+    border-top-left-radius: 0.5rem;
+  }
+
+  .report-doc__thead th:last-child {
+    border-top-right-radius: 0.5rem;
+  }
+
+  .report-doc__thead {
+    background: color-mix(in oklch, var(--primary) 8%, #ffffff);
+  }
+
+  .report-doc__thead th {
+    color: var(--primary);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  /* Zebra striping plus a hairline between rows. The first cell carries a small
+     colour chip that ties each row back to its domain colour. */
+  .report-doc__tbody tr:nth-child(even) {
+    background: color-mix(in oklch, var(--muted) 32%, #ffffff);
+  }
+
+  /* `divide-y` on the tbody carries no matching `divide-<color>` utility, so
+     the row rule inherits `currentColor` and renders black. Pin it to the
+     border token instead of leaving it to the cascade. */
+  .report-surface .report-doc__tbody tr {
+    border-color: color-mix(in oklch, var(--border) 80%, transparent);
+  }
+
+  .report-doc__tbody td {
+    border-top: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
+    vertical-align: top;
+  }
+
+  /* --------------------------------------------------------------------------
+     Status cards (the "Oral Health" / "Vaccination" tiles).
+     -------------------------------------------------------------------------- */
+  .status-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    min-width: 0;
+    overflow: hidden;
+    border-radius: 0.9rem;
+    padding: 0.625rem;
+    /* A soft top-edge highlight gives the tile a slight lift without a heavy
+       drop shadow (which muddies up in the PDF rasterisation). */
+    box-shadow: inset 0 1px 0
+      color-mix(in oklch, var(--card) 60%, transparent);
+    transition:
+      transform 200ms ease,
+      box-shadow 200ms ease;
+  }
+
+  .status-card:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklch, var(--card) 60%, transparent),
+      0 12px 24px -18px
+        color-mix(in oklch, var(--foreground) 55%, transparent);
+  }
+
+  /* Header row: icon on the left, title beside it. The badge moves to its own
+     line below, which is what stops the phrase wrapping. */
+  .status-card__head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .status-card__icon {
+    display: grid;
+    width: 1.9rem;
+    height: 1.9rem;
+    flex-shrink: 0;
+    place-items: center;
+    border-radius: 0.6rem;
+  }
+
+  .status-card__title {
+    min-width: 0;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    color: var(--foreground);
+  }
+
+  /* Full-width status strip. `text-wrap: balance` keeps two-word statuses on
+     one line where they fit, and splits cleanly when they genuinely cannot. */
+  .status-card__status {
+    display: flex;
+    align-items: center;
+    align-self: flex-start;
+    max-width: 100%;
+    text-wrap: balance;
+  }
+
+  /* Hairline separating the header from the metric list. */
+  .status-card__rule {
+    height: 1px;
+    background: color-mix(
+      in oklch,
+      currentColor 14%,
+      transparent
+    );
+  }
+
+  .status-card__list {
+    display: grid;
+    gap: 0.3rem;
+    margin: 0;
+  }
+
+  /* Label may wrap to two lines; the value stays pinned to the top-right so a
+     multi-line label never pushes its value out of alignment. */
+  .status-card__row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.6875rem;
+    line-height: 1.15rem;
+  }
+
+  .status-card__label {
+    min-width: 0;
+    color: color-mix(in oklch, var(--foreground) 62%, transparent);
+  }
+
+  .status-card__value {
+    flex-shrink: 0;
+    max-width: 55%;
+    text-align: right;
+    font-weight: 650;
+    color: var(--foreground);
+    /* Tabular figures stop short numeric values ("20", "8") jittering between
+       cards as the column of numbers aligns. */
+    font-variant-numeric: tabular-nums;
+  }
+
+  .report-doc__area {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 650;
+    color: var(--foreground);
+  }
+
+  .report-doc__area::before {
+    content: "";
+    width: 3px;
+    height: 1.1em;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: var(--primary);
+  }
+
+  .report-doc__finding {
+    font-weight: 600;
+    color: var(--foreground);
+  }
+
+  .report-doc__remark {
+    color: var(--muted-foreground);
+    line-height: 1.45;
+  }
+
+  /* Per-row accent: the chip in the Area cell takes the screening domain's
+     colour, keyed off the existing data-pdf-row value the PDF exporter already
+     reads. Falls back to --primary for any row without a match. */
+  .report-doc__tbody tr[data-pdf-row="physical"] .report-doc__area::before {
+    background: var(--domain-physical);
+  }
+
+  .report-doc__tbody tr[data-pdf-row="vision"] .report-doc__area::before {
+    background: var(--domain-vision);
+  }
+
+  .report-doc__tbody tr[data-pdf-row="hearing"] .report-doc__area::before {
+    background: var(--domain-hearing);
+  }
+
+  .report-doc__tbody tr[data-pdf-row="dental"] .report-doc__area::before {
+    background: var(--domain-oral);
+  }
+
+  .report-doc__tbody tr[data-pdf-row="immunization"] .report-doc__area::before {
+    background: var(--domain-immunization);
+  }
+
+  /* Wraps the summary table so the header tint and zebra rows read as one
+     document block rather than a bare <table>. */
+  .report-doc__table {
+    border-color: color-mix(in oklch, var(--border) 90%, transparent);
+  }
+
+  /* Mobile fallback cards — same document language as the table. */
+  .report-doc__card {
+    border-color: color-mix(in oklch, var(--border) 90%, transparent);
+    background: color-mix(in oklch, var(--muted) 22%, #ffffff);
+  }
+
+  .report-doc__card .report-doc__area::before {
+    height: 0.9em;
+  }
+
+  .report-doc__badge {
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  /* Student identity block: subtle inset panel instead of bare whitespace. */
+  .report-doc__identity {
+    border: 1px solid color-mix(in oklch, var(--border) 85%, transparent);
+    border-radius: 0.75rem;
+    background: color-mix(in oklch, var(--muted) 28%, #ffffff);
+    padding: 0.9rem 1rem;
+  }
+
+  /* Dotted frame reads as a "paste photo here" slot. */
+  .report-doc__photo {
+    border: 1.5px dashed color-mix(in oklch, var(--primary) 35%, var(--border));
+    border-radius: 0.6rem;
+    background: #ffffff;
+  }
+  
+
+  .report-doc__recommendations {
+    border: 1px solid color-mix(in oklch, var(--success) 28%, var(--border));
+    border-left: 3px solid var(--success);
+    border-radius: 0.5rem;
+    background: color-mix(in oklch, var(--success) 5%, #ffffff);
+  }
+
+  /* Signature block sits on a rule, like a real sign-off. */
+  .report-doc__signoff {
+    border-top: 1px solid color-mix(in oklch, var(--border) 90%, transparent);
+    padding-top: 0.75rem;
+  }
+}
+
+/* ==========================================================================
+   12. APPEARANCE / SETTINGS PANELS
+   ========================================================================== */
+
+@layer components {
+  /* Soft brand-tinted header so the panel reads as a distinct "card of
+     controls" rather than another block of form rows. */
+  .appearance-header {
+    background:
+      radial-gradient(
+        120% 140% at 0% 0%,
+        color-mix(in oklch, var(--primary) 12%, transparent) 0%,
+        transparent 60%
+      ),
+      radial-gradient(
+        100% 120% at 100% 0%,
+        color-mix(in oklch, var(--brand-green) 10%, transparent) 0%,
+        transparent 55%
+      ),
+      color-mix(in oklch, var(--muted) 35%, transparent);
+  }
+
+  /* Thin scrollbar for the option rails on narrow screens — the default
+     scrollbar eats too much of a 3-card row. */
+  .appearance-rail {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--border) 80%, transparent) transparent;
+  }
+
+  .appearance-rail::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .appearance-rail::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .appearance-rail::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: color-mix(in oklch, var(--border) 80%, transparent);
+  }
+
+  /* Selected option lifts slightly — a small, consistent confirmation that
+     works even when the check badge is scrolled out of view. */
+  .appearance-option[data-selected="true"] {
+    transform: translateY(-2px);
+  }
+
+  .appearance-option:hover {
+    transform: translateY(-2px);
+  }
+
+  .appearance-option {
+    transition:
+      transform 200ms ease,
+      box-shadow 200ms ease,
+      border-color 200ms ease;
+  }
+}
+
+/* ==========================================================================
+   13. HEALTH CHECK OVERVIEW
+   Mirrors the report's "document" feel: a raised paper surface, section
+   headers with a brand rule, and tiles that read as cards rather than flat
+   grey blocks.
+   ========================================================================== */
+
+@layer components {
+  .hc-shell {
+    background:
+      radial-gradient(
+        90% 60% at 100% 0%,
+        color-mix(in oklch, var(--primary) 7%, transparent) 0%,
+        transparent 60%
+      ),
+      radial-gradient(
+        70% 50% at 0% 0%,
+        color-mix(in oklch, var(--success) 6%, transparent) 0%,
+        transparent 55%
+      );
+  }
+
+  /* Raised "paper" panel, the same treatment .report-surface uses. */
+  .hc-panel {
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--card);
+    box-shadow:
+      0 1px 2px color-mix(in oklch, var(--foreground) 6%, transparent),
+      0 8px 24px -12px color-mix(in oklch, var(--foreground) 12%, transparent);
+  }
+
+  .hc-panel-head {
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in oklch, var(--muted) 40%, transparent);
+    padding: 0.875rem 1.25rem;
+  }
+
+  /* Same band, but for a <CardHeader> that already carries its own p-5 —
+     the utility wins on padding, so this only contributes the surface. */
+  .hc-panel-head:where(.hc-panel-head) {
+    border-radius: 0.75rem 0.75rem 0 0;
+  }
+
+  /* Tile used for every measurement / status cell. Replaces the flat
+     `bg-muted/40` blocks with a bordered, softly lifted card. */
+  .hc-tile {
+    border: 1px solid var(--border);
+    border-radius: 0.875rem;
+    background: color-mix(in oklch, var(--card) 70%, var(--muted) 30%);
+    padding: 1rem;
+    transition:
+      transform 200ms ease,
+      box-shadow 200ms ease,
+      border-color 200ms ease;
+  }
+
+  .hc-tile:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in oklch, var(--primary) 35%, var(--border));
+    box-shadow: 0 10px 24px -14px color-mix(in oklch, var(--foreground) 22%, transparent);
+  }
+
+  /* Accent stripe down the leading edge of a tile. */
+  .hc-tile--accent {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hc-tile--accent::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: 3px;
+    background: var(--primary);
+  }
+
+  /* Large numeral treatments — health score, BMI, acuity. */
+  .hc-figure {
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+
+  .hc-hero {
+    background:
+      radial-gradient(
+        120% 160% at 0% 0%,
+        color-mix(in oklch, var(--primary) 16%, transparent) 0%,
+        transparent 62%
+      ),
+      radial-gradient(
+        90% 130% at 100% 10%,
+        color-mix(in oklch, var(--success) 12%, transparent) 0%,
+        transparent 58%
+      ),
+      color-mix(in oklch, var(--card) 82%, var(--muted) 18%);
+  }
+
+  /* Section heading rule that echoes the report's `report-doc__heading`. */
+  .hc-rule {
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--primary) 55%, transparent) 0%,
+      transparent 70%
+    );
+  }
+}
+
+
+/* ==========================================================================
+   12. LOGIN PAGE
+   ========================================================================== */
+
+@layer components {
+  .login-shell {
+    position: relative;
+    isolation: isolate;
+    min-height: 100svh;
+    width: 100%;
+    overflow: hidden;
+    background:
+      radial-gradient(
+        circle at 12% 18%,
+        color-mix(in oklch, var(--color-brand-blue) 26%, transparent),
+        transparent 45%
+      ),
+      radial-gradient(
+        circle at 88% 78%,
+        color-mix(in oklch, var(--color-brand-green) 24%, transparent),
+        transparent 45%
+      ),
+      linear-gradient(
+        160deg,
+        color-mix(in oklch, var(--color-primary) 12%, var(--color-background)),
+        var(--color-background) 60%
+      );
+  }
+
+  /* Slow-drifting colour blobs behind everything. */
+  .login-aurora {
+    position: absolute;
+    z-index: -2;
+    border-radius: 999px;
+    filter: blur(70px);
+    opacity: 0.5;
+    pointer-events: none;
+    will-change: transform;
+  }
+
+  .login-aurora--blue {
+    width: 34rem;
+    height: 34rem;
+    top: -8rem;
+    left: -6rem;
+    background: color-mix(in oklch, var(--color-brand-blue) 55%, transparent);
+    animation: login-drift-a 19s ease-in-out infinite alternate;
+  }
+
+  .login-aurora--green {
+    width: 28rem;
+    height: 28rem;
+    right: -7rem;
+    bottom: -6rem;
+    background: color-mix(in oklch, var(--color-brand-green) 48%, transparent);
+    animation: login-drift-b 23s ease-in-out infinite alternate;
+  }
+
+  .login-aurora--violet {
+    width: 22rem;
+    height: 22rem;
+    top: 45%;
+    right: 22%;
+    background: color-mix(in oklch, var(--color-info) 34%, transparent);
+    animation: login-drift-c 27s ease-in-out infinite alternate;
+  }
+
+  /* Faint technical grid for depth. */
+  .login-grid {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+      linear-gradient(
+        to right,
+        color-mix(in oklch, var(--color-foreground) 7%, transparent) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        to bottom,
+        color-mix(in oklch, var(--color-foreground) 7%, transparent) 1px,
+        transparent 1px
+      );
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 78%);
+    -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 78%);
+  }
+
+  .login-stage {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    width: 100%;
+    max-width: 68rem;
+    margin-inline: auto;
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid color-mix(in oklch, var(--color-border) 85%, transparent);
+    border-radius: 1.75rem;
+    background: color-mix(in oklch, var(--color-card) 72%, transparent);
+    box-shadow:
+      0 40px 90px -50px
+        color-mix(in oklch, var(--color-foreground) 75%, transparent),
+      0 2px 0 0 color-mix(in oklch, var(--color-card) 60%, transparent) inset;
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+  }
+
+  @media (min-width: 900px) {
+    .login-stage {
+      grid-template-columns: 1.05fr 0.95fr;
+    }
+  }
+
+  .login-brand {
+    position: relative;
+    display: none;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 1.5rem;
+    overflow: hidden;
+    padding: 2.25rem;
+    background:
+      radial-gradient(
+        circle at 78% 16%,
+        color-mix(in oklch, var(--color-brand-green) 22%, transparent),
+        transparent 42%
+      ),
+      linear-gradient(
+        150deg,
+        color-mix(in oklch, var(--color-primary) 16%, transparent),
+        transparent 60%
+      );
+  }
+
+  @media (min-width: 900px) {
+    .login-brand {
+      display: flex;
+      border-right: 1px solid var(--color-border);
+    }
+  }
+
+  .login-wordmark {
+    font-family: var(--app-font-family);
+    font-size: 1.35rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--color-brand-blue);
+  }
+
+  .login-wordmark em {
+    font-style: normal;
+    color: var(--color-brand-green);
+  }
+
+  .login-tagline {
+    margin-top: 0.1rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.02em;
+    color: var(--color-muted-foreground);
+  }
+
+  .login-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    align-self: flex-start;
+    border: 1px solid
+      color-mix(in oklch, var(--color-primary) 24%, var(--color-border));
+    border-radius: 999px;
+    padding: 0.3rem 0.65rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+    background: color-mix(in oklch, var(--color-primary) 8%, transparent);
+  }
+
+  .login-feature {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    padding: 0.55rem 0.7rem;
+    font-size: 0.8rem;
+    color: var(--color-foreground);
+    background: color-mix(in oklch, var(--color-card) 55%, transparent);
+    transition:
+      border-color 200ms ease,
+      transform 200ms ease;
+  }
+
+  .login-feature:hover {
+    border-color: color-mix(in oklch, var(--color-primary) 35%, var(--color-border));
+  }
+
+  /* A horizontal row no longer fits a 12.5rem card, so inside the swiper the
+     icon sits above the label. Scoped to .login-swiper so the standalone
+     .login-feature rows elsewhere on the page keep their row layout. */
+  .login-swiper__slide .login-feature {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    height: 100%;
+    padding: 0.8rem 0.85rem;
+    font-size: 0.78rem;
+    line-height: 1.3;
+  }
+
+  .login-swiper__slide .login-feature__dot {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.6rem;
+  }
+
+  /* --------------------------------------------------------------------------
+     Infinite horizontal swiper.
+
+     A fixed card width is the contract between JS and CSS: the JS multiplies
+     one card's width by the active index to produce the translate, so the
+     width MUST be a constant. Variable or content-sized cards would desync the
+     two and the track would drift out of alignment after the first advance.
+
+     Spacing therefore comes from a per-card margin, never `gap`. With `gap` the
+     track is N cards + N-1 gaps wide, so translating by exactly N card widths
+     would land a full gap short of the next copy and the loop would visibly
+     hitch on every cycle. ITEM_WIDTH in HighlightSwiper is card + margin.
+     -------------------------------------------------------------------------- */
+  .login-swiper {
+    position: relative;
+    overflow: hidden;
+    padding: 0.35rem 0;
+    /* Fade cards as they leave the window so they dissolve at both edges
+       instead of being hard-clipped by the container. */
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 8%,
+      black 92%,
+      transparent
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 8%,
+      black 92%,
+      transparent
+    );
+    touch-action: pan-x;
+    cursor: grab;
+  }
+
+  .login-swiper:active {
+    cursor: grabbing;
+  }
+
+  .login-swiper__track {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    width: max-content;
+  }
+
+  .login-swiper__slide {
+    position: relative;
+    flex: 0 0 auto;
+    /* Card 12.5rem + 0.5rem margin = 13rem. Must match ITEM_WIDTH. */
+    width: 12.5rem;
+    margin-right: 0.5rem;
+    /* Fixed so every card is identical — a variable height would desync the
+       JS translate (which is index * ITEM_WIDTH) from the layout. */
+    height: 7.5rem;
+    display: flex;
+    align-items: stretch;
+    transition:
+      opacity 450ms ease,
+      scale 450ms ease;
+  }
+
+  /* Neighbouring cards recede while the active one is front and centre. */
+  .login-swiper__slide:not(.login-swiper__slide--active) {
+    opacity: 0.5;
+    scale: 0.96;
+  }
+
+  /* Accent bar in the active domain colour, revealed only on the current card.
+     Horizontal layout puts it along the top edge of the card. */
+  .login-swiper__slide::before {
+    content: "";
+    position: absolute;
+    top: -0.35rem;
+    left: 0;
+    right: 0;
+    height: 3px;
+    border-radius: 999px;
+    background: var(--marquee-accent, var(--color-primary));
+    opacity: 0;
+    scale: 0.4 1;
+    transform-origin: center;
+    transition:
+      opacity 400ms ease,
+      scale 400ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .login-swiper__slide--active::before {
+    opacity: 1;
+    scale: 1 1;
+  }
+
+  /* Progress rail: one dot per highlight, the active one stretched into a bar. */
+  .login-swiper__rail {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-top: 0.6rem;
+  }
+
+  .login-swiper__pip {
+    width: 0.4rem;
+    height: 0.25rem;
+    border-radius: 999px;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    background: color-mix(in oklch, var(--color-muted-foreground) 45%, transparent);
+    transition:
+      width 400ms cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 300ms ease;
+  }
+
+  .login-swiper__pip--active {
+    width: 1.5rem;
+    background: var(--marquee-accent, var(--color-primary));
+  }
+
+  .login-swiper__pip:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  .login-feature__dot {
+    display: grid;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex-shrink: 0;
+    place-items: center;
+    border-radius: 0.55rem;
+    color: var(--marquee-accent, var(--color-primary));
+    background: color-mix(
+      in oklch,
+      var(--marquee-accent, var(--color-primary)) 14%,
+      transparent
+    );
+  }
+
+  /* One tone class per domain drives the icon chip, the slide's left accent
+     bar and the active progress pip, so they can never disagree on colour. */
+  .login-tone--physical {
+    --marquee-accent: var(--color-domain-physical);
+  }
+
+  .login-tone--vision {
+    --marquee-accent: var(--color-domain-vision);
+  }
+
+  .login-tone--hearing {
+    --marquee-accent: var(--color-domain-hearing);
+  }
+
+  .login-tone--oral {
+    --marquee-accent: var(--color-domain-oral);
+  }
+
+  .login-tone--immunization {
+    --marquee-accent: var(--color-domain-immunization);
+  }
+
+  .login-form-side {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.75rem 1.25rem;
+  }
+
+  @media (min-width: 640px) {
+    .login-form-side {
+      padding: 2.5rem 2rem;
+    }
+  }
+
+  .login-note {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.9rem;
+    padding: 0.7rem 0.8rem;
+    font-size: 0.78rem;
+    line-height: 1.25rem;
+    color: var(--color-muted-foreground);
+    background: color-mix(in oklch, var(--color-muted) 45%, transparent);
+  }
+
+  .login-note__title {
+    font-weight: 650;
+    color: var(--color-foreground);
+  }
+
+  /* Thin animated ring pulsing around the orbit centre. */
+  .login-pulse-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 16cqw;
+    height: 16cqw;
+    margin: -8cqw 0 0 -8cqw;
+    border-radius: 999px;
+    border: 1.5px solid
+      color-mix(in oklch, var(--color-primary) 45%, transparent);
+    animation: login-pulse 3.4s ease-out infinite;
+    pointer-events: none;
+  }
+
+  .login-pulse-ring--delay {
+    animation-delay: 1.7s;
+  }
+}
+
+@keyframes login-drift-a {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  to {
+    transform: translate3d(6rem, 3rem, 0) scale(1.15);
+  }
+}
+
+@keyframes login-drift-b {
+  from {
+    transform: translate3d(0, 0, 0) scale(1.1);
+  }
+
+  to {
+    transform: translate3d(-5rem, -4rem, 0) scale(0.95);
+  }
+}
+
+@keyframes login-drift-c {
+  from {
+    transform: translate3d(0, 0, 0) scale(0.9);
+  }
+
+  to {
+    transform: translate3d(3rem, -5rem, 0) scale(1.2);
+  }
+}
+
+@keyframes login-pulse {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.7;
+  }
+
+  70% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-aurora,
+  .login-pulse-ring {
+    animation: none;
+  }
+
+  .login-aurora--violet {
+    display: none;
+  }
+
+  .login-feature {
+    transition: none;
+  }
+
+  /* Reduced motion: stop the auto-advance and the spring, but KEEP the swiper
+     draggable — the user still controls it, so no information is lost. Only the
+     unsolicited movement is suppressed. */
+  .login-swiper,
+  .login-swiper__slide,
+  .login-swiper__slide::before,
+  .login-swiper__pip {
+    transition-duration: 1ms;
+  }
+}
+
+/* ==========================================================================
+   14. HEALTH SCREENING — "Clinical Slate" card system
+
+   ========================================================================== */
+
+@layer components {
+
+  .gs-panel {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid color-mix(in oklch, var(--border) 90%, transparent);
+    border-radius: 1rem;
+    background: linear-gradient(
+      180deg,
+      var(--card) 0%,
+      color-mix(in oklch, var(--card) 92%, var(--muted) 8%) 100%
+    );
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklch, var(--card) 70%, transparent),
+      0 12px 28px -22px color-mix(in oklch, var(--foreground) 45%, transparent);
+  }
+
+  .gs-panel::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      var(--primary),
+      color-mix(in oklch, var(--primary) 30%, transparent) 65%,
+      transparent
+    );
+    opacity: 0.85;
+  }
+
+  /* Panel head — icon chip + title over a tinted band. */
+  .gs-panel__head {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid color-mix(in oklch, var(--border) 75%, transparent);
+    background: color-mix(in oklch, var(--muted) 32%, transparent);
+  }
+
+  .gs-panel__icon {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    flex-shrink: 0;
+    border-radius: 0.6rem;
+    background: color-mix(in oklch, var(--primary) 14%, transparent);
+    color: var(--primary);
+  }
+
+  .gs-panel__title {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: var(--foreground);
+  }
+
+  .gs-panel__sub {
+    font-size: 0.6875rem;
+    color: var(--muted-foreground);
+  }
+
+  .gs-panel__body {
+    padding: 1rem;
+  }
+
+  /* Stat tile — the core readout. Icon in the corner, small-caps label, large
+     tabular figure. `tabular-nums` matters: a column of these jitters as digits
+     change width. */
+  .gs-stat {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+    padding: 0.75rem;
+    border: 1px solid color-mix(in oklch, var(--border) 85%, transparent);
+    border-radius: 0.75rem;
+    background: color-mix(in oklch, var(--muted) 26%, transparent);
+    transition:
+      border-color 180ms ease,
+      background-color 180ms ease,
+      transform 180ms ease;
+  }
+
+  .gs-stat:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in oklch, var(--primary) 32%, var(--border));
+    background: color-mix(in oklch, var(--primary) 5%, transparent);
+  }
+
+  .gs-stat__label {
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+
+  .gs-stat__value {
+    font-size: 1.0625rem;
+    font-weight: 650;
+    line-height: 1.2;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .gs-stat__meta {
+    font-size: 0.6875rem;
+    color: var(--muted-foreground);
+  }
+
+  /* Accent variant for the one reading that matters most in a group. */
+  .gs-stat--accent {
+    border-color: color-mix(in oklch, var(--primary) 30%, transparent);
+    background: color-mix(in oklch, var(--primary) 7%, transparent);
+  }
+
+  /* Avatar — gradient disc with a soft ring; initials stay centred. */
+  .gs-avatar {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 999px;
+    background: linear-gradient(
+      140deg,
+      var(--primary),
+      color-mix(in oklch, var(--primary) 45%, #0ea5e9)
+    );
+    color: var(--primary-foreground);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    box-shadow:
+      0 0 0 3px color-mix(in oklch, var(--primary) 12%, transparent),
+      0 10px 22px -14px color-mix(in oklch, var(--primary) 70%, transparent);
+  }
+
+  /* Identity chip — inline id / code. */
+  .gs-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    max-width: 100%;
+    padding: 0.15rem 0.5rem;
+    border: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
+    border-radius: 999px;
+    background: color-mix(in oklch, var(--muted) 40%, transparent);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Info row (profile card) — icon + stacked label/value. The row-level hover
+     lets the eye scan a long list by target instead of reading every line. */
+  .gs-info {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    min-width: 0;
+    padding: 0.5rem 0.625rem;
+    border: 1px solid transparent;
+    border-radius: 0.625rem;
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease;
+  }
+
+  .gs-info:hover {
+    background: color-mix(in oklch, var(--primary) 6%, transparent);
+    border-color: color-mix(in oklch, var(--primary) 22%, transparent);
+  }
+
+  .gs-info__icon {
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex-shrink: 0;
+    border-radius: 0.5rem;
+    background: color-mix(in oklch, var(--muted) 55%, transparent);
+    color: var(--muted-foreground);
+  }
+
+  .gs-info__label {
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+
+  .gs-info__value {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--foreground);
+  }
+
+  /* Muted "no data" state — dimmed + italic so a blank field is never mistaken
+     for a real clinical finding. */
+  .gs-empty {
+    font-style: italic;
+    color: color-mix(in oklch, var(--muted-foreground) 65%, transparent);
+  }
+
+  /* ---- Readout: the COMPACT form of a stat -------------------------------
+     Designed for the 300px sidebar, where a grid of `.gs-stat` tiles becomes
+     both cramped and very tall. A readout puts the label and value on ONE
+     line with a status rail, so 8 readings fit in roughly the height of 3
+     tiles. Label is micro-caps, value is semibold + tabular, and the value
+     is right-aligned so the digits form a scannable column. */
+  .gs-readout {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    padding: 0.3rem 0.5rem;
+    border-radius: 0.4rem;
+    border-left: 2px solid transparent;
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease;
+  }
+
+  .gs-readout:hover {
+    background: color-mix(in oklch, var(--primary) 7%, transparent);
+  }
+
+  /* Filled readings get a brand rail; blanks stay neutral so a glance at the
+     rail shows at a glance which measurements are actually present. */
+  .gs-readout--filled {
+    border-left-color: color-mix(in oklch, var(--primary) 55%, transparent);
+  }
+
+  .gs-readout--blank {
+    border-left-color: color-mix(in oklch, var(--muted-foreground) 30%, transparent);
+  }
+
+  .gs-readout__label {
+    min-width: 0;
+    flex: 1;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .gs-readout__value {
+    flex-shrink: 0;
+    max-width: 60%;
+    font-size: 0.75rem;
+    font-weight: 650;
+    text-align: right;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Micro group heading ------------------------------------------------ */
+  .gs-readout__group {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.5rem 0.25rem;
+    font-size: 0.5625rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+
+  .gs-readout__group::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: color-mix(in oklch, var(--border) 70%, transparent);
+  }
+
+  /* ---- Sub-panel: a nested block inside a panel -------------------------
+     Used for the OD / OS / OU acuity blocks. A colour rail down the leading
+     edge lets each eye be picked out at a glance, and the rail can be tinted
+     per eye so left/right are never confused. */
+  .gs-subpanel {
+    position: relative;
+    overflow: hidden;
+    padding: 0.75rem;
+    border: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
+    border-radius: 0.75rem;
+    background: color-mix(in oklch, var(--muted) 22%, transparent);
+    transition:
+      border-color 180ms ease,
+      background-color 180ms ease;
+  }
+
+  .gs-subpanel::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: 3px;
+    background: var(--primary);
+    opacity: 0.8;
+  }
+
+  .gs-subpanel:hover {
+    border-color: color-mix(in oklch, var(--primary) 30%, var(--border));
+    background: color-mix(in oklch, var(--primary) 4%, transparent);
+  }
+
+  /* Per-eye rail tints — left/right stay visually distinct. */
+  .gs-subpanel--od::before {
+    background: var(--info);
+  }
+
+  .gs-subpanel--os::before {
+    background: var(--primary);
+  }
+
+  .gs-subpanel--ou::before {
+    background: var(--success);
+  }
+
+  .gs-subpanel__head {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+    padding-left: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: var(--foreground);
+  }
+
+  /* ---- Count tile ---------------------------------------------------------
+     For NUMERIC findings (caries count, filled teeth, …) rather than
+     label/value pairs. The figure is the hero, so it gets the large tabular
+     slot; the label sits above it in micro-caps. A zero count fades out, which
+     is what makes a "6 zeros, 1 problem" summary readable at a glance. */
+  .gs-count {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+    padding: 0.6rem 0.65rem;
+    border: 1px solid transparent;
+    border-radius: 0.6rem;
+    background: color-mix(in oklch, currentColor 8%, transparent);
+    transition:
+      transform 180ms ease,
+      border-color 180ms ease;
+  }
+
+  .gs-count:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in oklch, currentColor 35%, transparent);
+  }
+
+  .gs-count__figure {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .gs-count__label {
+    font-size: 0.5625rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    opacity: 0.75;
+  }
+
+  /* Nothing found for this category — recede it. */
+  .gs-count--zero {
+    color: var(--muted-foreground);
+    opacity: 0.55;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .gs-stat,
+    .gs-info,
+    .gs-readout,
+    .gs-subpanel,
+    .gs-count {
+      transition: none;
+    }
+
+    .gs-stat:hover,
+    .gs-count:hover {
+      transform: none;
+    }
+  }
+}
+
+
+/* ==========================================================================
+   STUDENT LIST — responsive table/card shell
+   Scoped to .sl-root so no other table is affected. On small screens the
+   table collapses into stacked cards using each cell's data-label as a
+   heading (see students-data-table.jsx), so nothing is hidden or lost.
+   ========================================================================== */
+
+.sl-root {
+  --sl-radius: 0.875rem;
+  --sl-ring: color-mix(in srgb, var(--primary) 55%, transparent);
+  /* Single source for the grid colour so header/body/footer stay in sync. */
+  --sl-grid: var(--border);
+  --sl-grid-soft: color-mix(in srgb, var(--border) 100%, transparent);
+}
+
+.sl-shell {
+  border-radius: var(--sl-radius);
+  border: 1px solid var(--sl-grid);
+  /* Sits a step above the page background so the shell edge is visible. */
+  background: var(--card);
+  overflow: hidden;
+  box-shadow: 0 1px 2px hsl(222 47% 11% / 0.04),
+    0 8px 24px -12px hsl(222 47% 11% / 0.12);
+}
+
+/* Soft brand wash behind the header so the table reads as one surface. */
+.sl-head {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--primary) 6%, transparent),
+    transparent
+  );
+}
+
+.sl-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  /* Fixed layout makes every column take its width from the <colgroup>
+     instead of from its own content. Under the default auto layout the browser
+     sizes each column from its widest cell, so a long header label or a long
+     truncated value can settle on a different width than the cells beneath it
+     - which is what makes values appear to sit under the wrong heading. */
+  table-layout: fixed;
+}
+
+/* Both header and body cells clip. Header labels are uppercase with
+   `white-space: nowrap`, so an unclipped long heading overflows its cell and
+   leaves the header row wider than the body beneath it. */
+.sl-table td,
+.sl-table th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The select rail. DataTable renders it as its own leading cell rather than as
+   a column, so these styles must not assume it is `:first-child` styling that
+   could drift: both cells carry .sl-select, which pins them to the same width
+   and the same centring so the select-all checkbox sits exactly above the row
+   checkboxes. */
+.sl-table th.sl-select,
+.sl-table td.sl-select {
+  width: 3.5rem;
+  text-align: center;
+  vertical-align: middle;
+  padding-inline: 0;
+}
+
+/* The Checkbox renders as a block-level flex box (`display: flex`), and
+   `text-align` cannot centre a block-level box - it only centres inline
+   content. Auto inline margins centre a block box that has a definite width,
+   which is what actually lands the checkbox in the middle of the rail. The
+   `justify-content` covers the case where a caller wraps the checkbox in an
+   element of its own, which is already full width. */
+.sl-table th.sl-select > *,
+.sl-table td.sl-select > * {
+  display: flex;
+  justify-content: center;
+  margin-inline: auto;
+}
+
+.sl-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--card);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  padding-block: 0.875rem;
+  border-bottom: 1px solid var(--sl-grid);
+}
+
+.sl-table thead th + th,
+.sl-row td + td {
+  border-left: 1px solid var(--sl-grid-soft);
+}
+
+.sl-table thead th:last-child,
+.sl-row td:last-child {
+  border-left: 0;
+}
+
+/* Cell borders, all four sides. The outer edges that coincide with the shell
+   border are dropped, otherwise the line renders twice and looks heavier on
+   that edge than on the others. */
+.sl-row td {
+  border-right: 1px solid var(--sl-grid-soft);
+}
+
+.sl-row td:last-child {
+  border-right: 0;
+}
+
+.sl-table thead th {
+  border-right: 1px solid var(--sl-grid-soft);
+}
+
+.sl-table thead th:last-child {
+  border-right: 0;
+}
+
+/* A stronger rule directly beneath the header than between body rows, so the
+   column labels stay visually bound to the data they head. */
+.sl-table thead th {
+  border-bottom: 2px solid
+    color-mix(in srgb, var(--primary) 22%, var(--border));
+}
+
+/* Row hover + a left accent bar that slides in.
+   The bar lives on the first CELL, not on the row. A pseudo-element on a <tr>
+   is a child of a table-row, and the browser wraps that generated box in an
+   anonymous table-cell - which adds a phantom leading column. The result was a
+   body grid one column wider than the header: the header's first cell sat in
+   column 1 while every body cell started in column 2, so the checkbox column
+   looked empty and all values appeared under the wrong heading. A <td> already
+   is a table cell, so its pseudo-element stays inside the cell and no extra
+   column is created. */
+.sl-row {
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.sl-row > td:first-child {
+  position: relative;
+}
+
+.sl-row > td:first-child::before {
+  content: "";
+  position: absolute;
+  inset-block: 0.25rem;
+  inset-inline-start: 0;
+  width: 3px;
+  border-radius: 0 999px 999px 0;
+  background: var(--primary);
+  opacity: 0;
+  transform: scaleY(0.4);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.sl-row:hover td {
+  background: color-mix(in srgb, var(--primary) 7%, transparent);
+}
+
+.sl-row:hover {
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+.sl-row:hover > td:first-child::before,
+.sl-row:focus-visible > td:first-child::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+.sl-row:focus-visible {
+  outline: 2px solid var(--sl-ring);
+  outline-offset: -2px;
+}
+
+.sl-row td {
+  padding-block: 0.8125rem;
+  border-bottom: 1px solid var(--sl-grid);
+  vertical-align: middle;
+}
+
+/* Subtle zebra banding so long lists stay readable across the columns.
+   Declared after the hover rule so the hover tint wins on interaction. */
+.sl-row:nth-child(even) td {
+  background: color-mix(in srgb, var(--muted) 26%, transparent);
+}
+
+.sl-row:last-child td {
+  border-bottom: 0;
+}
+
+/* Numeric / ID columns read better tabular-aligned. */
+.sl-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Initials avatar. Geometry only - the per-student tint is supplied by a
+   utility class on the element, because a background declared here (this file
+   is authored after the Tailwind layers) would win and flatten every avatar
+   to the same colour. */
+.sl-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: none;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 24%, transparent);
+}
+
+.sl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--muted) 70%, transparent);
+  color: var(--muted-foreground);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 80%, transparent);
+}
+
+/* Section sits beside the class chip, so it is deliberately quieter and
+   rendered as a monospaced tag to read as a code-like value. */
+.sl-chip--section {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.sl-chip-dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 999px;
+  flex: none;
+}
+
+/* Sticky footer keeps paging reachable on long lists. */
+.sl-foot {
+  position: sticky;
+  bottom: 0;
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  backdrop-filter: blur(6px);
+  border-top: 1px solid var(--border);
+}
+
+/* The Table primitive wraps the table in an overflow-x-auto div, so a
+   position: sticky header only has something to stick to once the block
+   itself can also scroll vertically. Capping the height keeps the header and
+   the footer reachable on long lists without hiding any data. */
+.sl-shell > div {
+  max-height: min(70vh, 44rem);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.sl-shell > div::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.sl-shell > div::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+.sl-shell > div::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--primary) 50%, transparent);
+}
+
+.sl-shell > div::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Slim, themed scrollbar for the scrollable table region. */
+.sl-scroll {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.sl-scroll::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.sl-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+.sl-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--primary) 50%, transparent);
+}
+
+.sl-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Bulk-action bar: slides down when a selection exists. */
+.sl-bulk {
+  animation: sl-slide 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  background: color-mix(in srgb, var(--primary) 7%, transparent);
+}
+
+/* Respect a reduced-motion preference: the row accent and the bulk bar would
+   otherwise animate for users who have asked the OS for calm UI. */
+@media (prefers-reduced-motion: reduce) {
+  .sl-row,
+  .sl-row > td:first-child::before,
+  .sl-bulk {
+    transition: none;
+    animation: none;
+  }
+
+  .sl-row:hover,
+  .sl-row:focus-visible {
+    transform: none;
+  }
+}
+
+@keyframes sl-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- Responsive: table rows become cards below `md` ---------- */
+@media (max-width: 767px) {
+  .sl-table thead {
+    display: none;
+  }
+
+  .sl-table,
+  .sl-table tbody,
+  .sl-table tr,
+  .sl-table td {
+    display: block;
+    width: 100%;
+  }
+
+  /* Card mode stacks the cells, so the fixed layout, the <colgroup> widths and
+     the ellipsis clipping that go with them no longer apply. */
+  .sl-table col {
+    width: auto;
+  }
+
+  .sl-table td {
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .sl-table tr.sl-row {
+    margin: 0.75rem;
+    width: auto;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border);
+    background: var(--card);
+    box-shadow: 0 1px 2px hsl(222 47% 11% / 0.05);
+    overflow: hidden;
+  }
+
+  /* Cells stack vertically in card mode, so column separators
+     would read as stray vertical rules - drop them. */
+  .sl-table thead th + th,
+  .sl-table tr.sl-row td + td {
+    border-left: 0;
+  }
+
+  /* In card mode each cell becomes a label/value line, so the grid
+     borders and the zebra would show up as stray boxes inside a card.
+     Reset both and let the card border alone define the edge. */
+  .sl-table tr.sl-row td {
+    border-left: 0;
+    border-right: 0;
+  }
+
+  .sl-table tr.sl-row:nth-child(even) td {
+    background: transparent;
+  }
+
+  .sl-table tr.sl-row td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 0.875rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  }
+
+  /* The select rail is not a data column, so it keeps no fixed width once the
+     cells stack - it becomes a full-width row holding just the checkbox. The
+     desktop `td.sl-select` rule is more specific, so this must be repeated. */
+  .sl-table tr.sl-row td.sl-select {
+    width: auto;
+    justify-content: flex-start;
+  }
+
+  /* Auto inline margins are what centre the checkbox in the fixed-width rail;
+     in the stacked card the row is full width, so the checkbox aligns with the
+     card's other content instead of floating in the middle. */
+  .sl-table tr.sl-row td.sl-select > * {
+    margin-inline: 0;
+  }
+
+  .sl-table tr.sl-row td:last-child {
+    border-bottom: 0;
+  }
+
+  /* Label comes from the cell's data-label attribute. */
+  .sl-table tr.sl-row td::before {
+    content: attr(data-label);
+    flex: none;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+
+  /* The name cell is the card headline, so it drops its label. */
+  .sl-table tr.sl-row td[data-label="Name"] {
+    justify-content: flex-start;
+    padding-block: 0.75rem;
+    background: color-mix(in srgb, var(--primary) 4%, transparent);
+  }
+
+  .sl-table tr.sl-row td[data-label="Name"]::before {
+    content: none;
+  }
+
+  .sl-table tr.sl-row td[data-label=""]::before,
+  .sl-table tr.sl-row td:not([data-label])::before {
+    content: none;
+  }
+
+  .sl-row > td:first-child::before {
+    /* The accent bar is a desktop affordance. In card mode the first cell's
+       pseudo-element can carry the data-label, so the bar's box styling is
+       reset rather than the pseudo-element being hidden outright. */
+    position: static;
+    inset: auto;
+    width: auto;
+    background: none;
+    border-radius: 0;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sl-row,
+  .sl-row > td:first-child::before,
+  .sl-bulk {
+    transition: none;
+    animation: none;
+  }
+}
+
+
+/* ==========================================================================
+   STUDENT OVERVIEW CHARTS
+   A presentation layer for the dashboard charts (see
+   components/dashboard/student-overview-charts.jsx). Scoped to .soc-* so no
+   other card or chart is affected, and built from the existing theme tokens
+   via color-mix so it follows light/dark automatically. Recharts already
+   animates bars, pies and areas on mount, so nothing here relies on a CSS
+   keyframe to make a chart visible.
+   ========================================================================== */
+
+.soc-card {
+  --soc-radius: 1.125rem;
+  position: relative;
+  border-radius: var(--soc-radius);
+  border-color: color-mix(in srgb, var(--border) 92%, transparent);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--primary) 5%, transparent) 0%,
+      transparent 46%
+    ),
+    var(--card);
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--foreground) 4%, transparent),
+    0 14px 34px -20px color-mix(in srgb, var(--foreground) 22%, transparent);
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms ease,
+    border-color 220ms ease;
+}
+
+/* A hairline of brand colour along the top edge, faded at both ends. */
+.soc-card::before {
+  content: "";
+  position: absolute;
+  inset-inline: 12%;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--primary) 55%, transparent),
+    transparent
+  );
+  pointer-events: none;
+}
+
+.soc-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--primary) 26%, var(--border));
+  box-shadow:
+    0 2px 5px color-mix(in srgb, var(--foreground) 6%, transparent),
+    0 24px 48px -24px color-mix(in srgb, var(--primary) 34%, transparent);
+}
+
+.soc-head {
+  gap: 0.75rem;
+}
+
+/* Rounded icon chip that echoes the card's accent line. */
+.soc-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: none;
+  border-radius: 0.75rem;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+/* The plot surface: a soft brand wash plus a fading dot grid, so the chart sits
+   on a surface instead of floating on flat card white. */
+.soc-plot {
+  position: relative;
+  border-radius: 0.875rem;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      130% 110% at 50% -10%,
+      color-mix(in srgb, var(--primary) 8%, transparent),
+      transparent 62%
+    ),
+    color-mix(in srgb, var(--muted) 20%, transparent);
+}
+
+.soc-plot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    color-mix(in srgb, var(--muted-foreground) 26%, transparent) 1px,
+    transparent 0
+  );
+  background-size: 18px 18px;
+  opacity: 0.55;
+  pointer-events: none;
+  mask-image: linear-gradient(180deg, transparent, #000 42%);
+}
+
+/* Lift the chart above the dot grid. */
+.soc-plot > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Axes and gridlines, themed instead of Recharts' defaults. */
+.soc-plot .soc-grid line {
+  stroke: color-mix(in srgb, var(--border) 85%, transparent);
+}
+
+.soc-plot .soc-axis text {
+  fill: color-mix(in srgb, var(--muted-foreground) 92%, transparent);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* A gentle lift on hover, applied through a filter rather than a transform so
+   there is no transform-origin to get wrong. */
+.soc-plot .recharts-bar-rectangle path,
+.soc-plot .recharts-sector {
+  filter: drop-shadow(
+    0 6px 10px color-mix(in srgb, var(--foreground) 10%, transparent)
+  );
+  transition: filter 200ms ease, opacity 200ms ease;
+}
+
+.soc-plot .recharts-bar-rectangle:hover path {
+  filter: drop-shadow(
+      0 8px 16px color-mix(in srgb, var(--primary) 40%, transparent)
+    )
+    brightness(1.04);
+}
+
+.soc-plot .recharts-dot {
+  stroke: var(--card);
+  stroke-width: 2;
+}
+
+/* ---------------- Tooltip ---------------- */
+
+.soc-tip {
+  min-width: 9rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  background: color-mix(in srgb, var(--popover) 96%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent),
+    0 16px 32px -16px color-mix(in srgb, var(--foreground) 40%, transparent);
+  animation: soc-tip-in 140ms ease-out both;
+}
+
+.soc-tip__label {
+  margin: 0 0 0.375rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.soc-tip__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.soc-tip__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.soc-tip__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: none;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--popover) 70%, transparent);
+}
+
+.soc-tip__name {
+  color: var(--muted-foreground);
+}
+
+.soc-tip__value {
+  margin-left: auto;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+}
+
+@keyframes soc-tip-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------------- Legend tiles ---------------- */
+
+.soc-legend {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.soc-legend__row {
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--muted) 26%, transparent);
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    transform 180ms ease;
+}
+
+.soc-legend__row:hover {
+  transform: translateX(2px);
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
+}
+
+.soc-legend__track {
+  margin-top: 0.375rem;
+  height: 0.25rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--muted-foreground) 18%, transparent);
+}
+
+.soc-legend__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* The big number in the middle of the donut. */
+.soc-donut-center {
+  text-shadow: 0 1px 12px color-mix(in srgb, var(--foreground) 12%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .soc-card,
+  .soc-card:hover,
+  .soc-plot .recharts-bar-rectangle path,
+  .soc-plot .recharts-sector,
+  .soc-legend__row,
+  .soc-legend__row:hover,
+  .soc-legend__fill,
+  .soc-tip {
+    transition: none;
+    animation: none;
+  }
+
+  .soc-card:hover,
+  .soc-legend__row:hover {
+    transform: none;
   }
 }

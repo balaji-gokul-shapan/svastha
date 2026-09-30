@@ -8,24 +8,18 @@ import { getInitialScreening } from "@/lib/features/getInitialScreening";
 import { getDentalScreening } from "@/lib/features/getDentalScreening";
 import { getVisionScreening } from "@/lib/features/getVisionScreening";
 
-/**
- * Custom hook that loads all screening records for one student.
- *
- * Usage (call it like any other hook — NOT as a plain function):
- *   const { generalScreeningRecord, hearingScreeningRecord, ... } =
- *     useScreeningRecord({ getId: studentId });
- */
-export function useScreeningRecord({ getId, campId } = {}) {
+export function useScreeningRecord({
+  getId,
+  campId,
+  class: classFilter,
+  section: sectionFilter,
+} = {}) {
   const dispatch = useAppDispatch();
   const normalizedId = String(getId ?? "").trim();
   const hasStudent = Boolean(normalizedId);
-
-  // Camp ids are part of the cache keys, so records fetched for one camp
-  // never collide with records fetched for another (mirrors the screening
-  // pages' ["<test>-screening", studentId, selectedCampId] keys).
   const selectedCampId = String(campId ?? "").trim();
-  console.log(selectedCampId,"selectedCampId");
-  
+  console.log(selectedCampId, "selectedCampId");
+console.log(classFilter, sectionFilter, "dsdsdsdsdsdsd" );
 
   // Hearing screening for this student.
   const {
@@ -36,7 +30,10 @@ export function useScreeningRecord({ getId, campId } = {}) {
     queryKey: ["hearing-screening", normalizedId, selectedCampId],
     queryFn: () =>
       dispatch(
-        getHearingScreening({ studentId: normalizedId, campId: selectedCampId }),
+        getHearingScreening({
+          studentId: normalizedId,
+          campId: selectedCampId,
+        }),
       ).unwrap(),
     enabled: hasStudent,
     staleTime: 60_000,
@@ -93,6 +90,12 @@ export function useScreeningRecord({ getId, campId } = {}) {
     staleTime: 60_000,
   });
 
+  console.log(
+    visionScreeningData,
+    dentalScreeningData,
+    "dddddddvisionScreeningData",
+  );
+
   // getInitialScreening resolves to { items: [...], total, page, limit } —
   // normalize it into a plain array of records.
   const generalScreeningItems = useMemo(() => {
@@ -145,12 +148,6 @@ export function useScreeningRecord({ getId, campId } = {}) {
     );
   };
 
-  // Scoped endpoints (/<test>/student/{id}) normally return this student's
-  // records only, so matching by key is a no-op — but it keeps behaviour
-  // identical to general screening when the backend returns an unfiltered
-  // list or nests the student under a different field name. If nothing
-  // matches by key and there is exactly one record, it belongs to this
-  // student; otherwise we must not show another student's data.
   const pickScopedRecord = (records) => {
     const list = Array.isArray(records) ? records : [];
     return (

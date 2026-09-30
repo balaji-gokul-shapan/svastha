@@ -11,83 +11,83 @@ import {
 import React from "react";
 
 const QuickFindingSummary = ({ quickFindings = {} }) => {
+
   const findings = [
     {
       label: "Caries",
       value: quickFindings.caries ?? 0,
       icon: ShieldAlert,
-      className:
-        "border-destructive/30 bg-destructive/10 text-destructive",
+      tone: "text-destructive",
     },
     {
       label: "Other Issues",
       value: quickFindings.other ?? 0,
       icon: AlertTriangle,
-      className: "border-warning/30 bg-warning/10 text-warning",
+      tone: "text-warning",
     },
     {
       label: "Healthy",
       value: quickFindings.healthy ?? 0,
       icon: CircleCheck,
-      className: "border-success/30 bg-success/10 text-success",
+      tone: "text-success",
     },
     {
       label: "Missing",
       value: quickFindings.missing ?? 0,
       icon: SquircleDashed,
-      className: "border-info/30 bg-info/10 text-info",
+      tone: "text-info",
     },
     {
       label: "Filled",
       value: quickFindings.filled ?? 0,
       icon: Badge,
-      className: "border-domain-hearing/40 bg-domain-hearing/20 text-domain-hearing",
+      tone: "text-domain-hearing",
     },
     {
       label: "Sealant",
       value: quickFindings.sealant ?? 0,
       icon: CircleParkingOffIcon,
-      className: "border-domain-immunization/40 bg-domain-immunization/20 text-domain-immunization",
+      tone: "text-domain-immunization",
     },
   ];
 
+  /* "Findings needing attention" = the problems, not the healthy tally. */
+  const issues = (quickFindings.caries ?? 0) + (quickFindings.other ?? 0);
   return (
     <FramerCard>
-      <article className="rounded-xl border bg-card p-4 shadow-sm">
-        {/* Header */}
-        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
-          <ListChecks className="size-[18px] shrink-0 text-primary" />
-          <span>Quick Findings Summary</span>
-        </h3>
+      <div className="gs-panel">
+        <div className="gs-panel__head">
+          <span className="gs-panel__icon">
+            <ListChecks className="size-4" />
+          </span>
 
-        {/* Findings */}
-        <div className="flex flex-col gap-2">
+          <div className="min-w-0">
+            <p className="gs-panel__title">Quick Findings Summary</p>
+
+            <p className="gs-panel__sub">
+              {issues} finding{issues === 1 ? "" : "s"} need attention
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 p-2.5 sm:grid-cols-3 lg:grid-cols-2">
           {findings.map((finding) => {
             const Icon = finding.icon;
-
+            const count = Number(finding.value) || 0;
             return (
               <div
                 key={finding.label}
-                className={`flex min-h-9 w-full items-center justify-between rounded-md border px-3 py-2 ${finding.className}`}
+                className={`gs-count ${finding.tone} ${count === 0 ? "gs-count--zero" : ""}`}
+                title={`${finding.label}: ${count}`}
               >
-                {/* Label */}
-                <div className="flex min-w-0 items-center gap-2">
-                  <Icon className="size-4 shrink-0" />
-
-                  <span className="truncate text-xs font-medium">
-                    {finding.label}
-                  </span>
-                </div>
-
-                {/* Count */}
-                <span className="ml-3 shrink-0 text-xs font-semibold">
-                  {finding.value}
-                </span>
+                <p className="gs-count__label">{finding.label}</p>
+                <p className="gs-count__figure">{count}</p>
+                <Icon className="mt-0.5 size-3.5 opacity-70" aria-hidden="true" />
               </div>
             );
           })}
         </div>
-      </article>
+      </div>
     </FramerCard>
   );
 };

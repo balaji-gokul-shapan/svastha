@@ -1767,20 +1767,12 @@ export default function HealthOverviewReport() {
   const authUser = useAppSelector(selectAuthUser);
   const { assignedEvents, assignEventLoading, assignEventError } =
     useAssignedEvents();
-  // Resolve the camp linked to the currently selected school filter. The
-  // shared helper returns { id, name, schoolName } (name/schoolName are "all"
-  // when no specific camp/school is selected).
+
   const selectedCamp = useMemo(
     () => findSelectedCamp(assignedEvents, schoolName),
     [assignedEvents, schoolName],
   );
 
-  // Reverse lookup for the report: general screening knows a student's camp
-  // because its roster comes FROM the camp (getStudentByEvent). Here students
-  // are listed across all camps, so fetch every assigned camp's roster and
-  // index it by each student identifier. Any selected student then resolves
-  // to its camp + school even when the school filter is still "all" — the
-  // /students/filter rows don't carry camp/school fields.
   const assignedEventIds = useMemo(
     () =>
       (Array.isArray(assignedEvents) ? assignedEvents : [])

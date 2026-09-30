@@ -32,11 +32,10 @@ import {
 import { screeningSchema } from "../validation/screening-validation-schema";
 import { getAllSchoolBranches } from "@/lib/features/registerSchoolBranchSlice";
 import { useAppSelector } from "@/lib/hooks";
-import {
-  selectUserAccount,
-} from "@/lib/features/auth-slice";
+import { selectUserAccount } from "@/lib/features/auth-slice";
 import { useAuthRole } from "@/lib/user-role";
 import { NumberStepperField } from "@/components/ui/numberStepperField";
+import { DatePicker } from "@/components/ui/date-picker";
 
 const ScreeningPage = () => {
   const [open, setOpen] = useState(false);
@@ -65,26 +64,22 @@ const ScreeningPage = () => {
     refetchOnWindowFocus: false,
   });
 
-    const {
-      data: getAllSchoolBranch = {},
-      isLoading: getAllSchoolBranchLoading,
-      error: getAllSchoolBranchError,
-    } = useQuery({
-      queryKey: ["getSchoolAllBranch"],
-      queryFn: () => dispatch(getAllSchoolBranches()).unwrap(),
-      staleTime: 5 * 60 * 1000,
-      refetchOnWindowFocus: false,
-  
-      enabled: Boolean(getRole),
-    });
+  const {
+    data: getAllSchoolBranch = {},
+    isLoading: getAllSchoolBranchLoading,
+    error: getAllSchoolBranchError,
+  } = useQuery({
+    queryKey: ["getSchoolAllBranch"],
+    queryFn: () => dispatch(getAllSchoolBranches()).unwrap(),
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
 
-    console.log(getAllSchoolBranch,"getAllSchoolBranch");
-    
+    enabled: Boolean(getRole),
+  });
 
+  console.log(getAllSchoolBranch, "getAllSchoolBranch");
 
   console.log(getAllScreeningData, "getAllScreeningData");
-
-  
 
   //   const {
   //   data: createScreeningData = [],
@@ -141,23 +136,22 @@ const ScreeningPage = () => {
     },
   };
   const SCREENING_ICONS = {
-    "General": Activity,
-    "ENT": Stethoscope,
-    "Dental": ToothIcon,
-    "Hearing": Ear,
-    "Vision": Eye,
+    General: Activity,
+    ENT: Stethoscope,
+    Dental: ToothIcon,
+    Hearing: Ear,
+    Vision: Eye,
   };
 
   const SCREENING_DESCRIPTION = {
-    "General":
+    General:
       "Assess overall health, physical condition, growth, and general well-being of students",
-    "ENT":
-      "Evaluate ear, nose, and throat health to identify common ENT-related concerns.",
-    "Dental":
+    ENT: "Evaluate ear, nose, and throat health to identify common ENT-related concerns.",
+    Dental:
       "Check oral health, dental hygiene, and identify common dental conditions or concerns.",
-    "Hearing":
+    Hearing:
       "Screen students for hearing difficulties and identify potential hearing-related concerns.",
-    "Vision":
+    Vision:
       "Assess visual acuity and identify possible vision problems that may affect students' learning.",
   };
 
@@ -165,8 +159,8 @@ const ScreeningPage = () => {
     ? masterScreeningData
     : (masterScreeningData?.data ?? masterScreeningData?.screeningTypes ?? []);
 
-    console.log(rawScreeningTypes,"rawScreeningTypes");
-    
+  console.log(rawScreeningTypes, "rawScreeningTypes");
+
   const SCREENING_TYPES = rawScreeningTypes.map((screening) => ({
     ...screening,
     icon: SCREENING_ICONS[screening.screening_type],
@@ -230,10 +224,7 @@ const ScreeningPage = () => {
       .filter((branch) =>
         formData.school_id
           ? String(
-              branch?.school_id ??
-                branch?.schoolId ??
-                branch?.school?.id ??
-                "",
+              branch?.school_id ?? branch?.schoolId ?? branch?.school?.id ?? "",
             ).trim() === formData.school_id
           : true,
       )
@@ -285,7 +276,6 @@ const ScreeningPage = () => {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-   
     if (isSavingRef.current) {
       return;
     }
@@ -332,6 +322,7 @@ const ScreeningPage = () => {
       total_classes: formData.total_classes,
       total_sections: formData.total_sections,
       screening_type_ids: formData.screening_type_ids,
+      camp_date: formData.camp_date,
     };
 
     const result = screeningSchema.safeParse(formValues);
@@ -370,6 +361,7 @@ const ScreeningPage = () => {
         total_classes: "",
         total_sections: "",
         screening_type_ids: [],
+        camp_date: formData.camp_date,
       });
       setErrors({});
     } catch (error) {
@@ -559,13 +551,13 @@ const ScreeningPage = () => {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   {/* Total Classes */}
                   <div className="space-y-1.5">
                     {/* <Label htmlFor="total_classes">Total Classes</Label> */}
 
                     <NumberStepperField
-                    label="Total Classes"
+                      label="Total Classes"
                       id="total_classes"
                       type="number"
                       min="1"
@@ -588,7 +580,7 @@ const ScreeningPage = () => {
                     {/* <Label htmlFor="total_sections">Total Sections</Label> */}
 
                     <NumberStepperField
-                    label="Total Sections"
+                      label="Total Sections"
                       id="total_sections"
                       type="number"
                       min="1"
@@ -602,6 +594,30 @@ const ScreeningPage = () => {
                     {errors.total_sections ? (
                       <p className="text-xs text-destructive">
                         {errors.total_sections}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  {/* Select Date */}
+                  <div className="space-y-1.5">
+                    <label htmlFor="camp_date" className="field-label">
+                      Select Date
+                    </label>
+
+                    <DatePicker
+                      id="camp_date"
+                      name="camp_date"
+                      value={formData.camp_date}
+                      onValueChange={(value) =>
+                        handleChange("camp_date", value)
+                      }
+                      placeholder="Select a date"
+                      className="w-full h-10 rounded-md border border-border p-2"
+                    />
+
+                    {errors.camp_date ? (
+                      <p className="text-xs text-destructive">
+                        {errors.camp_date}
                       </p>
                     ) : null}
                   </div>
@@ -633,8 +649,7 @@ const ScreeningPage = () => {
                       const isSelected = formData.screening_type_ids.includes(
                         screening.id,
                       );
-                      console.log(screening,"dsa");
-                      
+                      console.log(screening, "dsa");
 
                       return (
                         <button

@@ -21,6 +21,7 @@ import {
   Cross,
   SquareActivity,
   Syringe,
+  ReceiptIndianRupee,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -196,6 +197,16 @@ export function Sidebar() {
       //     roles: ["admin", "school_admin", "doctor"],
       //   },]
     },
+    {
+      label: "Billing & Tax Invoices",
+      href: "/billingInvoice",
+      icon: ReceiptIndianRupee,
+      roles: [
+        "admin",
+        "school_admin",
+        "school",
+      ],
+    },
     ],
     [],
   );
@@ -308,25 +319,43 @@ export function Sidebar() {
             href="/"
             aria-label="Svastha home"
             className={cn(
-              "flex h-10 w-full items-center gap-2 overflow-hidden rounded-md px-3",
+              "flex min-h-10 w-full flex-col items-start justify-center gap-0.5 overflow-hidden rounded-md px-3 py-1.5",
               "transition-[padding,gap] duration-200 ease-linear",
-              "group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:px-2",
+              "group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:px-2",
             )}
           >
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sidebar text-sidebar-primary-foreground">
-              <Image src="/logo.svg" alt="Logo" width={24} height={24} />
-            </span>
-
+            {/* Logo + wordmark stay on one line. */}
             <span
               className={cn(
-                "min-w-0 max-w-40 truncate font-sf text-xl font-bold tracking-wide text-brand-blue",
-                "transition-[max-width,opacity] duration-200 ease-linear",
-                "group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0",
+                "flex w-full items-center gap-2 overflow-hidden",
+                "transition-[gap] duration-200 ease-linear",
+                "group-data-[collapsible=icon]:gap-0",
               )}
             >
-              Svas
-              <span className="text-brand-green">t</span>
-              ha
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sidebar text-sidebar-primary-foreground">
+                <Image src="/logo.svg" alt="Logo" width={24} height={24} />
+              </span>
+
+              <span
+                className={cn(
+                  "min-w-0 max-w-40 truncate font-sf text-2xl font-bold tracking-wide text-brand-blue",
+                  "transition-[max-width,opacity] duration-200 ease-linear",
+                  "group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0",
+                )}
+              >
+                Svas
+                <span className="text-brand-green">t</span>
+                ha
+              </span>
+            </span>
+            <span
+              className={cn(
+                "w-full min-w-0 truncate pl-10 text-[8px] font-medium uppercase tracking-[0.1em] text-muted-foreground",
+                "transition-[max-width,padding,opacity] duration-200 ease-linear",
+                "group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:pl-0 group-data-[collapsible=icon]:opacity-0",
+              )}
+            >
+              Healthy roots, rising stars
             </span>
           </Link>
         </SidebarHeader>

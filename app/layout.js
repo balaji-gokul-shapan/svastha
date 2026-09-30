@@ -17,9 +17,6 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// Self-hosted SF Pro Display — Next.js serves these from your own domain,
-// preloads them, and sets font-display: swap automatically. No third-party
-// network request at runtime, unlike Option A's CDN link.
 const sfPro = localFont({
   src: [
     { path: "./font/SFProDisplay-Regular.woff2", weight: "400", style: "normal" },
@@ -28,6 +25,31 @@ const sfPro = localFont({
     { path: "./font/SFProDisplay-Bold.woff2", weight: "700", style: "normal" },
   ],
   variable: "--font-sf-pro",
+  display: "swap",
+});
+
+// Self-hosted Comfortaa — chosen in Settings > Appearance > App typeface.
+const comfortaa = localFont({
+  src: [
+    { path: "./font/Comfortaa-Light.ttf", weight: "300", style: "normal" },
+    { path: "./font/Comfortaa-Regular.ttf", weight: "400", style: "normal" },
+    { path: "./font/Comfortaa-Medium.ttf", weight: "500", style: "normal" },
+    { path: "./font/Comfortaa-SemiBold.ttf", weight: "600", style: "normal" },
+    { path: "./font/Comfortaa-Bold.ttf", weight: "700", style: "normal" },
+  ],
+  variable: "--font-comfortaa-pro",
+  display: "swap",
+});
+
+
+const fraunces = localFont({
+  src: [
+    { path: "./font/Fraunces_72pt-Light.ttf", weight: "300", style: "normal" },
+    { path: "./font/Fraunces_72pt-Regular.ttf", weight: "400", style: "normal" },
+    { path: "./font/Fraunces_72pt-SemiBold.ttf", weight: "600", style: "normal" },
+    { path: "./font/Fraunces_72pt-Bold.ttf", weight: "700", style: "normal" },
+  ],
+  variable: "--font-fraunces-pro",
   display: "swap",
 });
 
@@ -48,7 +70,7 @@ export default function RootLayout({ children }) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${sfPro.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${sfPro.variable} ${comfortaa.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-background font-sf">
         <Providers>

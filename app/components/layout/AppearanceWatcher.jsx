@@ -4,15 +4,19 @@ import * as React from "react";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import {
   setAppearanceField,
-  SIDEBAR_FEATURES,
+  SIDEBAR_POSITIONS,
   APPEARANCE_THEMES,
   TABLE_VIEWS,
+  FONT_FAMILIES,
 } from "@/lib/features/appearanceSettingSlice";
 
 
 export function AppearanceWatcher() {
   const dispatch = useAppDispatch();
   const theme = useAppSelector((state) => state.appearanceSettings?.theme);
+  const fontFamily = useAppSelector(
+    (state) => state.appearanceSettings?.fontFamily,
+  );
 
   // Rehydrate saved appearance settings once on mount (after hydration).
   React.useEffect(() => {
@@ -33,17 +37,22 @@ export function AppearanceWatcher() {
           }),
         );
       }
-      if (SIDEBAR_FEATURES.includes(saved.sidebarFeature)) {
+      if (SIDEBAR_POSITIONS.includes(saved.sidebarPosition)) {
         dispatch(
           setAppearanceField({
-            field: "sidebarFeature",
-            value: saved.sidebarFeature,
+            field: "sidebarPosition",
+            value: saved.sidebarPosition,
           }),
         );
       }
       if (TABLE_VIEWS.includes(saved.tableView)) {
         dispatch(
           setAppearanceField({ field: "tableView", value: saved.tableView }),
+        );
+      }
+      if (FONT_FAMILIES.includes(saved.fontFamily)) {
+        dispatch(
+          setAppearanceField({ field: "fontFamily", value: saved.fontFamily }),
         );
       }
     } catch {
@@ -63,6 +72,24 @@ export function AppearanceWatcher() {
     document.documentElement.classList.toggle("dark", dark);
     localStorage.setItem("Svastha-theme", dark ? "dark" : "light");
   }, [theme]);
+
+  // Apply the chosen typeface app-wide.
+  //
+
+  React.useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const next = FONT_FAMILIES.includes(fontFamily) ? fontFamily : "sf";
+
+    if (next === "sf") {
+      // "sf" is the baseline, already applied by the stylesheet — drop the
+      // attribute so the default needs no override.
+      document.documentElement.removeAttribute("data-app-font");
+      return;
+    }
+
+    document.documentElement.setAttribute("data-app-font", next);
+  }, [fontFamily]);
 
   return null;
 }

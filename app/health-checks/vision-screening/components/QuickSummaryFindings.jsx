@@ -2,6 +2,54 @@ import { FramerCard } from "@/util/FramerCard";
 import { AlertTriangle, ClipboardCheckIcon, Eye, Glasses, Send } from "lucide-react";
 import React from "react";
 
+const SUMMARY_TONE_CLASS = {
+  success: "text-success bg-success/10",
+  info: "text-info bg-info/10",
+  warning: "text-warning bg-warning/10",
+  destructive: "text-destructive bg-destructive/10",
+  muted: "text-muted-foreground bg-muted",
+};
+
+/* Hoisted to module scope on purpose: a component defined INSIDE another
+   component is a new type on every render, so React unmounts and remounts the
+   whole subtree each time (and trips react-hooks/static-components). */
+function SummaryRow({ icon: Icon, label, value, tone }) {
+  // Values that mean "nothing recorded" are dimmed + italic so a blank
+  // finding is never mistaken for a real clinical result.
+  const isEmpty =
+    value === "Not tested" ||
+    value === "Not specified" ||
+    value === "None" ||
+    value === "Not Required" ||
+    value === "—" ||
+    value === "" ||
+    value === null ||
+    value === undefined;
+
+  return (
+    <div
+      className={`gs-readout ${
+        isEmpty ? "gs-readout--blank" : "gs-readout--filled"
+      }`}
+      title={`${label}: ${value ?? "—"}`}
+    >
+      <span
+        className={`flex size-5 shrink-0 items-center justify-center rounded-md ${
+          SUMMARY_TONE_CLASS[tone] || SUMMARY_TONE_CLASS.muted
+        }`}
+      >
+        <Icon className="size-3" strokeWidth={2.25} />
+      </span>
+
+      <span className="gs-readout__label">{label}</span>
+
+      <span className="gs-readout__value">
+        <span className={isEmpty ? "gs-empty" : ""}>{value ?? "—"}</span>
+      </span>
+    </div>
+  );
+}
+
 const QuickSummaryFindings = ({
   odStatus,
   osStatus,
@@ -12,40 +60,29 @@ const QuickSummaryFindings = ({
   referral,
   followUp,
 }) => {
-
-
-  const SUMMARY_TONE_CLASS = {
-    success: "text-success bg-success/10",
-    info: "text-info bg-info/10",
-    warning: "text-warning bg-warning/10",
-    destructive: "text-destructive bg-destructive/10",
-    muted: "text-muted-foreground bg-muted",
-  };
-  function SummaryRow({ icon: Icon, label, value, tone }) {
-    return (
-      <div className="flex items-center justify-between rounded-lg border border-border/70 px-3 py-2">
-        <div className="flex items-center gap-2">
-          <span
-            className={`flex size-6 items-center justify-center rounded-md ${SUMMARY_TONE_CLASS[tone] || SUMMARY_TONE_CLASS.muted}`}
-          >
-            <Icon className="size-3.5" strokeWidth={2.25} />
-          </span>
-          <span className="text-sm text-foreground">{label}</span>
-        </div>
-        <span className="text-sm font-semibold text-foreground">{value}</span>
-      </div>
-    );
-  }
   return (
     <FramerCard>
-      <article className="rounded-xl border border-border bg-card p-4">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <span className="flex size-7 items-center justify-center rounded-md bg-primary/10">
-            <ClipboardCheckIcon size={16} className="text-primary" />
+      {/* Same "Clinical Slate" language as the General Screening summary so the
+          two screening pages feel like one product. */}
+      <div className="gs-panel">
+        <div className="gs-panel__head">
+          <span className="gs-panel__icon">
+            <ClipboardCheckIcon className="size-4" />
           </span>
-          Quick Findings Summary
-        </h3>
-        <div className="mt-3 space-y-2">
+
+          <div className="min-w-0">
+            <p className="gs-panel__title">Quick Findings Summary</p>
+
+            <p className="gs-panel__sub">
+              Acuity, correction and referral at a glance
+            </p>
+          </div>
+        </div>
+
+        {/* Two per row at every size: 8 stacked full-width boxes ran the
+            summary off the bottom of the step; paired readouts halve the
+            height so nothing needs scrolling. */}
+        <div className="grid grid-cols-1 gap-x-4 gap-y-0.5 p-2.5 sm:grid-cols-2">
           <SummaryRow
             icon={Eye}
             label="OD Acuity"
@@ -95,7 +132,7 @@ const QuickSummaryFindings = ({
             tone="info"
           />
         </div>
-      </article>
+      </div>
     </FramerCard>
   );
 };

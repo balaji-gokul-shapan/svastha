@@ -51,7 +51,7 @@ function StudentsList() {
   const appearanceSettings = useAppSelector(
     (state) => state.appearanceSettings,
   );
-  const { theme, transparentSidebar, sidebarFeature, tableView } =
+  const { theme, transparentSidebar, sidebarPosition, tableView } =
     appearanceSettings ?? {};
   console.log(tableView, "tableView");
   const viewMode = searchParams.get("view") ?? "card";
@@ -104,7 +104,6 @@ function StudentsList() {
     return () => {
       clearTimeout(timeoutId);
     };
-    
   }, [searchInput]);
 
   const handleStatusChange = (value) =>
@@ -155,9 +154,6 @@ function StudentsList() {
     refetchOnWindowFocus: true,
   });
 
-  // Backend joins can return the same student more than once (e.g. the
-  // same cus_id on several rows), which breaks React keys and shows
-  // duplicate cards. Keep the first occurrence per identifier.
   const rows = React.useMemo(() => {
     const list = Array.isArray(studentData) ? studentData : [];
     const seen = new Set();
@@ -201,7 +197,6 @@ function StudentsList() {
   const isRefreshing = isFetching && rows.length > 0;
   const totalPages = Math.max(1, Math.ceil((total || 0) / limit));
 
-
   const defaultBranchId = React.useMemo(
     () =>
       String(
@@ -213,14 +208,13 @@ function StudentsList() {
     [selectUser],
   );
 
- const [filterFormData, setFilterFormData] = React.useState({
-  branchName: defaultBranchId,
-  AcademicYear: "2026 - 2027",
-  classes: "",
-  section: "",
-  BeneficiaryId: "",
-});
-
+  const [filterFormData, setFilterFormData] = React.useState({
+    branchName: defaultBranchId,
+    AcademicYear: "2026 - 2027",
+    classes: "",
+    section: "",
+    BeneficiaryId: "",
+  });
 
   // still carry the filters.
   const filterFormValue = React.useCallback(
@@ -258,8 +252,7 @@ function StudentsList() {
     filterFormValue,
   ]);
 
-  
-console.log(filterFormData,"filterFormData");
+  console.log(filterFormData, "filterFormData");
 
   // const classOptions = React.useMemo(() => {
   //   const classSet = new Set([
@@ -323,20 +316,26 @@ console.log(filterFormData,"filterFormData");
   //     ),
   //   ];
   // }, [classFilter, rows]);
-  
-    // const account = useAppSelector(selectUserAccount);
-    // console.log(account, "accountee")
 
-   const getRole = useAuthRole();
-   console.log(getRole,"getRolesssss");
-   
+  // const account = useAppSelector(selectUserAccount);
+  // console.log(account, "accountee")
+
+  const getRole = useAuthRole();
+  console.log(getRole, "getRolesssss");
 
   const { data: filterPayload, isLoading } = useQuery({
-    queryKey: ["filter-student", schoolName, academicYear, classFilter, sectionFilter, "options"],
+    queryKey: [
+      "filter-student",
+      schoolName,
+      academicYear,
+      classFilter,
+      sectionFilter,
+      "options",
+    ],
 
     enabled:
       Boolean(schoolName && schoolName !== "all") ||
-      Boolean(academicYear && academicYear !== "all")||
+      Boolean(academicYear && academicYear !== "all") ||
       Boolean(classFilter && classFilter !== "all") ||
       Boolean(sectionFilter && sectionFilter !== "all"),
     queryFn: () =>
@@ -362,7 +361,7 @@ console.log(filterFormData,"filterFormData");
     <section className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="">
-          <h1 className="font-sf text-2xl font-semibold tracking-tight text-foreground lg:text-3xl">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground lg:text-3xl">
             Students
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -537,7 +536,6 @@ console.log(filterFormData,"filterFormData");
         formData={filterFormData}
         setFormData={setFilterFormData}
         selectRole={selectUser.user_type_id}
-   
         ownBranch={{
           value: defaultBranchId,
           label: String(
@@ -602,7 +600,8 @@ console.log(filterFormData,"filterFormData");
         <p className="text-sm text-destructive">
           {typeof error === "string"
             ? error
-            : (error?.message ?? "Something went wrong while loading students.")}
+            : (error?.message ??
+              "Something went wrong while loading students.")}
         </p>
       ) : null}
 
@@ -645,8 +644,3 @@ export default function StudentsPage() {
     </React.Suspense>
   );
 }
-
-
-
-
-
