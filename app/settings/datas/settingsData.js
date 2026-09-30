@@ -24,11 +24,11 @@ export const settingsNav = [
     label: "Profile",
     roles: [],
   },
-  {
-    id: "security-questions",
-    label: "Security Questions",
-    roles: [],
-  },
+  // {
+  //   id: "security-questions",
+  //   label: "Security Questions",
+  //   roles: [],
+  // },
   {
     id: "SchoolDetails",
     label: "School Details",

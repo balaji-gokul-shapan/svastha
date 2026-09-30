@@ -362,7 +362,7 @@ export default function SecurityQuestionsPage() {
               : "No security questions set"}
           </p>
 
-          <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-muted-foreground">
+          <p className="mx-auto mt-1 max-w-2/3 text-xs leading-5 text-muted-foreground">
             {saved.length > 0
               ? "Finish setting up to make password recovery work."
               : "Set up your security questions so we can verify your identity if you forget your password."}

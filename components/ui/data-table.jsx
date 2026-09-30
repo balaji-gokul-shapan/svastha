@@ -310,8 +310,7 @@ export function DataTable({
                   {row.getAllCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      // Mirroring the header lets a stylesheet caption each
-                      // cell when the table collapses into stacked cards.
+                      className="data-cell"
                       {...(withCellLabels
                         ? { "data-label": getHeaderLabel(cell.column.columnDef) }
                         : {})}
@@ -327,7 +326,7 @@ export function DataTable({
               <TableRow>
                 <TableCell
                   colSpan={columns.length + (selectHeader ? 1 : 0)}
-                  className="h-24 text-center"
+                  className=" text-center"
                 >
                   {emptyState ?? emptyMessage}
                 </TableCell>

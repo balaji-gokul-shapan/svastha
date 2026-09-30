@@ -32,7 +32,10 @@ import ImageCropper from "@/components/imageCropper";
 import { getNormaliseName } from "../utilities/students-cards";
 
 function statusToneClass(status) {
-  const s = (status ?? "").toLowerCase();
+
+  const s = String(status ?? "")
+    .trim()
+    .toLowerCase();
   if (["active", "approved", "confirmed"].includes(s))
     return "bg-success/15 text-success";
   if (["pending", "in review"].includes(s))
