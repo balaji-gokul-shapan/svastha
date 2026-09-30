@@ -57,10 +57,12 @@ export function proxy(request) {
 export const config = {
   matcher: [
     // Skip API routes, all `_next/*` framework internals (static chunks, image
-    // optimization, the HMR websocket endpoint, dev-overlay fetches) and
-    // browser probes like Chrome DevTools'
-    // /.well-known/appspecific/com.chrome.devtools.json (which is not a page —
-    // redirecting it to /login just adds noise to the logs).
-    "/((?!api|_next|__nextjs|favicon.ico|\\.well-known|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?|css|js)$).*)",
+  
+    // NOTE: the extension list is the ONLY way a file under /public escapes
+    // this middleware, and every entry here was added because something in the
+    // UI 307'd to /login instead of loading (a <video>/<source> that gets an
+    // HTML document back fails with MEDIA_ERR_SRC_NOT_SUPPORTED and stays
+    // blank forever). Keep video/audio/font types in this list.
+    "/((?!api|_next|__nextjs|favicon.ico|\\.well-known|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|mp4|webm|m4v|mov|mp3|wav|ogg|woff2?|ttf|otf|css|js|map)(?:\\?.*)?$).*)",
   ],
 };

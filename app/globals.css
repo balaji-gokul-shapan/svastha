@@ -3885,6 +3885,7 @@ input[type="number"] {
     font-weight: 600;
     letter-spacing: 0.01em;
     color: var(--color-brand-blue);
+    height: 1.5rem;
   }
 
   .login-wordmark em {
@@ -3897,6 +3898,8 @@ input[type="number"] {
     font-size: 0.72rem;
     letter-spacing: 0.02em;
     color: var(--color-muted-foreground);
+    height: 1rem;
+    padding-block: 5px;
   }
 
   .login-eyebrow {

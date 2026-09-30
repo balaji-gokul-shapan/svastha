@@ -1,11 +1,6 @@
 "use client";
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 
 const SignatureField = dynamic(() => import("../components/SignatureField"), {
@@ -22,8 +17,10 @@ import {
   Eye,
   EyeOff,
   Info,
+  KeyRound,
   Mail,
   Phone,
+  RotateCcwKey,
   UserRound,
   UserRoundKey,
   X,
@@ -67,6 +64,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import Image from "next/image";
+import Link from "next/link";
+import ForgotPasswordFlow from "@/app/login/components/ForgotPasswordFlow";
 
 // Pragmatic email shape check — catches typos and a missing "@" without
 // attempting to out-parse RFC 5322.
@@ -99,7 +98,8 @@ const ProfilePage = ({
   const [isSavingSignature, setIsSavingSignature] = useState(false);
   const [pendingSignature, setPendingSignature] = useState("");
   const [signatureTouched, setSignatureTouched] = useState(false);
-  const { assignedEvents, assignEventLoading, assignEventError } = useAssignedEvents();
+  const { assignedEvents, assignEventLoading, assignEventError } =
+    useAssignedEvents();
   const [signatureEventId, setSignatureEventId] = useState("");
 
   const roleValues = [
@@ -135,15 +135,13 @@ const ProfilePage = ({
     dispatch(getProfileImage());
   }, [dispatch]);
 
-
   const savedProfileImageUrl = getDisplayProfileImageUrl(profileImageState);
- 
+
   const savedSignatureEventId = (() => {
     const source = doctorSignatureState?.signature ?? {};
 
     return String(source.event_id ?? source.eventId ?? "").trim();
   })();
-
 
   const resolvedSignatureEventId = signatureEventId || savedSignatureEventId;
 
@@ -265,6 +263,22 @@ const ProfilePage = ({
     if (!open) {
       resetPasswordDialog();
     }
+  };
+
+  /* ---- Forgot password (3-step security-question flow) ---- */
+  // Opened as a Dialog here rather than swapped in place like the login page,
+  // because Profile is a page with other content the user should keep.
+  const [isForgotOpen, setIsForgotOpen] = useState(false);
+
+  const showForgotPassword = () => {
+    // Leave any half-typed inline password edit so the dialog opens clean.
+    cancelEditingPassword();
+    resetPasswordDialog();
+    setIsForgotOpen(true);
+  };
+
+  const handleForgotOpenChange = (open) => {
+    setIsForgotOpen(open);
   };
 
   const maskedPhoneNumber = phoneNumber
@@ -543,9 +557,6 @@ const ProfilePage = ({
     const trimmedPhoneNumber = String(phoneNumber ?? "").trim();
     const trimmedEmail = String(email ?? "").trim();
 
-   
-  
-
     if (isDoctorProfileRoute) {
       // Doctor saves ONLY the signature — never the profile image.
       if (!doctorId) {
@@ -565,12 +576,10 @@ const ProfilePage = ({
       }
 
       if (!stagedSignature.startsWith("data:")) {
-
         toast.success("Signature is already up to date.");
         return;
       }
 
-  
       if (!resolvedSignatureEventId) {
         toast.error("Please select a camp before saving the signature.");
         return;
@@ -579,7 +588,6 @@ const ProfilePage = ({
       setIsSavingSignature(true);
 
       try {
-
         await dispatch(
           saveDoctorSignature({
             doctorId,
@@ -648,25 +656,23 @@ const ProfilePage = ({
     }
   };
 
-    const hasNewProfileImage =
-      typeof File !== "undefined" &&
-      (profileImageFile instanceof File || profileImageFile instanceof Blob);
+  const hasNewProfileImage =
+    typeof File !== "undefined" &&
+    (profileImageFile instanceof File || profileImageFile instanceof Blob);
 
-    const saveProfileImage = async () => {
-      if (!hasNewProfileImage) return null;
+  const saveProfileImage = async () => {
+    if (!hasNewProfileImage) return null;
 
-      try {
-        await dispatch(
-          uploadProfileImage({ image: profileImageFile }),
-        ).unwrap();
-        dispatch(getProfileImage());
-        return null;
-      } catch (error) {
-        return typeof error === "object" && error !== null
-          ? error?.message || error?.detail || "Profile image upload failed."
-          : error || "Profile image upload failed.";
-      }
-    };
+    try {
+      await dispatch(uploadProfileImage({ image: profileImageFile })).unwrap();
+      dispatch(getProfileImage());
+      return null;
+    } catch (error) {
+      return typeof error === "object" && error !== null
+        ? error?.message || error?.detail || "Profile image upload failed."
+        : error || "Profile image upload failed.";
+    }
+  };
 
   const openProfilePicker = () => {
     profileInputRef.current?.click();
@@ -767,8 +773,14 @@ const ProfilePage = ({
   return (
     <article className="profile-settings-shell overflow-hidden rounded-2xl border border-border bg-card">
       <header className="profile-settings-heading relative overflow-hidden px-5 py-6 sm:px-7 sm:py-7">
-        <div aria-hidden="true" className="profile-settings-heading__orb profile-settings-heading__orb--one" />
-        <div aria-hidden="true" className="profile-settings-heading__orb profile-settings-heading__orb--two" />
+        <div
+          aria-hidden="true"
+          className="profile-settings-heading__orb profile-settings-heading__orb--one"
+        />
+        <div
+          aria-hidden="true"
+          className="profile-settings-heading__orb profile-settings-heading__orb--two"
+        />
         <div aria-hidden="true" className="profile-settings-heading__grid" />
         <div className="relative z-10 flex items-center gap-3">
           <span className="my-details-heading__icon flex size-14 shrink-0 items-center justify-center rounded-2xl text-white shadow-lg shadow-primary/20 sm:size-16">
@@ -804,7 +816,9 @@ const ProfilePage = ({
                 <Image
                   src={displayImageUrl}
                   alt="Profile preview"
-                  onError={() => setImageError("Unable to load the profile image.")}
+                  onError={() =>
+                    setImageError("Unable to load the profile image.")
+                  }
                   className="size-full rounded-full object-cover"
                   width={128}
                   height={128}
@@ -847,259 +861,282 @@ const ProfilePage = ({
               {username || "No username"}
             </h2>
 
-           <div className="grid grid-cols-2 gap-4">
-             {isEditingName ? (
-              <span className="mt-1 inline-flex w-full min-w-0 items-center gap-1.5">
-                <Input
-                  autoFocus
-                  value={nameDraft}
-                  onChange={(event) => setNameDraft(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      saveName();
-                    } else if (event.key === "Escape") {
-                      event.preventDefault();
-                      cancelEditingName();
+            <div className="grid grid-cols-2 gap-4">
+              {isEditingName ? (
+                <span className="mt-1 inline-flex w-full min-w-0 items-center gap-1.5">
+                  <Input
+                    autoFocus
+                    value={nameDraft}
+                    onChange={(event) => setNameDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        saveName();
+                      } else if (event.key === "Escape") {
+                        event.preventDefault();
+                        cancelEditingName();
+                      }
+                    }}
+                    disabled={isSavingName}
+                    aria-label="Name"
+                    className="h-7 w-full min-w-0 max-w-56 text-sm"
+                  />
+
+                  <Button
+                    type="button"
+                    size="xs"
+                    onClick={saveName}
+                    disabled={isSavingName}
+                    aria-label="Save name"
+                  >
+                    {isSavingName ? "Saving…" : <Check className="size-4" />}
+                  </Button>
+
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    onClick={cancelEditingName}
+                    disabled={isSavingName}
+                    aria-label="Cancel name edit"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </span>
+              ) : (
+                <h4 className="mt-0 truncate text-muted-foreground flex flex-row items-center ">
+                  <CircleUserRound className="size-4 mr-1 text-brand-blue" />
+                  {name}{" "}
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="xs"
+                    className="text-xs font-medium text-primary hover:underline p-1"
+                    onClick={startEditingName}
+                    aria-label="Edit name"
+                  >
+                    <Edit2 className="size-3" />
+                  </Button>
+                </h4>
+              )}
+              {isEditingPhoneNumber ? (
+                <span className="mt-1 inline-flex w-full min-w-0 items-center gap-1.5">
+                  <Input
+                    autoFocus
+                    value={phoneNumberDraft}
+                    onChange={(event) =>
+                      setPhoneNumberDraft(event.target.value.replace(/\D/g, ""))
                     }
-                  }}
-                  disabled={isSavingName}
-                  aria-label="Name"
-                  className="h-7 w-full min-w-0 max-w-56 text-sm"
-                />
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    maxLength={15}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        savePhoneNumber();
+                      } else if (event.key === "Escape") {
+                        event.preventDefault();
+                        cancelEditingPhoneNumber();
+                      }
+                    }}
+                    disabled={isSavingPhoneNumber}
+                    aria-label="Phone number"
+                    className="h-7 w-full min-w-0 max-w-56 text-sm"
+                  />
 
-                <Button
-                  type="button"
-                  size="xs"
-                  onClick={saveName}
-                  disabled={isSavingName}
-                  aria-label="Save name"
-                >
-                  {isSavingName ? "Saving…" : <Check className="size-4" />}
-                </Button>
+                  <Button
+                    type="button"
+                    size="xs"
+                    onClick={savePhoneNumber}
+                    disabled={isSavingPhoneNumber}
+                    aria-label="Save phone number"
+                    // className={"p-1"}
+                  >
+                    {isSavingPhoneNumber ? (
+                      "Saving…"
+                    ) : (
+                      <Check className="size-4" />
+                    )}
+                  </Button>
 
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="outline"
-                  onClick={cancelEditingName}
-                  disabled={isSavingName}
-                  aria-label="Cancel name edit"
-                >
-                  <X className="size-4" />
-                </Button>
-              </span>
-            ) : (
-              <h4 className="mt-0 truncate text-muted-foreground flex flex-row items-center ">
-                <CircleUserRound className="size-4 mr-1 text-brand-blue" />
-                {name}{" "}
-                <Button
-                  type="button"
-                  variant="link"
-                  size="xs"
-                  className="text-xs font-medium text-primary hover:underline p-1"
-                  onClick={startEditingName}
-                  aria-label="Edit name"
-                >
-                  <Edit2 className="size-3" />
-                </Button>
-              </h4>
-            )}
-            {isEditingPhoneNumber ? (
-              <span className="mt-1 inline-flex w-full min-w-0 items-center gap-1.5">
-                <Input
-                  autoFocus
-                  value={phoneNumberDraft}
-                  onChange={(event) =>
-                    setPhoneNumberDraft(event.target.value.replace(/\D/g, ""))
-                  }
-                  inputMode="numeric"
-                  autoComplete="tel"
-                  maxLength={15}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      savePhoneNumber();
-                    } else if (event.key === "Escape") {
-                      event.preventDefault();
-                      cancelEditingPhoneNumber();
-                    }
-                  }}
-                  disabled={isSavingPhoneNumber}
-                  aria-label="Phone number"
-                  className="h-7 w-full min-w-0 max-w-56 text-sm"
-                />
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    onClick={cancelEditingPhoneNumber}
+                    disabled={isSavingPhoneNumber}
+                    aria-label="Cancel phone number edit"
+                    // className={"p-1"}
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </span>
+              ) : (
+                <h6 className="mt-0 truncate text-muted-foreground flex flex-row items-center">
+                  <Phone className="size-4 mr-1 text-brand-green" />
+                  {maskedPhoneNumber}
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="xs"
+                    className="text-xs font-medium text-primary hover:underline p-1"
+                    onClick={startEditingPhoneNumber}
+                  >
+                    <Edit2 className="size-3" />
+                  </Button>
+                </h6>
+              )}
+              {isEditingEmail ? (
+                <span className="mt-1 inline-flex w-full min-w-0 items-center gap-1.5">
+                  <Input
+                    type="email"
+                    autoFocus
+                    value={emailDraft}
+                    onChange={(event) => setEmailDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        saveEmail();
+                      } else if (event.key === "Escape") {
+                        event.preventDefault();
+                        cancelEditingEmail();
+                      }
+                    }}
+                    aria-label="Email"
+                    placeholder="name@example.com"
+                    className="h-7 w-full min-w-0 max-w-72 text-sm"
+                  />
 
-                <Button
-                  type="button"
-                  size="xs"
-                  onClick={savePhoneNumber}
-                  disabled={isSavingPhoneNumber}
-                  aria-label="Save phone number"
-                  // className={"p-1"}
-                >
-                  {isSavingPhoneNumber ? (
-                    "Saving…"
-                  ) : (
+                  <Button
+                    type="button"
+                    size="xs"
+                    onClick={saveEmail}
+                    aria-label="Save email"
+                  >
                     <Check className="size-4" />
-                  )}
-                </Button>
+                  </Button>
 
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="outline"
-                  onClick={cancelEditingPhoneNumber}
-                  disabled={isSavingPhoneNumber}
-                  aria-label="Cancel phone number edit"
-                  // className={"p-1"}
-                >
-                  <X className="size-4" />
-                </Button>
-              </span>
-            ) : (
-              <h6 className="mt-0 truncate text-muted-foreground flex flex-row items-center">
-                <Phone className="size-4 mr-1 text-brand-green" />
-                {maskedPhoneNumber}
-                <Button
-                  type="button"
-                  variant="link"
-                  size="xs"
-                  className="text-xs font-medium text-primary hover:underline p-1"
-                  onClick={startEditingPhoneNumber}
-                >
-                  <Edit2 className="size-3" />
-                </Button>
-              </h6>
-            )}
-            {isEditingEmail ? (
-              <span className="mt-1 inline-flex w-full min-w-0 items-center gap-1.5">
-                <Input
-                  type="email"
-                  autoFocus
-                  value={emailDraft}
-                  onChange={(event) => setEmailDraft(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      saveEmail();
-                    } else if (event.key === "Escape") {
-                      event.preventDefault();
-                      cancelEditingEmail();
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    onClick={cancelEditingEmail}
+                    aria-label="Cancel email edit"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </span>
+              ) : (
+                <h6 className="mt-0 truncate text-muted-foreground flex flex-row items-center">
+                  <Mail className="size-4 mr-1 text-info" />
+                  {email || "Not added"}
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="xs"
+                    className="text-xs font-medium text-primary hover:underline p-1"
+                    onClick={startEditingEmail}
+                    aria-label="Edit email"
+                  >
+                    <Edit2 className="size-3" />
+                  </Button>
+                </h6>
+              )}
+              {isEditingPassword ? (
+                <span className="mt-1 inline-flex w-full min-w-0 items-center gap-1.5">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    autoFocus
+                    value={passwordDraft}
+                    onChange={(event) => setPasswordDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        savePassword();
+                      } else if (event.key === "Escape") {
+                        event.preventDefault();
+                        cancelEditingPassword();
+                      }
+                    }}
+                    aria-label="Password"
+                    className="h-7 w-full min-w-0 max-w-56 text-sm"
+                  />
+
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
                     }
+                    // className="p-1"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="size-4" />
+                    ) : (
+                      <Eye className="size-4" />
+                    )}
+                  </Button>
+
+                  <Button
+                    type="button"
+                    size="xs"
+                    onClick={savePassword}
+                    aria-label="Save password"
+                    // className={"p-1"}
+                  >
+                    <Check className="size-4" />
+                  </Button>
+
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    onClick={cancelEditingPassword}
+                    aria-label="Cancel password edit"
+                    // className={"p-1"}
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </span>
+              ) : (
+                <h6 className="mt-0 truncate text-muted-foreground flex flex-row items-center">
+                  <UserRoundKey className="size-4 mr-1 text-info" />
+                  {"********"}
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="xs"
+                    className="text-xs font-medium text-primary hover:underline p-1"
+                    onClick={startEditingPassword}
+                  >
+                    <Edit2 className="size-3" />
+                  </Button>
+                </h6>
+              )}
+
+              {/* <button
+                  type="button"
+                  onClick={() => {
+                    cancelEditingPassword();
+                    resetPasswordDialog();
+                    setIsPasswordOpen(true);
                   }}
-                  aria-label="Email"
-                  placeholder="name@example.com"
-                  className="h-7 w-full min-w-0 max-w-72 text-sm"
-                />
-
-                <Button
-                  type="button"
-                  size="xs"
-                  onClick={saveEmail}
-                  aria-label="Save email"
+                  className="p-1 text-xs inline-flex items-center font-medium text-primary hover:underline"
                 >
-                  <Check className="size-4" />
-                </Button>
-
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="outline"
-                  onClick={cancelEditingEmail}
-                  aria-label="Cancel email edit"
-                >
-                  <X className="size-4" />
-                </Button>
-              </span>
-            ) : (
-              <h6 className="mt-0 truncate text-muted-foreground flex flex-row items-center">
-                <Mail className="size-4 mr-1 text-info" />
-                {email || "Not added"}
-                <Button
-                  type="button"
-                  variant="link"
-                  size="xs"
-                  className="text-xs font-medium text-primary hover:underline p-1"
-                  onClick={startEditingEmail}
-                  aria-label="Edit email"
-                >
-                  <Edit2 className="size-3" />
-                </Button>
-              </h6>
-            )}
-            {isEditingPassword ? (
-              <span className="mt-1 inline-flex w-full min-w-0 items-center gap-1.5">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  autoFocus
-                  value={passwordDraft}
-                  onChange={(event) => setPasswordDraft(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      savePassword();
-                    } else if (event.key === "Escape") {
-                      event.preventDefault();
-                      cancelEditingPassword();
-                    }
-                  }}
-                  aria-label="Password"
-                  className="h-7 w-full min-w-0 max-w-56 text-sm"
-                />
-
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="outline"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  // className="p-1"
-                >
-                  {showPassword ? (
-                    <EyeOff className="size-4" />
-                  ) : (
-                    <Eye className="size-4" />
-                  )}
-                </Button>
-
-                <Button
-                  type="button"
-                  size="xs"
-                  onClick={savePassword}
-                  aria-label="Save password"
-                  // className={"p-1"}
-                >
-                  <Check className="size-4" />
-                </Button>
-
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="outline"
-                  onClick={cancelEditingPassword}
-                  aria-label="Cancel password edit"
-                  // className={"p-1"}
-                >
-                  <X className="size-4" />
-                </Button>
-              </span>
-            ) : (
-              <h6 className="mt-0 truncate text-muted-foreground flex flex-row items-center">
-                <UserRoundKey className="size-4 mr-1 text-info" />
-                {"********"}
-                <Button
-                  type="button"
-                  variant="link"
-                  size="xs"
-                  className="text-xs font-medium text-primary hover:underline p-1"
-                  onClick={startEditingPassword}
-                >
-                  <Edit2 className="size-3" />
-                </Button>
-              </h6>
-            )}
-           </div>
+                  <RotateCcwKey className="mr-1 size-4 text-info" />
+                 <span className="text-xs font-medium text-primary">Forgot Password?</span>
+                </button> */}
+                <button
+              type="button"
+              onClick={showForgotPassword}
+              className="flex w-full items-center justify-end gap-1.5 text-xs font-medium text-primary hover:underline"
+            >
+              <KeyRound className="size-3.5" aria-hidden="true" />
+              Forgot password?
+            </button>
+            </div>
           </div>
         </div>
         <p className="profile-settings-photo-hint text-xs font-medium text-foreground">
@@ -1185,16 +1222,16 @@ const ProfilePage = ({
       {isDoctorProfileRoute && (
         <section className="profile-settings-signature mx-4 mt-6 rounded-2xl border border-border p-4 sm:mx-6 sm:p-5 lg:mx-8">
           <SignatureField
-          value={signature || normalizeSignatureUrl(savedSignatureImage)}
-          onChange={handleSignatureSave}
-          onRemove={handleSignatureRemove}
-          isPrimary={true}
-          assignedEvents={assignedEvents}
-          selectedEventId={resolvedSignatureEventId}
-          onEventChange={setSignatureEventId}
-          isEventsLoading={assignEventLoading}
-          eventsError={assignEventError}
-          isBusy={isSavingSignature || doctorSignatureState?.loading}
+            value={signature || normalizeSignatureUrl(savedSignatureImage)}
+            onChange={handleSignatureSave}
+            onRemove={handleSignatureRemove}
+            isPrimary={true}
+            assignedEvents={assignedEvents}
+            selectedEventId={resolvedSignatureEventId}
+            onEventChange={setSignatureEventId}
+            isEventsLoading={assignEventLoading}
+            eventsError={assignEventError}
+            isBusy={isSavingSignature || doctorSignatureState?.loading}
           />
         </section>
       )}
@@ -1400,6 +1437,23 @@ const ProfilePage = ({
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ---- Forgot password: the same 3-step recovery flow as the login
+          page, shown here as a dialog so the rest of the profile stays put. */}
+      <Dialog open={isForgotOpen} onOpenChange={handleForgotOpenChange}>
+        <DialogContent className="w-full max-w-full sm:max-w-[92%] md:max-w-[80%] lg:max-w-[42%]">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Reset your password</DialogTitle>
+            <DialogDescription>
+              Recover access using your security questions.
+            </DialogDescription>
+          </DialogHeader>
+
+          <ForgotPasswordFlow
+            onCancel={() => handleForgotOpenChange(false)}
+          />
         </DialogContent>
       </Dialog>
     </article>

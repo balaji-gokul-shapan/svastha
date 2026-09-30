@@ -108,6 +108,9 @@ console.log(getSchoolBranchData,"getSchoolBranchData");
     return yearFilteredStudents;
   }, [getAllFilterStudent, academicYear]);
 
+  console.log(students,"studentsssssssssss");
+  
+
   // const studentsBySchoolAndYear = useMemo(() => {
   //   return students.filter((student) => {
   //     const studentSchool = String(

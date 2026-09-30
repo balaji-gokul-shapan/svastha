@@ -25,6 +25,11 @@ export const settingsNav = [
     roles: [],
   },
   {
+    id: "security-questions",
+    label: "Security Questions",
+    roles: [],
+  },
+  {
     id: "SchoolDetails",
     label: "School Details",
     roles: ["admin", "school_admin", "school"],

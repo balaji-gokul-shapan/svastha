@@ -174,7 +174,7 @@ console.log(selectedBranch, "defaultBranch");
         defaultValue="single-report"
         className="w-full"
       >
-        <div className="sticky top-14 z-10 flex flex-col gap-3 p-5 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
+        <div className="sticky top-14 z-10 flex flex-col gap-3 p-2 bg-background/80 px-0 backdrop-blur supports-backdrop-filter:bg-background/60 md:flex-row md:items-center md:justify-between">
           <div className="w-full">
             <h1 className=" text-2xl font-semibold tracking-tight text-foreground lg:text-3xl">
               Health Check Report

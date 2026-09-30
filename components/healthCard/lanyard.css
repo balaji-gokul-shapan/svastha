@@ -1,0 +1,457 @@
+
+
+.hc-lanyard {
+  /* The stage the badge hangs on keeps the SAME purple in light and dark mode —
+     this is the one pair the design does not want re-themed. */
+  --bg-1: #3b3354;
+  --bg-2: #1a1728;
+  --surface: var(--color-card);
+  --surface-shade: color-mix(
+    in oklch,
+    var(--color-card) 88%,
+    var(--color-foreground)
+  );
+  --surface-edge: var(--color-border);
+  --text: var(--color-card-foreground);
+  --muted: var(--color-muted-foreground);
+  --line: var(--color-border);
+
+  /* Geometry knobs. 230x320 is the design's original size. */
+  --card-w: 230px;
+  --card-h: 320px;
+  --strap-h: clamp(120px, 24vh, 210px);
+  /* Width of the logo printed down the strap; height follows the file's own
+     ratio. 30px is the full strap width. */
+  --strap-logo-w: 35px;
+  /* --font: var(--app-font-family, "Poppins", system-ui, sans-serif); */
+}
+
+.hc-lanyard.lanyard-stage {
+  position: relative;
+  /* The stage is a full page in the original design (every child is absolutely
+     positioned, so it cannot size itself). The compact variant swaps this for
+     `height:100%` so a modal body defines the box instead. */
+  min-height: 100vh;
+  overflow: hidden;
+  user-select: none;
+  /* font-family: var(--font); */
+  color: var(--text);
+  background: radial-gradient(ellipse at 50% 12%, var(--bg-1), var(--bg-2) 75%);
+  display: flex;
+  justify-content: center;
+}
+/* Stage chrome: this chip floats on the stage, not on the card, so it keeps the
+   design's translucent white — the purple behind it never changes with theme. */
+.hc-lanyard .lanyard-hint {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #eee;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(6px);
+  border-radius: 999px;
+  font-size: 12px;
+}
+.hc-lanyard .lanyard-hint svg {
+  width: 14px;
+  height: 14px;
+}
+.hc-lanyard .lanyard-flip {
+  border: 0;
+  padding: 10px 22px;
+  border-radius: 999px;
+  cursor: pointer;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  /* Font comes from the app (the --font token is deliberately not set on the
+     card), so this only carries the design's size and weight. */
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+}
+.hc-lanyard .lanyard-flip:focus-visible,
+.hc-lanyard .badge:focus-visible {
+  outline: 3px solid var(--color-ring);
+  outline-offset: 4px;
+}
+
+/* Whole hanging assembly rotates around the top centre */
+.hc-lanyard .lanyard {
+  position: absolute;
+  top: -10px;
+  width: var(--card-w);
+  transform-origin: 50% 0;
+  will-change: transform;
+}
+
+/* Strap: woven black webbing with repeating emblem. A physical material, so the
+   blacks stay fixed in both themes — same for the clip below. */
+.hc-lanyard .strap {
+  position: relative;
+  width: 30px;
+  height: var(--strap-h);
+  margin: 0 auto;
+  z-index: 1;
+  background:
+    /* The Svastha mark, printed down the webbing in brand blue.
+       `space` (instead of `repeat-y`) spreads the logos evenly with air between
+       them, and `auto` keeps the file's own 460x480 ratio — the old 30x92 tile
+       would have stretched the mark out of shape. Size it with
+       --strap-logo-w, or point it somewhere else if the school logo should
+       appear instead. */
+    url("/logo.svg") center top / var(--strap-logo-w, 50px) auto no-repeat space,
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.05) 0 1px,
+      transparent 1px 3px
+    ),
+    linear-gradient(90deg, #000, #151517 50%, #000);
+  box-shadow:
+    0 0 0 1px #000,
+    2px 0 8px rgba(0, 0, 0, 0.35);
+  border-radius: 0 0 3px 3px;
+}
+.hc-lanyard .strap::before,
+.hc-lanyard .strap::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1px dashed #303034;
+}
+.hc-lanyard .strap::before {
+  left: 2px;
+}
+.hc-lanyard .strap::after {
+  right: 2px;
+}
+
+/* Black D-ring + swivel lobster clip that hooks through the badge slot — fixed
+   metal colours, same reasoning as the strap. */
+.hc-lanyard .hardware {
+  display: block;
+  width: 60px;
+  height: 130px;
+  margin: -8px auto -26px;
+  position: relative;
+  z-index: 4;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.45));
+}
+
+/* Badge (flip container) */
+.hc-lanyard .badge {
+  position: relative;
+  width: var(--card-w);
+  height: var(--card-h);
+  margin: 0 auto;
+  perspective: 1100px;
+  cursor: grab;
+  touch-action: none;
+  outline: none;
+}
+.hc-lanyard .badge:active {
+  cursor: grabbing;
+}
+.hc-lanyard .badge-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.7s cubic-bezier(0.3, 1.25, 0.5, 1);
+}
+.hc-lanyard .badge.is-flipped .badge-inner {
+  transform: rotateY(180deg);
+}
+
+.hc-lanyard .face {
+  position: absolute;
+  inset: 0;
+  padding: 22px 18px 16px;
+  border-radius: 14px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  background: linear-gradient(160deg, var(--surface), var(--surface-shade) 70%);
+  box-shadow:
+    0 0 0 1px var(--surface-edge) inset,
+    0 24px 34px rgba(0, 0, 0, 0.35),
+    0 6px 10px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+}
+.hc-lanyard .face::before {
+  /* Punched slot. Stays black on purpose: it is a hole through the plastic, not
+     a themed surface — a token here would make it glow in light mode. */
+  content: "";
+  position: absolute;
+  top: 9px;
+  left: 50%;
+  width: 44px;
+  height: 7px;
+  margin-left: -22px;
+  border-radius: 4px;
+  background: #050506;
+  box-shadow:
+    0 0 0 1.5px #55555c,
+    inset 0 1px 3px #000;
+}
+.hc-lanyard .face.back {
+  transform: rotateY(180deg);
+}
+
+/* ---------- Front ---------- */
+.hc-lanyard .logo {
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
+.hc-lanyard .top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 6px;
+}
+.hc-lanyard .code {
+  font-size: 6.5px;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-align: right;
+}
+.hc-lanyard .rule {
+  height: 1px;
+  background: var(--line);
+  margin: 12px 0;
+}
+.hc-lanyard .event {
+  font-size: 9px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.hc-lanyard .event b {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.hc-lanyard .person {
+  margin-top: auto;
+  font-size: 9px;
+}
+.hc-lanyard .person small {
+  display: block;
+  color: var(--muted);
+  font-size: 8px;
+  margin-top: 2px;
+}
+.hc-lanyard .role {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-top: 10px;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+/* Real names are longer than a demo pass, so keep the hero inside the card. */
+.hc-lanyard .role--long {
+  font-size: 19px;
+  line-height: 1.08;
+}
+.hc-lanyard .access {
+  font-size: 7px;
+  letter-spacing: 0.22em;
+  color: var(--muted);
+  margin-top: 5px;
+}
+.hc-lanyard .foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 8px;
+  color: var(--muted);
+}
+.hc-lanyard .foot strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ---------- Back ---------- */
+.hc-lanyard .back-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.hc-lanyard .pill {
+  font-size: 6.5px;
+  letter-spacing: 0.18em;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text);
+  background: color-mix(in oklch, var(--color-foreground) 8%, transparent);
+  white-space: nowrap;
+}
+
+/* The demo's QR panel holds the student photo instead: a health card carries
+   a face, and a decorative QR on an identity document would be a lie. */
+.hc-lanyard .photo-panel {
+  margin: 12px 0 10px;
+  background: var(--color-muted);
+  border-radius: 8px;
+  padding: 6px;
+}
+.hc-lanyard .photo-panel img {
+  display: block;
+  width: 100%;
+  height: 104px;
+  object-fit: cover;
+  border-radius: 5px;
+  background: var(--color-background);
+}
+.hc-lanyard .photo-panel .photo-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 104px;
+  border-radius: 5px;
+  background: var(--color-background);
+  color: var(--muted);
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  padding: 0 6px;
+}
+
+.hc-lanyard .meta {
+  font-size: 7px;
+  letter-spacing: 0.06em;
+}
+.hc-lanyard .meta div {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--line);
+}
+.hc-lanyard .meta span:first-child {
+  color: var(--muted);
+}
+/* Status colouring from the global status tokens. They are already tuned for
+   contrast on both card variants (deep green/amber/red on the light card,
+   brighter versions on the dark one), so no per-theme override is needed. */
+.hc-lanyard .meta .v {
+  text-align: right;
+  color: var(--text);
+}
+.hc-lanyard .meta .v[data-tone="good"] {
+  color: var(--color-success);
+}
+.hc-lanyard .meta .v[data-tone="warning"] {
+  color: var(--color-warning);
+}
+.hc-lanyard .meta .v[data-tone="bad"] {
+  color: var(--color-destructive);
+}
+.hc-lanyard .barcode {
+  /* The bars are `currentColor`, so the strip follows the card's text colour
+     instead of disappearing white-on-white in light mode. */
+  color: var(--text);
+  margin-top: auto;
+  height: 26px;
+  width: 100%;
+  display: block;
+  opacity: 0.85;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hc-lanyard .badge-inner {
+    transition: none;
+  }
+}
+
+/* Buttons row */
+.hc-lanyard .lanyard-actions {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  z-index: 6;
+}
+/* Outlined variant of the button above. Deliberately NOT tokenised: it sits on
+   the stage, whose purple is fixed in both themes, so it keeps the design's
+   white — a themed colour would sink into the purple in one of the two modes.
+   (The app does not render this button; the modal header owns the download.) */
+.hc-lanyard .lanyard-print {
+  background: transparent !important;
+  color: #fff !important;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.6) inset;
+}
+
+/* --------------------------------------------------------------------------
+   Flat front + back sheet.
+   This is the PDF/print target: no 3-D transforms, no preserved-3d context, so
+   html2canvas rasterises it exactly as it looks. `.sheet-host` supplies the
+   white paper the cards sit on.
+   -------------------------------------------------------------------------- */
+.hc-lanyard .sheet-host {
+  display: inline-block;
+  /* Paper white in both themes: this is the sheet the PDF rasterises, and it is
+     meant to look like a print-out (the export forces a white page too). */
+  background: #fff;
+  padding: 12px;
+  border-radius: 16px;
+}
+.hc-lanyard .sheet {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.hc-lanyard .sheet figure {
+  margin: 0;
+  text-align: center;
+}
+.hc-lanyard .sheet figcaption {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 8px;
+}
+.hc-lanyard .sheet-card {
+  padding: 6px;
+  border: 1px dashed var(--line);
+  border-radius: 20px;
+}
+.hc-lanyard .sheet .face {
+  position: relative;
+  inset: auto;
+  transform: none;
+  width: var(--card-w);
+  height: var(--card-h);
+  backface-visibility: visible;
+  -webkit-backface-visibility: visible;
+  box-shadow: none;
+}
+
+/* Modal variant: the dialog body is roughly 78vh tall, so the strap shortens
+   and the card grows slightly to stay in proportion with it. Also hands the
+   stage's height over to the parent — a modal cannot be 100vh tall. */
+.hc-lanyard.hc-lanyard--compact {
+  --card-w: 250px;
+  --card-h: 350px;
+  --strap-h: clamp(90px, 15vh, 140px);
+  min-height: 0;
+  height: 100%;
+}

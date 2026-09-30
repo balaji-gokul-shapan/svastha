@@ -1664,16 +1664,14 @@ console.log(branchProp, "dsdsdsdd");
                       </span>
                     </p>
                   ) : null}
-                  <span className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning">
+                  {/* <span className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning">
                     Awaiting Primary Doctor Sign-off
-                  </span>
+                  </span> */}
                 </div>
               </div>
 
-              {/* Seal: in normal flow while the band stacks, then lifted out and
-                  pinned to the band's centre from `sm` up. Static at mobile so
-                  it can't overlap the stacked columns. */}
-              <div className="flex size-28 shrink-0 flex-col items-center justify-center self-center rounded-full border-2 border-dashed border-primary/40 text-center rotate-325 sm:absolute sm:left-3/5 z-1 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2">
+              
+              <div className="flex size-25 aspect-square shrink-0 flex-col items-center justify-center self-center rounded-full border-2 border-dashed border-primary/40 text-center rotate-325 sm:absolute sm:left-3/5 z-1 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2">
                 <Image src="/logo.svg" alt="Svastha" width={28} height={28} />
                 <span className="mt-1 font-sf text-sm font-bold tracking-wide text-brand-blue">
                   Svastha

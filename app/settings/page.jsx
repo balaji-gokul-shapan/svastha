@@ -628,6 +628,9 @@ const ScreeningPage = dynamic(() => import("./pages/ScreeningPage"));
 const TeamPage = dynamic(() => import("./pages/TeamPage"));
 // const PasswordPage = dynamic(() => import("./pages/PasswordPage"));
 const ReportPage = dynamic(() => import("./pages/Report"));
+const SecurityQuestionsPage = dynamic(
+  () => import("./pages/SecurityQuestionsPage"),
+);
 // const ApplicationsPage = dynamic(() => import("./pages/ApplicationPage"));
 // const ApiPage = dynamic(() => import("./pages/ApiPage"));
 
@@ -1803,6 +1806,8 @@ console.log(editingAccount,"editingAccount");
         );
       case "screening":
         return <ScreeningPage />;
+      case "security-questions":
+        return <SecurityQuestionsPage />;
       case "team":
         return (
           <TeamPage

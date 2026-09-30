@@ -302,7 +302,7 @@ function StudentsList() {
 
   return (
     <section className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-2">
         <div className="">
           <h2 className="font-sf text-2xl font-bold text-foreground">
             Students

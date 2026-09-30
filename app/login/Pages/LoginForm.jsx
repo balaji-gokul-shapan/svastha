@@ -2,7 +2,7 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { motion } from "framer-motion";
-import { ArrowRight, Eye, EyeOff, Loader2, LogIn, ShieldCheck } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, KeyRound, Loader2, LogIn, ShieldCheck } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
@@ -18,6 +18,7 @@ import { loginUser } from "@/lib/features/loginSlice";
 import { setAuthSession } from "@/lib/features/auth-slice";
 import { scheduleProactiveRefresh } from "@/lib/auth-utils";
 import { TextField } from "@/components/ui/text-field";
+import ForgotPasswordFlow from "../components/ForgotPasswordFlow";
 
 const LoginForm = () => {
   const router = useRouter();
@@ -29,6 +30,19 @@ const LoginForm = () => {
   const [showPassword, setShowPassword] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState("");
   const [successMessage, setSuccessMessage] = React.useState("");
+  // Swaps the sign-in card for the 3-step recovery wizard.
+  const [isResetting, setIsResetting] = React.useState(false);
+
+  const showForgotPassword = () => {
+    setErrorMessage("");
+    setSuccessMessage("");
+    setIsResetting(true);
+  };
+
+  const cancelForgotPassword = () => {
+    setErrorMessage("");
+    setIsResetting(false);
+  };
 
   const handleReset = () => {
     setUsername("");
@@ -115,10 +129,10 @@ const LoginForm = () => {
               />
             </motion.span>
             <div className="flex min-w-0 flex-col">
-              <span className="login-wordmark text-[1.6rem]">
+              <span className="login-wordmark text-2xl">
                 Svas<em>t</em>ha
               </span>
-              <small className="login-tagline">
+              <small className="login-tagline py-1">
                 Healthy Roots <span className="text-brand-green">Rising Stars</span>
               </small>
             </div>
@@ -130,16 +144,21 @@ const LoginForm = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
           >
-            <CardTitle className="font-sf text-2xl font-semibold tracking-tight">
+            <CardTitle className="font-sf text-3xl font-semibold tracking-tight">
               Welcome back
             </CardTitle>
-            <CardDescription className="text-[0.85rem] leading-relaxed">
+            <CardDescription className="text-sm leading-relaxed">
               Sign in to access your account and manage student health records.
             </CardDescription>
           </motion.div>
         </CardHeader>
 
         <CardContent>
+          {/* Recovery wizard replaces the sign-in form in place, so the logo
+              and layout stay put instead of jumping to a new page. */}
+          {isResetting ? (
+            <ForgotPasswordFlow onCancel={cancelForgotPassword} />
+          ) : (
           <motion.form
             className="space-y-4"
             onSubmit={handleSubmit}
@@ -212,6 +231,17 @@ const LoginForm = () => {
               </motion.p>
             ) : null}
 
+            {/* Opens the recovery wizard. Placed between Password and Reset so
+                it reads as part of the password field. */}
+            {/* <button
+              type="button"
+              onClick={showForgotPassword}
+              className="flex w-full items-center justify-end gap-1.5 text-xs font-medium text-primary hover:underline"
+            >
+              <KeyRound className="size-3.5" aria-hidden="true" />
+              Forgot password?
+            </button> */}
+
             <div className="flex w-full flex-row gap-3 pt-2">
               <Button
                 variant="outline"
@@ -252,6 +282,7 @@ const LoginForm = () => {
               </span>
             </p>
           </motion.form>
+          )}
         </CardContent>
       </Card>
     </>

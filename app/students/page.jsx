@@ -359,7 +359,7 @@ function StudentsList() {
 
   return (
     <section className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-2">
         <div className="">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground lg:text-3xl">
             Students

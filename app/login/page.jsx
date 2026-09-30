@@ -18,191 +18,7 @@ import {
 } from "lucide-react";
 
 import LoginForm from "./Pages/LoginForm";
-
-function OrbitRing({ radius }) {
-  return (
-    <div
-      className="absolute left-1/2 top-1/2 rounded-full border border-border/80"
-      style={{
-        width: `${radius * 2}cqw`,
-        height: `${radius * 2}cqw`,
-        marginLeft: `${-radius}cqw`,
-        marginTop: `${-radius}cqw`,
-      }}
-    />
-  );
-}
-
-function OrbitItem({
-  children,
-  radius,
-  duration,
-  angle = 0,
-  reverse = false,
-  size = 6,
-  toneClass,
-}) {
-  const reduceMotion = useReducedMotion();
-
-  return (
-    <motion.div
-      className="absolute left-1/2 top-1/2"
-      style={{
-        width: `${radius * 2}cqw`,
-        height: `${radius * 2}cqw`,
-        marginLeft: `${-radius}cqw`,
-        marginTop: `${-radius}cqw`,
-      }}
-      initial={{ rotate: angle }}
-      animate={{ rotate: angle + (reverse ? -360 : 360) }}
-      transition={
-        reduceMotion
-          ? { duration: 0 }
-          : { duration, repeat: Infinity, ease: "linear" }
-      }
-    >
-      <motion.div
-        className={`absolute flex items-center justify-center rounded-full border-[1.5px] border-current bg-card shadow-sm ${toneClass}`}
-        style={{
-          width: `${size}cqw`,
-          height: `${size}cqw`,
-          left: `${radius * 2 - size / 2}cqw`,
-          top: `${radius - size / 2}cqw`,
-        }}
-        initial={{ rotate: -angle }}
-        animate={{ rotate: -angle + (reverse ? 360 : -360) }}
-        transition={
-          reduceMotion
-            ? { duration: 0 }
-            : { duration, repeat: Infinity, ease: "linear" }
-        }
-      >
-        {children}
-      </motion.div>
-    </motion.div>
-  );
-}
-
-function OrbitVisual() {
-  return (
-    <div
-      className="relative mx-auto aspect-square w-full"
-      style={{ containerType: "inline-size" }}
-    >
-      <OrbitRing radius={22} />
-      <OrbitRing radius={33} />
-      <OrbitRing radius={45} />
-
-      <OrbitItem
-        radius={22}
-        duration={14}
-        angle={0}
-        size={11}
-        toneClass="text-domain-vision"
-      >
-        <img
-          src="/login/images/vision.svg"
-          alt=""
-          draggable={false}
-          className="object-contain"
-          style={{ width: "8cqw", height: "8cqw" }}
-        />
-      </OrbitItem>
-      <OrbitItem
-        radius={22}
-        duration={14}
-        angle={190}
-        size={11}
-        toneClass="text-domain-physical"
-      >
-        <img
-          src="/login/images/cardiac.svg"
-          alt=""
-          draggable={false}
-          className="object-contain"
-          style={{ width: "10cqw", height: "10cqw" }}
-        />
-      </OrbitItem>
-
-      <OrbitItem
-        radius={33}
-        duration={20}
-        angle={90}
-        reverse
-        size={11}
-        toneClass="text-domain-oral"
-      >
-        <img
-          src="/login/images/general.svg"
-          alt=""
-          draggable={false}
-          className="object-contain"
-          style={{ width: "8cqw", height: "8cqw" }}
-        />
-      </OrbitItem>
-      <OrbitItem
-        radius={33}
-        duration={20}
-        angle={300}
-        reverse
-        size={11}
-        toneClass="text-domain-hearing"
-      >
-        <img
-          src="/login/images/hearing.svg"
-          alt=""
-          draggable={false}
-          className="object-contain"
-          style={{ width: "15cqw", height: "15cqw" }}
-        />
-      </OrbitItem>
-
-      <OrbitItem
-        radius={45}
-        duration={28}
-        angle={150}
-        size={11}
-        toneClass="text-domain-immunization"
-      >
-        <img
-          src="/login/images/immunization.svg"
-          alt=""
-          draggable={false}
-          className="object-contain"
-          style={{ width: "8cqw", height: "8cqw" }}
-        />
-      </OrbitItem>
-      <OrbitItem
-        radius={45}
-        duration={28}
-        angle={340}
-        size={11}
-        toneClass="text-brand-green"
-      >
-        <img
-          src="/login/images/dental.svg"
-          alt=""
-          draggable={false}
-          className="object-contain"
-          style={{ width: "15cqw", height: "15cqw" }}
-        />
-      </OrbitItem>
-
-      {/* Center: static logo, wrapped in two offset pulse rings. */}
-      <div className="login-pulse-ring" />
-      <div className="login-pulse-ring login-pulse-ring--delay" />
-      <div className="absolute left-1/2 top-1/2 flex size-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary shadow-lg">
-        <Image
-          src="/logo.svg"
-          alt="Svastha"
-          width={32}
-          height={32}
-          className="brightness-0 invert"
-        />
-      </div>
-    </div>
-  );
-}
+import BrandVideo from "./components/BrandVideo";
 
 /* ==========================================================================
    PAGE
@@ -439,14 +255,14 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="flex flex-col items-center gap-6">
+          <div className="flex flex-col items-center gap-3">
             <span className="login-eyebrow">
               <Sparkles className="size-3" aria-hidden="true" />
               Student Health Platform
             </span>
 
             <div className="w-full max-w-[320px]">
-              <OrbitVisual />
+              <BrandVideo />
             </div>
           </div>
 
