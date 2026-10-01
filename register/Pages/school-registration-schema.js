@@ -30,11 +30,11 @@ export const schoolStepOneSchema = z.object({
 
   total_teaching_staff: z
     .number()
-    .min(0, "Teaching staff cannot be negative"),
+    .min(1, "Teaching staff cannot be negative"),
 
   total_non_teaching_staff: z
     .number()
-    .min(0, "Non-teaching staff cannot be negative"),
+    .min(1, "Non-teaching staff cannot be negative"),
 });
 
 
@@ -76,7 +76,8 @@ export const schoolStepTwoSchema = z.object({
   pincode: z
     .string()
     .trim()
-    .min(1, "Pincode is required"),
+    .min(1, "Pincode is required")
+    .regex(/^\d{6}$/, "Enter a valid 6-digit pincode"),
 
   contact_person_name: z
     .string()
@@ -91,7 +92,11 @@ export const schoolStepTwoSchema = z.object({
   contact_person_phone: z
     .string()
     .trim()
-    .min(1, "Contact phone is required"),
+    .min(1, "Contact phone is required")
+    .regex(
+      /^[+]?[\d\s()-]{7,15}$/,
+      "Enter a valid phone number",
+    ),
 
   email: z
     .string()
@@ -149,7 +154,8 @@ const branchSchema = z.object({
   pincode: z
     .string()
     .trim()
-    .min(1, "Branch pincode is required"),
+    .min(1, "Branch pincode is required")
+    .regex(/^\d{6}$/, "Enter a valid 6-digit pincode"),
 
   contact_person_name: z
     .string()
@@ -164,7 +170,11 @@ const branchSchema = z.object({
   contact_person_phone: z
     .string()
     .trim()
-    .min(1, "Branch phone is required"),
+    .min(1, "Branch phone is required")
+    .regex(
+      /^[+]?[\d\s()-]{7,15}$/,
+      "Enter a valid phone number",
+    ),
 
   contact_person_email: z
     .string()
