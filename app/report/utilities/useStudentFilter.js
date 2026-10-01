@@ -9,6 +9,21 @@ import { buildCampSummary, EMPTY_CAMP_SUMMARY, getCampId } from "@/lib/camp-util
 import { getStudentByEvent } from "@/lib/features/getEventAssignSlice";
 import { getFilterStudent } from "@/lib/features/getFilterStudent";
 
+
+const STUDENT_ID_KEYS = [
+  "id",
+  "studentId",
+  "student_id",
+  "cus_id",
+  "school_registration_number",
+  "admission_number",
+];
+
+const matchesStudentId = (student, wantedId) =>
+  STUDENT_ID_KEYS.some(
+    (key) => String(student?.[key] ?? "").trim() === wantedId,
+  );
+
 /**
  * useStudentFilter — reusable hook for report pages.
  */
@@ -225,25 +240,33 @@ export default function useStudentFilter() {
     () => (Array.isArray(filterPayload?.items) ? filterPayload.items : []),
     [filterPayload],
   );
+  console.log(students,"studentssssssssssssss33");
+
+  /*
+   * The dropdown is not always fed by `students` above: with a camp selected
+   * <StudentFilter /> lists that camp's roster, and <SchoolStudentFilter />
+   * runs its own getFilterStudent query. Both land in redux, so search them
+   * too — otherwise the picked student resolves to null.
+   */
+  const reduxFilterStudents = useAppSelector(
+    (state) => state.getFilterStudent?.studentData,
+  );
+  const campRosterStudents = useAppSelector((state) => state.eventAssign?.students);
 
   const selectedStudent = useMemo(() => {
-    if (!studentId) return null;
+    const wantedId = String(studentId ?? "").trim();
+    if (!wantedId || wantedId === "all") return null;
     return (
-      students.find((student) => {
-        const ids = [
-          student?.id,
-          student?.studentId,
-          student?.cus_id,
-          student?.school_registration_number,
-          student?.admission_number,
-        ]
-          .map((value) => String(value ?? "").trim())
-          .filter(Boolean);
-        return ids.includes(String(studentId).trim());
-      }) ?? null
+      [
+        ...students,
+        ...(reduxFilterStudents ?? []),
+        ...(campRosterStudents ?? []),
+      ].find((student) => matchesStudentId(student, wantedId)) ?? null
     );
-  }, [students, studentId]);
+  }, [students, reduxFilterStudents, campRosterStudents, studentId]);
 
+  console.log(selectedStudent,"selectedStudentssss");
+  
   /* ---------------------------------------------------------------------- */
   /* Props to spread onto <StudentFilter />                                 */
   /* ---------------------------------------------------------------------- */

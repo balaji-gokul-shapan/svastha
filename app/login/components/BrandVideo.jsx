@@ -15,20 +15,6 @@ const FIT_CLASS = {
  * BRAND VIDEO
  * -----------
  * The dentist animation that replaces the old OrbitVisual on the login page.
- *
- * Responsive by container, not viewport: this sits in a fixed-width brand
- * column that is hidden below 900px, so the natural size is the CONTAINER's
- * width, not the window's. `w-full` + `h-auto` is what makes it scale without
- * a hardcoded px width.
- *
- * The box ratio comes from the FILE, not from a hardcoded guess: the real
- * dimensions are read on `loadedmetadata` and override `fallbackRatio`. This
- * asset is 720x1280 (portrait 9/16), so a landscape placeholder box would
- * letterbox the animation into a thin strip in the middle of black bars.
- *
- * Deliberately NO poster: a poster stays painted over the video until the
- * browser fires `playing`, so a slow or refused autoplay leaves the poster
- * (loader.gif) on screen looking like the video "is not playing".
  */
 export default function BrandVideo({
   // NOTE: the file lives in public/GIFs/, so the served URL is "/GIFs/...".
@@ -38,7 +24,7 @@ export default function BrandVideo({
   // Placeholder ratio used only until the real dimensions are known, so the
   // panel does not collapse to zero height while loading. Defaults to this
   // asset's ratio (720x1280 -> 9 / 16) so there is no jump when metadata lands.
-  fallbackRatio = "9 / 16",
+  fallbackRatio = "8 / 12",
   aspectRatio,
   // `object-fit` for the video: "contain" (default) never crops, "cover" fills
   // a forced box ratio and crops, "fill" stretches.

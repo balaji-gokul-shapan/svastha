@@ -77,7 +77,7 @@ function TableCell({ className, ...props }) {
   return (
     <td
       data-slot="table-cell"
-      className={cn("px-3 align-middle [&:has([role=checkbox])]:pr-0", className)}
+      className={cn("p-3 align-middle [&:has([role=checkbox])]:pr-0", className)}
       {...props}
     />
   );
