@@ -1297,6 +1297,7 @@ console.log(settingsFormData,"settingsFormData");
     user_type_id: "",
     branchId: "",
     previleges: "",
+    password_confirmation: "",
   });
   console.log(subAccount, "subAccount");
 
@@ -1332,6 +1333,7 @@ console.log(editingAccount,"editingAccount");
       user_type_id: "",
       branchId: "",
       previleges: "",
+      password_confirmation: "",
     });
     setShowPassword(false);
     setFormErrors({});
@@ -1351,8 +1353,8 @@ console.log(editingAccount,"editingAccount");
       password: "",
       user_type_id: account.user_type_id || "",
       branchId: account.branchId || "",
-
       previleges: account.previleges || "",
+      password_confirmation: "",
     });
     setShowPassword(false);
     setFormErrors({});
@@ -1543,6 +1545,7 @@ console.log(editingAccount,"editingAccount");
     const userName = (subAccount.userName || "").trim();
     const phoneNumber = (subAccount.phoneNumber || "").trim();
     const password = subAccount.password || "";
+    const passwordConfirmation = subAccount.password_confirmation || "";
     // Keep RAW for zod validation — Number("") becomes 0, which slips past
     // the "required" refine and reaches the backend as undefined.
     const usertypeId = subAccount.user_type_id ?? "";
@@ -1566,6 +1569,7 @@ console.log(editingAccount,"editingAccount");
       userName,
       phoneNumber,
       password,
+      password_confirmation: passwordConfirmation,
       branchId,
       user_type_id: usertypeId,
       previleges,
@@ -1673,6 +1677,10 @@ console.log(editingAccount,"editingAccount");
           password,
           user_type_id: Number(usertypeId) || undefined,
           branch_id: Number(branchId) || undefined,
+
+          ...(password && !editingAccount
+            ? { password_confirmation: passwordConfirmation }
+            : {}),
           ...(hasPrivileges ? { previleges: previleges } : {}),
         }),
       ).unwrap();

@@ -90,7 +90,21 @@ export const buildSubAccountSchema = ({
 
     user_type_id: subAccountSchema.shape.user_type_id,
     branchId: subAccountSchema.shape.branchId,
-    // Privileges are optional — never blocks saving. The payload only
-    // includes `privileges` when the user actually picked one.
+
     previleges: subAccountSchema.shape.previleges,
-  });
+  })
+    /*
+     * Only meaningful while editing a new password: blank means "keep the
+     * current one" during an edit, so both sides blank is allowed. Any
+     * non-blank pair must match.
+     */
+    .refine(
+      (data) =>
+        !data.password ||
+        !data.password_confirmation ||
+        data.password === data.password_confirmation,
+      {
+        message: "Passwords do not match.",
+        path: ["password_confirmation"],
+      },
+    );

@@ -6,8 +6,7 @@ import { SummaryRow } from "../utilities/SummaryRow";
 const HearingSummary = ({reHearingResult, leHearingResult, form}) => {
   return (
     <FramerCard>
-      {/* Same "Clinical Slate" language as the other screening pages, with a
-          colour rail per ear so left and right are never confused. */}
+
       <div className="gs-panel">
         <div className="gs-panel__head">
           <span className="gs-panel__icon">
@@ -24,8 +23,7 @@ const HearingSummary = ({reHearingResult, leHearingResult, form}) => {
         </div>
 
         <div className="space-y-2 p-2.5">
-          {/* Per-ear sub-panels: the PTA reading is the headline number, so it
-              gets a tinted block of its own rather than one row in a list. */}
+
           <div className="gs-subpanel gs-subpanel--od">
             <p className="gs-subpanel__head">Right Ear (RE)</p>
 

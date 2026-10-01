@@ -21,6 +21,8 @@ export const useSchoolSuperAdminApi = (role, requestedSchoolBranchId) => {
     .replace(/[\s-]+/g, "_");
   const canAccessAllSchoolBranches =
     getRole === "admin" ||
+    getRole === "superadmin" ||
+    getRole === "super_admin" ||
     getRole === "school" ||
     getRole === "school_admin";
 
@@ -50,11 +52,7 @@ export const useSchoolSuperAdminApi = (role, requestedSchoolBranchId) => {
     refetchOnWindowFocus: false,
   });
 
-  /*
-   * The caller's own branch no longer needs a dedicated `GET /schools/branch`
-   * request — it is read straight off the dashboard payload
-   * (`data.data.branches` + `data.scope.branch_ids`), one fewer network call.
-   */
+
   const dashboardBranches = useMemo(() => {
     const list = dashboardData?.data?.branches;
     return Array.isArray(list) ? list.filter(Boolean) : [];
@@ -62,9 +60,6 @@ export const useSchoolSuperAdminApi = (role, requestedSchoolBranchId) => {
 
   const schoolBranch = useMemo(() => {
     if (!dashboardBranches.length) return null;
-
-    // A sub-account is scoped to a single branch, and the backend narrows the
-    // dashboard to it via `scope.branch_ids` — pick that branch when present.
     const scopeIds = dashboardData?.scope?.branch_ids;
     const scoped =
       Array.isArray(scopeIds) && scopeIds.length

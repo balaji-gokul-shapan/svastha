@@ -31,6 +31,7 @@ import {
   X,
   UserRoundPlus,
   CirclePlus,
+  CircleCheck,
 } from "lucide-react";
 
 import {
@@ -261,6 +262,21 @@ const TeamPage = ({
     (classSections) => handleSubAccountChange("previleges", classSections),
     [handleSubAccountChange],
   );
+
+  /* Live password-match feedback for the confirm field. */
+  const passwordConfirmation = subAccount?.password_confirmation ?? "";
+  const passwordsMatch =
+    passwordConfirmation !== "" &&
+    passwordConfirmation === (subAccount?.password ?? "");
+
+  /* The confirm field has its OWN toggle, so revealing it does not also
+     reveal the password field. */
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  /* Never leave the confirm password revealed when the dialog closes/reopens. */
+  React.useEffect(() => {
+    if (!isAddOpen) setShowConfirmPassword(false);
+  }, [isAddOpen]);
   console.log(getBranchDataForSubAccount, "getBranchDataForSubAccount");
   console.log(subAccount, "eeeeeee");
   const getRole = useAuthRole(authAccName);
@@ -1021,6 +1037,7 @@ const TeamPage = ({
                       labelClassName="text-sm font-medium text-foreground"
                       id="name"
                       name="name"
+                      required
                       value={subAccount?.name ?? ""}
                       onChange={(event) =>
                         handleSubAccountChange("name", event.target.value)
@@ -1042,6 +1059,7 @@ const TeamPage = ({
                       label="Phone Number"
                       labelClassName="text-sm font-medium text-foreground"
                       id="phone-number"
+                      required
                       name="phoneNumber"
                       value={subAccount?.phoneNumber ?? ""}
                       onChange={(event) =>
@@ -1092,6 +1110,7 @@ const TeamPage = ({
                           labelClassName="text-sm font-medium text-foreground"
                           id="account-password"
                           name="password"
+                          required
                           type={showPassword ? "text" : "password"}
                           value={subAccount?.password ?? ""}
                           onChange={(event) =>
@@ -1100,11 +1119,7 @@ const TeamPage = ({
                               event.target.value,
                             )
                           }
-                          placeholder={
-                            editingAccount
-                              ? "Leave blank to keep current password"
-                              : "Minimum 6 characters"
-                          }
+                          placeholder="Minimum 8 characters"
                           autoComplete="new-password"
                           className="pr-10"
                         />
@@ -1133,6 +1148,68 @@ const TeamPage = ({
                       )}
                     </div>
                   )}
+                  {!editingAccount && (
+                    <div className="space-y-1.5">
+                      <div className="relative">
+                        <TextField
+                          label="Confirm Password"
+                          labelClassName="text-sm font-medium text-foreground"
+                          id="account-confirm-password"
+                          name="password_confirmation"
+                          required
+                          type={showConfirmPassword ? "text" : "password"}
+                          value={subAccount?.password_confirmation ?? ""}
+                          onChange={(event) =>
+                            handleSubAccountChange(
+                              "password_confirmation",
+                              event.target.value,
+                            )
+                          }
+                          placeholder="Re-enter password"
+                          autoComplete="new-password"
+                          className="pr-10"
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowConfirmPassword((value) => !value)
+                          }
+                          className="absolute right-2 top-8 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          aria-label={
+                            showConfirmPassword
+                              ? "Hide confirm password"
+                              : "Show confirm password"
+                          }
+                        >
+                          {showConfirmPassword ? (
+                            <EyeOff className="size-4" />
+                          ) : (
+                            <Eye className="size-4" />
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Live match feedback — only once the user has typed
+                          something, so it never nags on an empty field. */}
+                      {passwordConfirmation ? (
+                        passwordsMatch ? (
+                          <p className="flex items-center gap-1 text-xs text-success">
+                            <CircleCheck className="size-3.5" aria-hidden="true" />
+                            Passwords match
+                          </p>
+                        ) : (
+                          <p className="text-xs text-destructive">
+                            Passwords do not match
+                          </p>
+                        )
+                      ) : formErrors?.password_confirmation ? (
+                        <p className="text-xs text-destructive">
+                          {formErrors.password_confirmation}
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
               </section>
 
@@ -1143,7 +1220,7 @@ const TeamPage = ({
                     Access & Assignment
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    Select the user's role and assign them to a branch.
+                    Select the user&rsquo;s role and assign them to a branch.
                   </p>
                 </div>
 
@@ -1152,6 +1229,7 @@ const TeamPage = ({
                   <div className="space-y-1.5">
                     <div>
                       <ReusableSelect
+                        required
                         label="User Type"
                         withPortal
                         value={subAccount?.user_type_id ?? ""}
@@ -1173,6 +1251,7 @@ const TeamPage = ({
                   <div className="space-y-1.5">
                     <ReusableSelect
                       label="Branch"
+                      required
                       withPortal
                       value={subAccount?.branchId ?? ""}
                       onChange={(value) =>

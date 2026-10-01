@@ -841,7 +841,7 @@ export default function ENTScreeningPage({ screening = {}, student = {} }) {
                 "grid grid-cols-1 gap-4 transition-[grid-template-columns] duration-300 ease-out",
                 isRailCollapsed
                   ? "xl:grid-cols-[3.25rem_minmax(0,1fr)]"
-                  : "xl:grid-cols-[300px_minmax(0,1fr)]",
+                  : "xl:grid-cols-[minmax(15rem,20rem)_minmax(0,1fr)] 2xl:grid-cols-[300px_minmax(0,1fr)]",
               )}
             >
               {/* =================================================

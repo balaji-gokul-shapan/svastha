@@ -69,7 +69,192 @@ function HighlightSlide({ item, isActive }) {
     </div>
   );
 }
+function OrbitRing({ radius }) {
+  return (
+    <div
+      className="absolute left-1/2 top-1/2 rounded-full border border-border/80"
+      style={{
+        width: `${radius * 2}cqw`,
+        height: `${radius * 2}cqw`,
+        marginLeft: `${-radius}cqw`,
+        marginTop: `${-radius}cqw`,
+      }}
+    />
+  );
+}
 
+function OrbitItem({
+  children,
+  radius,
+  duration,
+  angle = 0,
+  reverse = false,
+  size = 6,
+  toneClass,
+}) {
+  return (
+    <motion.div
+      className="absolute left-1/2 top-1/2"
+      style={{
+        width: `${radius * 2}cqw`,
+        height: `${radius * 2}cqw`,
+        marginLeft: `${-radius}cqw`,
+        marginTop: `${-radius}cqw`,
+      }}
+      initial={{ rotate: angle }}
+      animate={{ rotate: angle + (reverse ? -360 : 360) }}
+      transition={{ duration, repeat: Infinity, ease: "linear" }}
+    >
+      <motion.div
+        className={`absolute flex items-center justify-center rounded-full border-[1.5px] border-current bg-card shadow-sm ${toneClass}`}
+        style={{
+          width: `${size}cqw`,
+          height: `${size}cqw`,
+          left: `${radius * 2 - size / 2}cqw`,
+          top: `${radius - size / 2}cqw`,
+        }}
+        initial={{ rotate: -angle }}
+        animate={{ rotate: -angle + (reverse ? 360 : -360) }}
+        transition={{ duration, repeat: Infinity, ease: "linear" }}
+      >
+        {children}
+      </motion.div>
+    </motion.div>
+  );
+}
+function OrbitVisual() {
+  return (
+    <div
+      className="relative mx-auto aspect-square w-full"
+      style={{ containerType: "inline-size" }}
+    >
+      <OrbitRing radius={22} />
+      <OrbitRing radius={33} />
+      <OrbitRing radius={45} />
+
+      {/* Orbit icons — custom artwork from public/login/images. Rendered with
+          <img> because the files carry their own baked-in colors; the chip's
+          toneClass still colors the ring border via border-current. */}
+      <OrbitItem
+        radius={22}
+        duration={14}
+        angle={0}
+        size={11}
+        toneClass="text-info"
+      >
+        <Image
+          src="/login/images/vision.svg"
+          alt=""
+          draggable={false}
+          width={32}
+          height={32}
+          className="object-contain"
+          style={{ width: "8cqw", height: "8cqw" }}
+        />
+      </OrbitItem>
+      <OrbitItem
+        radius={22}
+        duration={14}
+        angle={190}
+        size={11}
+        toneClass="text-success"
+      >
+        <Image
+          src="/login/images/cardiac.svg"
+          alt=""
+          draggable={false}
+          width={32}
+          height={32}
+          className="object-contain"
+          style={{ width: "10cqw", height: "10cqw" }}
+        />
+      </OrbitItem>
+
+      <OrbitItem
+        radius={33}
+        duration={20}
+        angle={90}
+        reverse
+        size={11}
+        toneClass="text-info"
+      >
+        <Image
+          src="/login/images/general.svg"
+          alt=""
+          draggable={false}
+          width={32}
+          height={32}
+          className="object-contain"
+          style={{ width: "8cqw", height: "8cqw" }}
+        />
+      </OrbitItem>
+      <OrbitItem
+        radius={33}
+        duration={20}
+        angle={300}
+        reverse
+        size={11}
+        toneClass="text-success"
+      >
+        <Image
+          src="/login/images/hearing.svg"
+          alt=""
+          draggable={false}
+          width={32}
+          height={32}
+          className="object-contain"
+          style={{ width: "15cqw", height: "15cqw" }}
+        />
+      </OrbitItem>
+
+      <OrbitItem
+        radius={45}
+        duration={28}
+        angle={150}
+        size={11}
+        toneClass="text-info"
+      >
+        <Image
+          src="/login/images/immunization.svg"
+          alt=""
+          draggable={false}
+          width={32}
+          height={32}
+          className="object-contain"
+          style={{ width: "8cqw", height: "8cqw" }}
+        />
+      </OrbitItem>
+      <OrbitItem
+        radius={45}
+        duration={28}
+        angle={340}
+        size={11}
+        toneClass="text-success"
+      >
+        <Image
+          src="/login/images/dental.svg"
+          alt=""
+          draggable={false}
+          width={32}
+          height={32}
+          className="object-contain"
+          style={{ width: "15cqw", height: "15cqw" }}
+        />
+      </OrbitItem>
+
+      {/* Center — static */}
+      <div className="absolute left-1/2 top-1/2 flex size-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary shadow-lg">
+        <Image
+          src="/logo.svg"
+          alt="Svastha"
+          width={32}
+          height={32}
+          className="brightness-0 invert"
+        />
+      </div>
+    </div>
+  );
+}
 function HighlightSwiper() {
   const count = HIGHLIGHTS.length;
   const reduceMotion = useReducedMotion();
@@ -262,7 +447,9 @@ export default function LoginPage() {
             </span>
 
             <div className="w-full max-w-[320px]">
-              <BrandVideo />
+          {/* <HighlightSwiper /> */}
+          <OrbitVisual />
+              {/* <BrandVideo /> */}
             </div>
           </div>
 

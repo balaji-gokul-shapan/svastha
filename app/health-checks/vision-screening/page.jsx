@@ -316,11 +316,6 @@ export default function VisionScreeningPage() {
   const [os, setOs] = useState({ ...emptyEye, distanceWith: "6/9" });
   const [ou, setOu] = useState({ ...emptyEye });
 
-  // Seeded from the static options (NOT master data) — master data arrives
-  // asynchronously and is an array anyway, so `colorVisionData?.name` was
-  // always undefined and the payload key got dropped by JSON.stringify,
-  // causing the backend to reject saves with
-  // "Invalid input: expected string, received undefined".
   const [colorVisionStatus, setColorVisionStatus] = useState(
     colorVisionStatusOptions[0],
   );
@@ -344,14 +339,6 @@ export default function VisionScreeningPage() {
   );
   const [refractiveErrorRemarks, setRefractiveErrorRemarks] = useState("");
   const [isCaDrawerOpen, setIsCaDrawerOpen] = useState(false);
-
-  // Left-rail collapse, persisted so the screener's chosen workspace width
-  // survives navigation between screening pages.
-  //
-  // useSyncExternalStore (not a lazy useState initializer) is deliberate: this
-  // file is "use client" but still SSR'd, so reading localStorage during the
-  // first render would mismatch the server HTML. It also avoids a
-  // setState-in-effect hydration flash.
   const isRailCollapsed = useSyncExternalStore(
     subscribeRail,
     getRailSnapshot,
@@ -1482,10 +1469,10 @@ export default function VisionScreeningPage() {
           <StudentProfileCard student={selectedStudent} />
           <div
             className={cn(
-              "grid gap-4 transition-[grid-template-columns] duration-300 ease-out",
+              "grid grid-cols-1 gap-4 transition-[grid-template-columns] duration-300 ease-out",
               isRailCollapsed
                 ? "lg:grid-cols-[3.25rem_minmax(0,1fr)]"
-                : "lg:grid-cols-[300px_minmax(0,1fr)]",
+                : "lg:grid-cols-[minmax(13rem,20rem)_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)]",
               "lg:items-start",
             )}
           >

@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Building2,
   MapPin,
@@ -38,6 +44,7 @@ import {
   resetRegisterSchoolState,
 } from "@/lib/features/registerSchoolSlice";
 import { YearPicker } from "@/components/ui/year-picker";
+import { RegistrationSuccessDialog } from "../components/RegistrationSuccessDialog";
 import { useQuery } from "@tanstack/react-query";
 
 import { getPincodeDetails } from "@/lib/features/getPincode.slice";
@@ -56,14 +63,9 @@ export function usePincodeOptions(pincode) {
   const normalized = String(pincode ?? "").trim();
   const isReady = normalized.length === 6;
 
-  const {
-    data,
-    isLoading,
-    isFetching,
-    error,
-  } = useQuery({
+  const { data, isLoading, isFetching, error } = useQuery({
     queryKey: ["pincode-details", normalized],
-  
+
     queryFn: () => dispatch(getPincodeDetails(normalized)).unwrap(),
     enabled: isReady,
     retry: false,
@@ -116,7 +118,8 @@ export function usePincodeOptions(pincode) {
 
   const errorMessage =
     (error && typeof error === "string" ? error : null) ??
-    (error?.message ?? null);
+    error?.message ??
+    null;
 
   const isBusy = isReady && (isLoading || isFetching) && !errorMessage;
 
@@ -130,7 +133,6 @@ export function usePincodeOptions(pincode) {
     emptyPlaceholder: isReady ? "Select" : "Enter a 6-digit pincode first",
   };
 }
-
 
 // Step id of the optional "Branches" step — shown only when the school
 // declares it has more than one location.
@@ -186,14 +188,10 @@ const initialForm = {
   board: "",
   total_teaching_staff: 0,
   total_non_teaching_staff: 0,
-  // Kept as "" rather than a number so the untouched field fails the
-  // "is required" check with a real message instead of zod's
-  // "expected number, received undefined".
   total_students: "",
   year_of_establishment: "",
   ceeb_code: "",
   registration_number: "",
-
   address_line_1: "",
   address_line_2: "",
   contact_person_designation: "",
@@ -201,17 +199,26 @@ const initialForm = {
   contact_person_phone: "",
   email: "",
 
+  /* Step 2 — correspondent & principal.
+     These MUST exist as empty strings: the zod schema uses z.string() (not
+     z.string().optional()), and an `undefined` value fails with
+     "expected string, received undefined" before the .min() rule — and any
+     custom message — can ever run. */
+  correspondent_name: "",
+  correspondent_designation: "",
+  correspondent_phone: "",
+  correspondent_email: "",
+  principal_name: "",
+  principal_designation: "",
+  principal_phone: "",
+  principal_email: "",
   area: "",
   city: "",
   state: "",
   district: "",
   country: "India",
   pincode: "",
-
   branches: [],
-
-  // Drives whether the "Branches" step is shown at all. A single-location
-  // school skips it entirely; toggling it on reveals the step in the stepper.
   has_multiple_branches: false,
 
   school_name_with_location: "",
@@ -228,11 +235,11 @@ const initialForm = {
    the request, the state reset or the redirect.
    ========================================================================== */
 
-/* The brand tokens are authored as modern space-separated HSL
-   ("hsl(198 83% 49%)"), but a canvas fillStyle only guarantees the legacy
-   comma form, so the token is normalised before confetti uses it. */
 function toLegacyHsl(value, fallback) {
-  const parts = String(value ?? "").trim().split(/[\s,]+/).filter(Boolean);
+  const parts = String(value ?? "")
+    .trim()
+    .split(/[\s,]+/)
+    .filter(Boolean);
 
   if (parts.length !== 3) {
     return fallback;
@@ -260,14 +267,8 @@ function celebrateRegistration() {
   const styles = window.getComputedStyle(document.documentElement);
 
   const colors = [
-    toLegacyHsl(
-      styles.getPropertyValue("--brand-blue"),
-      "hsl(198, 83%, 49%)",
-    ),
-    toLegacyHsl(
-      styles.getPropertyValue("--brand-green"),
-      "hsl(142, 62%, 65%)",
-    ),
+    toLegacyHsl(styles.getPropertyValue("--brand-blue"), "hsl(198, 83%, 49%)"),
+    toLegacyHsl(styles.getPropertyValue("--brand-green"), "hsl(142, 62%, 65%)"),
     "hsl(38, 92%, 50%)",
     "hsl(350, 89%, 60%)",
     "#ffffff",
@@ -313,6 +314,11 @@ export default function SchoolRegistrationPage() {
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [formErrors, setFormErrors] = useState({});
+
+  /* Post-registration "what's next" popup. */
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  /* Captured before the form resets — `form.school_name` is wiped below. */
+  const [registeredSchoolName, setRegisteredSchoolName] = useState("");
 
   const visibleSteps = useMemo(
     () =>
@@ -488,10 +494,14 @@ export default function SchoolRegistrationPage() {
           district: form.district,
           country: form.country,
           pincode: form.pincode,
-          contact_person_name: form.contact_person_name,
-          contact_person_designation: form.contact_person_designation,
-          contact_person_phone: form.contact_person_phone,
-          email: form.email,
+          correspondent_designation: form.correspondent_designation,
+          correspondent_name: form.correspondent_name,
+          correspondent_phone: form.correspondent_phone,
+          correspondent_email: form.correspondent_email,
+          principal_name: form.principal_name,
+          principal_designation: form.principal_designation,
+          principal_phone: form.principal_phone,
+          principal_email: form.principal_email,
         };
 
         break;
@@ -572,11 +582,13 @@ export default function SchoolRegistrationPage() {
 
     try {
       await dispatch(createRegisterSchool(result.data)).unwrap();
-
-      // Celebration only - fire-and-forget, so the flow below is untouched.
       celebrateRegistration();
+      toast.success("School registered successfully!.");
+      setRegisteredSchoolName(
+        String(result.data?.school_name ?? form.school_name ?? "").trim(),
+      );
+      setShowSuccessDialog(true);
 
-      toast.success("School registered successfully! You can now sign in.");
       setForm(initialForm);
       setFormErrors({});
       setCurrentStep(1);
@@ -596,7 +608,6 @@ export default function SchoolRegistrationPage() {
   const getBranchError = (index, field) => {
     return errors?.branches?.[index]?.[field]?._errors?.[0] || "";
   };
-
 
   const {
     isReady: pincodeReady,
@@ -671,7 +682,9 @@ export default function SchoolRegistrationPage() {
                     key={step.id}
                     aria-hidden="true"
                     className={`h-1.5 rounded-full transition-all duration-300 ${
-                      step.id <= currentStep ? "w-6 bg-primary" : "w-1.5 bg-muted-foreground/30"
+                      step.id <= currentStep
+                        ? "w-6 bg-primary"
+                        : "w-1.5 bg-muted-foreground/30"
                     }`}
                   />
                 ))}
@@ -892,6 +905,13 @@ export default function SchoolRegistrationPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Post-registration: next steps + Svastha feature tour. */}
+      <RegistrationSuccessDialog
+        open={showSuccessDialog}
+        onOpenChange={setShowSuccessDialog}
+        schoolName={registeredSchoolName}
+      />
     </main>
   );
 }
@@ -922,15 +942,13 @@ function SchoolDetails({ form, updateField, errors, toggleMultipleBranches }) {
     <div className="space-y-6 sm:space-y-8">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2">
         <SectionTitle
-        icon={Building2}
-        title="Basic Information"
-        description="Enter the basic details of your school."
-      />
-      <div
+          icon={Building2}
+          title="Basic Information"
+          description="Enter the basic details of your school."
+        />
+        <div
           role="group"
-          onClick={() =>
-            toggleMultipleBranches(!form.has_multiple_branches)
-          }
+          onClick={() => toggleMultipleBranches(!form.has_multiple_branches)}
           className={`flex cursor-pointer items-start gap-3.5 rounded-xl border p-4 transition-colors hover:border-primary/40 focus-within:ring-2 focus-within:ring-ring/50 ${
             form.has_multiple_branches
               ? "border-primary/40 bg-primary/5"
@@ -1020,7 +1038,7 @@ function SchoolDetails({ form, updateField, errors, toggleMultipleBranches }) {
           required
           value={form.registration_number}
           onChange={(e) => updateField("registration_number", e.target.value)}
-         placeholder="e.g. SCH/TN/2026/00125"
+          placeholder="e.g. SCH/TN/2026/00125"
           error={getError(errors, "registration_number") || undefined}
         />
 
@@ -1041,7 +1059,9 @@ function SchoolDetails({ form, updateField, errors, toggleMultipleBranches }) {
           placeholder="Enter year of establishment"
           error={getError(errors, "year_of_establishment") || undefined}
         /> */}
-        <YearPicker
+        {/* <YearPicker
+          required
+          error={getError(errors, "year_of_establishment") || undefined}
           id="year_of_establishment"
           name="year_of_establishment"
           label="Year of Establishment"
@@ -1053,10 +1073,10 @@ function SchoolDetails({ form, updateField, errors, toggleMultipleBranches }) {
           onValueChange={(v) => {
             updateField("year_of_establishment", v);
           }}
-        />
+        /> */}
 
-        {/* 1-up on phones — three steppers side by side is unusable there. */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 md:col-span-2">
           <NumberStepperField
             label="Total Number of Students"
             name="total_students"
@@ -1092,8 +1112,6 @@ function SchoolDetails({ form, updateField, errors, toggleMultipleBranches }) {
             error={getError(errors, "total_non_teaching_staff") || undefined}
           />
         </div>
-
-        
       </div>
     </div>
   );
@@ -1236,154 +1254,172 @@ function ContactAddress({
         </Field>
       </div>
 
-     <div className="grid grid-cols-2 gap-2">
-       <Card className="bg-muted/20">
-        <CardContent className="pt-5">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <User className="size-4" />
+      <div className="grid grid-cols-2 gap-2">
+        <Card className="bg-muted/20">
+          <CardContent className="pt-5">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <User className="size-4" />
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold">
+                  Primary Contact Person (Correspondent)
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Person responsible for school communication
+                </p>
+              </div>
             </div>
 
-            <div>
-              <h3 className="text-sm font-semibold">Primary Contact Person  (Correspondent)</h3>
-              <p className="text-xs text-muted-foreground">
-                Person responsible for school communication
-              </p>
+            <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
+              <TextField
+                id="reg-contact-name"
+                label="Contact Person Name"
+                required
+                value={form.correspondent_name}
+                onChange={(e) =>
+                  updateField("correspondent_name", e.target.value)
+                }
+                placeholder="Full name"
+                error={getError(errors, "correspondent_name") || undefined}
+              />
+
+              <TextField
+                id="reg-contact-designation"
+                label="Designation"
+                value={"Correspondent" || form.correspondent_designation}
+                onChange={(e) =>
+                  updateField("correspondent_designation", e.target.value)
+                }
+                placeholder="Correspondent"
+                error={
+                  getError(errors, "correspondent_designation") || undefined
+                }
+                readOnly
+              />
+
+              <TextField
+                id="reg-contact-phone"
+                label="Phone"
+                required
+                type="tel"
+                inputMode="tel"
+                maxLength={15}
+                value={form.correspondent_phone}
+                onChange={(e) =>
+                  updateField(
+                    "correspondent_phone",
+                    e.target.value.replace(/[^\d+\s()-]/g, "").slice(0, 15),
+                  )
+                }
+                placeholder="+91 XXXXX XXXXX"
+                error={getError(errors, "correspondent_phone") || undefined}
+              />
+
+              <TextField
+                id="reg-contact-email"
+                label="Email"
+                required
+                type="email"
+                value={form.correspondent_email}
+                onChange={(e) => updateField("correspondent_email", e.target.value)}
+                placeholder="school@example.com"
+                error={getError(errors, "correspondent_email") || undefined}
+              />
             </div>
-          </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-muted/20">
+          <CardContent className="pt-5">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <User className="size-4" />
+              </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
-            <TextField
-              id="reg-contact-name"
-              label="Contact Person Name"
-              required
-              value={form.contact_person_name}
-              onChange={(e) =>
-                updateField("contact_person_name", e.target.value)
-              }
-              placeholder="Full name"
-              error={getError(errors, "contact_person_name") || undefined}
-            />
-
-            <TextField
-              id="reg-contact-designation"
-              label="Designation"
-              value={"Correspondent" || form.contact_person_designation}
-              onChange={(e) =>
-                updateField("contact_person_designation", e.target.value)
-              }
-              placeholder="Correspondent"
-              error={
-                getError(errors, "contact_person_designation") || undefined
-              }
-              readOnly
-            />
-
-            <TextField
-              id="reg-contact-phone"
-              label="Phone"
-              required
-              type="tel"
-              inputMode="tel"
-              maxLength={15}
-              value={form.contact_person_phone}
-              onChange={(e) =>
-                updateField(
-                  "contact_person_phone",
-                  e.target.value.replace(/[^\d+\s()-]/g, "").slice(0, 15),
-                )
-              }
-              placeholder="+91 XXXXX XXXXX"
-              error={getError(errors, "contact_person_phone") || undefined}
-            />
-
-            <TextField
-              id="reg-contact-email"
-              label="Email"
-              required
-              type="email"
-              value={form.email}
-              onChange={(e) => updateField("email", e.target.value)}
-              placeholder="school@example.com"
-              error={getError(errors, "email") || undefined}
-            />
-          </div>
-        </CardContent>
-      </Card>
-      <Card className="bg-muted/20">
-        <CardContent className="pt-5">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <User className="size-4" />
+              <div>
+                <h3 className="text-sm font-semibold">
+                  Secondary Contact Person (Principal)
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Person responsible for school communication
+                </p>
+              </div>
             </div>
 
-            <div>
-              <h3 className="text-sm font-semibold">Secondary Contact Person  (Principal)</h3>
-              <p className="text-xs text-muted-foreground">
-                Person responsible for school communication
-              </p>
+            <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
+              <TextField
+                id="reg-secondary-contact-name"
+                label="Contact Person Name"
+                required
+                value={form.principal_name}
+                onChange={(e) =>
+                  updateField("principal_name", e.target.value)
+                }
+                placeholder="Full name"
+                error={
+                  getError(errors, "principal_name") || undefined
+                }
+              />
+
+              <TextField
+                id="reg-secondary-contact-designation"
+                label="Designation"
+                value={"Principal" || form.principal_designation}
+                onChange={(e) =>
+                  updateField(
+                    "principal_designation",
+                    e.target.value,
+                  )
+                }
+                placeholder="Principal"
+                readOnly
+                error={
+                  getError(errors, "principal_designation") ||
+                  undefined
+                }
+              />
+
+              <TextField
+                id="reg-secondary-contact-phone"
+                label="Phone"
+                required
+                type="tel"
+                inputMode="tel"
+                maxLength={15}
+                value={form.principal_phone}
+                onChange={(e) =>
+                  updateField(
+                    "principal_phone",
+                    e.target.value.replace(/[^\d+\s()-]/g, "").slice(0, 15),
+                  )
+                }
+                placeholder="+91 XXXXX XXXXX"
+                error={
+                  getError(errors, "principal_phone") ||
+                  undefined
+                }
+              />
+
+              <TextField
+                id="reg-secondary-contact-email"
+                label="Email"
+                required
+                type="email"
+                value={form.principal_email}
+                onChange={(e) =>
+                  updateField("principal_email", e.target.value)
+                }
+                placeholder="school@example.com"
+                error={
+                  getError(errors, "principal_email") ||
+                  undefined
+                }
+              />
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
-            <TextField
-              id="reg-secondary-contact-name"
-              label="Contact Person Name"
-              required
-              value={form.secondary_contact_person_name}
-              onChange={(e) =>
-                updateField("secondary_contact_person_name", e.target.value)
-              }
-              placeholder="Full name"
-              error={getError(errors, "secondary_contact_person_name") || undefined}
-            />
-
-            <TextField
-              id="reg-secondary-contact-designation"
-              label="Designation"
-              value={"Principal" || form.secondary_contact_person_designation}
-              onChange={(e) =>
-                updateField("secondary_contact_person_designation", e.target.value)
-              }
-              placeholder="Principal"
-              readOnly
-              error={
-                getError(errors, "secondary_contact_person_designation") || undefined
-              }
-            />
-
-            <TextField
-              id="reg-secondary-contact-phone"
-              label="Phone"
-              required
-              type="tel"
-              inputMode="tel"
-              maxLength={15}
-              value={form.secondary_contact_person_phone}
-              onChange={(e) =>
-                updateField(
-                  "secondary_contact_person_phone",
-                  e.target.value.replace(/[^\d+\s()-]/g, "").slice(0, 15),
-                )
-              }
-              placeholder="+91 XXXXX XXXXX"
-              error={getError(errors, "secondary_contact_person_phone") || undefined}
-            />
-
-            <TextField
-              id="reg-secondary-contact-email"
-              label="Email"
-              required
-              type="email"
-              value={form.secondary_contact_person_email}
-              onChange={(e) => updateField("secondary_contact_person_email", e.target.value)}
-              placeholder="school@example.com"
-              error={getError(errors, "secondary_contact_person_email") || undefined}
-            />
-          </div>
-        </CardContent>
-      </Card>
-     </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
@@ -1400,8 +1436,9 @@ function ContactAddress({
    instance, so two branches can hold different pincodes and independent
    option lists. */
 function BranchAddressFields({ index, branch, updateBranch, getError }) {
-  const { isReady, isBusy, error, options, autofill } =
-    usePincodeOptions(branch.pincode);
+  const { isReady, isBusy, error, options, autofill } = usePincodeOptions(
+    branch.pincode,
+  );
 
   /* Same "don't stomp manual edits" rule as the school address. */
   const lastFilledRef = useRef({});
@@ -1736,6 +1773,7 @@ function Review({ form, updateField, errors }) {
         <TextField
           id="reg-name-location"
           label="School Name With Location"
+          required
           value={form.school_name_with_location}
           onChange={(e) =>
             updateField("school_name_with_location", e.target.value)

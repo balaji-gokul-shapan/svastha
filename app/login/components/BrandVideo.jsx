@@ -21,9 +21,6 @@ export default function BrandVideo({
   src = "/GIFs/dentistWaving.mp4",
   className = "",
   autoPlay = true,
-  // Placeholder ratio used only until the real dimensions are known, so the
-  // panel does not collapse to zero height while loading. Defaults to this
-  // asset's ratio (720x1280 -> 9 / 16) so there is no jump when metadata lands.
   fallbackRatio = "8 / 12",
   aspectRatio,
   // `object-fit` for the video: "contain" (default) never crops, "cover" fills

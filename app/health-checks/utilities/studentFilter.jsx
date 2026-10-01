@@ -597,10 +597,6 @@ const StudentFilter = ({
     );
   }, [
     dispatch,
-    // `selectedCamp` (not `selectedCamp?.id`): the compiler treats a property
-    // read on a memoized object as a dependency on the whole object, so listing
-    // the narrower `selectedCamp?.id` here is what triggers the "inferred
-    // dependency did not match" bail-out and skips the optimization.
     selectedCamp,
     studentPage,
     studentPerPage,

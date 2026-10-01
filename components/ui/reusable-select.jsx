@@ -40,16 +40,14 @@ export default function ReusableSelect({
   hasMore = false,
   isLoadingMore = false,
   onSearch = null,
-  // Fires with true/false whenever the dropdown opens/closes (trigger click,
-  // option pick, Escape, outside click). Additive — existing usages that don't
-  // pass it are unaffected. Lets parents drop caches that only apply while
-  // searching, e.g. server-side search results.
   onOpenChange = null,
   withPortal=false
 }) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [dropDirection, setDropDirection] = useState("down");
+  const [maxListHeight, setMaxListHeight] = useState(240);
+  const [portalOffset, setPortalOffset] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
   const [portalEl, setPortalEl] = useState(null);
   const [triggerRect, setTriggerRect] = useState(null);
@@ -58,13 +56,8 @@ export default function ReusableSelect({
   const dropdownRef = useRef(null);
   const searchTimerRef = useRef(null);
   const dropdownContainerRef = useRef(null);
-  // Clearing the input after an option is picked is a UI cleanup, not a new
-  // search. Without this guard, the debounced effect below calls onSearch("")
-  // shortly after selection and can replace the result list containing the
-  // selected option.
   const skipNextSearchRef = useRef(false);
-  // Keep the latest onOpenChange callback without re-firing on every render —
-  // parents usually pass an inline arrow whose identity changes each time.
+
   const onOpenChangeRef = useRef(onOpenChange);
   const openChangeMountedRef = useRef(false);
 
@@ -186,9 +179,7 @@ export default function ReusableSelect({
     };
   }, [open, handleScroll]);
 
-  // Auto-load more when the dropdown opens but the list is too short to scroll
-  // (e.g. class/section filters reduced the visible set). Keeps fetching pages
-  // until the dropdown is scrollable or there are no more pages.
+
   useEffect(() => {
     if (!open || !hasMore || isLoadingMore || !onLoadMore) return;
     if (!dropdownRef.current) return;
@@ -214,15 +205,18 @@ export default function ReusableSelect({
     if (!container) return;
 
     const rect = container.getBoundingClientRect();
-    const estimatedDropdownHeight = Math.min(
-      320,
-      Math.max(220, filteredOptions.length * 34 + 90),
-    );
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const spaceAbove = rect.top;
+    const GAP = 8;
+    const EDGE = 8;
+    const MIN_PANEL = 160; // header (search) + at least a few rows
+    const ROW = 34;
+
+    const spaceBelow = window.innerHeight - rect.bottom - GAP - EDGE;
+    const spaceAbove = rect.top - GAP - EDGE;
+
     const shouldOpenUp =
-      spaceBelow < estimatedDropdownHeight + 24 &&
-      spaceAbove > estimatedDropdownHeight;
+      spaceBelow < MIN_PANEL + ROW && spaceAbove > spaceBelow;
+    const available = Math.max(MIN_PANEL, shouldOpenUp ? spaceAbove : spaceBelow);
+    setMaxListHeight(Math.min(320, available - MIN_PANEL + ROW * 2));
     setDropDirection(shouldOpenUp ? "up" : "down");
 
     const onPointerDown = (e) => {
@@ -241,6 +235,23 @@ export default function ReusableSelect({
     document.addEventListener("mousedown", onPointerDown);
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [open, filteredOptions.length]);
+
+  /*
+   * Position the PORTAL dropdown from its real measured height. The previous
+   * code used an estimate, so an "up" panel floated far above the trigger.
+   * Runs after render so dropdownRef has a height to read.
+   */
+  useLayoutEffect(() => {
+    if (!open || !withPortal) return;
+
+    const panel = dropdownRef.current?.parentElement;
+    if (!panel) return;
+
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    setPortalOffset(dropDirection === "up" ? -(panel.offsetHeight + 8) : rect.height);
+  }, [open, withPortal, dropDirection, maxListHeight]);
 
   useEffect(() => {
     if (open) {
@@ -318,7 +329,8 @@ export default function ReusableSelect({
 
                   <div
                     ref={dropdownRef}
-                    className="max-h-60 space-y-1 overflow-y-auto"
+                    style={{ maxHeight: maxListHeight }}
+                    className="space-y-1 overflow-y-auto overscroll-contain"
                   >
                     {isSearching ? (
                       <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground">
@@ -390,18 +402,13 @@ export default function ReusableSelect({
                           position: "absolute",
                           left: triggerRect.left,
                           width: triggerRect.width,
-                          top:
-                            dropDirection === "up"
-                              ? triggerRect.top -
-                                Math.min(
-                                  320,
-                                  Math.max(
-                                    220,
-                                    filteredOptions.length * 34 + 90,
-                                  ),
-                                ) -
-                                4
-                              : triggerRect.bottom,
+                          /*
+                           * "up" uses the MEASURED panel height (portalOffset),
+                           * not an estimate — estimating made the panel float
+                           * far above the trigger whenever the real height
+                           * was smaller than the guess.
+                           */
+                          top: triggerRect.top + portalOffset,
                         }}
                         className="z-9999 rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md"
                       >

@@ -733,6 +733,7 @@ export default function GeneralScreeningPage() {
   });
 
   const [formErrors, setFormErrors] = useState(null);
+  
   const resetAfterSaveRef = useRef(false);
 
   const clearFormError = (field) =>

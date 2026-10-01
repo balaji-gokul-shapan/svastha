@@ -78,7 +78,7 @@ export default function ConsolidateReport() {
   }, [assignedEvents, selectedCamp]);
   const isPrimaryDoctor = activeCampEvent?.primary_doctor === Number(1);
   console.log(selectedCamp, "selectedCamp");
-  console.log(assignedEvents, "assignedEvents");
+  console.log(selectedStudent, "selectedStudent");
 
   const assignedScreeningIds = getScreeningIds(activeCampEvent);
   const assignedScreeningKeys = getScreeningKeys(activeCampEvent);
@@ -263,8 +263,7 @@ console.log(selectedBranch, "defaultBranch");
           />
         ) : null} */}
         {getRole === "doctor" ? (
-          // Camp props only reach the doctor filter — <SchoolStudentFilter />
-          // scopes by branch and has no camp concept.
+
           <StudentFilter {...filterProps} {...doctorFilterProps} />
         ) : (
           <SchoolStudentFilter

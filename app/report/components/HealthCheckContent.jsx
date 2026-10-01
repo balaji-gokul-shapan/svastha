@@ -454,8 +454,7 @@ export default function HealthCheckContent({
   const doctorSignatureUrl = normalizeSignatureUrl(
     getSignatureValue(doctorSignatureState),
   );
-console.log(branchProp, "dsdsdsdd");
-
+  console.log(branchProp, "dsdsdsdd");
 
   const signatoryName = useMemo(() => {
     const candidates = [
@@ -1168,26 +1167,31 @@ console.log(branchProp, "dsdsdsdd");
                 href="/"
                 aria-label="Svastha home"
                 className={cn(
-                  "flex h-10 w-full items-center justify-end gap-2 overflow-hidden rounded-md px-3",
+                  "flex h-14 w-full items-center justify-end gap-2 overflow-hidden rounded-md px-3",
                   "transition-[padding,gap] duration-200 ease-linear",
                   "group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:px-2",
                 )}
               >
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-md">
-                  <Image src="/logo.svg" alt="Logo" width={24} height={24} />
+                  <Image src="/logo.svg" alt="Logo" width={32} height={32} />
                 </span>
-
-                <span
-                  className={cn(
-                    "min-w-0 max-w-40 truncate font-sf text-4xl font-bold tracking-wide text-brand-blue",
-                    "transition-[max-width,opacity] duration-200 ease-linear",
-                    "group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0",
-                  )}
-                >
-                  Svas
-                  <span className="text-brand-green">t</span>
-                  ha
-                </span>
+                <div className="flex flex-col">
+                  <span
+                    className={cn(
+                      "min-w-0 max-w-40 truncate font-sf text-4xl font-bold tracking-wide text-brand-blue",
+                      "transition-[max-width,opacity] duration-200 ease-linear",
+                      "group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0",
+                    )}
+                  >
+                    Svas
+                    <span className="text-brand-green">t</span>
+                    ha
+                  </span>
+                  <span className="text-[9px] text-brand-blue">
+                    {"Healthy roots, "}
+                    <span className="text-brand-green">{" rising stars"}</span>
+                  </span>
+                </div>
               </Link>
               <h6 className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
                 <Calendar className="size-3.5 shrink-0 text-primary" />
@@ -1240,7 +1244,6 @@ console.log(branchProp, "dsdsdsdd");
                 <div className="flex justify-start sm:justify-end relative">
                   <div className="report-doc__photo flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border bg-muted">
                     {studentPhoto ? (
-
                       <Image
                         src={studentPhoto}
                         alt="Student"
@@ -1254,7 +1257,6 @@ console.log(branchProp, "dsdsdsdd");
                       </span>
                     )}
                   </div>
-                 
 
                   <Image
                     src={"/badge.svg"}
@@ -1670,7 +1672,6 @@ console.log(branchProp, "dsdsdsdd");
                 </div>
               </div>
 
-              
               <div className="flex size-25 aspect-square shrink-0 flex-col items-center justify-center self-center rounded-full border-2 border-dashed border-primary/40 text-center rotate-325 sm:absolute sm:left-3/5 z-1 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2">
                 <Image src="/logo.svg" alt="Svastha" width={28} height={28} />
                 <span className="mt-1 font-sf text-sm font-bold tracking-wide text-brand-blue">
@@ -1679,7 +1680,9 @@ console.log(branchProp, "dsdsdsdd");
                 <span className="text-[9px] tracking-[0.18em] text-primary">
                   Authorized Signatory
                 </span>
-                <span className="text-[9px] text-muted-foreground text-brand-green">SMS</span>
+                <span className="text-[9px] text-muted-foreground text-brand-green">
+                  SMS
+                </span>
               </div>
 
               <div className="space-y-1 text-right sm:ml-auto sm:max-w-[calc(50%-4.5rem)]">

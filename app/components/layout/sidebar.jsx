@@ -197,16 +197,16 @@ export function Sidebar() {
       //     roles: ["admin", "school_admin", "doctor"],
       //   },]
     },
-    {
-      label: "Billing & Tax Invoices",
-      href: "/billingInvoice",
-      icon: ReceiptIndianRupee,
-      roles: [
-        "admin",
-        "school_admin",
-        "school",
-      ],
-    },
+    // {
+    //   label: "Billing & Tax Invoices",
+    //   href: "/billingInvoice",
+    //   icon: ReceiptIndianRupee,
+    //   roles: [
+    //     "admin",
+    //     "school_admin",
+    //     "school",
+    //   ],
+    // },
     ],
     [],
   );

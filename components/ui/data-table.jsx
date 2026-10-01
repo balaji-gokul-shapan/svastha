@@ -310,7 +310,7 @@ export function DataTable({
                   {row.getAllCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className="data-cell"
+                      className="data-cell !p-2"
                       {...(withCellLabels
                         ? { "data-label": getHeaderLabel(cell.column.columnDef) }
                         : {})}

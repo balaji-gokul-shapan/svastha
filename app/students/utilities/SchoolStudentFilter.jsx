@@ -79,7 +79,6 @@ console.log(getSchoolBranchData,"getSchoolBranchData");
       dispatch(
         getFilterStudent({
           branch_id: formData.branchName,
-
           academicYear: "all",
           // classes:
         }),

@@ -359,8 +359,8 @@ function StudentsList() {
 
   return (
     <section className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-2">
-        <div className="">
+      <div className="flex flex-col gap-3 p-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground lg:text-3xl">
             Students
           </h1>
@@ -394,8 +394,8 @@ function StudentsList() {
           </div> */}
 
           <Link href="/students/add" className="w-full sm:w-auto">
-            <Button variant="default" size="lg" className="w-auto">
-              <PlusCircle className="size-4 mr-2" />
+            <Button variant="default" size="lg" className="w-full sm:w-auto">
+              <PlusCircle className="mr-2 size-4" />
               Add Student
             </Button>
           </Link>
@@ -605,7 +605,7 @@ function StudentsList() {
         </p>
       ) : null}
 
-      <div className="relative min-h-90 mb-0">
+      <div className="relative mb-0 min-w-0 min-h-[clamp(16rem,55dvh,42rem)]">
         {isInitialLoading ? (
           <TableSkeleton rows={limit} cols={8} />
         ) : tableView === "table" ? (

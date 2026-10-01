@@ -26,12 +26,16 @@ const YearPicker = React.forwardRef(function YearPicker(
     inputClassName,
     allowFutureYears = true,
     withPortal = false,
+    required,
+    error,
     portalId = "sd-yearpicker-portal",
     ...props
   },
   ref,
 ) {
   const selectedDate = value ? new Date(value, 0, 1) : null;
+
+  const hasError = Boolean(error);
 
   // When allowFutureYears is false, prevent selecting years beyond the current year
   const maxDate = !allowFutureYears
@@ -46,6 +50,7 @@ const YearPicker = React.forwardRef(function YearPicker(
           className={cn("field-label", labelClassName)}
         >
           {label}
+          {required ? <span className="field-required">*</span> : null}
         </label>
       ) : null}
 
@@ -65,6 +70,7 @@ const YearPicker = React.forwardRef(function YearPicker(
           onChange={(date) =>
             onValueChange?.(date ? date.getFullYear().toString() : "")
           }
+          required={required}
           onKeyDown={(event) => {
             event.preventDefault();
           }}
@@ -75,12 +81,12 @@ const YearPicker = React.forwardRef(function YearPicker(
           dateFormat="yyyy"
           placeholderText={placeholder}
           className={cn(
-            // `text-indent` reserves the gutter the icon sits in; `pl-9` is the
-            // equivalent padding so the caret never runs under the icon.
             "block h-10 w-full rounded-md border border-input bg-background py-2 pl-9 pr-3 text-sm text-foreground shadow-xs transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+            hasError && "border-destructive",
             inputClassName,
           )}
           wrapperClassName="w-full block"
+          aria-invalid={hasError || undefined}
           withPortal={withPortal}
           portalId={portalId}
           renderCustomHeader={({
@@ -130,6 +136,8 @@ const YearPicker = React.forwardRef(function YearPicker(
           {...props}
         />
       </div>
+
+      {hasError ? <p className="field-error">{error}</p> : null}
     </div>
   );
 });

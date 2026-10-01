@@ -1262,10 +1262,10 @@ export default function HearingScreening({ screening = {} }) {
           <StudentProfileCard student={selectedStudent} />
           <div
             className={cn(
-              "grid gap-4 transition-[grid-template-columns] duration-300 ease-out",
+              "grid grid-cols-1 gap-4 transition-[grid-template-columns] duration-300 ease-out",
               isRailCollapsed
                 ? "lg:grid-cols-[3.25rem_minmax(0,1fr)]"
-                : "lg:grid-cols-[300px_minmax(0,1fr)]",
+                : "lg:grid-cols-[minmax(13rem,20rem)_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)]",
               "lg:items-start",
             )}
           >

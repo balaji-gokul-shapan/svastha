@@ -37,30 +37,30 @@ export const schoolStepOneSchema = z.object({
       "Total number of students cannot be negative",
     ),
 
-  year_of_establishment: z
-    .union([z.string(), z.number()])
-    .transform((value) => (typeof value === "string" ? value.trim() : value))
-    .refine(
-      (value) => String(value).trim() !== "",
-      "Year of establishment is required",
-    )
-    .refine(
-      (value) => /^\d+$/.test(String(value).trim()),
-      "Year of establishment must contain only digits",
-    )
-    .transform((value) => Number(String(value).trim()))
-    .refine(
-      (value) => Number.isInteger(value),
-      "Year of establishment must be a whole number",
-    )
-    .refine(
-      (value) => value >= 1800,
-      "Year of establishment cannot be before 1800",
-    )
-    .refine(
-      (value) => value <= new Date().getFullYear(),
-      "Year of establishment cannot be in the future",
-    ),
+  // year_of_establishment: z
+  //   .union([z.string(), z.number()])
+  //   .transform((value) => (typeof value === "string" ? value.trim() : value))
+  //   .refine(
+  //     (value) => String(value).trim() !== "",
+  //     "Year of establishment is required",
+  //   )
+  //   .refine(
+  //     (value) => /^\d+$/.test(String(value).trim()),
+  //     "Year of establishment must contain only digits",
+  //   )
+  //   .transform((value) => Number(String(value).trim()))
+  //   .refine(
+  //     (value) => Number.isInteger(value),
+  //     "Year of establishment must be a whole number",
+  //   )
+  //   .refine(
+  //     (value) => value >= 1800,
+  //     "Year of establishment cannot be before 1800",
+  //   )
+  //   .refine(
+  //     (value) => value <= new Date().getFullYear(),
+  //     "Year of establishment cannot be in the future",
+  //   ),
 
   ceeb_code: z.string().trim().optional(),
 
@@ -96,23 +96,43 @@ export const schoolStepTwoSchema = z.object({
     .min(1, "Pincode is required")
     .regex(/^\d{6}$/, "Enter a valid 6-digit pincode"),
 
-  contact_person_name: z
+  principal_name: z.string().trim().min(1, "Principal name is required"),
+
+  principal_designation: z.string().trim().optional(),
+
+  principal_phone: z
     .string()
     .trim()
-    .min(1, "Contact person name is required"),
-
-  contact_person_designation: z.string().trim().optional(),
-
-  contact_person_phone: z
-    .string()
-    .trim()
-    .min(1, "Contact phone is required")
+    .min(1, "Principal phone is required")
     .regex(/^[+]?[\d\s()-]{7,15}$/, "Enter a valid phone number"),
 
-  email: z
+  // email: z
+  //   .string()
+  //   .trim()
+  //   .min(1, "Email is required")
+  //   .email("Please enter a valid email address"),
+  correspondent_name: z
     .string()
     .trim()
-    .min(1, "Email is required")
+    .min(1, "Correspondent name is required"),
+
+  correspondent_designation: z.string().trim().optional(),
+
+  correspondent_phone: z
+    .string()
+    .trim()
+    .min(1, "Correspondent phone is required")
+    .regex(/^[+]?[\d\s()-]{7,15}$/, "Enter a valid phone number"),
+
+  correspondent_email: z
+    .string()
+    .trim()
+    .min(1, "Correspondent email is required")
+    .email("Please enter a valid email address"),
+  principal_email: z
+    .string()
+    .trim()
+    .min(1, "Principal email is required")
     .email("Please enter a valid email address"),
 });
 

@@ -1540,6 +1540,9 @@ export default function StudenthealthReport() {
                 <span className="text-brand-green">t</span>
                 ha
               </span>
+              <span className="text-xs text-muted-foreground">
+                {"Healthy roots, rising stars"}
+              </span>
             </div>
 
             <h6 className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">

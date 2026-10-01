@@ -111,9 +111,10 @@ export default function ScreeningStepper({
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full min-w-0">
       {/* ---------------- Progress header ---------------- */}
-      <div className="mb-4 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+      {/* Fills its container; `max-w` stops it stretching absurdly wide. */}
+      <div className="mb-4 w-full max-w-5xl overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 pt-3.5">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
@@ -148,17 +149,13 @@ export default function ScreeningStepper({
         </div>
 
         {/* ---------------- Step pills ----------------
-            Pills share the row equally via `flex-1 basis-0 min-w-0`, so the rail
-            adapts to ANY container width with no magic numbers. `min-w-0` is what
-            lets them shrink; the labels truncate rather than forcing overflow.
-            The connector lines sit outside the flex basis, so they keep a fixed
-            size and the pills still divide the remaining space evenly. */}
+            Pills share the row equally via `flex-1 basis-0 min-w-0`, */}
         <div
           role="tablist"
           aria-label="Screening sections"
           tabIndex={0}
           onKeyDown={handleRailKeyDown}
-          className="mt-3 flex items-stretch gap-1 border-t border-border/70 bg-muted/30 p-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="mt-3 flex items-stretch gap-1 overflow-x-auto overscroll-x-contain border-t border-border/70 bg-muted/30 p-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {visibleSteps.map((step, index) => {
             const completed = index < currentIndex;

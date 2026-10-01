@@ -14,6 +14,7 @@ export function NumberStepperField({
   disabled = false,
   error,
   required,
+  className,
 }) {
   const numericValue = Number(value) || 0;
   const hasError = Boolean(error);
@@ -34,7 +35,7 @@ export function NumberStepperField({
   const atMin = min !== undefined && numericValue <= min;
 
   return (
-    <div>
+    <div className={className}>
       {label ? (
         <label className="field-label mb-2">
           {label}

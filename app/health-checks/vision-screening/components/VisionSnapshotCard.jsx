@@ -56,15 +56,17 @@ function AcuityRow({
       <div className="grid grid-cols-2 gap-3 pl-2 lg:grid-cols-4">
         <div>
           <ReusableSelect
+            withPortal
             label="Distance (Without)"
             options={distanceOptions}
             value={eye.distanceWithout}
             onChange={(v) => onChange({ ...eye, distanceWithout: v })}
           />
-          {/* {severityLine(eye.distanceWithout)} */}
+          {severityLine(eye.distanceWithout)}
         </div>
         <div>
           <ReusableSelect
+          withPortal
             label="Near (Without)"
             options={nearAcuityOptions}
             value={eye.nearWithout}
@@ -73,15 +75,17 @@ function AcuityRow({
         </div>
         <div>
           <ReusableSelect
+            withPortal
             label="Distance (With)"
             options={distanceOptions}
             value={eye.distanceWith}
             onChange={(v) => onChange({ ...eye, distanceWith: v })}
           />
-          {/* {severityLine(eye.distanceWith)} */}
+          {severityLine(eye.distanceWith)}
         </div>
         <div>
           <ReusableSelect
+            withPortal
             label="Near (With)"
             options={nearAcuityOptions}
             value={eye.nearWith}
@@ -91,7 +95,7 @@ function AcuityRow({
       </div>
 
       <div className="mt-3 pl-2">
-        <TextField
+        <TextField  
           label="Remarks"
           value={eye.remarks ?? ""}
           onChange={(e) => onChange({ ...eye, remarks: e.target.value })}
@@ -142,7 +146,7 @@ const VisionSnapshotCard = ({
             />
           </FramerCard>
 
-          <FramerCard>
+          {/* <FramerCard> */}
             {/* Per-eye rail tints (OD / OS / OU) so left and right are never
                 confused when scanning the block. */}
             <AcuityRow
@@ -169,7 +173,7 @@ const VisionSnapshotCard = ({
               visionResultData={visionResultData}
               acuitySeverityMap={acuitySeverityMap}
             />
-          </FramerCard>
+          {/* </FramerCard> */}
         </div>
       </div>
     </section>
