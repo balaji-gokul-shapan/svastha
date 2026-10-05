@@ -18,7 +18,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useAuthRole } from "@/lib/user-role";
 import { getAllSchoolBranches } from "@/lib/features/registerSchoolBranchSlice";
-import { getCampId, getScreeningIds, getScreeningKeys } from "@/lib/camp-utils";
+import { getScreeningIds, getScreeningKeys } from "@/lib/camp-utils";
+import useScreeningIdMap from "@/lib/useScreeningIdMap";
+import useActiveCampEvent from "@/lib/useActiveCampEvent";
 import PrimaryDoctorTab from "./components/PrimaryDoctorTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -56,6 +58,10 @@ function NoScreeningsAssignedState() {
 
 export default function ConsolidateReport() {
   const dispatch = useDispatch();
+
+  // Register the backend's real screening-type ids before translating the
+  // camp's screening_type_ids into slug keys.
+  useScreeningIdMap();
   const {
     filterProps,
     doctorFilterProps,
@@ -70,20 +76,33 @@ export default function ConsolidateReport() {
   const selectUser = useAppSelector(selectUserAccount);
   const getRole = useAuthRole();
   const isPrimaryDoctorRole = useAppSelector(selectIsPrimaryDoctorRole);
-  const activeCampEvent = useMemo(() => {
-    const eventList = Array.isArray(assignedEvents) ? assignedEvents : [];
-    const id = getCampId(selectedCamp);
-    if (!id) return null;
-    return eventList.find((event) => getCampId(event) === id) ?? null;
-  }, [assignedEvents, selectedCamp]);
+  const [selectedSchoolBranch, setSelectedSchoolBranch] = useState(null);
+
+  const activeCampEvent = useActiveCampEvent({
+    assignedEvents,
+    selectedCamp,
+    campSelection: doctorFilterProps?.campSelection,
+    branchId:
+      selectedSchoolBranch?.id ??
+      selectedSchoolBranch?.branch_id ??
+      filterProps?.formData?.branchName,
+    branchLabel: selectedSchoolBranch?.branch_name,
+  });
+
   const isPrimaryDoctor = activeCampEvent?.primary_doctor === Number(1);
-  console.log(selectedCamp, "selectedCamp");
-  console.log(selectedStudent, "selectedStudent");
 
   const assignedScreeningIds = getScreeningIds(activeCampEvent);
   const assignedScreeningKeys = getScreeningKeys(activeCampEvent);
+
   const hasUnknownScreeningIds =
     assignedScreeningIds.length > 0 && assignedScreeningKeys.length === 0;
+
+  if (hasUnknownScreeningIds) {
+    console.warn(
+      "[ConsolidateReport] Camp carries screening ids that map to no known screening:",
+      assignedScreeningIds,
+    );
+  }
 
   const { data: ownBranchRecord } = useQuery({
     queryKey: ["getSchoolBranch"],
@@ -164,7 +183,6 @@ export default function ConsolidateReport() {
       ),
     };
   }, [selectUser, ownBranchRecord]);
-console.log(selectedBranch, "defaultBranch");
 
   return (
     <div className="min-h-screen">
@@ -269,6 +287,9 @@ console.log(selectedBranch, "defaultBranch");
           <SchoolStudentFilter
             selectRole={selectUser?.user_type_id ?? ROLE_IDS[getRole]}
             {...filterProps}
+            selectedSchoolBranch={selectedSchoolBranch}
+            setSelectedSchoolBranch={setSelectedSchoolBranch}
+            {...doctorFilterProps}
             onSelectedBranchChange={setSelectedBranch}
             ownBranch={defaultBranch}
           />
@@ -281,9 +302,12 @@ console.log(selectedBranch, "defaultBranch");
             <div className="space-y-3">
               <HealthCheckContent
                 selectUser={selectUser}
+                selectedSchoolBranch={selectedSchoolBranch}
+                setSelectedSchoolBranch={setSelectedSchoolBranch}
                 student={selectedStudent}
                 branch={defaultBranch ?? selectedBranch}
                 camp={selectedCamp}
+                activeEvent={activeCampEvent}
                 assignedScreeningIds={assignedScreeningIds}
                 {...filterProps}
               />
@@ -310,6 +334,7 @@ console.log(selectedBranch, "defaultBranch");
                 camp={selectedCamp}
                 student={selectedStudent}
                 assignedScreeningIds={assignedScreeningIds}
+                assignedScreeningKeys={assignedScreeningKeys}
                 classFilter={classFilter}
                 sectionFilter={sectionFilter}
               />

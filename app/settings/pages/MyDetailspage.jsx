@@ -124,64 +124,79 @@ export default function MyDetailsPage({
       </header>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(230px,0.55fr)_minmax(230px,0.55fr)]">
-        <article className="my-details-identity flex flex-col gap-5 rounded-2xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:p-5">
-          <div className="relative shrink-0 self-center sm:self-auto">
-            <button
-              type="button"
-              onClick={openProfilePicker}
-              aria-label="Upload profile image"
-              className="my-details-avatar group block size-24 overflow-hidden rounded-full border border-dashed border-primary/30 bg-muted/30 transition-all sm:size-28"
-            >
-              {imagePreviewUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={imagePreviewUrl} alt="Profile preview" className="size-full object-cover" />
-              ) : (
-                <span className="flex size-full items-center justify-center text-muted-foreground transition-colors group-hover:text-primary">
-                  <UserRound className="size-10" />
-                </span>
-              )}
-            </button>
-            <span className="my-details-avatar__badge" aria-hidden="true">
-              <Camera className="size-3.5" />
-            </span>
-            <input
-              ref={profileInputRef}
-              id="profile-image-upload"
-              type="file"
-              accept="image/*"
-              onChange={handleProfileImageUpload}
-              className="hidden"
-            />
-          </div>
+        {/* CONTAINER query, not a viewport one. This card is a grid column that
+            is only ~1.45fr wide at lg, so on a 1280px screen it is ~500px — yet
+            the old `sm:` rule keyed off the 640px VIEWPORT and forced a cramped
+            row. The card must respond to its OWN width.
 
-          <div className="min-w-0 text-center sm:text-left">
-            <p className="my-details-label">Profile identity</p>
-            <h3 className="truncate text-xl font-semibold tracking-tight text-foreground">
-              {name || "Your name"}
-            </h3>
-            <p className="mt-1 flex items-center justify-center gap-1.5 text-sm text-muted-foreground sm:justify-start">
-              <Mail className="size-3.5 shrink-0" />
-              {username ? `${username}@svastha.app` : "Add a username to see your handle"}
-            </p>
-            {imageError ? <p className="mt-2 text-xs font-medium text-destructive">{imageError}</p> : null}
-            <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
+            `@container` sits on a WRAPPER deliberately: a container query
+            resolves against the nearest ANCESTOR container, so putting it on the
+            <article> itself would measure the grid track, not this card. */}
+        <div className="@container">
+          <article className="my-details-identity flex h-full flex-col items-center gap-5 rounded-2xl border border-border bg-card p-4 text-center @md:flex-row @md:items-center @md:gap-6 @md:p-5 @md:text-left">
+            <div className="relative shrink-0">
               <button
                 type="button"
                 onClick={openProfilePicker}
-                className="my-details-action"
+                aria-label="Upload profile image"
+                className="my-details-avatar group block size-24 overflow-hidden rounded-full border border-dashed border-primary/30 bg-muted/30 transition-all @md:size-28"
               >
-                <Camera className="size-3.5" />
-                {profileImageFile ? "Replace photo" : "Add photo"}
+                {imagePreviewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={imagePreviewUrl} alt="Profile preview" className="size-full object-cover" />
+                ) : (
+                  <span className="flex size-full items-center justify-center text-muted-foreground transition-colors group-hover:text-primary">
+                    <UserRound className="size-10" />
+                  </span>
+                )}
               </button>
-              {profileImageFile ? (
-                <button type="button" onClick={clearProfileImage} className="my-details-action my-details-action--quiet">
-                  <X className="size-3.5" />
-                  Remove
-                </button>
-              ) : null}
+              <span className="my-details-avatar__badge" aria-hidden="true">
+                <Camera className="size-3.5" />
+              </span>
+              <input
+                ref={profileInputRef}
+                id="profile-image-upload"
+                type="file"
+                accept="image/*"
+                onChange={handleProfileImageUpload}
+                className="hidden"
+              />
             </div>
-          </div>
-        </article>
+
+            {/* min-w-0 lets the truncate/wrap below actually shrink instead of
+                forcing the flex row wider than the card. */}
+            <div className="w-full min-w-0">
+              <p className="my-details-label">Profile identity</p>
+              <h3 className="truncate text-xl font-semibold tracking-tight text-foreground">
+                {name || "Your name"}
+              </h3>
+
+              <p className="mt-1 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 text-sm text-muted-foreground @md:justify-start">
+                <Mail className="size-3.5 shrink-0" aria-hidden="true" />
+                <span className="min-w-0 break-all">
+                  {username ? `${username}@svastha.app` : "Add a username to see your handle"}
+                </span>
+              </p>
+              {imageError ? <p className="mt-2 text-xs font-medium text-destructive">{imageError}</p> : null}
+              <div className="mt-4 flex flex-col gap-2 @xs:flex-row @xs:flex-wrap @md:justify-start">
+                <button
+                  type="button"
+                  onClick={openProfilePicker}
+                  className="my-details-action w-full @xs:w-auto"
+                >
+                  <Camera className="size-3.5" />
+                  {profileImageFile ? "Replace photo" : "Add photo"}
+                </button>
+                {profileImageFile ? (
+                  <button type="button" onClick={clearProfileImage} className="my-details-action my-details-action--quiet w-full @xs:w-auto">
+                    <X className="size-3.5" />
+                    Remove
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </article>
+        </div>
 
         <article className="my-details-metric my-details-metric--primary flex items-center gap-4 rounded-2xl border border-border bg-card p-5">
           <CompletenessRing percent={completeness} />

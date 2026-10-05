@@ -2360,14 +2360,24 @@
     right: 0;
     bottom: 0;
     display: grid;
-    width: 2rem;
-    height: 2rem;
+    /* Scales with the avatar (size-24 -> size-28) via the same container query
+       the card layout uses, so the camera chip never looks oversized on the
+       small stacked variant. */
+    width: 1.75rem;
+    height: 1.75rem;
     place-items: center;
     border: 3px solid var(--color-card);
     border-radius: 999px;
     color: white;
     background: var(--color-primary);
     box-shadow: 0 5px 12px -5px color-mix(in oklch, var(--color-primary) 80%, transparent);
+  }
+
+  @container (min-width: 28rem) {
+    .my-details-avatar__badge {
+      width: 2rem;
+      height: 2rem;
+    }
   }
 
   .my-details-action {

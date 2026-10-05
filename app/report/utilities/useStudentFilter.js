@@ -52,13 +52,12 @@ export default function useStudentFilter() {
   /* ----------------------------------------------------------------------
      Camp selection (DOCTORS ONLY)
      ----------------------------------------------------------------------
-     Only <StudentFilter /> renders the camp dropdown (it is gated on
-     `isDoctor`), so camps are a doctor concept. <SchoolStudentFilter />
-     scopes by branch instead and never receives campSelection.                                     */
+                               */
   const isDoctor =
     authUser?.account_type === "doctor" || authUser?.account_type === "staff";
 
   const [campSelection, setCampSelection] = useState("all");
+console.log(isDoctor,"isDoctor");
 
 
   const selectedCamp = useMemo(() => {
@@ -79,10 +78,18 @@ export default function useStudentFilter() {
     }
 
 
-    return buildCampSummary(
-      findSelectedCampEvent(assignedEvents, schoolName),
-      { schoolName },
-    );
+
+    const bySchool = findSelectedCampEvent(assignedEvents, schoolName);
+
+    if (bySchool) {
+      return buildCampSummary(bySchool, { schoolName });
+    }
+
+    const firstCamp = campList.find((camp) => getCampId(camp));
+
+    return firstCamp
+      ? buildCampSummary(firstCamp, { schoolName })
+      : buildCampSummary(null, { schoolName });
   }, [assignedEvents, schoolName, campSelection, isDoctor]);
 
   useEffect(() => {

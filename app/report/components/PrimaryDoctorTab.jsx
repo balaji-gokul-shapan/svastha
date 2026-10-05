@@ -46,6 +46,7 @@ import {
   getScreeningKeys,
   isScreeningKeyAssigned,
 } from "@/lib/camp-utils";
+import useScreeningIdMap from "@/lib/useScreeningIdMap";
 import {
   DETAIL_LABEL_OVERRIDES,
   SCREENING_DETAIL_SECTIONS,
@@ -314,9 +315,6 @@ const getDetailLabel = (key) => {
   return toDetailLabel(key);
 };
 
-/* `??` alone stops at an empty string, so a record with `remarks: ""` at the top
-   level would shadow the real value nested under `report`/`screening` (dental
-   nests there). Pick the first candidate that actually carries a value. */
 const resolveFieldValue = (record, key) => {
   const candidates = [record?.[key], record?.report?.[key], record?.screening?.[key]];
 
@@ -2216,6 +2214,7 @@ export default function PrimaryDoctorTab({
   sectionFilter = "all",
   assignedScreeningKeys = [],
   assignedScreeningIds = [],
+  activeEvent,
 }) {
   const [screeningViewMode, setScreeningViewMode] = useState("clinical");
   const [screeningTab, setScreeningTab] = useState("general");
@@ -2224,31 +2223,43 @@ export default function PrimaryDoctorTab({
     String(campEvent?.id ?? campEvent?.campId ?? "") ??
     campEvent?.campId ??
     "";
-  console.log(campId, "campIdssssss");
 
-  // String key so the default `[]` prop doesn't retrigger the memo every render.
+  // Register the backend's real screening-type ids before translating.
+  useScreeningIdMap();
+
+  // Join into a string so the memo keys off the VALUE, not the array identity —
+  // the parent rebuilds these arrays on every render.
   const assignedScreeningKeysKey = Array.isArray(assignedScreeningKeys)
-    ? assignedScreeningKeys.join(",")
+    ? assignedScreeningKeys.filter(Boolean).join(",")
     : "";
+  const assignedScreeningIdsKey = Array.isArray(assignedScreeningIds)
+    ? assignedScreeningIds.filter(Boolean).join(",")
+    : "";
+console.log();
 
-  // Prop wins (ConsolidateReport already resolved it), otherwise derive from
-  // the camp payload. Empty array = every screening is shown.
   const activeScreeningKeys = useMemo(() => {
-    const provided = Array.isArray(assignedScreeningKeys)
-      ? assignedScreeningKeys.filter(Boolean)
-      : [];
+    if (assignedScreeningKeysKey) {
+      return assignedScreeningKeysKey.split(",").filter(Boolean);
+    }
 
-    return provided.length ? provided : getScreeningKeys(campEvent);
-    // campEvent is an object prop, so depend on its stable identity instead.
-  }, [assignedScreeningKeysKey, campEvent?.id, campEvent?.screening_ids]);
+    // The parent passes the camp's raw ids, so resolve those before falling
+    // back to the event itself.
+    if (assignedScreeningIdsKey) {
+      return getScreeningKeys({
+        screening_type_ids: assignedScreeningIdsKey.split(","),
+      });
+    }
 
-  // Keep the selected tab valid when the camp only allows a subset.
-  useEffect(() => {
-    if (!activeScreeningKeys.length) return;
-    if (activeScreeningKeys.includes(screeningTab)) return;
+    return getScreeningKeys(campEvent);
+  }, [assignedScreeningKeysKey, assignedScreeningIdsKey, campEvent]);
 
-    setScreeningTab(activeScreeningKeys[0]);
-  }, [activeScreeningKeys, screeningTab]);
+  // Keep the selected tab valid when the camp only allows a subset. Derived
+  // rather than synced with an effect: a camp change must not need a second
+  // render pass to correct the tab, and setState-in-effect cascades renders.
+  const effectiveScreeningTab =
+    activeScreeningKeys.length && !activeScreeningKeys.includes(screeningTab)
+      ? activeScreeningKeys[0]
+      : screeningTab;
 
   const {
     campScreeningRecords = [],
@@ -2283,7 +2294,6 @@ export default function PrimaryDoctorTab({
   const doctorIds = getCampDoctorIds(campEvent);
   const campName = getCampName(campEvent) || "No camp selected";
   const campDateLabel = formatCampDate(getCampDate(campEvent));
-  console.log(screeningTab, "setScreeningTab");
 
   /* ------------------------------------------------------------------------ */
   /* Loading                                                                  */
@@ -2635,7 +2645,7 @@ export default function PrimaryDoctorTab({
           </p>
         ) : (
           <Tabs
-            value={screeningTab}
+            value={effectiveScreeningTab}
             onValueChange={setScreeningTab}
             className="mt-3 w-full min-w-0"
           >
@@ -2656,8 +2666,8 @@ export default function PrimaryDoctorTab({
                       value={value}
                       className={cn(
                         `flex min-w-0 flex-1 items-center justify-center gap-1 overflow-hidden px-1.5 py-2 text-xs sm:gap-2 sm:px-3 sm:text-sm`,
-                        screeningTab === value && tabDomainClasses?.soft,
-                        screeningTab === value && tabDomainClasses?.text,
+                        effectiveScreeningTab === value && tabDomainClasses?.soft,
+                        effectiveScreeningTab === value && tabDomainClasses?.text,
                       )}
                     >
                       <Icon className="size-3.5 shrink-0 sm:size-4" />
@@ -2696,7 +2706,7 @@ export default function PrimaryDoctorTab({
                     pageSize={screeningPageSize}
                     onPageSizeChange={setScreeningPageSize}
                     onPageChange={(page) => goToScreeningPage(value, page)}
-                    activeTab={screeningTab}
+                    activeTab={effectiveScreeningTab}
                     filterActive={filterActive}
                     activeFilterLabel={activeFilterLabel}
                   />

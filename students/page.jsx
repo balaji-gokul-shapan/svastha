@@ -24,6 +24,7 @@ import StudentFilter from "../health-checks/utilities/studentFilter";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import SchoolStudentFilter from "./utilities/SchoolStudentFilter";
 import { selectUserAccount } from "@/lib/features/auth-slice";
+import useAssignedEvents from "@/lib/useAssignedEvents";
 
 // Default value for every filter â€” values equal to these are kept out of
 // the URL so links stay tidy.
@@ -68,6 +69,8 @@ function StudentsList() {
   );
   const selectUser = useAppSelector(selectUserAccount);
   console.log(selectUser, "selectUserAccount");
+  const { assignedEvents, assignEventLoading, assignEventError } =
+    useAssignedEvents();
 
   // Merge a patch of filter changes into the current query string.
   // Filters reset to their default are removed from the URL entirely.
@@ -477,6 +480,9 @@ function StudentsList() {
       /> */}
       <SchoolStudentFilter
         formData={filterFormData}
+        assignedEvents={assignedEvents}
+        assignEventLoading={assignEventLoading}
+        assignEventError={assignEventError}
         setFormData={setFilterFormData}
         selectRole={selectUser.user_type_id}
         filterPayload={filterPayload}

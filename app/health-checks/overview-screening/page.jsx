@@ -39,6 +39,7 @@ import {
   getScreeningKeys,
   isScreeningKeyAssigned,
 } from "@/lib/camp-utils";
+import useScreeningIdMap from "@/lib/useScreeningIdMap";
 import { getStudentByEvent } from "@/lib/features/getEventAssignSlice";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas-pro";
@@ -446,10 +447,13 @@ export default function StudenthealthReport() {
   /* ---------------------------------------------------------------------- */
   /* Camp screening assignment                                              */
   /*                                                                         */
-  /* The camp only runs a subset of screenings (screening_ids "1".."5").      */
-  /* Map them to slug keys and hide every section that is not assigned, so    */
-  /* the overview matches the report. An empty list = no restriction.         */
+  /* The camp only runs a subset of screenings (screening_type_ids). Map them  */
+  /* to slug keys and hide every section that is not assigned, so the overview */
+  /* matches the report. An empty list = no restriction.                      */
   /* ---------------------------------------------------------------------- */
+
+  // Register the backend's real screening-type ids before translating.
+  useScreeningIdMap();
 
   const assignedScreeningIds = getScreeningIds(selectedCamp);
   const assignedScreeningKeys = getScreeningKeys(selectedCamp);
@@ -461,11 +465,13 @@ export default function StudenthealthReport() {
   const showHearing = isAssigned("hearing");
   const showDental = isAssigned("dental");
   const showEnt = isAssigned("ent");
-  // Immunization has no screening_id of its own in the 1..5 scheme, so it
-  // follows the general screening assignment.
+  // Immunization has no screening id of its own, so it follows the general
+  // screening assignment.
   const showImmunization = showGeneral;
   const showUnknownScreenings =
     assignedScreeningIds.length > 0 && assignedScreeningKeys.length === 0;
+    console.log(assignedScreeningIds,assignedScreeningIds);
+    
 
   const assignedEventIds = useMemo(
     () =>

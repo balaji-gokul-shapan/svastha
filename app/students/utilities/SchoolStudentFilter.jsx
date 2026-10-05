@@ -1,14 +1,42 @@
-﻿import ReusableSelect from "@/components/ui/reusable-select";
+import ReusableSelect from "@/components/ui/reusable-select";
 import { getFilterStudent } from "@/lib/features/getFilterStudent";
 import {
   getAllSchoolBranches,
   getSchoolBranch,
 } from "@/lib/features/registerSchoolBranchSlice";
+import {
+  campMatchesBranch,
+  getCampBranchId,
+  getCampDisplayLabel,
+  getCampId,
+  getCampPrimaryDoctorId,
+  getCampSchoolId,
+  getCampSchoolName,
+} from "@/lib/camp-utils";
 import { useQuery } from "@tanstack/react-query";
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
+/**
+ * "All" is the sentinel every filter in this file already understands: the
+ * query builders, the cascade resets and the parent callbacks all treat "all"
+ * as "no restriction". Reusing it means a single option value works across the
+ * whole filter chain instead of inventing a second empty-string convention.
+ */
+const ALL = "all";
+
+/** Prepends an "All …" row unless the list already carries that value. */
+const withAllOption = (options, label) => {
+  const list = Array.isArray(options) ? options : [];
+  if (list.some((option) => String(option?.value ?? "").trim() === ALL)) {
+    return list;
+  }
+
+  return [{ value: ALL, label }, ...list];
+};
+
 const SchoolStudentFilter = ({
+  setSelectedSchoolBranch,
   formData = {},
   setFormData = () => {},
   selectRole,
@@ -21,6 +49,13 @@ const SchoolStudentFilter = ({
   onStudentFilterChange,
   onSelectedBranchChange,
   ownBranch = null,
+  assignedEvents = [],
+  assignEventLoading = false,
+  assignEventError = null,
+  isLoading = false,
+  campSelection,
+  setCampSelection,
+  onSelectedCampChange,
 }) => {
   const dispatch = useDispatch();
   const roles = {
@@ -30,8 +65,9 @@ const SchoolStudentFilter = ({
   };
 
   const getRole = roles[selectRole] ?? "";
-
   const showSchoolName = getRole === "admin" || getRole === "school";
+  const isPlatformAdmin = getRole === "admin";
+  const isSchoolScoped = !isPlatformAdmin && Boolean(getRole);
 
   const {
     data: getAllSchoolBranch = {},
@@ -40,7 +76,7 @@ const SchoolStudentFilter = ({
   } = useQuery({
     queryKey: ["getSchoolAllBranch"],
     queryFn: () => dispatch(getAllSchoolBranches()).unwrap(),
-    enabled: getRole === "admin" || getRole === "school",
+    enabled: isPlatformAdmin,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
@@ -53,14 +89,30 @@ const SchoolStudentFilter = ({
     queryKey: ["getSchoolBranch"],
     queryFn: () => dispatch(getSchoolBranch()).unwrap(),
     staleTime: 5 * 60 * 1000,
-    enabled: getRole === "school" || getRole === "school_admin",
+    enabled: isSchoolScoped,
     refetchOnWindowFocus: false,
   });
 
-console.log(getSchoolBranchData,"getSchoolBranchData");
 
-  const ownBranchValue = String(ownBranch?.value ?? "").trim();
+  const schoolBranch = useMemo(() => {
+    const raw = getSchoolBranchData?.data ?? getSchoolBranchData;
+    if (!raw || typeof raw !== "object") return null;
+    const branch = Array.isArray(raw) ? raw[0] : raw;
+    const id = String(
+      branch?.branch_id ?? branch?.branchId ?? branch?.id ?? "",
+    ).trim();
+    const label = String(
+      branch?.branch_name ?? branch?.name ?? branch?.school_name ?? "",
+    ).trim();
+    return id || label ? { ...branch, id, label } : null;
+  }, [getSchoolBranchData]);
+  const ownBranchValue = String(
+    ownBranch?.value || schoolBranch?.id || "",
+  ).trim();
+
   React.useEffect(() => {
+    // Respect an explicit "All Branches" choice — auto-selecting the signed-in
+    // school here would immediately override it on the next render.
     if (formData?.branchName) return;
     if (!ownBranchValue) return;
     setFormData((prev) =>
@@ -68,22 +120,25 @@ console.log(getSchoolBranchData,"getSchoolBranchData");
     );
   }, [formData?.branchName, ownBranchValue, setFormData]);
 
-  // getFilterStudent — filtered by selected school (branch) AND academic year.
+  const activeBranchFilter = String(formData.branchName ?? "").trim();
+  const branchQueryId =
+    !activeBranchFilter || activeBranchFilter === ALL ? "" : activeBranchFilter;
+
   const {
     data: getAllFilterStudent = {},
     isLoading: getAllFilterStudentLoading,
     error: getAllFilterStudentError,
   } = useQuery({
-    queryKey: ["getAllFilterStudent", formData.branchName],
+    queryKey: ["getAllFilterStudent", branchQueryId],
     queryFn: () =>
       dispatch(
         getFilterStudent({
-          branch_id: formData.branchName,
+          branch_id: branchQueryId,
           academicYear: "all",
           // classes:
         }),
       ).unwrap(),
-    enabled: Boolean(formData.branchName),
+    enabled: Boolean(activeBranchFilter),
     staleTime: 0,
     gcTime: 0,
     refetchOnMount: "always",
@@ -107,8 +162,6 @@ console.log(getSchoolBranchData,"getSchoolBranchData");
     return yearFilteredStudents;
   }, [getAllFilterStudent, academicYear]);
 
-  console.log(students,"studentsssssssssss");
-  
 
   // const studentsBySchoolAndYear = useMemo(() => {
   //   return students.filter((student) => {
@@ -130,7 +183,6 @@ console.log(getSchoolBranchData,"getSchoolBranchData");
   //   });
   // }, [students, schoolName, academicYear]);
   const academicYearOptions = useMemo(() => {
-
     const allItems = Array.isArray(getAllFilterStudent?.items)
       ? getAllFilterStudent.items
       : [];
@@ -144,9 +196,12 @@ console.log(getSchoolBranchData,"getSchoolBranchData");
     // Always show the page-level active year even before students load.
     const activeYear = String(academicYear ?? "").trim();
     if (activeYear && activeYear !== "all") years.add(activeYear);
-    return Array.from(years)
-      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-      .map((year) => ({ label: year, value: year }));
+    return withAllOption(
+      Array.from(years)
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+        .map((year) => ({ label: year, value: year })),
+      "All Academic Years",
+    );
   }, [getAllFilterStudent, academicYear]);
 
   const selectedYearStudents = useMemo(() => {
@@ -176,21 +231,40 @@ console.log(getSchoolBranchData,"getSchoolBranchData");
       ),
     ];
 
-    return uniqueClasses
-      .sort((a, b) => {
-        const aNumber = Number(a.replace(/\D/g, ""));
-        const bNumber = Number(b.replace(/\D/g, ""));
+    return withAllOption(
+      uniqueClasses
+        .sort((a, b) => {
+          const aNumber = Number(a.replace(/\D/g, ""));
+          const bNumber = Number(b.replace(/\D/g, ""));
 
-        return aNumber - bNumber;
-      })
-      .map((item) => ({
-        label: `Class ${item}`,
-        value: item,
-      }));
+          return aNumber - bNumber;
+        })
+        .map((item) => ({
+          label: `Class ${item}`,
+          value: item,
+        })),
+      "All Classes",
+    );
   }, [selectedYearStudents]);
 
   const sectionOptions = useMemo(() => {
-    if (!formData.classes) return [];
+    /* "All Classes" (or nothing picked yet) means sections are not narrowed to
+       one class, so list every section rather than returning an empty list. */
+    const activeClass = String(formData.classes ?? "").trim();
+    if (!activeClass || activeClass === ALL) {
+      const all = [
+        ...new Set(
+          selectedYearStudents
+            .map((student) => String(student?.sec ?? student?.section ?? "").trim())
+            .filter(Boolean),
+        ),
+      ].sort();
+
+      return withAllOption(
+        all.map((section) => ({ label: section, value: section })),
+        "All Sections",
+      );
+    }
 
     const uniqueSections = [
       ...new Set(
@@ -200,7 +274,7 @@ console.log(getSchoolBranchData,"getSchoolBranchData");
               student?.Class ?? student?.class ?? student?.grade ?? "";
 
             return (
-              String(studentClass).trim() === String(formData.classes).trim()
+              String(studentClass).trim() === activeClass
             );
           })
           .map((student) => {
@@ -210,16 +284,25 @@ console.log(getSchoolBranchData,"getSchoolBranchData");
       ),
     ];
 
-    return uniqueSections.sort().map((section) => ({
-      label: section,
-      value: section,
-    }));
+    return withAllOption(
+      uniqueSections.sort().map((section) => ({
+        label: section,
+        value: section,
+      })),
+      "All Sections",
+    );
   }, [selectedYearStudents, formData.classes]);
 
   const filteredStudents = useMemo(() => {
     const activeYear =
       String(formData.AcademicYear ?? "").trim() ||
       String(academicYear ?? "").trim();
+    const activeClass = String(formData.classes ?? "").trim();
+    const activeSection = String(formData.section ?? "").trim();
+
+    /* "all" is the no-restriction sentinel for every level, so each predicate
+       has to skip its comparison when it holds that value — otherwise picking
+       "All Classes" would match no student and the list came back empty. */
     return (students ?? []).filter((student) => {
       const studentYear = String(
         student?.academic_year ?? student?.academicYear ?? "",
@@ -233,14 +316,14 @@ console.log(getSchoolBranchData,"getSchoolBranchData");
         student?.section ?? student?.sec ?? "",
       ).trim();
 
+      const yearMatch =
+        !activeYear || activeYear === ALL || studentYear === activeYear;
+      const classMatch =
+        !activeClass || activeClass === ALL || studentClass === activeClass;
       const sectionMatch =
-        !String(formData.section ?? "").trim() ||
-        studentSection === String(formData.section).trim();
-      return (
-        (!activeYear || activeYear === "all" || studentYear === activeYear) &&
-        studentClass === String(formData.classes).trim() &&
-        sectionMatch
-      );
+        !activeSection || activeSection === ALL || studentSection === activeSection;
+
+      return yearMatch && classMatch && sectionMatch;
     });
   }, [
     students,
@@ -272,9 +355,9 @@ console.log(getSchoolBranchData,"getSchoolBranchData");
       seen.add(value);
       options.push({ label: label || value, value });
     });
-    return options;
-  }, [filteredStudents]);
 
+    return withAllOption(options, "All Students");
+  }, [filteredStudents]);
 
   const fetchedBranchOptions = useMemo(() => {
     const list = Array.isArray(getAllSchoolBranch)
@@ -297,8 +380,9 @@ console.log(getSchoolBranchData,"getSchoolBranchData");
       state: String(branch?.state ?? "").trim() || null,
       country: String(branch?.country ?? "").trim() || null,
       pincode:
-        String(branch?.pincode ?? branch?.pin_code ?? branch?.zip ?? "").trim() ||
-        null,
+        String(
+          branch?.pincode ?? branch?.pin_code ?? branch?.zip ?? "",
+        ).trim() || null,
       // Frequently-used extra details, kept on the option too.
       registration_number:
         String(branch?.registration_number ?? branch?.reg_no ?? "").trim() ||
@@ -307,19 +391,25 @@ console.log(getSchoolBranchData,"getSchoolBranchData");
         String(branch?.school_id ?? branch?.schoolId ?? "").trim() || null,
     });
 
+    /* A school-scoped user gets ONLY their own branch — the "all branches"  */
+    /* endpoint is not theirs to enumerate.                                     */
+    if (isSchoolScoped) {
+      const own = toOption(schoolBranch ?? {});
+      return own.value && own.label ? [own] : [];
+    }
+
     const options = list
       .map(toOption)
       .filter((option) => option.value && option.label);
 
-    if (options.length === 0 && getSchoolBranchData) {
-      const single = getSchoolBranchData?.data ?? getSchoolBranchData;
-      const option = toOption(single);
+    // Fallback to the signed-in school's branch if the list endpoint is empty.
+    if (options.length === 0 && schoolBranch) {
+      const option = toOption(schoolBranch);
       if (option.value && option.label) options.push(option);
     }
 
     return options;
-  }, [getAllSchoolBranch, getSchoolBranchData]);
-
+  }, [getAllSchoolBranch, schoolBranch, isSchoolScoped]);
 
   const branchOptions = React.useMemo(() => {
     const options = fetchedBranchOptions.length
@@ -339,59 +429,187 @@ console.log(getSchoolBranchData,"getSchoolBranchData");
       });
     }
 
-    return options;
-  }, [fetchedBranchOptions, ownBranch, formData?.branchName]);
+    return withAllOption(options, "All Branches");
+  }, [fetchedBranchOptions, ownBranch, formData.branchName]);
 
-  
+  /* ------------------------------------------------------------------------ */
+  /* Camp options — scoped to the selected school                              */
+  /* ------------------------------------------------------------------------ */
 
+  const selectedBranchId = String(formData?.branchName ?? "").trim();
+
+  const selectedBranchLabel = useMemo(() => {
+    const match = branchOptions.find(
+      (option) => String(option?.value ?? "").trim() === selectedBranchId,
+    );
+
+    return String(match?.label ?? "").trim();
+  }, [branchOptions, selectedBranchId]);
+
+  const isCampSelectionControlled =
+    campSelection !== undefined && typeof setCampSelection === "function";
+
+  const [internalCampSelection, setInternalCampSelection] = useState("all");
+
+  const activeCampSelection = isCampSelectionControlled
+    ? campSelection
+    : internalCampSelection;
+
+  const updateCampSelection = isCampSelectionControlled
+    ? setCampSelection
+    : setInternalCampSelection;
+
+  const campList = useMemo(
+    () => (Array.isArray(assignedEvents) ? assignedEvents : []),
+    [assignedEvents],
+  );
+
+  const activeCampEvent = useMemo(() => {
+    const id = String(activeCampSelection ?? "").trim();
+
+    if (!id || id === "all") return null;
+
+    return campList.find((camp) => getCampId(camp) === id) ?? null;
+  }, [campList, activeCampSelection]);
+
+  const primaryDoctorId = getCampPrimaryDoctorId(activeCampEvent) ?? "";
+
+  /* Surfaced so the page can react to camp changes (roster, signature, etc.).*/
+  React.useEffect(() => {
+    onSelectedCampChange?.(
+      activeCampEvent
+        ? {
+            ...activeCampEvent,
+            id: getCampId(activeCampEvent),
+            primaryDoctorId,
+          }
+        : null,
+    );
+  }, [activeCampEvent, primaryDoctorId, onSelectedCampChange]);
+
+  const campOptions = useMemo(() => {
+    const unique = new Map();
+
+    campList.forEach((camp) => {
+      if (!campMatchesBranch(camp, selectedBranchId, selectedBranchLabel)) {
+        return;
+      }
+
+      const id = getCampId(camp);
+      const label = getCampDisplayLabel(camp);
+
+      if (id && label) {
+        unique.set(id, { label, value: id });
+      }
+    });
+
+    return [
+      { label: "All Camps", value: "all" },
+      ...Array.from(unique.values()).sort((a, b) =>
+        a.label.localeCompare(b.label, undefined, { numeric: true }),
+      ),
+    ];
+  }, [campList, selectedBranchId, selectedBranchLabel]);
+
+  /* A camp picked under a different school is no longer a valid option, so it */
+  /* must fall back to "all" instead of silently filtering nothing.            */
+  useEffect(() => {
+    updateCampSelection((current) => {
+      if (!current || current === "all") return current ?? "all";
+
+      const stillListed = campOptions.some(
+        (option) => String(option?.value ?? "") === String(current).trim(),
+      );
+
+      return stillListed ? current : "all";
+    });
+  }, [campOptions, updateCampSelection]);
+
+  const handleCampChange = (value) => {
+    updateCampSelection(value);
+
+    if (value === "all") {
+      onSchoolNameChange?.("all");
+      return;
+    }
+
+    const selectedEvent = campList.find(
+      (event) => getCampId(event) === String(value).trim(),
+    );
+
+    // Prefer the branch id the school dropdown expects; fall back to the
+    // school name only when the camp payload carries no id at all.
+    const nextSchool =
+      getCampBranchId(selectedEvent) ||
+      getCampSchoolId(selectedEvent) ||
+      getCampSchoolName(selectedEvent) ||
+      "all";
+
+    onSchoolNameChange?.(nextSchool);
+  };
 
   const lastReportedBranchRef = React.useRef(null);
   React.useEffect(() => {
-    if (!onSelectedBranchChange) return;
     const selected = String(formData?.branchName ?? "").trim();
     if (!selected || lastReportedBranchRef.current === selected) return;
+
     const option =
       branchOptions.find(
-        (branchOption) =>
-          String(branchOption?.value ?? "").trim() === selected,
+        (branchOption) => String(branchOption?.value ?? "").trim() === selected,
       ) ?? null;
+
     lastReportedBranchRef.current = selected;
-    onSelectedBranchChange(option);
-  }, [branchOptions, formData?.branchName, onSelectedBranchChange]);
+    onSelectedBranchChange?.(option);
+
+    /* Report the SELECTED branch to the parent too. This previously only */
+    /* published the signed-in profile, so switching school updated */
+    /* `onSelectedBranchChange` but left `selectedSchoolBranch` on the profile */
+    /* and the report kept printing the old school. */
+    if (option) setSelectedSchoolBranch?.(option);
+  }, [
+    branchOptions,
+    formData?.branchName,
+    onSelectedBranchChange,
+    setSelectedSchoolBranch,
+  ]);
 
   const handleChange = (name, value) => {
+    const nextValue = value ?? "";
+
     setFormData((prev) => {
       const next = {
         ...prev,
-        [name]: value ?? "",
+        [name]: nextValue,
       };
-      // Changing school or year invalidates downstream picks.
+      /* Changing school or year invalidates downstream picks. Reset them to the
+         "all" sentinel (not "") so each dropdown keeps a valid selection and the
+         user sees the full list rather than an empty one. */
       if (name === "branchName" || name === "AcademicYear") {
-        next.classes = "";
-        next.section = "";
-        next.BeneficiaryId = "";
+        next.classes = ALL;
+        next.section = ALL;
+        next.BeneficiaryId = ALL;
       } else if (name === "classes") {
-        next.section = "";
-        next.BeneficiaryId = "";
+        next.section = ALL;
+        next.BeneficiaryId = ALL;
       } else if (name === "section") {
-        next.BeneficiaryId = "";
+        next.BeneficiaryId = ALL;
       }
       return next;
     });
 
     if (name === "branchName") {
-      onSchoolNameChange?.(value || "all");
+      onSchoolNameChange?.(nextValue || ALL);
       onSelectedBranchChange?.(
-        branchOptions.find((option) => option.value === value) ?? null,
+        branchOptions.find((option) => option.value === nextValue) ?? null,
       );
     } else if (name === "AcademicYear") {
-      onAcademicYearChange?.(value || "all");
+      onAcademicYearChange?.(nextValue || ALL);
     } else if (name === "classes") {
-      onClassFilterChange?.(value || "all");
+      onClassFilterChange?.(nextValue || ALL);
     } else if (name === "section") {
-      onSectionFilterChange?.(value || "all");
+      onSectionFilterChange?.(nextValue || ALL);
     } else if (name === "BeneficiaryId") {
-      onStudentFilterChange?.(value || "all");
+      onStudentFilterChange?.(nextValue || ALL);
     }
   };
 
@@ -442,18 +660,37 @@ console.log(getSchoolBranchData,"getSchoolBranchData");
           showSchoolName ? "xl:grid-cols-5" : "xl:grid-cols-4"
         }`}
       >
-        {showSchoolName && (
-          <>
-            <ReusableSelect
-              name="branchName"
-              label="School Name"
-              searchPlaceholder="School Name"
-              options={branchOptions}
-              value={formData.branchName}
-              onChange={(value) => handleChange("branchName", value)}
-            />
-          </>
-        )}
+        <>
+          {showSchoolName && (
+            <>
+              <ReusableSelect
+                name="branchName"
+                label="School Name"
+                searchPlaceholder="School Name"
+                options={branchOptions}
+                value={formData.branchName}
+                onChange={(value) => handleChange("branchName", value)}
+              />
+            </>
+          )}
+          <ReusableSelect
+            label="Camp Name"
+            options={campOptions}
+            value={activeCampSelection}
+            onChange={handleCampChange}
+            placeholder={
+              assignEventLoading ? "Loading camps..." : "Select Camp"
+            }
+            searchPlaceholder="Search Camp"
+            disabled={isLoading || assignEventLoading}
+          />
+
+          {assignEventError ? (
+            <p className="mt-1 text-xs text-destructive">
+              Unable to load camps. Please retry.
+            </p>
+          ) : null}
+        </>
         <ReusableSelect
           name="AcademicYear"
           label={"Academic Year"}

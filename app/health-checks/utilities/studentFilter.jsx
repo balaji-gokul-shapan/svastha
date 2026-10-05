@@ -249,14 +249,12 @@ const StudentFilter = ({
     return campList.find((camp) => getCampId(camp) === id) ?? null;
   }, [assignedEvents, selectedCamp?.id]);
 
-  console.log(activeCampEvent?.primary_doctor,"activeCampEvent");
   const primaryDoctorId = getCampPrimaryDoctorId(activeCampEvent) ?? "";
-  
-  console.log(primaryDoctorId,"primaryDoctorId");
+  console.log(activeCampEvent,"activeCampEvent");
   
 
   const selectedCampSignature = selectedCamp
-    ? `${selectedCamp.id ?? ""}|${selectedCamp.name ?? ""}|${selectedCamp.schoolName ?? ""}|${selectedCamp.date ?? ""}`
+    ? `${selectedCamp.id ?? ""}|${selectedCamp.name ?? ""}|${selectedCamp.schoolName ?? ""}|${selectedCamp.date ?? ""}|${primaryDoctorId}`
     : "";
 
   useEffect(() => {
@@ -283,8 +281,6 @@ const StudentFilter = ({
 
   useEffect(() => {
     updateCampSelection((current) => {
-      // A camp chosen in the dropdown has to survive this sync while it still
-      // belongs to the filtered school.
       if (current && current !== "all") {
         const campList = Array.isArray(assignedEvents) ? assignedEvents : [];
         const currentCamp = campList.find(
@@ -1138,15 +1134,10 @@ const StudentFilter = ({
               value={activeCampSelection}
               onChange={(value) => {
                 updateCampSelection(value);
-
                 if (value === "all") {
                   onSchoolNameChange?.("all");
-
                   return;
                 }
-
-                // Option values are camp ids, so resolve the camp (and its
-                // school) by id — camps can share a school name.
                 const campList = Array.isArray(assignedEvents)
                   ? assignedEvents
                   : [];
@@ -1154,7 +1145,6 @@ const StudentFilter = ({
                 const selectedEvent = campList.find(
                   (event) => getCampId(event) === String(value).trim(),
                 );
-
                 onSchoolNameChange?.(getCampSchoolName(selectedEvent) || "all");
               }}
               placeholder={
@@ -1255,12 +1245,7 @@ const StudentFilter = ({
           searchPlaceholder="Search student"
           disabled={isLoading}
           onSearch={handleStudentSearch}
-          /* Picking a student clears the select's search box internally, but
-             that clear is intentionally not forwarded to onSearch (see
-             skipNextSearchRef in reusable-select) — so the previous search's
-             results stayed cached and the next open kept showing them while
-             hiding newly loaded students. Drop the cache on open instead: the
-             dropdown then always starts from the live roster. */
+
           onOpenChange={(isOpen) => {
             if (isOpen) {
               setStudentSearchOptions(null);

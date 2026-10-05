@@ -242,12 +242,20 @@ export function DashboardHeader({
   dashboardSummaryData,
   dashboardSummaryLoading,
   dashboardSummaryError,
+  schoolBranch
 }) {
-  console.log(selectedCampId,"selectedCampId");
+  console.log(branchOptions,"branchOptions");
   
 
   const resolvedBranchOptions = React.useMemo(() => {
-    if (Array.isArray(branchOptions) && branchOptions.length) {
+    /* NOTE: `branchOptions` is ALWAYS a non-empty array (the parent seeds it with
+       the "all" row), so the old `branchOptions.length` guard always won and this
+       fallback was dead code. Only fall back when there is nothing beyond "all". */
+    const hasRealOption = (Array.isArray(branchOptions) ? branchOptions : []).some(
+      (option) => String(option?.value ?? "").trim() !== "all",
+    );
+
+    if (hasRealOption) {
       return branchOptions;
     }
 
@@ -255,7 +263,7 @@ export function DashboardHeader({
 
     return [
       { value: "all", label: "All Branches" },
-      ...(Array.isArray(branches) ? branches : [])
+      ...(Array.isArray(schoolBranch) ? schoolBranch : [])
         .map((branch) => {
           const value = String(
             branch?.id ?? branch?.branch_id ?? "",
@@ -280,11 +288,24 @@ export function DashboardHeader({
           return true;
         }),
     ];
-  }, [branchOptions, branches]);
+  }, [branchOptions, schoolBranch]);
 
-  console.log(role,"userssssssssss");
-  
-  const isDoctor = role === "doctor";
+  console.log(role, "userssssssssss");
+
+  const normalizedRole = String(role ?? userAuthRole ?? "")
+    .trim()
+    .toLowerCase();
+
+  const isDoctor =
+    normalizedRole === "doctor" ||
+    normalizedRole === "staff" ||
+    normalizedRole === "primary_doctor";
+
+  // Admins manage branches; everyone else (incl. a doctor) gets camps.
+  const showsBranchFilter =
+    normalizedRole === "admin" ||
+    normalizedRole === "superadmin" ||
+    normalizedRole === "school";
 
   /*
    * Camp options come from the doctor's assigned events. `events` may still be
@@ -345,18 +366,19 @@ export function DashboardHeader({
         className="school-subaccount-filter w-full shrink-0 sm:w-auto sm:min-w-[16rem]"
         aria-label={isDoctor ? "Camp filter" : "Branch filter"}
       >
-        {(role === "doctor" || role === "superAdmin") && (
+        {(isDoctor || showsBranchFilter) && (
           <ReusableSelect
             label={isDoctor ? "Camp" : "Branch"}
-            // options={isDoctor ? resolvedCampOptions : resolvedBranchOptions}
-            options={ resolvedBranchOptions}
+            // A doctor filters by their assigned CAMPS; everyone else by branch.
+            // Hardcoding the branch list here is what made a doctor see branches.
+            options={isDoctor ? resolvedCampOptions : resolvedBranchOptions}
             value={(isDoctor ? selectedCampId : selectedBranchId) ?? "all"}
             onChange={(value) =>
               isDoctor ? onCampChange?.(value) : onBranchChange?.(value)
             }
             placeholder={isDoctor ? "Select camp" : "Select branch"}
             searchPlaceholder={isDoctor ? "Search camp..." : "Search branch..."}
-            disabled={isDoctor ? eventsLoading : branchesLoading}
+            disabled={Boolean(isDoctor ? eventsLoading : branchesLoading)}
           />
         )}
         {/* Removed as it's now conditionally rendered above */}

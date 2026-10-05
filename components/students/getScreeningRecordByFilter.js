@@ -4,10 +4,10 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAppDispatch } from "@/lib/hooks";
 import { getHearingScreening } from "@/lib/features/getHearingScreening";
-import { filterGeneralScreening } from "@/lib/features/getInitialScreening";
-import { filterDentalScreening } from "@/lib/features/getDentalScreening";
+import { getInitialScreening } from "@/lib/features/getInitialScreening";
+import { getDentalScreening } from "@/lib/features/getDentalScreening";
 import { getVisionScreening } from "@/lib/features/getVisionScreening";
-import { filterEntScreening } from "@/lib/features/registerEntScreening";
+import { getEntScreening } from "@/lib/features/getEntScreening";
 
 export function useScreeningRecordByFilter({
   getId,
@@ -21,7 +21,6 @@ export function useScreeningRecordByFilter({
   const selectedCampId = String(campId ?? "").trim();
   const normalizedClassFilter = String(classFilter ?? "").trim();
   const normalizedSectionFilter = String(sectionFilter ?? "").trim();
-  
 
   // Hearing screening for this student.
   const {
@@ -51,22 +50,21 @@ export function useScreeningRecordByFilter({
       "health-card",
       normalizedId,
       selectedCampId,
-      normalizedClassFilter,
     ],
     queryFn: () =>
       dispatch(
-        filterGeneralScreening({
+        getInitialScreening({
+          studentId: normalizedId,
           campId: selectedCampId,
-          class: normalizedClassFilter,
-          section: normalizedSectionFilter,
+          all: true,
         }),
       ).unwrap(),
-    // The backend route needs a camp in the path, so don't fire without one.
-    enabled: hasStudent && Boolean(selectedCampId),
+    enabled: hasStudent,
     staleTime: 60_000,
   });
+  console.log(selectedCampId,  "hasStudent");
+  console.log(selectedCampId,selectedCampId, generalScreeningPayload, "generalScreeningPayloadwwwww");
 
-  // Dental screening for this student.
   const {
     data: dentalScreeningDataPayload = [],
     isLoading: dentalLoading,
@@ -75,10 +73,11 @@ export function useScreeningRecordByFilter({
     queryKey: ["dental-screening", normalizedId, selectedCampId],
     queryFn: () =>
       dispatch(
-        filterDentalScreening({
+        // Student-scoped: /codings/student/{studentId}[/{campId}]. Replaces the
+        // camp-required `filterDentalScreening`, so it works with camp.id null.
+        getDentalScreening({
+          studentId: normalizedId,
           campId: selectedCampId,
-          class: normalizedClassFilter,
-          section: normalizedSectionFilter,
         }),
       ).unwrap(),
     enabled: hasStudent,
@@ -96,11 +95,7 @@ export function useScreeningRecordByFilter({
     queryKey: ["ent-screening", normalizedId, selectedCampId],
     queryFn: () =>
       dispatch(
-        filterEntScreening({
-          campId: selectedCampId,
-          class: normalizedClassFilter,
-          section: normalizedSectionFilter,
-        }),
+        getEntScreening({ studentId: normalizedId, campId: selectedCampId }),
       ).unwrap(),
     enabled: hasStudent,
     staleTime: 60_000,
@@ -208,8 +203,9 @@ export function useScreeningRecordByFilter({
     );
   };
 
+
   const generalScreeningRecord = useMemo(
-    () => findRecordByStudentKeys(generalScreeningItems),
+    () => pickScopedRecord(generalScreeningItems),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [generalScreeningItems, studentKeys],
   );

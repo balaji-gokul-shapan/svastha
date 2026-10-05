@@ -149,6 +149,7 @@ import { BranchDetailsPanel, SchoolDetailsCard } from "./components/dashboard-se
 export default function StudentOverviewCharts({
   user,
   role,
+  userAuthRole,
   dashboardData,
   dashboardLoading,
   dashboardError,
@@ -158,13 +159,75 @@ export default function StudentOverviewCharts({
   schoolBranch,
   getAllSchoolBranchLoading,
   getAllSchoolBranchError,
+  eventsLoading = false,
 }) {
 
-  const getAllBranches = dashboardData?.data?.branches ?? [];
-  console.log(getAllBranches, "getAllBranches");
+  const getAllBranches = React.useMemo(
+    () => (Array.isArray(dashboardData?.data?.branches) ? dashboardData.data.branches : []),
+    [dashboardData],
+  );
 
-  const getAllEvents = dashboardData?.data?.events ?? [];
-  console.log(getAllEvents, "getAllEvents");
+  const getAllEvents = React.useMemo(
+    () => (Array.isArray(dashboardData?.data?.events) ? dashboardData.data.events : []),
+    [dashboardData],
+  );
+
+  /* ------------------------------------------------------------------ */
+  /* Branch catalogue - the union of both branch sources                */
+  /* ------------------------------------------------------------------ */
+
+  const allSchoolBranches = React.useMemo(() => {
+    if (Array.isArray(schoolBranch)) return schoolBranch;
+    if (Array.isArray(schoolBranch?.data)) return schoolBranch.data;
+    /* Some endpoints wrap twice: { data: { data: [...] } } */
+    if (Array.isArray(schoolBranch?.data?.data)) return schoolBranch.data.data;
+    if (Array.isArray(schoolBranch?.branches)) return schoolBranch.branches;
+    if (Array.isArray(schoolBranch?.data?.branches)) {
+      return schoolBranch.data.branches;
+    }
+    return [];
+  }, [schoolBranch]);
+
+  /* A branch id is spelled several ways across the two endpoints (id /
+     branch_id / branchId / school_branch_id). Comparing only `id` against
+     `branch_id` is why the selected row was frequently not found. */
+  const readBranchIds = (branch) =>
+    [branch?.id, branch?.branch_id, branch?.branchId, branch?.school_branch_id]
+      .map((value) => String(value ?? "").trim())
+      .filter(Boolean);
+
+  /*
+   * The dropdown is fed by `getAllBranches` (the dashboard payload) while the
+   * cards read `allSchoolBranches` (getAllSchoolBranch). When /dashboard returns
+   * no branches, `selectedBranch` resolved to null even though the school-branch
+   * list was fully populated - so `selectedSchool` was null and
+   * SchoolDetailsCard never rendered at all. Merging both into one catalogue
+   * means a selection always resolves, whichever list the option came from.
+   */
+  const branchCatalogue = React.useMemo(() => {
+    const merged = [];
+
+    for (const branch of [...getAllBranches, ...allSchoolBranches]) {
+      if (!branch || typeof branch !== "object") continue;
+
+      const ids = readBranchIds(branch);
+      if (!ids.length) continue;
+
+      const existingIndex = merged.findIndex((row) =>
+        readBranchIds(row).some((id) => ids.includes(id)),
+      );
+
+      if (existingIndex === -1) {
+        merged.push(branch);
+      } else if (ids.length > readBranchIds(merged[existingIndex]).length) {
+        // Same branch from both lists: keep the row carrying more ids, which is
+        // the richer getAllSchoolBranch record.
+        merged[existingIndex] = branch;
+      }
+    }
+
+    return merged;
+  }, [getAllBranches, allSchoolBranches]);
 
   /* ------------------------------------------------------------------ */
   /* Selected branch                                                    */
@@ -177,12 +240,12 @@ export default function StudentOverviewCharts({
 
     return [
       { value: "all", label: "All Branches" },
-      ...(Array.isArray(getAllBranches) ? getAllBranches : [])
+      ...branchCatalogue
         .map((branch) => {
-          const value = String(branch?.id ?? branch?.branch_id ?? "").trim();
+          const ids = readBranchIds(branch);
 
           return {
-            value,
+            value: ids[0] ?? "",
             label: String(
               branch?.branch_name ??
                 branch?.branchName ??
@@ -200,70 +263,43 @@ export default function StudentOverviewCharts({
           return true;
         }),
     ];
-  }, [getAllBranches]);
+  }, [branchCatalogue]);
 
   const selectedBranch = React.useMemo(() => {
-    if (selectedBranchId === "all") return null;
+    if (!selectedBranchId || selectedBranchId === "all") return null;
 
+    const wanted = String(selectedBranchId).trim();
+
+    // Match on ANY of the branch's id fields, not just the first.
     return (
-      (Array.isArray(getAllBranches) ? getAllBranches : []).find(
-        (branch) =>
-          String(branch?.id ?? branch?.branch_id ?? "").trim() ===
-          String(selectedBranchId).trim(),
-      ) ?? null
+      branchCatalogue.find((branch) => readBranchIds(branch).includes(wanted)) ??
+      null
     );
-  }, [getAllBranches, selectedBranchId]);
+  }, [branchCatalogue, selectedBranchId]);
 
-  /* ------------------------------------------------------------------ */
-  /* Selected school (from getAllSchoolBranch)                          */
-  /* ------------------------------------------------------------------ */
-
-  const allSchoolBranches = React.useMemo(() => {
-    if (Array.isArray(schoolBranch)) return schoolBranch;
-    if (Array.isArray(schoolBranch?.data)) return schoolBranch.data;
-    /* Some endpoints wrap twice: { data: { data: [...] } } */
-    if (Array.isArray(schoolBranch?.data?.data)) return schoolBranch.data.data;
-    if (Array.isArray(schoolBranch?.branches)) return schoolBranch.branches;
-    if (Array.isArray(schoolBranch?.data?.branches)) {
-      return schoolBranch.data.branches;
-    }
-    return [];
-  }, [schoolBranch]);
-
- console.log(role,"role");
- 
-  const readBranchIds = (branch) =>
-    [branch?.id, branch?.branch_id, branch?.branchId, branch?.school_branch_id]
-      .map((value) => String(value ?? "").trim())
-      .filter(Boolean);
-
-  console.log(schoolBranch, allSchoolBranches);
-
-  /*
-   * Prefer the exact getAllSchoolBranch match (richest row). Fall back to the
-   * dashboardData row so the card still renders when nothing lines up.
-   */
+  /* Prefer the exact getAllSchoolBranch match (richest row); fall back to the
+     catalogue row so the card still renders when nothing lines up. */
   const selectedSchool = React.useMemo(() => {
-    if (selectedBranchId === "all") return null;
+    if (!selectedBranchId || selectedBranchId === "all") return null;
+    if (!selectedBranch) return null;
 
     const wanted = new Set(readBranchIds(selectedBranch));
-    if (wanted.size === 0) return selectedBranch ?? null;
+    if (wanted.size === 0) return null;
 
     const match = allSchoolBranches.find((branch) =>
       readBranchIds(branch).some((id) => wanted.has(id)),
     );
 
-    return match ?? selectedBranch ?? null;
+    return match ?? selectedBranch;
   }, [allSchoolBranches, selectedBranchId, selectedBranch]);
 
-  console.log(selectedSchool, "selectedSchool");
 
   /* ------------------------------------------------------------------ */
   /* Branch summary                                                     */
   /* ------------------------------------------------------------------ */
 
   const branchSummary = React.useMemo(() => {
-    const list = Array.isArray(getAllBranches) ? getAllBranches : [];
+    const list = branchCatalogue;
     const scope = selectedBranch ? [selectedBranch] : list;
 
     const toArea = (branch) =>
@@ -286,7 +322,7 @@ export default function StudentOverviewCharts({
       branchCount: selectedBranch ? 1 : list.length,
       hasArea: scope.some(toArea),
     };
-  }, [getAllBranches, selectedBranch]);
+  }, [branchCatalogue, selectedBranch]);
 
   /* ------------------------------------------------------------------ */
   /* Selected camp (doctor)                                             */
@@ -294,13 +330,13 @@ export default function StudentOverviewCharts({
 
   const [selectedCampId, setSelectedCampId] = React.useState("all");
 
-  console.log(user, "user");
 
   return (
     <div className="w-full space-y-4 p-4 md:space-y-5 md:p-6">
       <DashboardHeader
         user={user}
         role={role}
+        userAuthRole={userAuthRole}
         dashboardData={dashboardData}
         dashboardLoading={dashboardLoading}
         dashboardError={dashboardError}
@@ -309,6 +345,9 @@ export default function StudentOverviewCharts({
         dashboardSummaryError={dashboardSummaryError}
         branches={getAllBranches}
         branchOptions={branchOptions}
+        branchesLoading={getAllSchoolBranchLoading}
+        branchesError={getAllSchoolBranchError}
+        eventsLoading={eventsLoading}
         selectedBranchId={selectedBranchId}
         selectedBranch={selectedBranch}
         onBranchChange={setSelectedBranchId}

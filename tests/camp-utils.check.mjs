@@ -26,6 +26,13 @@ const {
   isCampActive,
   buildCampSummary,
   EMPTY_CAMP_SUMMARY,
+  getScreeningIds,
+  getScreeningEntries,
+  getScreeningKeys,
+  getScreeningKey,
+  isScreeningKeyAssigned,
+  registerScreeningIdMap,
+  resetScreeningIdMap,
 } = mod;
 
 // ---- buildCampSummary: the fallback-mixing fix -------------------------
@@ -213,10 +220,102 @@ assert.equal(
   "5",
   "inlined doctor object",
 );
-assert.equal(getCampPrimaryDoctorId({ primary_doctor: 9 }), "9", "plain id");
+// `primary_doctor` is a FLAG, so a bare scalar is NOT an id — see
+// getCampPrimaryDoctorId's comment: reading `primary_doctor: 1` as doctor "1"
+// used to inject a phantom doctor into the dashboard roster.
+assert.equal(getCampPrimaryDoctorId({ primary_doctor: 9 }), null);
 assert.equal(getCampPrimaryDoctorId(null), null);
 assert.deepEqual(getCampDoctorIds({ doctor_ids: [{ id: 3 }, { doctor_id: 4 }] }), ["3", "4"]);
 assert.deepEqual(getCampDoctorIds({ doctors: 6 }), ["6"]);
 assert.deepEqual(getCampDoctorIds({}), []);
 
 console.log("camp-utils checks passed");
+
+// ---- screening ids: the field name actually used by the backend ----------
+// The camp payload names this `screening_type_ids` (see ScreeningPage.jsx).
+// Reading only `screening_ids` returned [] for every real camp, which made
+// getScreeningKeys() empty and silently disabled all report filtering.
+assert.deepEqual(
+  getScreeningIds({ screening_type_ids: [1, 4, 3] }),
+  ["1", "4", "3"],
+  "screening_type_ids must be read",
+);
+assert.deepEqual(
+  getScreeningIds({ screeningTypeIds: [2] }),
+  ["2"],
+  "camelCase variant",
+);
+assert.deepEqual(getScreeningIds({ screening_ids: [5] }), ["5"], "legacy name");
+assert.deepEqual(
+  getScreeningIds({ screening_type_ids: "1,3,4" }),
+  ["1", "3", "4"],
+  "comma-joined string must be split",
+);
+assert.deepEqual(getScreeningIds({}), []);
+assert.deepEqual(getScreeningIds(null), []);
+// An empty array must not mask a populated sibling field.
+assert.deepEqual(
+  getScreeningIds({ screening_type_ids: [], screening_ids: [2] }),
+  ["2"],
+  "empty array falls through to the next field",
+);
+
+// inline objects keep their name so resolution survives an unknown id
+assert.deepEqual(
+  getScreeningIds({ screening_types: [{ id: 9, screening_type: "Dental" }] }),
+  ["9"],
+);
+assert.deepEqual(getScreeningKeys({ screening_types: [{ id: 9, screening_type: "Dental" }] }), [
+  "dental",
+]);
+
+// ---- id -> key translation ----------------------------------------------
+resetScreeningIdMap();
+assert.equal(getScreeningKey(1), "general", "1..5 fallback still works");
+assert.equal(getScreeningKey("3"), "vision");
+assert.equal(getScreeningKey("Dental"), "dental", "by name");
+assert.equal(getScreeningKey("ENT Screening"), "ent", "by display name");
+assert.equal(getScreeningKey(99), null, "unknown id -> null");
+assert.equal(getScreeningKey(null), null);
+
+// Real master-table ids are NOT 1..5 — this is the silent-failure case.
+const masterTypes = [
+  { id: 7, screening_type: "General" },
+  { id: 11, screening_type: "Dental" },
+  { id: 12, screening_type: "Vision" },
+  { id: 13, screening_type: "Hearing" },
+  { id: 14, screening_type: "ENT" },
+];
+registerScreeningIdMap(masterTypes);
+assert.equal(getScreeningKey(11), "dental", "real master id maps");
+assert.equal(getScreeningKey("14"), "ent");
+assert.deepEqual(
+  getScreeningKeys({ screening_type_ids: [7, 12] }),
+  ["general", "vision"],
+  "subset of the camp's screenings",
+);
+// The runtime map must win over the 1..5 fallback for the same numeric id.
+registerScreeningIdMap([{ id: 1, screening_type: "Vision" }]);
+assert.equal(getScreeningKey(1), "vision", "master table overrides fallback");
+resetScreeningIdMap();
+assert.equal(getScreeningKey(1), "general", "reset restores the fallback");
+
+// ---- keys + the "assigned" contract -------------------------------------
+resetScreeningIdMap();
+assert.deepEqual(getScreeningKeys({ screening_type_ids: [1, 2] }), [
+  "general",
+  "dental",
+]);
+assert.deepEqual(
+  getScreeningKeys({ screening_type_ids: [1, 1, 2] }),
+  ["general", "dental"],
+  "deduped",
+);
+assert.deepEqual(getScreeningKeys({}), [], "no ids -> no restriction");
+assert.deepEqual(getScreeningEntries({ screening_type_ids: [1, 2] }), ["1", "2"]);
+
+assert.equal(isScreeningKeyAssigned([], "dental"), true, "empty = unrestricted");
+assert.equal(isScreeningKeyAssigned(["dental"], "dental"), true);
+assert.equal(isScreeningKeyAssigned(["dental"], "vision"), false);
+
+console.log("screening helpers: ALL PASS");

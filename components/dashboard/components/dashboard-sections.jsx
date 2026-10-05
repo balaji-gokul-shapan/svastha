@@ -214,7 +214,15 @@ export function SchoolDetailsCard({ school }) {
     ? `tel:${contactPhone.replace(/[^\d+]/g, "")}`
     : null;
   const emailUrl = hasContactEmail ? `mailto:${contactEmail}` : null;
-  const schoolName = value("name", "name");
+  /* A row from getAllSchoolBranch is a BRANCH, so it often carries only
+     `branch_name` / `school_name` and no `name`. Without these fallbacks the
+     card title rendered "Not provided" while the real name sat unread in the
+     subtitle directly below it. */
+  const schoolName =
+    value("name", "name", "") ||
+    value("school_name", "school_name", "") ||
+    value("branch_name", "branch_name", "") ||
+    "Not provided";
   const branchName = value("branch_name", "branch_name");
   const status = value("status", "status");
   const classLevels = value("class", "class");

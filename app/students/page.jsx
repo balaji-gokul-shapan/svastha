@@ -17,6 +17,7 @@ import FileUploadModal from "@/components/students/fileUploadModal";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import SchoolStudentFilter from "./utilities/SchoolStudentFilter";
 import { selectUserAccount } from "@/lib/features/auth-slice";
+import useAssignedEvents from "@/lib/useAssignedEvents";
 import { useAuthRole } from "@/lib/user-role";
 import { toast } from "sonner";
 
@@ -60,6 +61,8 @@ function StudentsList() {
     (state) => state.getAllStudent,
   );
   const selectUser = useAppSelector(selectUserAccount);
+  const { assignedEvents, assignEventLoading, assignEventError } =
+    useAssignedEvents();
   console.log(selectUser, "selectUserAccount");
 
   const updateParams = React.useCallback(
@@ -546,6 +549,9 @@ function StudentsList() {
               "",
           ).trim(),
         }}
+        assignedEvents={assignedEvents}
+        assignEventLoading={assignEventLoading}
+        assignEventError={assignEventError}
         filterPayload={filterPayload}
         isLoading={isLoading}
         schoolName={schoolName}
@@ -592,10 +598,6 @@ function StudentsList() {
         {isInitialLoading ? <LoadingText label="Loading students..." /> : null}
         {!isInitialLoading && isRefreshing ? <LoadingText label="Refreshing students..." /> : null}
       </div> */}
-      {/* Render the error as text — calling toast.error() during render was a
-          side effect that re-fired on every re-render, and passing an object
-          ({error}) made Sonner crash with "Objects are not valid as a React
-          child". The error can be a string (rejectWithValue) or an Error. */}
       {error ? (
         <p className="text-sm text-destructive">
           {typeof error === "string"
