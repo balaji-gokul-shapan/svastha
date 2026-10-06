@@ -123,12 +123,22 @@ export default function ClassSectionManager({
     // JSON-encoded string → parse first.
     if (typeof input === "string") {
       const text = input.trim();
+      if (!text) return {};
       if (text.startsWith("[") || text.startsWith("{")) {
         try {
           return normalizeToMap(JSON.parse(text));
         } catch {
           return {};
         }
+      }
+      // Legacy API payload: "1-A,1-B,12-A" comma list.
+      if (text.includes("-") || text.includes(",")) {
+        return normalizeToMap(
+          text
+            .split(",")
+            .map((part) => part.trim())
+            .filter(Boolean),
+        );
       }
       return {};
     }
@@ -174,20 +184,33 @@ export default function ClassSectionManager({
   const [classSections, setClassSections] = useState(() =>
     normalizeToMap(initialClassSections),
   );
-  const [activeClass, setActiveClass] = useState("11");
+  // Default to the first class we actually have data / branch options for —
+  // hard-coding "11" sends edits to a class the user never selected, so the
+  // payload looks like it kept the old 1,2,3 instead of your 1,12 edit.
+  const [activeClass, setActiveClass] = useState(() => {
+    const keys = Object.keys(normalizeToMap(initialClassSections));
+    return keys[0] ?? "1";
+  });
   const [showApply, setShowApply] = useState(false);
   const [applyTargets, setApplyTargets] = useState([]);
   console.log("initialClassSections", initialClassSections);
   console.log("activeClass", activeClass);
+  
 
-  // Re-sync when the parent loads/changes the privileges AFTER mount
-  // (e.g. the account being edited arrives from the API later).
+ 
   const incomingKey = JSON.stringify(normalizeToMap(initialClassSections));
   const lastIncomingKey = useRef(incomingKey);
   useEffect(() => {
     if (incomingKey !== lastIncomingKey.current) {
       lastIncomingKey.current = incomingKey;
-      setClassSections(normalizeToMap(initialClassSections));
+      const nextMap = normalizeToMap(initialClassSections);
+      setClassSections(nextMap);
+      // Keep the editor on a class that actually exists — otherwise you edit
+      // "1" while looking at "12" and the payload looks like old 1,2,3 data.
+      setActiveClass((prev) => {
+        if (nextMap[prev] !== undefined) return prev;
+        return Object.keys(nextMap)[0] ?? prev;
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incomingKey]);
@@ -270,7 +293,7 @@ export default function ClassSectionManager({
           Class &amp; Section Setup
         </h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Configure sections independently for each class - names don't have to
+          Configure sections independently for each class - names don&amp;t have to
           follow A/B/C, e.g. Class 11 can use A, B, C1, C2.
         </p>
       </div>

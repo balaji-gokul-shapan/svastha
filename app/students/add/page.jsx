@@ -134,12 +134,12 @@ export default function AddStudentPage() {
       return "Academic year is required (e.g. 2026-2027).";
     if (!formValues.class.trim()) return "Class is required.";
     if (!formValues.sec.trim()) return "Section is required.";
-    if (!formValues.school_registration_number.trim())
-      return "School registration number is required.";
+    // if (!formValues.school_registration_number.trim())
+    //   return "School registration number is required.";
 
     const schoolId = Number(formValues.school_id);
-    if (!Number.isInteger(schoolId) || schoolId < 1)
-      return "A valid numeric School ID is required.";
+    // if (!Number.isInteger(schoolId) || schoolId < 1)
+    //   return "A valid numeric School ID is required.";
 
     for (const aadhaarField of [
       "student_aadhaar_number",
@@ -422,7 +422,7 @@ export default function AddStudentPage() {
                   />
                 </Field>
 
-                <Field
+                {/* <Field
                   id="school-registration-number"
                   label="School Registration Number"
                   required
@@ -435,7 +435,7 @@ export default function AddStudentPage() {
                     value={formValues.school_registration_number}
                     onChange={handleChange}
                   />
-                </Field>
+                </Field> */}
 
                 <Field id="admission-number" label="Admission Number">
                   <Input
@@ -448,7 +448,7 @@ export default function AddStudentPage() {
                   />
                 </Field>
 
-                <Field id="school-id" label="School ID" required>
+                {/* <Field id="school-id" label="School ID" required>
                   <Input
                     id="school-id"
                     name="school_id"
@@ -458,7 +458,7 @@ export default function AddStudentPage() {
                     value={formValues.school_id}
                     onChange={handleChange}
                   />
-                </Field>
+                </Field> */}
               </div>
             </AccordionContent>
           </AccordionItem>

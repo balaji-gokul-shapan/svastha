@@ -353,7 +353,8 @@ const SchoolDetails = ({
     const editingId = editingBranch?.id ?? editingBranch?.branch_id;
     const request = editingId
       ? dispatch(
-          updateSchoolBranches({ id: editingId, payload: requestPayload }),
+          updateSchoolBranches({ payload: requestPayload }),
+          // updateSchoolBranches({ id: editingId, payload: requestPayload }),
         )
       : dispatch(createSchoolBranches(requestPayload));
 

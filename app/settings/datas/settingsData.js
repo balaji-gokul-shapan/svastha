@@ -49,16 +49,16 @@ export const settingsNav = [
     label: "Teams",
     roles: ["admin", "school_admin", "school",],
   },
-  {
-    id: "report",
-    label: "Report",
-    roles: ["admin", "school_admin", "school","school_sub_account"],
-  },
-  {
-    id: "screening",
-    label: "Screening",
-    roles: ["admin", "school_admin", "school"],
-  },
+  // {
+  //   id: "report",
+  //   label: "Report",
+  //   roles: ["admin", "school_admin", "school","school_sub_account"],
+  // },
+  // {
+  //   id: "screening",
+  //   label: "Screening",
+  //   roles: ["admin", "school_admin", "school"],
+  // },
   // {
   //   id: "applications",
   //   label: "Applications",

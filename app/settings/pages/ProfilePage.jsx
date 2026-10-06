@@ -626,8 +626,9 @@ const ProfilePage = ({
 
     const profilePayload = {
       name: trimmedName,
-      username: trimmedPhoneNumber,
+      // username: trimmedPhoneNumber,
       email: trimmedEmail,
+      phone_number: trimmedPhoneNumber,
     };
 
     setIsSavingProfile(true);
@@ -636,7 +637,8 @@ const ProfilePage = ({
       await dispatchProfile(profilePayload).unwrap();
 
       const imageError = await saveProfileImage();
-
+      console.log(imageError,"imageError");
+      
       if (imageError) {
         toast.error(`Profile updated, but ${imageError}`);
       } else {

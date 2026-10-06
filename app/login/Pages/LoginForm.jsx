@@ -144,8 +144,8 @@ const LoginForm = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
           >
-            <CardTitle className="font-sf text-3xl font-semibold tracking-tight">
-              Welcome back
+            <CardTitle className="font-sf text-left text-3xl font-semibold tracking-tight">
+              Welcome
             </CardTitle>
             <CardDescription className="text-sm leading-relaxed">
               Sign in to access your account and manage student health records.

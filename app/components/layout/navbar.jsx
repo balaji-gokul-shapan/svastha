@@ -14,7 +14,7 @@ export function Navbar({ title = "Dashboard", sticky = true }) {
   const dispatch = useDispatch();
   const authUser = useSelector((state) => state.auth?.user);
 
-  const displayName = authUser?.label || authUser?.username || "Guest";
+  const displayName = authUser?.account?.name || authUser?.label || authUser?.username || "Guest";
   const userInitials = displayName
     .split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "S";
   const signedInRole = authUser?.role || "User";

@@ -646,9 +646,42 @@ const buildPrivilegesPayload = (value) => {
   if (typeof value === "string") return value.trim();
   if (value == null) return "";
 
-  const entries = Array.isArray(value)
-    ? value.map((sections, index) => [String(index + 1), sections])
-    : Object.entries(value);
+  let entries;
+
+  if (Array.isArray(value)) {
+
+    const looksLikeClassSectionObjects =
+      value.length > 0 &&
+      value.every(
+        (entry) =>
+          entry &&
+          typeof entry === "object" &&
+          ("class" in entry || "Class" in entry),
+      );
+
+    if (looksLikeClassSectionObjects) {
+      const grouped = {};
+      const order = [];
+      value.forEach((entry) => {
+        const cls = String(entry.class ?? entry.Class ?? "").trim();
+        const sec = String(entry.section ?? entry.Section ?? "").trim();
+        if (!cls || !sec) return;
+        if (!grouped[cls]) {
+          grouped[cls] = [];
+          order.push(cls);
+        }
+        if (!grouped[cls].includes(sec)) grouped[cls].push(sec);
+      });
+      entries = order.map((cls) => [cls, grouped[cls]]);
+    } else {
+      // Legacy: plain array indexed by position (index 0 => class "1").
+      entries = value.map((sections, index) => [String(index + 1), sections]);
+    }
+  } else if (typeof value === "object") {
+    entries = Object.entries(value);
+  } else {
+    return "";
+  }
 
   let counter = 1;
 
