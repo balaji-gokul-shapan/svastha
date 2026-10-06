@@ -20,11 +20,8 @@ export default function ConsolidateReport() {
   const authUser = useAppSelector(selectAuthUser);
   console.log(authUser,"authUserddddd");
   const selectUser = useAppSelector(selectUserAccount);
-  console.log(selectUser, "selectUserAccount");
+  console.log(selectedBranch, "selectedBranch22222222222222222");
 
-  // The signed-in account's own branch, shaped like a filter option. Used as
-  // the dropdown fallback (ownBranch) AND as the report's default school
-  // name/address until the user picks a branch.
   const defaultBranch = useMemo(() => {
     return {
       value: String(
@@ -62,6 +59,9 @@ export default function ConsolidateReport() {
         null,
     };
   }, [selectUser]);
+
+  console.log(selectUser, "selectedBranch=========");
+  
 
   const handleSaveReport = () => {
     toast.success("Changes saved successfully");
@@ -106,8 +106,6 @@ export default function ConsolidateReport() {
           <HealthCheckContent
             selectUser={selectUser}
             student={selectedStudent}
-            // Falls back to the account's own branch so the school name and
-            // address render before the user picks one in the dropdown.
             branch={selectedBranch ?? defaultBranch}
           />
         </div>

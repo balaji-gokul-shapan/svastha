@@ -58,9 +58,6 @@ function NoScreeningsAssignedState() {
 
 export default function ConsolidateReport() {
   const dispatch = useDispatch();
-
-  // Register the backend's real screening-type ids before translating the
-  // camp's screening_type_ids into slug keys.
   useScreeningIdMap();
   const {
     filterProps,
@@ -90,6 +87,8 @@ export default function ConsolidateReport() {
   });
 
   const isPrimaryDoctor = activeCampEvent?.primary_doctor === Number(1);
+  console.log(activeCampEvent,"activeCampEvent");
+  
 
   const assignedScreeningIds = getScreeningIds(activeCampEvent);
   const assignedScreeningKeys = getScreeningKeys(activeCampEvent);
@@ -111,6 +110,8 @@ export default function ConsolidateReport() {
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
+  console.log(getRole);
+  
 
   const defaultBranch = useMemo(() => {
     const record = ownBranchRecord?.data ?? ownBranchRecord ?? null;
@@ -183,6 +184,9 @@ export default function ConsolidateReport() {
       ),
     };
   }, [selectUser, ownBranchRecord]);
+
+  console.log(ownBranchRecord,ownBranchRecord);
+  
 
   return (
     <div className="min-h-screen">
@@ -286,6 +290,9 @@ export default function ConsolidateReport() {
         ) : (
           <SchoolStudentFilter
             selectRole={selectUser?.user_type_id ?? ROLE_IDS[getRole]}
+            classSectionPrivileges={
+              selectUser?.previleges ?? selectUser?.privileges
+            }
             {...filterProps}
             selectedSchoolBranch={selectedSchoolBranch}
             setSelectedSchoolBranch={setSelectedSchoolBranch}
@@ -305,7 +312,9 @@ export default function ConsolidateReport() {
                 selectedSchoolBranch={selectedSchoolBranch}
                 setSelectedSchoolBranch={setSelectedSchoolBranch}
                 student={selectedStudent}
-                branch={defaultBranch ?? selectedBranch}
+                branch={
+                  selectedSchoolBranch ?? selectedBranch ?? defaultBranch
+                }
                 camp={selectedCamp}
                 activeEvent={activeCampEvent}
                 assignedScreeningIds={assignedScreeningIds}

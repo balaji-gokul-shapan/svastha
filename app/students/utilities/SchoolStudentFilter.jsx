@@ -29,6 +29,63 @@ const withAllOption = (options, label) => {
   return [{ value: ALL, label }, ...list];
 };
 
+const sectionIdToLabel = (section) => {
+  const value = String(section ?? "").trim();
+  const id = Number(value);
+  return /^\d+$/.test(value) && id >= 1 && id <= 26
+    ? String.fromCharCode(64 + id)
+    : value;
+};
+
+const getPrivilegePairs = (value) => {
+  if (typeof value === "string") {
+    const text = value.trim();
+    if (!text) return [];
+    if (text.startsWith("[") || text.startsWith("{")) {
+      try {
+        return getPrivilegePairs(JSON.parse(text));
+      } catch {
+        return [];
+      }
+    }
+
+    return text
+      .split(",")
+      .map((entry) => {
+        const separator = entry.indexOf("-");
+        if (separator <= 0) return null;
+        const classValue = entry.slice(0, separator).trim();
+        const section = sectionIdToLabel(entry.slice(separator + 1));
+        return classValue && section ? { classValue, section } : null;
+      })
+      .filter(Boolean);
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => {
+      if (typeof entry === "string") return getPrivilegePairs(entry);
+      if (!entry || typeof entry !== "object") return [];
+      const classValue = String(entry.class ?? entry.Class ?? "").trim();
+      const section = sectionIdToLabel(entry.section ?? entry.Section);
+      return classValue && section ? [{ classValue, section }] : [];
+    });
+  }
+
+  if (value && typeof value === "object") {
+    return Object.entries(value).flatMap(([classValue, sections]) => {
+      const list = Array.isArray(sections) ? sections : [sections];
+      return list
+        .map((section) => ({
+          classValue: String(classValue).trim(),
+          section: sectionIdToLabel(section),
+        }))
+        .filter((pair) => pair.classValue && pair.section);
+    });
+  }
+
+  return [];
+};
+
 const SchoolStudentFilter = ({
   setSelectedSchoolBranch,
   formData = {},
@@ -50,6 +107,7 @@ const SchoolStudentFilter = ({
   campSelection,
   setCampSelection,
   onSelectedCampChange,
+  classSectionPrivileges,
 }) => {
   const dispatch = useDispatch();
   const roles = {
@@ -216,17 +274,20 @@ const SchoolStudentFilter = ({
     );
   }, [students, formData.AcademicYear, academicYear]);
 
+  const privilegePairs = useMemo(
+    () => getPrivilegePairs(classSectionPrivileges),
+    [classSectionPrivileges],
+  );
+
   const classOptions = useMemo(() => {
     const uniqueClasses = [
       ...new Set(
-        selectedYearStudents
-          .map((student) => {
-            const classValue =
-              student?.Class ?? student?.class ?? student?.grade ?? "";
-
-            return String(classValue).trim();
-          })
-          .filter(Boolean),
+        [
+          ...selectedYearStudents.map((student) =>
+            String(student?.Class ?? student?.class ?? student?.grade ?? "").trim(),
+          ),
+          ...privilegePairs.map((pair) => pair.classValue),
+        ].filter(Boolean),
       ),
     ];
 
@@ -244,7 +305,7 @@ const SchoolStudentFilter = ({
         })),
       "All Classes",
     );
-  }, [selectedYearStudents]);
+  }, [selectedYearStudents, privilegePairs]);
 
   const sectionOptions = useMemo(() => {
     /* "All Classes" (or nothing picked yet) means sections are not narrowed to
@@ -253,9 +314,12 @@ const SchoolStudentFilter = ({
     if (!activeClass || activeClass === ALL) {
       const all = [
         ...new Set(
-          selectedYearStudents
-            .map((student) => String(student?.sec ?? student?.section ?? "").trim())
-            .filter(Boolean),
+          [
+            ...selectedYearStudents.map((student) =>
+              String(student?.sec ?? student?.section ?? "").trim(),
+            ),
+            ...privilegePairs.map((pair) => pair.section),
+          ].filter(Boolean),
         ),
       ].sort();
 
@@ -267,19 +331,21 @@ const SchoolStudentFilter = ({
 
     const uniqueSections = [
       ...new Set(
-        selectedYearStudents
-          .filter((student) => {
-            const studentClass =
-              student?.Class ?? student?.class ?? student?.grade ?? "";
+        [
+          ...selectedYearStudents
+            .filter((student) => {
+              const studentClass =
+                student?.Class ?? student?.class ?? student?.grade ?? "";
 
-            return (
-              String(studentClass).trim() === activeClass
-            );
-          })
-          .map((student) => {
-            return String(student?.sec ?? student?.section ?? "").trim();
-          })
-          .filter(Boolean),
+              return String(studentClass).trim() === activeClass;
+            })
+            .map((student) =>
+              String(student?.sec ?? student?.section ?? "").trim(),
+            ),
+          ...privilegePairs
+            .filter((pair) => pair.classValue === activeClass)
+            .map((pair) => pair.section),
+        ].filter(Boolean),
       ),
     ];
 
@@ -290,7 +356,7 @@ const SchoolStudentFilter = ({
       })),
       "All Sections",
     );
-  }, [selectedYearStudents, formData.classes]);
+  }, [selectedYearStudents, formData.classes, privilegePairs]);
 
   const filteredStudents = useMemo(() => {
     const activeYear =

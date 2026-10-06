@@ -7,6 +7,7 @@ import {
   getScreeningKeys,
   getCampPrimaryDoctorId,
   isScreeningKeyAssigned,
+  formatCampDate,
 } from "@/lib/camp-utils";
 import useScreeningIdMap from "@/lib/useScreeningIdMap";
 
@@ -85,21 +86,23 @@ function CopyableInfo({
   const LabelIcon = IconNode ? null : icon;
 
   return (
-    <div className="flex w-fit items-center gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2">
-      <div>
-        <h6 className="flex items-center gap-1 text-[11px] text-muted-foreground">
-          {LabelIcon ? <LabelIcon className="size-4" /> : null}
-          {IconNode ? <span className="inline-flex">{IconNode}</span> : null}
+    <div className="report-doc__id flex w-full items-center gap-3 px-4 py-2.5">
+      <span className="report-doc__id-icon">
+        {LabelIcon ? <LabelIcon className="size-4" /> : null}
+        {IconNode ? <span className="inline-flex">{IconNode}</span> : null}
+      </span>
+      <div className="min-w-0 flex-1">
+        <h6 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           {label}
         </h6>
-        <p className={`text-sm font-bold ${valueClass}`}>{value}</p>
+        <p className={`truncate text-xs font-bold tracking-wide ${valueClass}`}>{value}</p>
       </div>
       {hasCopy ? (
         <button
           type="button"
           onClick={handleCopy}
           aria-label={`Copy ${label}`}
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-transparent text-muted-foreground/70 transition-all hover:border-primary/25 hover:bg-primary/10 hover:text-primary active:scale-95"
           data-pdf-hide
         >
           {copied ? (
@@ -426,7 +429,7 @@ export default function HealthCheckContent({
   setSelectedSchoolBranch,
   camp,
   assignedScreeningIds = [],
-  activeEvent
+  activeEvent,
 }) {
   const dispatch = useDispatch();
   const employeeFullName = useAppSelector(selectEmployeeFullName);
@@ -449,10 +452,11 @@ export default function HealthCheckContent({
   const doctorSignatureUrl = normalizeSignatureUrl(
     getSignatureValue(doctorSignatureState),
   );
+  console.log(selectedSchoolBranch, "selectedSchoolBranch");
 
- 
   const isInlineSignature =
-    doctorSignatureUrl.startsWith("data:") || doctorSignatureUrl.startsWith("blob:");
+    doctorSignatureUrl.startsWith("data:") ||
+    doctorSignatureUrl.startsWith("blob:");
 
   const signatureError = doctorSignatureState?.error ?? null;
   if (signatureError) {
@@ -481,19 +485,16 @@ export default function HealthCheckContent({
 
   console.log(camp, "campcamp");
 
- 
   const campDoctorId = useMemo(
     () => getCampPrimaryDoctorId(activeEvent ?? camp) ?? "",
     [activeEvent, camp],
   );
 
-  console.log(activeEvent,"activeEvent");
-  
+  console.log(activeEvent, "activeEvent");
 
   const signatureDoctorId = campDoctorId || String(doctorId ?? "").trim();
 
   useEffect(() => {
-
     if (!signatureDoctorId) {
       return;
     }
@@ -521,16 +522,17 @@ export default function HealthCheckContent({
     if (branchProp && typeof branchProp === "object") return branchProp;
 
     return selectUser?.branch ?? {};
-  }, [selectedSchoolBranch, branchProp, selectUser]);
+  }, [selectedSchoolBranch, branchProp]);
 
   console.log(selectedSchool, "selectedSchool");
 
   useEffect(() => {
     if (!setSelectedSchoolBranch) return;
+    if (selectedSchoolBranch) return;
     if (!selectedSchool || Object.keys(selectedSchool).length === 0) return;
 
     setSelectedSchoolBranch(selectedSchool);
-  }, [selectedSchool, setSelectedSchoolBranch]);
+  }, [selectedSchool, selectedSchoolBranch, setSelectedSchoolBranch]);
 
   const getGenderIcon = (gender) => {
     const key = "gender-icon";
@@ -567,9 +569,9 @@ export default function HealthCheckContent({
   };
 
   const schoolName =
-    selectedSchool?.branch_name ??
+    activeEvent?.school?.school_name ??
     selectedSchool?.label ??
-    selectedSchool?.name ??
+    selectedSchool?.branch_name ??
     selectedSchool?.school_name ??
     "--";
 
@@ -578,26 +580,27 @@ export default function HealthCheckContent({
   const schoolAddress = {
     address_line_1:
       String(
-        selectedSchool?.address_line_1 ?? selectedSchool?.address_line1 ?? "",
+        selectedSchool?.address_line_1 ?? selectedSchool?.address_line1 ?? activeEvent?.branch?.address_line_1 ?? "",
       ).trim() || null,
     address_line_2:
       String(
-        selectedSchool?.address_line_2 ?? selectedSchool?.address_line2 ?? "",
+        selectedSchool?.address_line_2 ?? selectedSchool?.address_line2 ?? activeEvent?.branch?.address_line_2 ?? "",
       ).trim() || null,
-    area: String(selectedSchool?.area ?? "").trim() || null,
-    city: String(selectedSchool?.city ?? "").trim() || null,
-    state: String(selectedSchool?.state ?? "").trim() || null,
-    country: String(selectedSchool?.country ?? "").trim() || null,
+    area: String(selectedSchool?.area ?? activeEvent?.branch?.area ?? "").trim() || null,
+    city: String(selectedSchool?.city ?? activeEvent?.branch?.city ?? "").trim() || null,
+    state: String(selectedSchool?.state ?? activeEvent?.branch?.state ?? "").trim() || null,
+    country: String(selectedSchool?.country ?? activeEvent?.branch?.country ?? "").trim() || null,
     pincode:
       String(
         selectedSchool?.pincode ??
           selectedSchool?.pin_code ??
           selectedSchool?.zip ??
+          activeEvent?.branch?.pincode ??
           "",
       ).trim() || null,
     registration_number:
       String(
-        selectedSchool?.registration_number ?? selectedSchool?.reg_no ?? "",
+        selectedSchool?.registration_number ?? selectedSchool?.reg_no ?? activeEvent?.branch?.registration_number ?? "",
       ).trim() || null,
   };
   console.log(schoolAddress, "schoolAddress");
@@ -632,18 +635,8 @@ export default function HealthCheckContent({
   const reportSettings = useAppSelector((state) => state.reportSettings);
   const reportSection = reportSettings?.reportSection ?? {};
 
-  /* ---------------------------------------------------------------------- */
-  /* Camp screening assignment                                              */
-  /* The camp only allows a subset of screenings (screening_type_ids). The    */
-  /* parent already resolved them to slug keys — reuse that list verbatim so  */
-  /* this component can never disagree with the empty-state decision.        */
-  /* ---------------------------------------------------------------------- */
-
   useScreeningIdMap();
 
-  // `event` is the RAW camp (works for every role); `camp` is the doctor's
-  // normalised summary, which is EMPTY_CAMP_SUMMARY for school/teacher users.
-  // Prefer the event so a non-doctor still gets the camp's screening subset.
   const assignedScreeningKeys = useMemo(() => {
     if (Array.isArray(assignedScreeningIds) && assignedScreeningIds.length) {
       return getScreeningKeys({ screening_type_ids: assignedScreeningIds });
@@ -654,7 +647,6 @@ export default function HealthCheckContent({
 
   const isAssigned = (key) =>
     isScreeningKeyAssigned(assignedScreeningKeys, key);
-
 
   // Report-section setting AND camp assignment.
   const showEnt = (reportSection.ent ?? true) && isAssigned("ent");
@@ -1256,48 +1248,6 @@ export default function HealthCheckContent({
               )}
             </div> */}
 
-            <div className="flex flex-col items-end gap-1">
-              <Link
-                href="/"
-                aria-label="Svastha home"
-                className={cn(
-                  "flex h-auto w-full items-center justify-end gap-2 overflow-hidden rounded-md",
-                  "transition-[padding,gap] duration-200 ease-linear",
-                  "group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:px-2",
-                )}
-              >
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-md">
-                  <Image src="/logo.svg" alt="Logo" width={32} height={32} />
-                </span>
-                <div className="flex flex-col">
-                  <span
-                    className={cn(
-                      "min-w-0 max-w-40 truncate font-sf text-4xl font-bold tracking-wide text-brand-blue",
-                      "transition-[max-width,opacity] duration-200 ease-linear",
-                      "group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0",
-                    )}
-                  >
-                    Svas
-                    <span className="text-brand-green">t</span>
-                    ha
-                  </span>
-                  <span className="text-[9px] text-brand-blue">
-                    {"Healthy roots, "}
-                    <span className="text-brand-green">{" rising stars"}</span>
-                  </span>
-                </div>
-                <div className="flex flex-col items-center gap-1">
-                  <h2 className="text-center text-foreground mb-4">
-                    {schoolName || "--"}
-                  </h2>
-                  {schoolAddressText ? (
-                    <p className="-mt-4 mb-2 text-center text-xs text-muted-foreground">
-                      {schoolAddressText || ""}
-                    </p>
-                  ) : null}
-                </div>
-              </Link>
-            </div>
             {/* <div className="grid grid-cols-1 gap-5 sm:grid-cols-[1fr_auto]">
               <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
                 <Info label="Student Name" value={studentName} />
@@ -1331,20 +1281,79 @@ export default function HealthCheckContent({
                 </div>
               </div>
             </div> */}
-            <div className="report-doc__identity flex flex-col w-full">
-              <div className="flex flex-row gap-5">
-                <div className="flex justify-start sm:justify-center relative">
-                  <div className="report-doc__photo flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+            <div className="report-doc__identity flex w-full flex-col">
+              <div className="flex flex-col items-end gap-1">
+                <Link
+                  href="/"
+                  aria-label="Svastha home"
+                  className={cn(
+                    "flex h-auto w-full items-center justify-between gap-2 overflow-hidden rounded-md mb-4",
+                    "transition-[padding,gap] duration-200 ease-linear",
+                    "group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:px-2",
+                  )}
+                >
+                  {/* Logo + Svastha — glass brand chip */}
+                  <div className="flex shrink-0 flex-row items-center gap-2.5 rounded-xl border border-primary/15 bg-white/80 px-3 py-2 shadow-sm backdrop-blur">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl shadow-sm">
+                      <Image
+                        src="/logo.svg"
+                        alt="Logo"
+                        width={32}
+                        height={32}
+                      />
+                    </span>
+
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <span
+                        className={cn(
+                          "min-w-0 max-w-40 truncate font-sf text-2xl font-bold tracking-wide text-brand-blue",
+                          "transition-[max-width,opacity] duration-200 ease-linear",
+                          "group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:max-w-0 group-data-[collapsible=icon]:opacity-0",
+                        )}
+                      >
+                        Svas
+                        <span className="text-brand-green">t</span>
+                        ha
+                      </span>
+
+                      <span className="text-[9px] text-brand-blue">
+                        {"Healthy roots, "}
+                        <span className="text-brand-green">
+                          {" rising stars"}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* School name + address */}
+                  <div className="flex flex-1 flex-col items-center gap-0.5">
+                    <h3 className="mb-0 bg-gradient-to-r from-primary to-success bg-clip-text text-center text-xl font-extrabold tracking-tight text-transparent">
+                      {schoolName || "--"}
+                    </h3>
+
+                    {schoolAddressText ? (
+                      <p className="mb-1 max-w-2/3 text-center text-[11px] leading-snug text-muted-foreground">
+                        {schoolAddressText}
+                      </p>
+                    ) : null}
+                  </div>
+                </Link>
+              </div>
+              <div className="flex flex-col gap-5 pt-4 sm:flex-row">
+                <div className="relative flex shrink-0 justify-start sm:justify-center">
+                  <div className="report-doc__photo flex h-32 w-28 items-center justify-center overflow-hidden text-center">
+                    {/* soft ring behind the photo for depth */}
+                    <span aria-hidden="true" className="pointer-events-none absolute -inset-1 rounded-2xl bg-gradient-to-br from-primary/15 via-transparent to-success/15" />
                     {studentPhoto ? (
                       <Image
                         src={studentPhoto}
                         alt="Student"
-                        width={96}
-                        height={96}
-                        className="size-full object-cover"
+                        width={112}
+                        height={128}
+                        className="relative size-full object-cover"
                       />
                     ) : (
-                      <span className="text-xs text-muted-foreground">
+                      <span className="relative px-2 text-[11px] font-medium leading-tight text-muted-foreground">
                         Paste Photo here
                       </span>
                     )}
@@ -1360,9 +1369,10 @@ export default function HealthCheckContent({
                 </div>
                 <div className="flex min-w-0 flex-col gap-1 w-full">
                   <div className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                    <h2 className="min-w-0 flex-1 basis-48 wrap-break-word font-bold leading-snug text-foreground">
+                    <h2 className="min-w-0 flex-1 basis-48 wrap-break-word text-2xl font-extrabold uppercase leading-tight tracking-wide text-foreground">
                       {studentName}
                     </h2>
+                    <span className="hidden h-1 w-16 shrink-0 rounded-full bg-gradient-to-r from-primary to-success sm:block" aria-hidden="true" />
                   </div>
                   <div className="flex w-full flex-row items-center justify-between gap-2 pb-1">
                     <div className="flex flex-row items-center gap-2">
@@ -1379,11 +1389,12 @@ export default function HealthCheckContent({
                         </span>
                       </Badge>
                     </div>
-                    <h6 className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground print:justify-self-end">
+                    <h6 className="flex shrink-0 items-center gap-1.5 rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-[11px] font-semibold text-muted-foreground print:justify-self-end">
                       <Calendar className="size-3.5 shrink-0 text-primary" />
                       <span className="whitespace-nowrap">
                         Academic Session: {student?.academic_year ?? "--"}
                       </span>
+                      {/* <small>{"Verified at"}</small> */}
                     </h6>
                   </div>
                   <div className="flex w-full flex-wrap items-center gap-3">
@@ -1437,7 +1448,7 @@ export default function HealthCheckContent({
                   </div>
                 </div>
               </div>
-              <div className="mt-4 flex flex-wrap items-stretch gap-3">
+              <div className="mt-4 grid grid-cols-2 items-stretch gap-3 sm:grid-cols-3">
                 <CopyableInfo
                   label="Admission No"
                   value={admissionNo}
@@ -1825,8 +1836,12 @@ export default function HealthCheckContent({
                 MBBS
               </span>
             </p>
-            <p className="text-xs text-muted-foreground">
-              Primary Examiner
+            <p className="text-xs text-muted-foreground">Primary Examiner</p>
+            <p className="text-xs text-foreground">
+              Verified at: {" "}
+              <small className="text-xs text-muted-foreground">
+                {formatCampDate(activeEvent?.updated_at)}
+              </small>
             </p>
             {/* <p className="text-xs text-muted-foreground">
               {schoolName} &amp; Primary Examiner

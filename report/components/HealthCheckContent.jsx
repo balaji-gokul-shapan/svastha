@@ -117,7 +117,7 @@ function calculateAge(dob) {
 /* Main component — page-level (no modal wrapper)                             */
 /* -------------------------------------------------------------------------- */
 
-export default function HealthCheckContent({ student }) {
+export default function HealthCheckContent({ student, branch }) {
   const reportRef = useRef(null);
 
   const studentName = student?.name ?? student?.student_name ?? "Student";
@@ -128,6 +128,8 @@ export default function HealthCheckContent({ student }) {
     student?.image ??
     student?.photo ??
     "";
+    console.log(branch,"branch33333333333");
+    
 
   const classValue = student?.class ?? student?.Class ?? "--";
   const sectionValue = student?.sec ?? student?.section ?? "--";
@@ -145,7 +147,6 @@ export default function HealthCheckContent({ student }) {
 
   const reportSettings = useAppSelector((state) => state.reportSettings);
   const reportSection = reportSettings?.reportSection ?? {};
-
   const showStudentInfo = reportSection.student_info ?? true;
   const showVitals = reportSection.vitals ?? true;
   const showVision = reportSection.vision ?? true;

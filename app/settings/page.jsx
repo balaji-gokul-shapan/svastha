@@ -643,7 +643,26 @@ const SecurityQuestionsPage = dynamic(
 // import AppearancePage from "./pages/AppearancePage";
 
 const buildPrivilegesPayload = (value) => {
-  if (typeof value === "string") return value.trim();
+  const toSectionId = (section) => {
+    const label = String(section ?? "").trim();
+    if (/^[A-Z]$/i.test(label)) {
+      // The privileges API stores standard sections by their 1-based ID.
+      return String(label.toUpperCase().charCodeAt(0) - "A".charCodeAt(0) + 1);
+    }
+    return label;
+  };
+
+  if (typeof value === "string") {
+    const text = value.trim();
+    if (!text) return "";
+
+    const pairs = text.split(",").map((entry) => {
+      const match = /^(\d+)-([A-Za-z0-9]+)$/.exec(entry.trim());
+      return match ? `${match[1]}-${toSectionId(match[2])}` : null;
+    });
+
+    return pairs.every(Boolean) ? pairs.join(",") : text;
+  }
   if (value == null) return "";
 
   let entries;
@@ -683,8 +702,6 @@ const buildPrivilegesPayload = (value) => {
     return "";
   }
 
-  let counter = 1;
-
   return entries
     .flatMap(([key, sections]) => {
       const list = Array.isArray(sections)
@@ -694,7 +711,10 @@ const buildPrivilegesPayload = (value) => {
             .map((section) => section.trim())
             .filter(Boolean);
 
-      return list.map(() => `${key}-${counter++}`);
+      return list
+        .map(toSectionId)
+        .filter(Boolean)
+        .map((section) => `${key}-${section}`);
     })
     .join(",");
 };
@@ -1552,8 +1572,7 @@ const Page = () => {
   const handleCreateAccount = async (event) => {
     event.preventDefault();
 
-    // Flatten the class/section map into the "class-index" string the API
-    // expects (no-op when privileges are already a flat string).
+    // Flatten selections into the API's class-section-ID string format.
     const previlegesResult = buildPrivilegesPayload(subAccount?.previleges);
 
     console.log(previlegesResult, "subAccountresult");
