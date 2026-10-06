@@ -1333,7 +1333,7 @@ export default function HealthCheckContent({
             </div> */}
             <div className="report-doc__identity flex flex-col w-full">
               <div className="flex flex-row gap-5">
-                <div className="flex justify-start sm:justify-end relative">
+                <div className="flex justify-start sm:justify-center relative">
                   <div className="report-doc__photo flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border bg-muted">
                     {studentPhoto ? (
                       <Image
@@ -1745,10 +1745,9 @@ export default function HealthCheckContent({
             </section> */}
 
         <div className="report-doc__verification relative flex flex-col gap-5 rounded-lg border border-border/70 bg-card/40 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3 sm:max-w-[calc(50%-4.5rem)]">
+          {/* <div className="flex items-start gap-3 sm:max-w-[calc(50%-4.5rem)]">
             <div className="flex size-20 shrink-0 items-center justify-center rounded-md border border-dashed border-border bg-background">
               {studentPhoto ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={studentPhoto}
                   alt="Student"
@@ -1779,11 +1778,11 @@ export default function HealthCheckContent({
                   </span>
                 </p>
               ) : null}
-              {/* <span className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning">
+              <span className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning">
                     Awaiting Primary Doctor Sign-off
-                  </span> */}
+                  </span>
             </div>
-          </div>
+          </div> */}
 
           <div className="flex size-25 aspect-square shrink-0 flex-col items-center justify-center self-center rounded-full border-2 border-dashed border-primary/40 text-center rotate-325 sm:absolute sm:left-3/5 z-1 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2">
             <Image src="/logo.svg" alt="Svastha" width={28} height={28} />

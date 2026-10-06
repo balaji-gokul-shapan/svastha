@@ -146,11 +146,7 @@ function TruncatedWithTooltip({ value, className = "", maxLength = 25 }) {
  * Resolves the two identifiers independently.
  *
  * `normalizeStudent` in getAllStudentSlice collapses cus_id / id / studentId
- * into a single `studentId` field, so a shared fallback chain would make both
- * columns render the same value. These resolvers therefore read *disjoint*
- * field sets: the Svastha column only accepts a genuine Svastha identifier and
- * shows an em dash when the API does not supply one, rather than silently
- * duplicating the Student ID.
+ * into a single `studentId` field
  */
 function resolveStudentId(student = {}) {
   const value =
@@ -294,7 +290,19 @@ const columns = [
   },
 ];
 
-export function StudentsDataTable({ data = [], backQuery = "", onDeleted }) {
+export function StudentsDataTable({
+  data = [],
+  backQuery = "",
+  onDeleted,
+  page = 1,
+  totalPages = 1,
+  totalRows = 0,
+  pageSize = 10,
+  pageSizeOptions = [10, 20, 50],
+  onPageChange,
+  onPageSizeChange,
+  isLoading = false,
+}) {
   const router = useRouter();
   const dispatch = useDispatch();
   const [selectedIds, setSelectedIds] = React.useState(() => new Set());
@@ -412,6 +420,16 @@ export function StudentsDataTable({ data = [], backQuery = "", onDeleted }) {
       <DataTable
         columns={columns}
         data={data}
+        pageSizeOptions={pageSizeOptions}
+        serverPagination={{
+          page,
+          totalPages,
+          totalRows,
+          pageSize,
+          onPageChange,
+          onPageSizeChange,
+          isLoading,
+        }}
         // Checkbox rail, rendered outside the column model.
         selectHeader={selectAllCheckbox}
         selectCell={renderSelectCell}

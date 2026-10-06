@@ -16,16 +16,10 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
+import { usePathname } from "next/navigation";
 
-/**
- * "All" is the sentinel every filter in this file already understands: the
- * query builders, the cascade resets and the parent callbacks all treat "all"
- * as "no restriction". Reusing it means a single option value works across the
- * whole filter chain instead of inventing a second empty-string convention.
- */
 const ALL = "all";
 
-/** Prepends an "All …" row unless the list already carries that value. */
 const withAllOption = (options, label) => {
   const list = Array.isArray(options) ? options : [];
   if (list.some((option) => String(option?.value ?? "").trim() === ALL)) {
@@ -63,6 +57,11 @@ const SchoolStudentFilter = ({
     2: "school",
     3: "teacher",
   };
+   const pathname = usePathname();
+
+  console.log(pathname,"pathname");
+  const getPathIsReport = pathname.includes("/report");
+
 
   const getRole = roles[selectRole] ?? "";
   const showSchoolName = getRole === "admin" || getRole === "school";
@@ -300,9 +299,6 @@ const SchoolStudentFilter = ({
     const activeClass = String(formData.classes ?? "").trim();
     const activeSection = String(formData.section ?? "").trim();
 
-    /* "all" is the no-restriction sentinel for every level, so each predicate
-       has to skip its comparison when it holds that value — otherwise picking
-       "All Classes" would match no student and the list came back empty. */
     return (students ?? []).filter((student) => {
       const studentYear = String(
         student?.academic_year ?? student?.academicYear ?? "",
@@ -391,8 +387,7 @@ const SchoolStudentFilter = ({
         String(branch?.school_id ?? branch?.schoolId ?? "").trim() || null,
     });
 
-    /* A school-scoped user gets ONLY their own branch — the "all branches"  */
-    /* endpoint is not theirs to enumerate.                                     */
+                                  
     if (isSchoolScoped) {
       const own = toOption(schoolBranch ?? {});
       return own.value && own.label ? [own] : [];
@@ -511,8 +506,7 @@ const SchoolStudentFilter = ({
     ];
   }, [campList, selectedBranchId, selectedBranchLabel]);
 
-  /* A camp picked under a different school is no longer a valid option, so it */
-  /* must fall back to "all" instead of silently filtering nothing.            */
+
   useEffect(() => {
     updateCampSelection((current) => {
       if (!current || current === "all") return current ?? "all";
@@ -527,7 +521,6 @@ const SchoolStudentFilter = ({
 
   const handleCampChange = (value) => {
     updateCampSelection(value);
-
     if (value === "all") {
       onSchoolNameChange?.("all");
       return;
@@ -537,8 +530,7 @@ const SchoolStudentFilter = ({
       (event) => getCampId(event) === String(value).trim(),
     );
 
-    // Prefer the branch id the school dropdown expects; fall back to the
-    // school name only when the camp payload carries no id at all.
+
     const nextSchool =
       getCampBranchId(selectedEvent) ||
       getCampSchoolId(selectedEvent) ||
@@ -561,10 +553,6 @@ const SchoolStudentFilter = ({
     lastReportedBranchRef.current = selected;
     onSelectedBranchChange?.(option);
 
-    /* Report the SELECTED branch to the parent too. This previously only */
-    /* published the signed-in profile, so switching school updated */
-    /* `onSelectedBranchChange` but left `selectedSchoolBranch` on the profile */
-    /* and the report kept printing the old school. */
     if (option) setSelectedSchoolBranch?.(option);
   }, [
     branchOptions,
@@ -575,15 +563,11 @@ const SchoolStudentFilter = ({
 
   const handleChange = (name, value) => {
     const nextValue = value ?? "";
-
     setFormData((prev) => {
       const next = {
         ...prev,
         [name]: nextValue,
       };
-      /* Changing school or year invalidates downstream picks. Reset them to the
-         "all" sentinel (not "") so each dropdown keeps a valid selection and the
-         user sees the full list rather than an empty one. */
       if (name === "branchName" || name === "AcademicYear") {
         next.classes = ALL;
         next.section = ALL;
@@ -654,73 +638,76 @@ const SchoolStudentFilter = ({
   // }, [optionStudents]);
 
   return (
-    <>
-      <div
-        className={`grid gap-3 sm:grid-cols-2 my-4 md:grid-cols-3 ${
-          showSchoolName ? "xl:grid-cols-5" : "xl:grid-cols-4"
-        }`}
-      >
-        <>
-          {showSchoolName && (
-            <>
-              <ReusableSelect
-                name="branchName"
-                label="School Name"
-                searchPlaceholder="School Name"
-                options={branchOptions}
-                value={formData.branchName}
-                onChange={(value) => handleChange("branchName", value)}
-              />
-            </>
-          )}
-          <ReusableSelect
-            label="Camp Name"
-            options={campOptions}
-            value={activeCampSelection}
-            onChange={handleCampChange}
-            placeholder={
-              assignEventLoading ? "Loading camps..." : "Select Camp"
-            }
-            searchPlaceholder="Search Camp"
-            disabled={isLoading || assignEventLoading}
-          />
+  <div
+    className={`grid gap-3 sm:grid-cols-2 md:grid-cols-3 my-4 ${
+      showSchoolName ? "xl:grid-cols-5" : "xl:grid-cols-4"
+    }`}
+  >
+    {showSchoolName && (
+      <ReusableSelect
+        name="branchName"
+        label="School Name"
+        searchPlaceholder="School Name"
+        options={branchOptions}
+        value={formData.branchName}
+        onChange={(value) => handleChange("branchName", value)}
+      />
+    )}
 
-          {assignEventError ? (
-            <p className="mt-1 text-xs text-destructive">
-              Unable to load camps. Please retry.
-            </p>
-          ) : null}
-        </>
+    {getPathIsReport && (
+      <div>
         <ReusableSelect
-          name="AcademicYear"
-          label={"Academic Year"}
-          options={academicYearOptions}
-          value={formData.AcademicYear}
-          onChange={(value) => handleChange("AcademicYear", value)}
+          label="Camp Name"
+          options={campOptions}
+          value={activeCampSelection}
+          onChange={handleCampChange}
+          placeholder={
+            assignEventLoading ? "Loading camps..." : "Select Camp"
+          }
+          searchPlaceholder="Search Camp"
+          disabled={isLoading || assignEventLoading}
         />
-        <ReusableSelect
-          name="classes"
-          label={"Class"}
-          options={classOptions}
-          value={formData.classes}
-          onChange={(value) => handleChange("classes", value)}
-        />
-        <ReusableSelect
-          name="section"
-          label={"Section"}
-          options={sectionOptions}
-          value={formData.section}
-          onChange={(value) => handleChange("section", value)}
-        />
-        <ReusableSelect
-          name="BeneficiaryId"
-          label={"Students"}
-          options={studentOptions}
-          value={formData.BeneficiaryId}
-          onChange={(value) => handleChange("BeneficiaryId", value)}
-        />
+
+        {assignEventError && (
+          <p className="mt-1 text-xs text-destructive">
+            Unable to load camps. Please retry.
+          </p>
+        )}
       </div>
-    </>
+    )}
+
+    <ReusableSelect
+      name="AcademicYear"
+      label="Academic Year"
+      options={academicYearOptions}
+      value={formData.AcademicYear}
+      onChange={(value) => handleChange("AcademicYear", value)}
+    />
+
+    <ReusableSelect
+      name="classes"
+      label="Class"
+      options={classOptions}
+      value={formData.classes}
+      onChange={(value) => handleChange("classes", value)}
+    />
+
+    <ReusableSelect
+      name="section"
+      label="Section"
+      options={sectionOptions}
+      value={formData.section}
+      onChange={(value) => handleChange("section", value)}
+    />
+
+    <ReusableSelect
+      name="BeneficiaryId"
+      label="Students"
+      options={studentOptions}
+      value={formData.BeneficiaryId}
+      onChange={(value) => handleChange("BeneficiaryId", value)}
+    />
+  </div>
   );
 };
 

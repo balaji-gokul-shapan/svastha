@@ -344,16 +344,25 @@ export function DashboardHeader({
   }, [events]);
 
   const rawName =
-    user?.emp_name || user?.label || user?.full_name || user?.user_name || "";
+    user?.account?.name ?? user?.emp_name ?? user?.label ?? user?.full_name ?? user?.user_name ?? "";
+    console.log(user,"rawName");
+    
   const displayName = rawName
     ? rawName.charAt(0).toUpperCase() + rawName.toLowerCase().slice(1)
     : "there";
+    const hour = new Date().getHours();
+
+const greeting =
+  hour < 12 ? "Good morning" :
+  hour < 18 ? "Good afternoon" :
+  "Good evening";
+
 
   return (
     <div className="flex w-full flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
       <div className="min-w-0">
         <h1 className="text-xl font-bold tracking-tight capitalize break-words md:text-4xl">
-          Welcome back, {displayName}
+           {" "} {greeting}, {" "} {displayName}
         </h1>
 
         <p className="text-sm text-muted-foreground">

@@ -595,7 +595,11 @@ import React, { useMemo, useRef, useState } from "react";
 import Aside from "./pages/aside";
 import { initialAccounts, settingsNav } from "./datas/settingsData";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { selectAuthUser, selectIsPrimaryDoctorRole, selectUserAccount } from "@/lib/features/auth-slice";
+import {
+  selectAuthUser,
+  selectIsPrimaryDoctorRole,
+  selectUserAccount,
+} from "@/lib/features/auth-slice";
 import { useAuthRole } from "@/lib/user-role";
 import {
   resetAppearanceSettings,
@@ -638,7 +642,6 @@ const SecurityQuestionsPage = dynamic(
 // import ProfilePage from "./pages/ProfilePage";
 // import AppearancePage from "./pages/AppearancePage";
 
-
 const buildPrivilegesPayload = (value) => {
   if (typeof value === "string") return value.trim();
   if (value == null) return "";
@@ -663,15 +666,12 @@ const buildPrivilegesPayload = (value) => {
     .join(",");
 };
 
-
 const Page = () => {
   const [activeTab, setActiveTab] = useState("my-details");
   const [navQuery, setNavQuery] = useState("");
   const dispatch = useAppDispatch();
 
   const authUser = useAppSelector(selectAuthUser);
-  
-  
 
   const getRole = useAuthRole();
   console.log(getRole, "getRole");
@@ -691,7 +691,6 @@ const Page = () => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveTab("SchoolDetails");
   }, [account]);
-
 
   const subAccountBranch = React.useMemo(() => {
     const id = String(
@@ -816,22 +815,19 @@ const Page = () => {
       .filter(Boolean);
   }, []);
 
-  
   const profileInputRef = useRef(null);
 
   const [profileImageFile, setProfileImageFile] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
   const profileName =
+    authUser?.account?.name ??
     authUser?.emp_name ??
     authUser?.full_name ??
     authUser?.name ??
     account?.name ??
     "";
   const profileUsername =
-    authUser?.user_name ??
-    authUser?.username ??
-    account?.user_name ??
-    "";
+    authUser?.user_name ?? authUser?.username ?? account?.user_name ?? "";
   const profileEmail =
     authUser?.email ??
     authUser?.email_address ??
@@ -839,17 +835,16 @@ const Page = () => {
     account?.email ??
     "";
 
-    console.log(authUser,"authUsersssssssssss");
-    
+  console.log(authUser, "authUsersssssssssss");
 
   const [settingsFormData, setSettingsFormData] = useState({
     name: profileName,
     username: profileUsername,
     password: "********",
-    phoneNumber: authUser?.phone_number ?? account?.phone_number ?? "7299431420",
+    phoneNumber:
+      authUser?.phone_number ?? account?.phone_number ?? "",
     email: profileEmail,
   });
-
 
   const touchedFieldsRef = React.useRef(new Set());
   React.useEffect(() => {
@@ -870,7 +865,10 @@ const Page = () => {
         changed = true;
       }
 
-      if (!touchedFieldsRef.current.has("email") && next.email !== profileEmail) {
+      if (
+        !touchedFieldsRef.current.has("email") &&
+        next.email !== profileEmail
+      ) {
         next.email = profileEmail;
         changed = true;
       }
@@ -879,8 +877,7 @@ const Page = () => {
     });
   }, [profileName, profileUsername, profileEmail]);
 
-console.log(settingsFormData,"settingsFormData");
-
+  console.log(settingsFormData, "settingsFormData");
 
   const handleSettingsChange = (field, value) => {
     touchedFieldsRef.current.add(field);
@@ -914,21 +911,16 @@ console.log(settingsFormData,"settingsFormData");
 
     [getRole, getVisibleItems],
   );
-  console.log(getRole,"getRole");
-  
+  console.log(getRole, "getRole");
+
   const visibleSettingsNav = visibleNav.filter((item) =>
     item.label.toLowerCase().includes(navQuery.trim().toLowerCase()),
   );
   const appearanceSettings = useAppSelector(
     (state) => state.appearanceSettings,
   );
-  const {
-    theme,
-    transparentSidebar,
-    sidebarPosition,
-    tableView,
-    fontFamily,
-  } = appearanceSettings ?? {};
+  const { theme, transparentSidebar, sidebarPosition, tableView, fontFamily } =
+    appearanceSettings ?? {};
 
   const handleAppearanceChange = (field, value) => {
     dispatch(setAppearanceField({ field, value }));
@@ -1003,7 +995,6 @@ console.log(settingsFormData,"settingsFormData");
         branch?.section ?? branch?.section_name ?? branch?.Section ?? "",
       ).trim(),
     });
-  
 
     const list = Array.isArray(getAllSchoolBranch)
       ? getAllSchoolBranch
@@ -1039,7 +1030,7 @@ console.log(settingsFormData,"settingsFormData");
       (b) => String(b?.id ?? b?.branch_id ?? "").trim() === subAccountBranch.id,
     );
     if (!branch) return { class: "", section: "" };
-  console.log(branchClassSection, "branchClassSection");
+    console.log(branchClassSection, "branchClassSection");
 
     const rawClass =
       branch.class ??
@@ -1081,7 +1072,6 @@ console.log(settingsFormData,"settingsFormData");
     return { class: toText(rawClass), section: toText(rawSection) };
   }, [getAllSchoolBranch, subAccountBranch.id]);
 
-
   const branchOptions = React.useMemo(() => {
     if (getRole === "school_sub_account") {
       const { id, name } = subAccountBranch;
@@ -1106,7 +1096,6 @@ console.log(settingsFormData,"settingsFormData");
   const [selectedIds, setSelectedIds] = useState([]);
   const [isSavingAccount, setIsSavingAccount] = useState(false);
 
-
   const accountIdsNeedingPrivileges = React.useMemo(() => {
     const list = Array.isArray(accounts) ? accounts : [];
 
@@ -1124,15 +1113,13 @@ console.log(settingsFormData,"settingsFormData");
               ) &&
               !String(
                 list.find((account) => (account?.apiId ?? account?.id) === id)
-                  ?.previleges ??
-                  "",
+                  ?.previleges ?? "",
               ).trim(),
           )
           .map((id) => String(id)),
       ),
     ).join(",");
   }, [accounts]);
-
 
   const canManageTeam =
     getRole === "admin" ||
@@ -1162,7 +1149,6 @@ console.log(settingsFormData,"settingsFormData");
           return acc;
         }
 
-    
         const response = result.value;
 
         const privileges =
@@ -1273,7 +1259,6 @@ console.log(settingsFormData,"settingsFormData");
   const subAccountsRef = React.useRef(null);
 
   React.useEffect(() => {
-
     const list = Array.isArray(subAccountsData)
       ? subAccountsData
       : Array.isArray(subAccountsData?.data)
@@ -1305,12 +1290,11 @@ console.log(settingsFormData,"settingsFormData");
   const [formErrors, setFormErrors] = useState({});
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingAccount, setEditingAccount] = useState(null);
-console.log(editingAccount,"editingAccount");
+  console.log(editingAccount, "editingAccount");
   // True while the edit dialog is fetching the account's saved privileges.
   const [isLoadingPrivileges, setIsLoadingPrivileges] = useState(false);
 
   const editingAccountIdRef = React.useRef(null);
-
 
   React.useEffect(() => {
     if (getRole !== "school_sub_account") return;

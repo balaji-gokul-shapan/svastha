@@ -26,7 +26,7 @@ import SchoolStudentFilter from "./utilities/SchoolStudentFilter";
 import { selectUserAccount } from "@/lib/features/auth-slice";
 import useAssignedEvents from "@/lib/useAssignedEvents";
 
-// Default value for every filter â€” values equal to these are kept out of
+// Default value for every filter - values equal to these are kept out of
 // the URL so links stay tidy.
 const FILTER_DEFAULTS = {
   search: "",
@@ -63,7 +63,7 @@ function StudentsList() {
     appearanceSettings ?? {};
   console.log(tableView, "tableView");
   const viewMode = searchParams.get("view") ?? "card";
-  const limit = tableView === "card" ? 9 : 10;
+  const limit = 10; // default page size
   const { studentData, total, loading, error } = useAppSelector(
     (state) => state.getAllStudent,
   );
@@ -72,8 +72,7 @@ function StudentsList() {
   const { assignedEvents, assignEventLoading, assignEventError } =
     useAssignedEvents();
 
-  // Merge a patch of filter changes into the current query string.
-  // Filters reset to their default are removed from the URL entirely.
+
   const updateParams = React.useCallback(
     (patch) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -102,7 +101,6 @@ function StudentsList() {
     [updateParams],
   );
 
-  // Debounced search box â€” local input state committed to the URL.
   const [searchInput, setSearchInput] = React.useState(search);
   React.useEffect(() => {
     setSearchInput(search);
@@ -117,8 +115,6 @@ function StudentsList() {
     return () => {
       clearTimeout(timeoutId);
     };
-    // Only re-arm the debounce timer when the user types.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput]);
 
   const handleStatusChange = (value) =>

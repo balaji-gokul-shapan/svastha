@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { Button } from "@/components/ui/button";
 import { LoadingOverlay, TableSkeleton } from "@/components/ui/loading-state";
@@ -32,7 +32,12 @@ const FILTER_DEFAULTS = {
   sortBy: "name",
   sortOrder: "asc",
   view: "card",
+  limit: "",
 };
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
+const DEFAULT_TABLE_LIMIT = 10;
+const DEFAULT_CARD_LIMIT = 9;
 
 function StudentsList() {
   const dispatch = useAppDispatch();
@@ -56,7 +61,15 @@ function StudentsList() {
     appearanceSettings ?? {};
   console.log(tableView, "tableView");
   const viewMode = searchParams.get("view") ?? "card";
-  const limit = tableView === "card" ? 9 : 10;
+
+  const requestedLimit = Number(searchParams.get("limit"));
+  const isTableView = tableView === "table";
+  const limit = PAGE_SIZE_OPTIONS.includes(requestedLimit)
+    ? requestedLimit
+    : isTableView
+      ? DEFAULT_TABLE_LIMIT
+      : DEFAULT_CARD_LIMIT;
+
   const { studentData, total, loading, error } = useAppSelector(
     (state) => state.getAllStudent,
   );
@@ -85,6 +98,19 @@ function StudentsList() {
 
   const setPage = React.useCallback(
     (nextPage) => updateParams({ page: Math.max(1, Number(nextPage) || 1) }),
+    [updateParams],
+  );
+
+  const setLimit = React.useCallback(
+    (nextLimit) => {
+      const value = Number(nextLimit);
+      // Changing the page size invalidates the current offset: page 7 of 10-row
+      // pages is page 4 of 20-row pages, so always restart at page 1.
+      updateParams({
+        limit: PAGE_SIZE_OPTIONS.includes(value) ? value : "",
+        page: 1,
+      });
+    },
     [updateParams],
   );
 
@@ -615,6 +641,14 @@ function StudentsList() {
             data={rows}
             backQuery={searchParams.toString()}
             onDeleted={refetchStudents}
+            page={page}
+            totalPages={totalPages}
+            totalRows={total}
+            pageSize={limit}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            onPageChange={setPage}
+            onPageSizeChange={setLimit}
+            isLoading={isInitialLoading}
           />
         ) : (
           <StudentsCards
@@ -627,12 +661,17 @@ function StudentsList() {
         {isRefreshing ? <LoadingOverlay label="Updating..." /> : null}
       </div>
 
-      <Pagination
-        page={page}
-        totalPages={totalPages}
-        onChange={setPage}
-        disabled={isInitialLoading}
-      />
+      {/* In table view the DataTable renders its own footer (rows-per-page +
+          page buttons), so a second Pagination here would duplicate it. Card
+          view has no footer of its own, so it still needs this one. */}
+      {isTableView ? null : (
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onChange={setPage}
+          disabled={isInitialLoading}
+        />
+      )}
     </section>
   );
 }

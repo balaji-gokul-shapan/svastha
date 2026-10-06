@@ -266,8 +266,7 @@ const ProfilePage = ({
   };
 
   /* ---- Forgot password (3-step security-question flow) ---- */
-  // Opened as a Dialog here rather than swapped in place like the login page,
-  // because Profile is a page with other content the user should keep.
+ 
   const [isForgotOpen, setIsForgotOpen] = useState(false);
 
   const showForgotPassword = () => {
@@ -596,8 +595,6 @@ const ProfilePage = ({
           }),
         ).unwrap();
         setPendingSignature("");
-        // Allow the sync effect to adopt the canonical backend value now
-        // that the server copy matches what the user staged.
         setSignatureTouched(false);
         toast.success("Signature updated successfully.");
       } catch (error) {
@@ -613,19 +610,19 @@ const ProfilePage = ({
       return;
     }
 
-    if (!trimmedName) {
-      toast.error("Name is required.");
-      return;
-    }
+    // if (!trimmedName) {
+    //   toast.error("Name is required.");
+    //   return;
+    // }
 
-    if (!trimmedPhoneNumber) {
-      toast.error("Phone number is required.");
-      return;
-    }
-    if (!trimmedEmail) {
-      toast.error("Email is required.");
-      return;
-    }
+    // if (!trimmedPhoneNumber) {
+    //   toast.error("Phone number is required.");
+    //   return;
+    // }
+    // if (!trimmedEmail) {
+    //   toast.error("Email is required.");
+    //   return;
+    // }
 
     const profilePayload = {
       name: trimmedName,
@@ -861,7 +858,7 @@ const ProfilePage = ({
               {username || "No username"}
             </h2>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 space-y-4">
               {isEditingName ? (
                 <span className="mt-1 inline-flex w-full min-w-0 items-center gap-1.5">
                   <Input

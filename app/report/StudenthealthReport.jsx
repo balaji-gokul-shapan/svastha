@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -265,10 +264,6 @@ export default function StudenthealthReport() {
     if (!selectedStudent) return HEALTH_PROFILE_TEMPLATE;
     const s = selectedStudent;
 
-    // The filter's selected school + the camp linked to it via assigned
-    // events (same live resolution the general-screening AssessmentCard
-    // uses). Prefer these over the student row — /students/filter rows often
-    // don't carry school/camp names, and there must be NO mock fallback.
     const filterSchool =
       selectedCamp?.schoolName && selectedCamp.schoolName !== "all"
         ? selectedCamp.schoolName
@@ -280,11 +275,6 @@ export default function StudenthealthReport() {
         ? selectedCamp.name
         : "";
 
-    // Report-only fallback: unlike general screening (where students come
-    // from a per-camp roster, so a camp is always in context), here a
-    // student can be picked while the school filter is still "all". Match
-    // the student's own camp_id against the assigned events so camp/school
-    // still resolve.
     const studentCampId = String(
       s.camp_id ?? s.campId ?? s.event_id ?? s.eventId ?? "",
     ).trim();
@@ -303,9 +293,6 @@ export default function StudenthealthReport() {
         "",
     ).trim();
 
-    // Final fallback: look the student up in the assigned camps' rosters
-    // (campStudentMap). Covers students picked while the school filter is
-    // still "all" and non-doctor users who can't open the School select.
     const studentLookupKeys = [
       s.id,
       s.studentId,
@@ -455,7 +442,7 @@ export default function StudenthealthReport() {
         } catch (sectionError) {
           console.error(
             `PDF export: section ${index + 1} failed — skipped`,
-            sectionError
+            sectionError,
           );
           skipped.push(index + 1);
         }
@@ -465,7 +452,11 @@ export default function StudenthealthReport() {
         throw new Error("No report sections could be rendered");
       }
 
-      const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "pt",
+        format: "a4",
+      });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 18;
@@ -488,14 +479,28 @@ export default function StudenthealthReport() {
           if (!pageStarted || cursorY + imageHeight > pageHeight - margin) {
             startPage();
           }
-          pdf.addImage(imgData, "PNG", margin, cursorY, contentWidth, imageHeight);
+          pdf.addImage(
+            imgData,
+            "PNG",
+            margin,
+            cursorY,
+            contentWidth,
+            imageHeight,
+          );
           cursorY += imageHeight + gap;
         } else {
           // Section taller than one page — slice it across pages.
           let rendered = 0;
           while (rendered < imageHeight) {
             startPage();
-            pdf.addImage(imgData, "PNG", margin, margin - rendered, contentWidth, imageHeight);
+            pdf.addImage(
+              imgData,
+              "PNG",
+              margin,
+              margin - rendered,
+              contentWidth,
+              imageHeight,
+            );
             rendered += contentHeight;
           }
           cursorY = margin;
@@ -504,12 +509,12 @@ export default function StudenthealthReport() {
 
       const studentName = healthProfile?.student?.name || "student";
       pdf.save(
-        `health-report-${studentName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`
+        `health-report-${studentName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`,
       );
 
       if (skipped.length > 0) {
         toast.warning(
-          `Report downloaded, but ${skipped.length} section(s) could not be rendered`
+          `Report downloaded, but ${skipped.length} section(s) could not be rendered`,
         );
       } else {
         toast.success("Report downloaded");
@@ -1388,8 +1393,6 @@ export default function StudenthealthReport() {
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  
-
                   <Result label="Type" value={healthProfile.referral.type} />
 
                   <Result
