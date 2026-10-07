@@ -84,11 +84,16 @@ async function handleRequest(request, context) {
     const fetchOptions = { method, headers, cache: "no-store" };
 
     if (!["GET", "HEAD"].includes(method)) {
-      const body = await request.text();
-      if (body) {
-        headers["Content-Type"] =
-          request.headers.get("content-type") || "application/json";
-        fetchOptions.body = body;
+      const incomingContentType = request.headers.get("content-type") || "";
+      if (incomingContentType.toLowerCase().startsWith("multipart/form-data")) {
+        headers["Content-Type"] = incomingContentType;
+        fetchOptions.body = await request.arrayBuffer();
+      } else {
+        const body = await request.text();
+        if (body) {
+          headers["Content-Type"] = incomingContentType || "application/json";
+          fetchOptions.body = body;
+        }
       }
     }
 

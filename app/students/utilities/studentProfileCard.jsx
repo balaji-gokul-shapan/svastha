@@ -174,7 +174,7 @@ const StudentProfileCard = ({ student }) => {
               student.status,
             )}`}
           >
-            {student.status ?? "—"}
+            {student.status ?? "-"}
           </span>
         ) : null}
       </div>

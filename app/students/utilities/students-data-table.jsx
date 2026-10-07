@@ -431,6 +431,7 @@ export function StudentsDataTable({
           isLoading,
         }}
         // Checkbox rail, rendered outside the column model.
+        animateRows
         selectHeader={selectAllCheckbox}
         selectCell={renderSelectCell}
         selectWidth="3.5rem"

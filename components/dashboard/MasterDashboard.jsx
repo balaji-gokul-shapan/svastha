@@ -535,8 +535,6 @@ const getUserRole = roleMap[authRoleFromHook] || null;
     <StudentOverviewCharts
       user={authUser}
       role={getUserRole}
-      /* The RAW auth role. `role` above is remapped for display, so it is not a
-         reliable signal for "is this a doctor" — DashboardHeader prefers this. */
       userAuthRole={authRoleFromHook}
       dashboardData={dashboardData}
       dashboardLoading={dashboardLoading}

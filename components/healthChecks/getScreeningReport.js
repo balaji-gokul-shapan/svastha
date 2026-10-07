@@ -80,6 +80,7 @@ export const useAllScreeningReport = (options = {}) => {
 
     classFilter = "",
     sectionFilter = "",
+    enabled = true,
   } = options ?? {};
   const dispatch = useAppDispatch();
 
@@ -165,6 +166,7 @@ export const useAllScreeningReport = (options = {}) => {
     placeholderData: keepPreviousData,
 
     staleTime: 60_000,
+    enabled,
   });
 
   console.log(screeningReportPayload,"screeningReportPayload");
@@ -200,6 +202,7 @@ export const useAllScreeningReport = (options = {}) => {
     placeholderData: keepPreviousData,
 
     staleTime: 60_000,
+    enabled,
   });
   const {
     data: dentalScreeningReportPayload,
@@ -231,6 +234,7 @@ export const useAllScreeningReport = (options = {}) => {
     placeholderData: keepPreviousData,
 
     staleTime: 60_000,
+    enabled,
   });
 
   const {
@@ -263,6 +267,7 @@ export const useAllScreeningReport = (options = {}) => {
     placeholderData: keepPreviousData,
 
     staleTime: 60_000,
+    enabled,
   });
 
   const {
@@ -295,6 +300,7 @@ export const useAllScreeningReport = (options = {}) => {
     placeholderData: keepPreviousData,
 
     staleTime: 60_000,
+    enabled,
   });
 
   const allScreeningRecords = useMemo(() => {

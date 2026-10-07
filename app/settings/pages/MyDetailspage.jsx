@@ -13,6 +13,10 @@ import {
   X,
 } from "lucide-react";
 import { getRoleLabel, useAuthRole } from "@/lib/user-role";
+import { useAppSelector } from "@/lib/hooks";
+import { getDisplayProfileImageUrl } from "@/lib/profile-image-utils";
+import { getProfileImage } from "@/lib/features/profileImageRegister";
+import { useDispatch } from "react-redux";
 import { CompletenessRing } from "../components/CompletenessRing";
 import FormField from "../components/FormField";
 import { LoginActivity } from "../components/LoginActivity";
@@ -25,29 +29,47 @@ export default function MyDetailsPage({
   name,
   username,
   password,
+  profileInputRef,
+  // Staged preview owned by the settings page (same source ProfilePage shows).
+  imagePreviewUrl: parentPreviewUrl,
   onChange,
 }) {
-  const profileInputRef = useRef(null);
+  // const profileInputRef = useRef(null);
   const [imageError, setImageError] = useState("");
+  const dispatch = useDispatch();
+
+  // Same saved photo ProfilePage renders — so both tabs agree even before a
+  // local edit. Fetched here too, in case My Details is opened first.
+  const savedProfileImageUrl = getDisplayProfileImageUrl(
+    useAppSelector((state) => state.profileImage),
+  );
+
+  useEffect(() => {
+    dispatch(getProfileImage());
+  }, [dispatch]);
 
   // Role as a string ("admin" | "school" | "school_sub_account" | "doctor" | …).
   const role = useAuthRole();
   const roleLabel = getRoleLabel(role);
 
-  // Preview URLs follow the parent-owned file so this module also reflects a
-  // photo selected elsewhere in Settings. Revoke each object URL when it is
-  // replaced or when this module unmounts.
-  const imagePreviewUrl = useMemo(
+  // Local object URL for a staged file ONLY — revoked separately so we never
+  // revoke the parent's preview URL or the remote saved image.
+  const localObjectUrl = useMemo(
     () => (profileImageFile ? URL.createObjectURL(profileImageFile) : ""),
     [profileImageFile],
   );
 
   useEffect(
     () => () => {
-      if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+      if (localObjectUrl) URL.revokeObjectURL(localObjectUrl);
     },
-    [imagePreviewUrl],
+    [localObjectUrl],
   );
+
+  // Same precedence ProfilePage uses (displayImageUrl): staged preview >
+  // saved server image — so this tab shows the identical photo.
+  const imagePreviewUrl =
+    parentPreviewUrl || localObjectUrl || savedProfileImageUrl;
 
   const clearProfileImage = () => {
     setProfileImageFile(null); // effect cleanup revokes the stale URL
@@ -82,14 +104,14 @@ export default function MyDetailsPage({
   // actually matter here (photo, name, username, a password set).
   const completeness = useMemo(() => {
     const checks = [
-      Boolean(profileImageFile),
+      Boolean(profileImageFile || savedProfileImageUrl),
       Boolean(name?.trim()),
       Boolean(username?.trim()),
       Boolean(password),
     ];
     const done = checks.filter(Boolean).length;
     return Math.round((done / checks.length) * 100);
-  }, [profileImageFile, name, username, password]);
+  }, [profileImageFile, savedProfileImageUrl, name, username, password]);
 
   return (
     <section className="my-details-shell space-y-5">
@@ -153,14 +175,14 @@ export default function MyDetailsPage({
               <span className="my-details-avatar__badge" aria-hidden="true">
                 <Camera className="size-3.5" />
               </span>
-              <input
+              {/* <input
                 ref={profileInputRef}
                 id="profile-image-upload"
                 type="file"
                 accept="image/*"
                 onChange={handleProfileImageUpload}
                 className="hidden"
-              />
+              /> */}
             </div>
 
             {/* min-w-0 lets the truncate/wrap below actually shrink instead of
@@ -178,14 +200,14 @@ export default function MyDetailsPage({
                 </span>
               </p>
               {imageError ? <p className="mt-2 text-xs font-medium text-destructive">{imageError}</p> : null}
-              <div className="mt-4 flex flex-col gap-2 @xs:flex-row @xs:flex-wrap @md:justify-start">
+              {/* <div className="mt-4 flex flex-col gap-2 @xs:flex-row @xs:flex-wrap @md:justify-start">
                 <button
                   type="button"
                   onClick={openProfilePicker}
                   className="my-details-action w-full @xs:w-auto"
                 >
                   <Camera className="size-3.5" />
-                  {profileImageFile ? "Replace photo" : "Add photo"}
+                  {imagePreviewUrl ? "Replace photo" : "Add photo"}
                 </button>
                 {profileImageFile ? (
                   <button type="button" onClick={clearProfileImage} className="my-details-action my-details-action--quiet w-full @xs:w-auto">
@@ -193,7 +215,7 @@ export default function MyDetailsPage({
                     Remove
                   </button>
                 ) : null}
-              </div>
+              </div> */}
             </div>
           </article>
         </div>

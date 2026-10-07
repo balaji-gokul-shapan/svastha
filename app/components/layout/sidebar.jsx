@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   LayoutDashboard,
   Users,
@@ -460,14 +461,9 @@ function SidebarLink({
   onNavigate,
 }) {
   const { isMobile, setOpenMobile } = useSidebar();
-
   const Icon = item.icon;
-
   const hasChildren = Array.isArray(item.children) && item.children.length > 0;
 
-  /*
-   * Check if any child is active
-   */
 
   const activeChild = hasChildren
     ? item.children.some((child) => isRouteActive(pathname, child.href))
@@ -496,16 +492,11 @@ function SidebarLink({
       ? menuOpen || activeChild
       : !collapsed && (menuOpen || activeChild));
 
-  /*
-   * Active / inactive appearance (keeps the original Svastha colors)
-   */
+ 
 
   const stateClasses = parentVisualActive
-    ? cn(
-        "bg-primary/10 text-primary",
-        "data-active:bg-primary/10 data-active:text-primary",
-      )
-    : cn("text-sidebar-foreground", "hover:bg-primary/10 hover:text-primary");
+    ? cn("text-primary", "data-active:text-primary")
+    : cn("text-sidebar-foreground", "hover:text-primary");
 
   const handleLinkClick = (event) => {
     onNavigate?.(event);
@@ -521,22 +512,36 @@ function SidebarLink({
 
   const rowContent = (
     <>
-      {/* Accent bar — shown for a parent row whenever it (or any child) is active.
-          Child rows deliberately get no bar. */}
+      {/* Sliding pill + accent bar — layoutId makes them glide between routes.
+          Child rows get only the pill, no bar. */}
+      {parentVisualActive && !isMobile ? (
+        <motion.span
+          layoutId="sidebar-active-pill"
+          className="absolute inset-0 rounded-lg bg-primary/10"
+          transition={{ type: "spring", stiffness: 420, damping: 36 }}
+        />
+      ) : null}
+      {parentVisualActive && isMobile ? (
+        <span className="absolute inset-0 rounded-lg bg-primary/10" />
+      ) : null}
       {parentVisualActive && (
-        <span className="absolute left-[0.1rem] top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-accent" />
+        <motion.span
+          layoutId="sidebar-active-bar"
+          className="absolute left-[0.1rem] top-1/2 z-10 h-5 w-0.5 -translate-y-1/2 rounded-full bg-accent"
+          transition={{ type: "spring", stiffness: 500, damping: 40 }}
+        />
       )}
 
-      {Icon && <Icon className="size-5 shrink-0" strokeWidth={2} />}
+      {Icon && <Icon className="size-5 shrink-0 relative" strokeWidth={2} />}
 
-      <span className="min-w-0 flex-1 truncate whitespace-nowrap transition-opacity duration-200 group-data-[collapsible=icon]:opacity-0">
+      <span className="min-w-0 flex-1 truncate whitespace-nowrap relative transition-opacity duration-200 group-data-[collapsible=icon]:opacity-0">
         {item.label}
       </span>
 
       {hasChildren && (
         <ChevronDown
           className={cn(
-            "ml-auto size-4 shrink-0 whitespace-nowrap text-muted-foreground transition-all duration-200",
+            "ml-auto size-4 shrink-0 whitespace-nowrap text-muted-foreground transition-all duration-200 relative",
             "group-data-[collapsible=icon]:hidden",
             showChildren && "rotate-180",
           )}
@@ -585,20 +590,19 @@ function SidebarLink({
       {mainRow}
 
       {/* =====================================================
-          CHILDREN
+          CHILDREN — animated expand/collapse (AnimatePresence + height)
       ====================================================== */}
 
-      {hasChildren && (
-        <div
-          className={cn(
-            "grid overflow-hidden transition-all duration-200",
-
-            showChildren
-              ? "grid-rows-[1fr] opacity-100"
-              : "grid-rows-[0fr] opacity-0",
-          )}
-        >
-          <div className="min-h-0">
+      <AnimatePresence initial={false}>
+        {hasChildren && showChildren ? (
+          <motion.div
+            key="submenu"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
             <SidebarMenuSub className="border-l-0">
               {item.children.map((child) => {
                 const childActive = isRouteActive(pathname, child.href);
@@ -614,36 +618,42 @@ function SidebarLink({
                       size="sm"
                       isActive={childActive}
                       className={cn(
-                        "h-8 gap-2 rounded-lg px-3 text-xs font-medium",
+                        "relative h-8 gap-2 rounded-lg px-3 text-xs font-medium",
                         "transition-colors duration-200",
-
                         childActive
-                          ? cn(
-                              "bg-sidebar-accent text-primary",
-                              "data-active:bg-sidebar-accent data-active:text-primary",
-                              "[&>svg]:text-primary",
-                            )
+                          ? cn("text-primary", "[&>svg]:text-primary")
                           : cn(
                               "text-sidebar-foreground/80",
-                              "hover:bg-primary/10 hover:text-primary",
+                              "hover:text-primary",
                               "hover:[&>svg]:text-primary",
                               "[&>svg]:text-sidebar-foreground/80",
                             ),
                       )}
                     >
+                      {childActive ? (
+                        <motion.span
+                          layoutId="sidebar-sub-active"
+                          className="absolute inset-0 rounded-lg bg-sidebar-accent"
+                          transition={{
+                            type: "spring",
+                            stiffness: 420,
+                            damping: 36,
+                          }}
+                        />
+                      ) : null}
                       {ChildIcon ? (
-                        <ChildIcon className="size-4 shrink-0" />
+                        <ChildIcon className="size-4 shrink-0 relative" />
                       ) : null}
 
-                      <span>{child.label}</span>
+                      <span className="relative">{child.label}</span>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
                 );
               })}
             </SidebarMenuSub>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </SidebarMenuItem>
   );
 }

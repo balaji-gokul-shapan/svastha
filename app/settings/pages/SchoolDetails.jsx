@@ -38,6 +38,9 @@ import { branchStepSchemas } from "../validation/branch-validation-schema";
 import { NumberStepperField } from "@/components/ui/numberStepperField";
 import ImageCropper from "@/components/imageCropper";
 import { uploadSchoolLogo } from "@/lib/features/registerSchoolSlice";
+import ReusableSelect from "@/components/ui/reusable-select";
+import { usePincodeOptions } from "@/lib/usePincodeOptions";
+import { normalizePincode } from "@/lib/features/getPincode.slice";
 
 const steps = [
   {
@@ -127,6 +130,60 @@ const SchoolDetails = ({
   const [errors, setErrors] = useState({});
   const [editingBranch, setEditingBranch] = useState(null);
 
+  /* ============================================================
+     PINCODE LOOKUP — step 5 (Address & Contact)
+     Identical behaviour to the registration form's
+     BranchAddressFields: a 6-digit pincode fetches the area / city /
+     state option lists and fills only the fields the user hasn't
+     typed into.
+     ============================================================ */
+  const {
+    isReady: pincodeReady,
+    isBusy: pincodeBusy,
+    error: pincodeError,
+    options: pincodeOptions,
+    autofill: pincodeAutofill,
+  } = usePincodeOptions(formData.pincode);
+
+  // What we last auto-filled per field. A later lookup may update our own
+  // fill, but must never overwrite a value the user typed — or a value that
+  // was already saved on the record when the wizard opened.
+  const lastFilledRef = useRef({});
+
+  useEffect(() => {
+    if (!pincodeReady || !pincodeAutofill || pincodeError) return;
+
+    const updates = {};
+
+    Object.entries(pincodeAutofill).forEach(([field, value]) => {
+      // The lookup returns keys this wizard has no input for (district).
+      if (!(field in EMPTY_FORM)) return;
+
+      const clean = String(value ?? "").trim();
+      if (!clean) return;
+
+      const current = String(formData[field] ?? "").trim();
+      if (current && current !== lastFilledRef.current[field]) return;
+      if (current === clean) return;
+
+      updates[field] = clean;
+      lastFilledRef.current[field] = clean;
+    });
+
+    if (!Object.keys(updates).length) return;
+
+    setFormData((prev) => ({ ...prev, ...updates }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      Object.keys(updates).forEach((field) => delete next[field]);
+      return next;
+    });
+    // formData is read for comparison only — including it would re-run this
+    // on every keystroke the autofill itself causes. formData.pincode IS a
+    // dependency so re-opening the wizard re-evaluates the saved record.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pincodeAutofill, pincodeError, pincodeReady, formData.pincode]);
+
   const [selectedClassIds, setSelectedClassIds] = useState([]);
   const [selectedSectionIds, setSelectedSectionIds] = useState([]);
 
@@ -135,6 +192,16 @@ const SchoolDetails = ({
     setFormData((prev) => ({ ...prev, [name]: value }));
     setErrors((prev) => ({ ...prev, [name]: "" }));
   };
+
+  // Select-style controls hand over the value directly instead of a DOM event.
+  const setFieldValue = (name, value) => {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: "" }));
+  };
+
+  // Pincode is digits-only and capped at 6 characters.
+  const handlePincodeChange = (value) =>
+    setFieldValue("pincode", normalizePincode(value));
   console.log(getUserAccount, "getRole");
 
   // Academic class/section options (multi-select)
@@ -184,6 +251,53 @@ const SchoolDetails = ({
         error={errors[name] || ""}
         {...extra}
       />
+    );
+  };
+
+  // Same shape as textField, but renders a pincode-driven dropdown instead
+  // of a free-text input.
+  const selectField = (
+    label,
+    name,
+    baseOptions,
+    selectPlaceholder = "Select",
+  ) => {
+    const { text, required } = parseLabel(label);
+    const current = String(formData[name] ?? "").trim();
+
+    // ReusableSelect falls back to the placeholder whenever the value isn't
+    // in `options` — keep a saved/manual value selectable (and visible) even
+    // before the lookup has run, or when the lookup has no match for it.
+    const options = !current
+      ? baseOptions
+      : baseOptions.some((option) => option.value === current)
+        ? baseOptions
+        : [{ value: current, label: current }, ...baseOptions];
+
+    const placeholder = baseOptions.length
+      ? selectPlaceholder
+      : pincodeReady
+        ? "Select"
+        : "Enter a 6-digit pincode first";
+
+    return (
+      <div className="space-y-1.5">
+        <label className="field-label">
+          {text}
+          {required ? <span className="field-required">*</span> : null}
+        </label>
+
+        <ReusableSelect
+          withPortal
+          value={formData[name] ?? ""}
+          onChange={(value) => setFieldValue(name, value)}
+          options={options}
+          placeholder={placeholder}
+          disabled={!options.length}
+        />
+
+        {errors[name] ? <p className="field-error">{errors[name]}</p> : null}
+      </div>
     );
   };
   console.log(formData, "formData");
@@ -273,24 +387,13 @@ const SchoolDetails = ({
       : String(message);
   }
 
-  // A click that lands within this window of advancing a step is the browser's
-  // synthetic click from the button swap, not a real user intent.
+
   const STEP_SWAP_GUARD_MS = 400;
 
   const handleSave = (e) => {
     e.preventDefault();
 
-    // Guard against the step 4 -> 5 button swap: the "Next" button is replaced
-    // by the submit button in the same slot, so a pointer still held down gets
-    // its trailing click delivered to Save. Ignore anything that lands within
-    // STEP_SWAP_GUARD_MS of advancing — a deliberate click cannot be that fast.
     if (Date.now() - stepAdvancedAtRef.current < STEP_SWAP_GUARD_MS) return;
-
-    // The whole wizard is ONE <form>, so pressing Enter in any text field
-    // (or clicking a submit-typed control) fires onSubmit regardless of which
-    // step is showing. Without this guard, Enter on step 1 would try to save a
-    // half-filled branch. Only the final step may actually submit — on every
-    // other step Enter advances the wizard, which is what users expect.
     if (currentStep < steps.length) {
       handleNext();
       return;
@@ -349,7 +452,6 @@ const SchoolDetails = ({
     //   requestPayload = formPayload;
     // }
 
- 
     const editingId = editingBranch?.id ?? editingBranch?.branch_id;
     const request = editingId
       ? dispatch(
@@ -491,7 +593,6 @@ const SchoolDetails = ({
     }
     return allBranches;
   }, [getRole, allBranches, myBranchId, subAccountBranch]);
-
 
   const autoOpenedBranchRef = useRef(null);
 
@@ -677,6 +778,8 @@ const SchoolDetails = ({
 
   const openModal = () => {
     setEditingBranch(null);
+    // Fresh form → nothing has been auto-filled in this session yet.
+    lastFilledRef.current = {};
     setFormData({ ...EMPTY_FORM });
     setSelectedClassIds([]);
     setSelectedSectionIds([]);
@@ -697,6 +800,10 @@ const SchoolDetails = ({
       : branch;
     setEditingBranch(record);
     console.log(getRole, "editingBranch");
+
+    // New record → whatever we auto-filled for the previous one is no longer
+    // "ours"; this record's saved values must never be treated as auto-filled.
+    lastFilledRef.current = {};
 
     // Pre-fill every wizard field from the record, tolerating missing keys.
     setFormData({
@@ -753,7 +860,6 @@ const SchoolDetails = ({
     setOpen(false);
   };
 
-
   return (
     <section className="sd-school-shell">
       <header className="sd-school-hero">
@@ -793,7 +899,10 @@ const SchoolDetails = ({
           ) : null}
         </div>
 
-        <div className="sd-school-hero__summary" aria-label="School branch summary">
+        <div
+          className="sd-school-hero__summary"
+          aria-label="School branch summary"
+        >
           <div className="sd-summary-stat">
             <span className="sd-summary-stat__icon sd-summary-stat__icon--blue">
               <Building2 className="size-4" aria-hidden="true" />
@@ -838,103 +947,111 @@ const SchoolDetails = ({
             </p>
           </div>
           <Badge variant="outline" className="sd-branch-count">
-            {branchRecords.length} {branchRecords.length === 1 ? "campus" : "campuses"}
+            {branchRecords.length}{" "}
+            {branchRecords.length === 1 ? "campus" : "campuses"}
           </Badge>
         </div>
 
         <div className="sd-branch-directory">
-
-      {branchRecords.length === 0 ? (
-        <div className="sd-branch-empty">
-          <EmptyState
-            title="No school branches yet"
-            icon={Building2}
-            description={
-              getUserAccount?.user_type_id !== 2
-                ? "Add your first campus to manage academic details, contacts, and student statistics."
-                : "Your school profile does not have a campus available yet."
-            }
-            action={
-              getUserAccount?.user_type_id !== 2 ? (
-                <Button type="button" variant="outline" onClick={() => openModal(true)}>
-                  <Building2 className="size-4" />
-                  Add your first branch
-                </Button>
-              ) : null
-            }
-          />
-        </div>
-      ) : (
-        <div className="sd-branch-grid">
-          {branchRecords.map((b, i) => (
-            <Card
-              key={b.id ?? b.branch_name ?? i}
-              className="sd-branch-card"
-              onClick={() => handleEditBranch(b)}
-            >
-              <div className="sd-branch-card__top">
-                <div className="sd-branch-card__identity">
-                  {typeof (b.branch_logo ?? b.branch_logo_url) === "string" &&
-                  (b.branch_logo ?? b.branch_logo_url) ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={b.branch_logo ?? b.branch_logo_url}
-                      alt={`${b.branch_name ?? "Branch"} logo`}
-                      className="sd-branch-card__logo"
-                    />
-                  ) : (
-                    <span className="sd-branch-card__logo sd-branch-card__logo--fallback">
-                      <Building2 className="size-5" />
+          {branchRecords.length === 0 ? (
+            <div className="sd-branch-empty">
+              <EmptyState
+                title="No school branches yet"
+                icon={Building2}
+                description={
+                  getUserAccount?.user_type_id !== 2
+                    ? "Add your first campus to manage academic details, contacts, and student statistics."
+                    : "Your school profile does not have a campus available yet."
+                }
+                action={
+                  getUserAccount?.user_type_id !== 2 ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => openModal(true)}
+                    >
+                      <Building2 className="size-4" />
+                      Add your first branch
+                    </Button>
+                  ) : null
+                }
+              />
+            </div>
+          ) : (
+            <div className="sd-branch-grid">
+              {branchRecords.map((b, i) => (
+                <Card
+                  key={b.id ?? b.branch_name ?? i}
+                  className="sd-branch-card"
+                  onClick={() => handleEditBranch(b)}
+                >
+                  <div className="sd-branch-card__top">
+                    <div className="sd-branch-card__identity">
+                      {typeof (b.branch_logo ?? b.branch_logo_url) ===
+                        "string" &&
+                      (b.branch_logo ?? b.branch_logo_url) ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={b.branch_logo ?? b.branch_logo_url}
+                          alt={`${b.branch_name ?? "Branch"} logo`}
+                          className="sd-branch-card__logo"
+                        />
+                      ) : (
+                        <span className="sd-branch-card__logo sd-branch-card__logo--fallback">
+                          <Building2 className="size-5" />
+                        </span>
+                      )}
+                      <div className="min-w-0">
+                        <p className="sd-branch-card__name">
+                          {b.branch_name ?? "Unnamed branch"}
+                        </p>
+                        <p className="sd-branch-card__location">
+                          <MapPin className="size-3.5" aria-hidden="true" />
+                          <span>
+                            {[b.city, b.state].filter(Boolean).join(", ") ||
+                              "Location not added"}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                    <span className="sd-branch-card__arrow" aria-hidden="true">
+                      <ChevronRight className="size-4" />
                     </span>
-                  )}
-                  <div className="min-w-0">
-                    <p className="sd-branch-card__name">
-                      {b.branch_name ?? "Unnamed branch"}
-                    </p>
-                    <p className="sd-branch-card__location">
-                      <MapPin className="size-3.5" aria-hidden="true" />
-                      <span>
-                        {[b.city, b.state].filter(Boolean).join(", ") || "Location not added"}
-                      </span>
-                    </p>
                   </div>
-                </div>
-                <span className="sd-branch-card__arrow" aria-hidden="true">
-                  <ChevronRight className="size-4" />
-                </span>
-              </div>
 
-              <dl className="sd-branch-card__metrics">
-                {b.total_students != null ? (
-                  <div>
-                    <dt>Students</dt>
-                    <dd>{Number(b.total_students).toLocaleString()}</dd>
-                  </div>
-                ) : null}
-                {b.total_teaching_staff != null ? (
-                  <div>
-                    <dt>Teaching staff</dt>
-                    <dd>{Number(b.total_teaching_staff).toLocaleString()}</dd>
-                  </div>
-                ) : null}
-                {b.registration_number ? (
-                  <div>
-                    <dt>Registration</dt>
-                    <dd>{b.registration_number}</dd>
-                  </div>
-                ) : null}
-              </dl>
+                  <dl className="sd-branch-card__metrics">
+                    {b.total_students != null ? (
+                      <div>
+                        <dt>Students</dt>
+                        <dd>{Number(b.total_students).toLocaleString()}</dd>
+                      </div>
+                    ) : null}
+                    {b.total_teaching_staff != null ? (
+                      <div>
+                        <dt>Teaching staff</dt>
+                        <dd>
+                          {Number(b.total_teaching_staff).toLocaleString()}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {b.registration_number ? (
+                      <div>
+                        <dt>Registration</dt>
+                        <dd>{b.registration_number}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
 
-              {b.contact_person_name ? (
-                <div className="sd-branch-card__contact">
-                  <Users className="size-3.5" aria-hidden="true" />
-                  <span>{b.contact_person_name}</span>
-                </div>
-              ) : null}
-            </Card>
-          ))}
-        </div>
-      )}
+                  {b.contact_person_name ? (
+                    <div className="sd-branch-card__contact">
+                      <Users className="size-3.5" aria-hidden="true" />
+                      <span>{b.contact_person_name}</span>
+                    </div>
+                  ) : null}
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1094,6 +1211,7 @@ const SchoolDetails = ({
                       labelClassName="field-label"
                       placeholder="Select year"
                       minYear={1800}
+                      required
                       // withPortal
                       value={formData.year_of_establishment || ""}
                       onValueChange={(v) => {
@@ -1209,6 +1327,34 @@ const SchoolDetails = ({
                     <CardTitle className="text-sm">Address</CardTitle>
                   </CardHeader>
                   <CardContent className="grid gap-4 p-0 sm:grid-cols-2">
+                    {/* Same live status line the registration form shows while
+                        the pincode lookup is in flight (or when it fails). */}
+                    <div className="text-xs sm:col-span-2">
+                      {pincodeError ? (
+                        <p
+                          className="text-destructive"
+                          role="status"
+                          aria-live="polite"
+                        >
+                          {pincodeError}
+                        </p>
+                      ) : pincodeBusy ? (
+                        <p
+                          className="text-muted-foreground"
+                          role="status"
+                          aria-live="polite"
+                        >
+                          Looking up pincode…
+                        </p>
+                      ) : null}
+                    </div>
+
+                    {textField("Pincode *", "pincode", "Postal code", {
+                      inputMode: "numeric",
+                      maxLength: 6,
+                      onChange: (event) =>
+                        handlePincodeChange(event.target.value),
+                    })}
                     {textField(
                       "Address Line 1 *",
                       "address_line_1",
@@ -1219,11 +1365,32 @@ const SchoolDetails = ({
                       "address_line_2",
                       "Suite, etc.",
                     )}
-                    {textField("Area", "area", "Locality / area")}
-                    {textField("City *", "city", "City")}
-                    {textField("State *", "state", "State")}
-                    {textField("Country *", "country", "Country")}
-                    {textField("Pincode *", "pincode", "Postal code")}
+                    {/* Area / City / State / Country are driven by this
+                        branch's own pincode, exactly like registration. */}
+                    {selectField(
+                      "Area",
+                      "area",
+                      pincodeOptions.area ?? [],
+                      "Select area",
+                    )}
+                    {selectField(
+                      "City *",
+                      "city",
+                      pincodeOptions.city ?? [],
+                      "Select city",
+                    )}
+                    {selectField(
+                      "State *",
+                      "state",
+                      pincodeOptions.state ?? [],
+                      "Select state",
+                    )}
+                    {selectField(
+                      "Country *",
+                      "country",
+                      [{ value: "India", label: "India" }],
+                      "Select country",
+                    )}
                   </CardContent>
                 </Card>
                 <Card className="p-4">

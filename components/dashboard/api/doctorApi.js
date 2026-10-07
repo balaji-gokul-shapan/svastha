@@ -277,6 +277,7 @@ export const useDoctorApi = (
     error: screeningError,
   } = useAllScreeningReport({
     campId: selectedCamp ? selectedCamp : "",
+    enabled: Boolean(selectedCamp),
   });
 
   const screeningRecords = {

@@ -425,7 +425,7 @@ function StudentDetailPageInner() {
               student.status,
             )}`}
           >
-            {student.status ?? "—"}
+            {student.status ?? "-"}
           </span>
         )}
         {/* <Button className="inline-flex bg-primary px-4 py-2 rounded-full">

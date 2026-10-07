@@ -3,6 +3,7 @@
 import StudentFilter from "../health-checks/utilities/studentFilter";
 import useStudentFilter from "./utilities/useStudentFilter";
 import HealthCheckContent from "./components/HealthCheckContent";
+import ReportStudentsTable, { idOf as idOfReportStudent } from "./components/ReportStudentsTable";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { ClipboardPlus, FileSpreadsheet, Search } from "lucide-react";
@@ -16,6 +17,7 @@ import {
 import { useDispatch } from "react-redux";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useAuthRole } from "@/lib/user-role";
 import { getAllSchoolBranches } from "@/lib/features/registerSchoolBranchSlice";
 import { getScreeningIds, getScreeningKeys } from "@/lib/camp-utils";
@@ -67,9 +69,15 @@ export default function ConsolidateReport() {
     assignedEvents,
     classFilter,
     sectionFilter,
+    students,
+    isLoading: isStudentsLoading,
+    setStudentId,
   } = useStudentFilter();
   const [selectedBranch, setSelectedBranch] = useState(null);
   const [activeTab, setActiveTab] = useState("single-report");
+  const [reportView, setReportView] = useState("detailed");
+  const [reportTablePageIndex, setReportTablePageIndex] = useState(0);
+  const [reportTablePageSize, setReportTablePageSize] = useState(10);
   const selectUser = useAppSelector(selectUserAccount);
   const getRole = useAuthRole();
   const isPrimaryDoctorRole = useAppSelector(selectIsPrimaryDoctorRole);
@@ -84,6 +92,7 @@ export default function ConsolidateReport() {
       selectedSchoolBranch?.branch_id ??
       filterProps?.formData?.branchName,
     branchLabel: selectedSchoolBranch?.branch_name,
+    
   });
 
   const isPrimaryDoctor = activeCampEvent?.primary_doctor === Number(1);
@@ -111,7 +120,8 @@ export default function ConsolidateReport() {
     refetchOnWindowFocus: false,
   });
   console.log(getRole);
-  
+  console.log(ownBranchRecord,"ownBranchRecord");
+
 
   const defaultBranch = useMemo(() => {
     const record = ownBranchRecord?.data ?? ownBranchRecord ?? null;
@@ -184,8 +194,6 @@ export default function ConsolidateReport() {
       ),
     };
   }, [selectUser, ownBranchRecord]);
-
-  console.log(ownBranchRecord,ownBranchRecord);
   
 
   return (
@@ -302,8 +310,56 @@ export default function ConsolidateReport() {
           />
         )}
         {/* Tab content — every <TabsContent> is a direct child of <Tabs>. */}
+       
+        {activeTab === "single-report" ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant={reportView === "detailed" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setReportView("detailed")}
+            >
+              Detailed View
+            </Button>
+            <Button
+              type="button"
+              variant={reportView === "table" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setReportView("table")}
+            >
+              Table View
+            </Button>
+          </div>
+        ) : null}
         <TabsContent value="single-report">
-          {hasUnknownScreeningIds ? (
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={reportView}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3, ease: [0.22, 0.61, 0.36, 1] }}
+            >
+          {reportView === "table" ? (
+            <div className="space-y-3">
+              <ReportStudentsTable
+                students={students}
+                isLoading={isStudentsLoading}
+                pageIndex={reportTablePageIndex}
+                onPageIndexChange={setReportTablePageIndex}
+                pageSize={reportTablePageSize}
+                onPageSizeChange={(size) => {
+                  setReportTablePageSize(size);
+                  setReportTablePageIndex(0);
+                }}
+                onSelectStudent={(row) => {
+                  const id = idOfReportStudent(row);
+                  if (id) setStudentId(id);
+                  setReportView("detailed");
+                }}
+              />
+            </div>
+          ) : hasUnknownScreeningIds ? (
             <NoScreeningsAssignedState />
           ) : selectedStudent ? (
             <div className="space-y-3">
@@ -317,6 +373,10 @@ export default function ConsolidateReport() {
                 }
                 camp={selectedCamp}
                 activeEvent={activeCampEvent}
+                primaryDoctorDetails={
+                  activeCampEvent?.primaryDoctorDetailsData
+                    ?.primaryDoctorDetails ?? null
+                }
                 assignedScreeningIds={assignedScreeningIds}
                 {...filterProps}
               />
@@ -324,6 +384,8 @@ export default function ConsolidateReport() {
           ) : (
             <ReportEmptyState />
           )}
+            </motion.div>
+          </AnimatePresence>
         </TabsContent>
 
         <TabsContent value="report-table">

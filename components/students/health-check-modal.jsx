@@ -151,7 +151,7 @@ export default function HealthCheckModal({ student }) {
           role="dialog"
           aria-modal="true"
         >
-          <div className="relative max-h-[90vh] w-[95vw] max-w-auto overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-0 shadow-xl">
+          <div className="relative h-auto w-2/3 overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-0 shadow-xl">
             <Button
               type="button"
               variant="ghost"

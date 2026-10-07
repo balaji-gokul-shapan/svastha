@@ -557,53 +557,67 @@ const ProfilePage = ({
     const trimmedEmail = String(email ?? "").trim();
 
     if (isDoctorProfileRoute) {
-      // Doctor saves ONLY the signature — never the profile image.
-      if (!doctorId) {
-        toast.error(
-          "Unable to save signature: doctor profile not loaded. Please reload the page and try again.",
-        );
-        return;
-      }
-
       const stagedSignature = pendingSignature.startsWith("data:")
         ? pendingSignature
         : String(signature ?? "").trim();
+      const hasPendingSignature = stagedSignature.startsWith("data:");
 
-      if (!stagedSignature) {
-        toast.error("Please create a signature before saving.");
+      if (!hasNewProfileImage && !hasPendingSignature) {
+        toast.success("Profile is already up to date.");
         return;
       }
 
-      if (!stagedSignature.startsWith("data:")) {
-        toast.success("Signature is already up to date.");
-        return;
-      }
+      setIsSavingProfile(hasNewProfileImage);
+      setIsSavingSignature(hasPendingSignature);
 
-      if (!resolvedSignatureEventId) {
-        toast.error("Please select a camp before saving the signature.");
-        return;
-      }
-
-      setIsSavingSignature(true);
-
+      let imageSaved = false;
       try {
-        await dispatch(
-          saveDoctorSignature({
-            doctorId,
-            signature: stagedSignature,
-            eventId: resolvedSignatureEventId,
-          }),
-        ).unwrap();
-        setPendingSignature("");
-        setSignatureTouched(false);
-        toast.success("Signature updated successfully.");
+        if (hasNewProfileImage) {
+          const imageError = await saveProfileImage();
+          if (imageError) throw new Error(imageError);
+          imageSaved = true;
+        }
+
+        if (hasPendingSignature) {
+          if (!doctorId) {
+            throw new Error(
+              "Unable to save signature: doctor profile not loaded. Please reload the page and try again.",
+            );
+          }
+          if (!resolvedSignatureEventId) {
+            throw new Error("Please select a camp before saving the signature.");
+          }
+
+          await dispatch(
+            saveDoctorSignature({
+              doctorId,
+              signature: stagedSignature,
+              eventId: resolvedSignatureEventId,
+            }),
+          ).unwrap();
+          setPendingSignature("");
+          setSignatureTouched(false);
+        }
+
+        toast.success(
+          hasPendingSignature && hasNewProfileImage
+            ? "Profile image and signature updated."
+            : hasPendingSignature
+              ? "Signature updated successfully."
+              : "Profile image updated successfully.",
+        );
       } catch (error) {
         const message =
           typeof error === "object" && error !== null
             ? error?.message || error?.detail || "Failed to save signature."
             : error || "Failed to save signature.";
-        toast.error(message);
+        toast.error(
+          imageSaved
+            ? `Profile image updated, but ${message}`
+            : message,
+        );
       } finally {
+        setIsSavingProfile(false);
         setIsSavingSignature(false);
       }
 
@@ -656,8 +670,7 @@ const ProfilePage = ({
   };
 
   const hasNewProfileImage =
-    typeof File !== "undefined" &&
-    (profileImageFile instanceof File || profileImageFile instanceof Blob);
+    typeof Blob !== "undefined" && profileImageFile instanceof Blob;
 
   const saveProfileImage = async () => {
     if (!hasNewProfileImage) return null;
@@ -665,6 +678,7 @@ const ProfilePage = ({
     try {
       await dispatch(uploadProfileImage({ image: profileImageFile })).unwrap();
       dispatch(getProfileImage());
+      clearProfileImage();
       return null;
     } catch (error) {
       return typeof error === "object" && error !== null
@@ -1271,7 +1285,7 @@ const ProfilePage = ({
           Remove Profile Photo Modal
       ================================= */}
       <Dialog open={isDeleteImageOpen} onOpenChange={setIsDeleteImageOpen}>
-        <DialogContent className="w-full max-w-full sm:max-w-md">
+        <DialogContent className="w-full max-w-full sm:max-w-2/3">
           <DialogHeader className="pb-4">
             <DialogTitle>Remove profile photo?</DialogTitle>
             <DialogDescription>

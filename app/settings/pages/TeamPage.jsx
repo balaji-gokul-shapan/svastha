@@ -144,11 +144,7 @@ function getPrivilegeLabels(account) {
         entry.grade_id,
         entry.class_id,
       );
-      const sec = readPart(
-        entry.section,
-        entry.Section,
-        entry.section_id,
-      );
+      const sec = readPart(entry.section, entry.Section, entry.section_id);
 
       if (cls && sec) return `Class ${cls} - Section ${sec}`;
       if (cls) return `Class ${cls}`;
@@ -174,11 +170,10 @@ function getPrivilegeLabels(account) {
         return list
           .map((section) => readPart(section))
           .filter(Boolean)
-          .map(
-            (section) =>
-              classLabel
-                ? `Class ${classLabel} - Section ${section}`
-                : `Section ${section}`,
+          .map((section) =>
+            classLabel
+              ? `Class ${classLabel} - Section ${section}`
+              : `Section ${section}`,
           );
       })
       .filter(Boolean);
@@ -213,6 +208,87 @@ function getPrivilegeLabels(account) {
     .filter(Boolean);
 }
 
+function getPrivilegeGroups(rawPrivileges) {
+  let privileges = rawPrivileges;
+
+  if (typeof privileges === "string") {
+    const text = privileges.trim();
+    if (!text) return [];
+
+    if (text.startsWith("[") || text.startsWith("{")) {
+      try {
+        privileges = JSON.parse(text);
+      } catch {
+        privileges = text;
+      }
+    }
+  }
+
+  const entries = [];
+  if (Array.isArray(privileges)) {
+    entries.push(...privileges);
+  } else if (privileges && typeof privileges === "object") {
+    Object.entries(privileges).forEach(([className, sections]) => {
+      (Array.isArray(sections) ? sections : [sections]).forEach((section) => {
+        entries.push({ class: className, section });
+      });
+    });
+  } else if (typeof privileges === "string") {
+    entries.push(
+      ...privileges
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+        .map((entry) => {
+          const separator = entry.indexOf("-");
+          return separator < 0
+            ? { class: entry }
+            : {
+                class: entry.slice(0, separator).trim(),
+                section: entry.slice(separator + 1).trim(),
+              };
+        }),
+    );
+  }
+
+  const groups = new Map();
+  entries.forEach((entry) => {
+    if (typeof entry === "string") {
+      const separator = entry.indexOf("-");
+      if (separator < 0) return;
+
+      const className = entry.slice(0, separator).trim();
+      const section = entry.slice(separator + 1).trim();
+      if (!className) return;
+
+      const sections = groups.get(className) ?? new Set();
+      if (section) sections.add(section);
+      groups.set(className, sections);
+      return;
+    }
+    if (!entry || typeof entry !== "object") return;
+
+    const className = readPart(
+      entry.class,
+      entry.Class,
+      entry.grade,
+      entry.grade_id,
+      entry.class_id,
+    );
+    const section = readPart(entry.section, entry.Section, entry.section_id);
+    if (!className) return;
+
+    const sections = groups.get(className) ?? new Set();
+    if (section) sections.add(section);
+    groups.set(className, sections);
+  });
+
+  return Array.from(groups, ([className, sections]) => ({
+    className,
+    sections: Array.from(sections),
+  }));
+}
+
 const TeamPage = ({
   accounts,
   selectedIds,
@@ -226,7 +302,7 @@ const TeamPage = ({
   onBulkDelete,
   onEdit,
   onAdd,
-
+  getRole,
   isAddOpen,
   onAddOpenChange,
 
@@ -258,6 +334,11 @@ const TeamPage = ({
     },
     [setSubAccount],
   );
+  const isAdminEdit = getRole === "admin" && Boolean(editingAccount);
+  const adminPrivilegeGroups = useMemo(
+    () => getPrivilegeGroups(subAccount?.previleges),
+    [subAccount?.previleges],
+  );
   const handleClassSectionsChange = useCallback(
     (classSections) => handleSubAccountChange("previleges", classSections),
     [handleSubAccountChange],
@@ -279,9 +360,7 @@ const TeamPage = ({
   }, [isAddOpen]);
   console.log(getBranchDataForSubAccount, "getBranchDataForSubAccount");
   console.log(subAccount, "eeeeeee");
-  const getRole = useAuthRole(authAccName);
-
-  
+  // const getRole = useAuthRole(authAccName);
 
   const subAccountBranchOptions = useMemo(() => {
     const fromSubAccount = (getBranchDataForSubAccount ?? [])
@@ -308,8 +387,6 @@ const TeamPage = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
 
-  // Options for class/section filters â€” derived from the shared mock data
-  // (swap for API-driven options when available).
   const classOptions = React.useMemo(() => {
     const grades = new Set();
     SECTION_OPTIONS.forEach((opt) => {
@@ -406,7 +483,6 @@ const TeamPage = ({
     );
   };
 
-
   // ---- FILTERING ----
   const filteredAccounts = React.useMemo(() => {
     const keyword = searchQuery.trim().toLowerCase();
@@ -460,8 +536,7 @@ const TeamPage = ({
     privilegeFilter,
   ]);
 
-  console.log(accountList,"filteredAccounts");
-  
+  console.log(accountList, "filteredAccounts");
 
   // ---- PAGINATION ----
   const totalPages = Math.max(1, Math.ceil(filteredAccounts.length / pageSize));
@@ -566,8 +641,7 @@ const TeamPage = ({
                   <span className="text-muted-foreground">Total</span>
                 </span>
                 <span className="rounded-full border border-success/25 bg-success/10 px-3 py-1.5 text-xs font-medium text-success">
-                  {activeCount}{" "}
-                  <span className="opacity-75">Active</span>
+                  {activeCount} <span className="opacity-75">Active</span>
                 </span>
                 <span className="rounded-full border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium text-muted-foreground">
                   {inactiveCount} Inactive
@@ -596,399 +670,403 @@ const TeamPage = ({
             </div>
           </div>
 
-        {/* FILTER BAR */}
-        {getRole !== "teacher" && (
-          <>
-            <div className="mt-5 space-y-3 rounded-xl border border-border bg-muted/25 p-3 sm:p-4">
-              {/* SEARCH + STATUS */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="min-w-0 sm:col-span-2 lg:col-span-2">
-                  <TextField
-                    label="Search"
-                    labelClassName="text-xs font-medium uppercase tracking-wide text-muted-foreground"
-                    id="team-search"
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Search by name or username..."
-                    autoComplete="off"
-                  />
+          {/* FILTER BAR */}
+          {getRole !== "teacher" && (
+            <>
+              <div className="mt-5 space-y-3 rounded-xl border border-border bg-muted/25 p-3 sm:p-4">
+                {/* SEARCH + STATUS */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="min-w-0 sm:col-span-2 lg:col-span-2">
+                    <TextField
+                      label="Search"
+                      labelClassName="text-xs font-medium uppercase tracking-wide text-muted-foreground"
+                      id="team-search"
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      placeholder="Search by name or username..."
+                      autoComplete="off"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <ReusableSelect
+                      label="Status"
+                      value={statusFilter}
+                      onChange={setStatusFilter}
+                      options={[
+                        { value: "all", label: "All" },
+                        { value: "active", label: "Active" },
+                        { value: "inactive", label: "Inactive" },
+                      ]}
+                      placeholder="Status"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <ReusableSelect
+                      label="User Role"
+                      value={userRole}
+                      onChange={setUserRole}
+                      options={userRoleOptions}
+                      placeholder="Select Role"
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <ReusableSelect
-                    label="Status"
-                    value={statusFilter}
-                    onChange={setStatusFilter}
-                    options={[
-                      { value: "all", label: "All" },
-                      { value: "active", label: "Active" },
-                      { value: "inactive", label: "Inactive" },
-                    ]}
-                    placeholder="Status"
-                  />
-                </div>
+                {/* CLASS / SECTION / PRIVILEGES */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="space-y-1.5">
+                    <ReusableSelect
+                      label="Class"
+                      value={classFilter}
+                      onChange={setClassFilter}
+                      options={classOptions}
+                      placeholder="Class"
+                    />
+                  </div>
 
-                <div className="space-y-1.5">
-                  <ReusableSelect
-                    label="User Role"
-                    value={userRole}
-                    onChange={setUserRole}
-                    options={userRoleOptions}
-                    placeholder="Select Role"
-                  />
+                  <div className="space-y-1.5">
+                    <ReusableSelect
+                      label="Section"
+                      value={sectionFilter}
+                      onChange={setSectionFilter}
+                      options={sectionOptions}
+                      placeholder="Section"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <ReusableSelect
+                      label="Privileges"
+                      value={privilegeFilter}
+                      onChange={setPrivilegeFilter}
+                      options={privilegeOptions}
+                      placeholder="Privileges"
+                    />
+                  </div>
+
+                  {/* CLEAR */}
+                  <div className="flex items-end">
+                    <Button
+                      type="button"
+                      variant={hasActiveFilters ? "default" : "outline"}
+                      onClick={clearFilters}
+                      disabled={!hasActiveFilters}
+                      className="w-full gap-1.5"
+                    >
+                      <X className="size-4" />
+                      Clear Filters
+                    </Button>
+                  </div>
                 </div>
               </div>
-
-              {/* CLASS / SECTION / PRIVILEGES */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="space-y-1.5">
-                  <ReusableSelect
-                    label="Class"
-                    value={classFilter}
-                    onChange={setClassFilter}
-                    options={classOptions}
-                    placeholder="Class"
+              {/* SELECT-ALL STRIP + RESULT COUNT */}
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/25 px-3 py-2.5 sm:px-4">
+                <label className="flex cursor-pointer select-none items-center gap-2.5 text-xs font-medium text-muted-foreground">
+                  <Checkbox
+                    checked={isAllSelected}
+                    indeterminate={isIndeterminate}
+                    onCheckedChange={onToggleAll}
+                    aria-label="Select all accounts"
                   />
-                </div>
+                  Select all
+                </label>
 
-                <div className="space-y-1.5">
-                  <ReusableSelect
-                    label="Section"
-                    value={sectionFilter}
-                    onChange={setSectionFilter}
-                    options={sectionOptions}
-                    placeholder="Section"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <ReusableSelect
-                    label="Privileges"
-                    value={privilegeFilter}
-                    onChange={setPrivilegeFilter}
-                    options={privilegeOptions}
-                    placeholder="Privileges"
-                  />
-                </div>
-
-                {/* CLEAR */}
-                <div className="flex items-end">
-                  <Button
-                    type="button"
-                    variant={hasActiveFilters ? "default" : "outline"}
-                    onClick={clearFilters}
-                    disabled={!hasActiveFilters}
-                    className="w-full gap-1.5"
-                  >
-                    <X className="size-4" />
-                    Clear Filters
-                  </Button>
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  {hasActiveFilters ? (
+                    <>
+                      Showing{" "}
+                      <span className="font-semibold text-foreground">
+                        {filteredAccounts.length}
+                      </span>{" "}
+                      of {accountList.length} accounts
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-semibold text-foreground">
+                        {accountList.length}
+                      </span>{" "}
+                      team members
+                    </>
+                  )}
+                </p>
               </div>
-            </div>
-            {/* SELECT-ALL STRIP + RESULT COUNT */}
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/25 px-3 py-2.5 sm:px-4">
-              <label className="flex cursor-pointer select-none items-center gap-2.5 text-xs font-medium text-muted-foreground">
-                <Checkbox
-                  checked={isAllSelected}
-                  indeterminate={isIndeterminate}
-                  onCheckedChange={onToggleAll}
-                  aria-label="Select all accounts"
-                />
-                Select all
-              </label>
 
-              <p className="text-xs text-muted-foreground">
-                {hasActiveFilters ? (
-                  <>
-                    Showing{" "}
-                    <span className="font-semibold text-foreground">
-                      {filteredAccounts.length}
-                    </span>{" "}
-                    of {accountList.length} accounts
-                  </>
-                ) : (
-                  <>
-                    <span className="font-semibold text-foreground">
-                      {accountList.length}
-                    </span>{" "}
-                    team members
-                  </>
-                )}
-              </p>
-            </div>
+              {/* MEMBER CARDS */}
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {paginatedAccounts.map((account) => {
+                  const isSelected = selectedIds.includes(account.id);
+                  console.log(account, "account333333333");
 
-            {/* MEMBER CARDS */}
-            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {paginatedAccounts.map((account) => {
-                const isSelected = selectedIds.includes(account.id);
-                console.log(account, "account333333333");
+                  const isActive = account.status === "active";
+                  const roleLabel = getAccountRoleLabel(account);
+                  const privilegeLabels = getPrivilegeLabels(account);
 
-                const isActive = account.status === "active";
-                const roleLabel = getAccountRoleLabel(account);
-                const privilegeLabels = getPrivilegeLabels(account);
-
-                return (
-                  <div
-                    key={account.id}
-                    onClick={() => onEdit(account)}
-                    className={`group relative flex cursor-pointer flex-col gap-3 rounded-xl border p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
-                      isSelected
-                        ? "border-primary/50 bg-primary/5 ring-1 ring-primary/30"
-                        : "border-border bg-card hover:border-primary/40"
-                    }`}
-                  >
-                    {/* TOP ROW */}
-                    <div className="flex items-start gap-3">
-                      <div
-                        onClick={(event) => event.stopPropagation()}
-                        className="pt-0.5"
-                      >
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => onToggleRow(account.id)}
-                          aria-label={`Select ${account.name}`}
-                        />
-                      </div>
-
-                      <span
-                        aria-hidden="true"
-                        className={`relative flex size-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${
-                          AVATAR_STYLES[account.id % AVATAR_STYLES.length]
-                        }`}
-                      >
-                        {getInitials(account.name)}
-                        <span
-                          className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-card ${
-                            isActive ? "bg-success" : "bg-muted-foreground"
-                          }`}
-                        />
-                      </span>
-
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-semibold text-foreground">
-                          {account.name}
-                        </p>
-                        {roleLabel ? (
-                          <span className="mt-1 inline-flex items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
-                            <ShieldCheck className="size-3" />
-                            {roleLabel}
-                          </span>
-                        ) : null}
-                        {account.designation ? (
-                          <p className="mt-1 truncate text-xs text-muted-foreground">
-                            {account.designation}
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    {/* CLASS & SECTION PRIVILEGES */}
-                    {privilegeLabels.length > 0 ? (
-                      <div className="rounded-lg border border-dashed border-border bg-muted/30 p-2.5">
-                        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          Class &amp; Section Access
-                        </p>
-                        <div className="flex flex-wrap gap-1">
-                          {privilegeLabels.map((label) => (
-                            <span
-                              key={label}
-                              className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
-                            >
-                              {label}
-                            </span>
-                          ))}
+                  return (
+                    <div
+                      key={account.id}
+                      onClick={() => onEdit(account)}
+                      className={`group relative flex cursor-pointer flex-col gap-3 rounded-xl border p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+                        isSelected
+                          ? "border-primary/50 bg-primary/5 ring-1 ring-primary/30"
+                          : "border-border bg-card hover:border-primary/40"
+                      }`}
+                    >
+                      {/* TOP ROW */}
+                      <div className="flex items-start gap-3">
+                        <div
+                          onClick={(event) => event.stopPropagation()}
+                          className="pt-0.5"
+                        >
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => onToggleRow(account.id)}
+                            aria-label={`Select ${account.name}`}
+                          />
                         </div>
-                      </div>
-                    ) : null}
 
-                    {/* FOOTER */}
-                    <div className="mt-auto flex items-center justify-between border-t border-border pt-3">
-                      <div
-                        onClick={(event) => event.stopPropagation()}
-                        className="flex items-center gap-2"
-                      >
-                        <Switch
-                          checked={isActive}
-                          onCheckedChange={() => onToggleStatus(account.id)}
-                          aria-label={`Toggle status for ${account.name}`}
-                        />
                         <span
-                          className={`text-xs font-medium ${
-                            isActive ? "text-success" : "text-muted-foreground"
+                          aria-hidden="true"
+                          className={`relative flex size-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${
+                            AVATAR_STYLES[account.id % AVATAR_STYLES.length]
                           }`}
                         >
-                          {isActive ? "Active" : "Inactive"}
+                          {getInitials(account.name)}
+                          <span
+                            className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-card ${
+                              isActive ? "bg-success" : "bg-muted-foreground"
+                            }`}
+                          />
                         </span>
+
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-semibold text-foreground">
+                            {account.name}
+                          </p>
+                          {roleLabel ? (
+                            <span className="mt-1 inline-flex items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
+                              <ShieldCheck className="size-3" />
+                              {roleLabel}
+                            </span>
+                          ) : null}
+                          {account.designation ? (
+                            <p className="mt-1 truncate text-xs text-muted-foreground">
+                              {account.designation}
+                            </p>
+                          ) : null}
+                        </div>
                       </div>
 
-                      <div
-                        onClick={(event) => event.stopPropagation()}
-                        className="flex items-center gap-1"
-                      >
-                        <DropdownMenu>
-                          <DropdownMenuTrigger
-                            aria-label={`Actions for ${account.name}`}
-                            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground"
+                      {/* CLASS & SECTION PRIVILEGES */}
+                      {privilegeLabels.length > 0 ? (
+                        <div className="rounded-lg border border-dashed border-border bg-muted/30 p-2.5">
+                          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            Class &amp; Section Access
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {privilegeLabels.map((label) => (
+                              <span
+                                key={label}
+                                className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
+                              >
+                                {label}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {/* FOOTER */}
+                      <div className="mt-auto flex items-center justify-between border-t border-border pt-3">
+                        <div
+                          onClick={(event) => event.stopPropagation()}
+                          className="flex items-center gap-2"
+                        >
+                          <Switch
+                            checked={isActive}
+                            onCheckedChange={() => onToggleStatus(account.id)}
+                            aria-label={`Toggle status for ${account.name}`}
+                          />
+                          <span
+                            className={`text-xs font-medium ${
+                              isActive
+                                ? "text-success"
+                                : "text-muted-foreground"
+                            }`}
                           >
-                            <MoreHorizontal className="size-4" />
-                          </DropdownMenuTrigger>
+                            {isActive ? "Active" : "Inactive"}
+                          </span>
+                        </div>
 
-                          <DropdownMenuContent align="end" className="w-40">
-                            <DropdownMenuItem onClick={() => onEdit(account)}>
-                              <Pencil />
-                              Edit
-                            </DropdownMenuItem>
-
-                            <DropdownMenuItem
-                              onClick={() => onDuplicate(account.id)}
+                        <div
+                          onClick={(event) => event.stopPropagation()}
+                          className="flex items-center gap-1"
+                        >
+                          <DropdownMenu>
+                            <DropdownMenuTrigger
+                              aria-label={`Actions for ${account.name}`}
+                              className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground"
                             >
-                              <Copy />
-                              Copy
-                            </DropdownMenuItem>
+                              <MoreHorizontal className="size-4" />
+                            </DropdownMenuTrigger>
 
-                            <DropdownMenuSeparator />
+                            <DropdownMenuContent align="end" className="w-40">
+                              <DropdownMenuItem onClick={() => onEdit(account)}>
+                                <Pencil />
+                                Edit
+                              </DropdownMenuItem>
 
-                            <DropdownMenuItem
-                              onClick={() => setDeleteTarget(account)}
-                              className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                            >
-                              <Trash2 />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                              <DropdownMenuItem
+                                onClick={() => onDuplicate(account.id)}
+                              >
+                                <Copy />
+                                Copy
+                              </DropdownMenuItem>
 
-                        <ChevronRight className="size-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                              <DropdownMenuSeparator />
+
+                              <DropdownMenuItem
+                                onClick={() => setDeleteTarget(account)}
+                                className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                              >
+                                <Trash2 />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+
+                          <ChevronRight className="size-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* EMPTY STATE */}
-            {filteredAccounts.length === 0 ? (
-              <div className="mt-4 rounded-xl border border-dashed border-border bg-muted/20">
-                <EmptyState
-                  title="No Team Members Found"
-                  description={
-                    hasActiveFilters
-                      ? "No accounts match the filters you have applied. Try adjusting or clearing the filters to see more results."
-                      : "No accounts yet. Click “Add New Account” to create your first team member."
-                  }
-                  action={
-                    hasActiveFilters ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={clearFilters}
-                        className="gap-1.5"
-                      >
-                        <SlidersHorizontal className="size-4" />
-                        Clear Filters
-                      </Button>
-                    ) : getRole !== "teacher" ? (
-                      <Button
-                        type="button"
-                        onClick={onAdd}
-                        className="gap-1.5"
-                      >
-                        <UserRoundPlus className="size-4" />
-                        Add New Account
-                      </Button>
-                    ) : null
-                  }
-                />
+                  );
+                })}
               </div>
-            ) : null}
 
-            {/* PAGINATION FOOTER */}
-
-            {filteredAccounts.length > 0 ? (
-              <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border bg-muted/25 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
-                {/* PAGE SIZE */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Rows</span>
-
-                  <ReusableSelect
-                    value={String(pageSize)}
-                    onChange={(value) => setPageSize(Number(value))}
-                    options={[
-                      { value: "5", label: "5" },
-                      { value: "10", label: "10" },
-                      { value: "25", label: "25" },
-                      { value: "50", label: "50" },
-                    ]}
-                    className="w-24"
+              {/* EMPTY STATE */}
+              {filteredAccounts.length === 0 ? (
+                <div className="mt-4 rounded-xl border border-dashed border-border bg-muted/20">
+                  <EmptyState
+                    title="No Team Members Found"
+                    description={
+                      hasActiveFilters
+                        ? "No accounts match the filters you have applied. Try adjusting or clearing the filters to see more results."
+                        : "No accounts yet. Click “Add New Account” to create your first team member."
+                    }
+                    action={
+                      hasActiveFilters ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={clearFilters}
+                          className="gap-1.5"
+                        >
+                          <SlidersHorizontal className="size-4" />
+                          Clear Filters
+                        </Button>
+                      ) : getRole !== "teacher" ? (
+                        <Button
+                          type="button"
+                          onClick={onAdd}
+                          className="gap-1.5"
+                        >
+                          <UserRoundPlus className="size-4" />
+                          Add New Account
+                        </Button>
+                      ) : null
+                    }
                   />
-
-                  <span className="text-xs text-muted-foreground">
-                    Showing{" "}
-                    <span className="font-medium text-foreground">
-                      {Math.min(
-                        (currentPage - 1) * pageSize + 1,
-                        filteredAccounts.length,
-                      )}
-                    </span>
-                    {" – "}
-                    <span className="font-medium text-foreground">
-                      {Math.min(
-                        currentPage * pageSize,
-                        filteredAccounts.length,
-                      )}
-                    </span>{" "}
-                    of {filteredAccounts.length}
-                  </span>
                 </div>
+              ) : null}
 
-                {/* PAGE NAVIGATION */}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={currentPage === 1}
-                    onClick={() =>
-                      setCurrentPage((page) => Math.max(1, page - 1))
-                    }
-                  >
-                    Previous
-                  </Button>
+              {/* PAGINATION FOOTER */}
 
-                  <div className="flex items-center gap-1">
-                    {pageNumbers.map((page) => (
-                      <Button
-                        key={page}
-                        type="button"
-                        size="sm"
-                        variant={page === currentPage ? "default" : "outline"}
-                        aria-label={`Go to page ${page}`}
-                        aria-current={page === currentPage ? "page" : undefined}
-                        onClick={() => setCurrentPage(page)}
-                        className="h-8 min-w-8 px-2"
-                      >
-                        {page}
-                      </Button>
-                    ))}
+              {filteredAccounts.length > 0 ? (
+                <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border bg-muted/25 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+                  {/* PAGE SIZE */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Rows</span>
+
+                    <ReusableSelect
+                      value={String(pageSize)}
+                      onChange={(value) => setPageSize(Number(value))}
+                      options={[
+                        { value: "5", label: "5" },
+                        { value: "10", label: "10" },
+                        { value: "25", label: "25" },
+                        { value: "50", label: "50" },
+                      ]}
+                      className="w-24"
+                    />
+
+                    <span className="text-xs text-muted-foreground">
+                      Showing{" "}
+                      <span className="font-medium text-foreground">
+                        {Math.min(
+                          (currentPage - 1) * pageSize + 1,
+                          filteredAccounts.length,
+                        )}
+                      </span>
+                      {" – "}
+                      <span className="font-medium text-foreground">
+                        {Math.min(
+                          currentPage * pageSize,
+                          filteredAccounts.length,
+                        )}
+                      </span>{" "}
+                      of {filteredAccounts.length}
+                    </span>
                   </div>
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={currentPage === totalPages}
-                    onClick={() =>
-                      setCurrentPage((page) => Math.min(totalPages, page + 1))
-                    }
-                  >
-                    Next
-                  </Button>
+                  {/* PAGE NAVIGATION */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage === 1}
+                      onClick={() =>
+                        setCurrentPage((page) => Math.max(1, page - 1))
+                      }
+                    >
+                      Previous
+                    </Button>
+
+                    <div className="flex items-center gap-1">
+                      {pageNumbers.map((page) => (
+                        <Button
+                          key={page}
+                          type="button"
+                          size="sm"
+                          variant={page === currentPage ? "default" : "outline"}
+                          aria-label={`Go to page ${page}`}
+                          aria-current={
+                            page === currentPage ? "page" : undefined
+                          }
+                          onClick={() => setCurrentPage(page)}
+                          className="h-8 min-w-8 px-2"
+                        >
+                          {page}
+                        </Button>
+                      ))}
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage === totalPages}
+                      onClick={() =>
+                        setCurrentPage((page) => Math.min(totalPages, page + 1))
+                      }
+                    >
+                      Next
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ) : null}
-          </>
-        )}
+              ) : null}
+            </>
+          )}
         </div>
       </article>
 
@@ -997,17 +1075,40 @@ const TeamPage = ({
       ================================= */}
 
       <Dialog open={isAddOpen} onOpenChange={onAddOpenChange}>
-        <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-hidden p-0">
+        <DialogContent
+          className={`w-[95vw] max-h-[90vh] overflow-hidden p-0 ${
+            isAdminEdit
+              ? "max-w-5xl border-indigo-200/80 shadow-2xl"
+              : "max-w-4xl"
+          }`}
+        >
           {/* HEADER */}
-          <DialogHeader className="border-b border-border px-6 py-5">
+          <DialogHeader
+            className={`border-b px-6 py-5 ${
+              isAdminEdit
+                ? "bg-gradient-to-r from-indigo-50 via-background to-cyan-50 dark:from-indigo-950/40 dark:via-background dark:to-cyan-950/30"
+                : "border-border"
+            }`}
+          >
             <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
-              {editingAccount ? "Edit Account" : "Create Account"}
+              {isAdminEdit && (
+                <span className="flex size-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
+                  <ShieldCheck className="size-5" />
+                </span>
+              )}
+              {editingAccount
+                ? isAdminEdit
+                  ? "Account workspace"
+                  : "Edit Account"
+                : "Create Account"}
             </DialogTitle>
 
             <DialogDescription className="text-sm text-muted-foreground">
-              {editingAccount
-                ? "Update this team member's account details."
-                : "Add a team member and configure their account access."}
+              {isAdminEdit
+                ? "Review and update this team member's profile and access details."
+                : editingAccount
+                  ? "Update this team member's account details."
+                  : "Add a team member and configure their account access."}
             </DialogDescription>
           </DialogHeader>
 
@@ -1018,258 +1119,405 @@ const TeamPage = ({
             className="flex max-h-[calc(90vh-145px)] flex-col overflow-hidden"
           >
             <div className="flex-1 overflow-y-auto px-6 py-5">
-              {/* ACCOUNT DETAILS */}
-              <section className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground">
-                    Account Details
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Enter the basic information for this team member.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2">
-                  {/* NAME */}
-                  <div className="space-y-1.5">
-                    <TextField
-                      label="Name"
-                      labelClassName="text-sm font-medium text-foreground"
-                      id="name"
-                      name="name"
-                      required
-                      value={subAccount?.name ?? ""}
-                      onChange={(event) =>
-                        handleSubAccountChange("name", event.target.value)
-                      }
-                      placeholder="e.g. Priya Sharma"
-                      autoComplete="off"
-                    />
-
-                    {formErrors?.name && (
-                      <p className="text-xs text-destructive">
-                        {formErrors.name}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* PHONE */}
-                  <div className="space-y-1.5">
-                    <TextField
-                      label="Phone Number"
-                      labelClassName="text-sm font-medium text-foreground"
-                      id="phone-number"
-                      required
-                      name="phoneNumber"
-                      value={subAccount?.phoneNumber ?? ""}
-                      onChange={(event) =>
-                        handleSubAccountChange(
-                          "phoneNumber",
-                          event.target.value,
-                        )
-                      }
-                      placeholder="e.g. 9876543210"
-                      autoComplete="off"
-                    />
-
-                    {formErrors?.phoneNumber && (
-                      <p className="text-xs text-destructive">
-                        {formErrors.phoneNumber}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* USERNAME */}
-                  <div className="space-y-1.5">
-                    <TextField
-                      label="Username"
-                      labelClassName="text-sm font-medium text-foreground"
-                      id="account-username"
-                      name="userName"
-                      value={subAccount?.userName ?? ""}
-                      onChange={(event) =>
-                        handleSubAccountChange("userName", event.target.value)
-                      }
-                      placeholder="e.g. priya.sharma"
-                      autoComplete="off"
-                    />
-
-                    {formErrors?.username && (
-                      <p className="text-xs text-destructive">
-                        {formErrors.username}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* PASSWORD */}
-                  {!editingAccount && (
-                    <div className="space-y-1.5">
-                      <div className="relative">
-                        <TextField
-                          label="Password"
-                          labelClassName="text-sm font-medium text-foreground"
-                          id="account-password"
-                          name="password"
-                          required
-                          type={showPassword ? "text" : "password"}
-                          value={subAccount?.password ?? ""}
-                          onChange={(event) =>
-                            handleSubAccountChange(
-                              "password",
-                              event.target.value,
-                            )
-                          }
-                          placeholder="Minimum 8 characters"
-                          autoComplete="new-password"
-                          className="pr-10"
-                        />
-
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword((value) => !value)}
-                          className="absolute right-2 top-8 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground
-                  "
-                          aria-label={
-                            showPassword ? "Hide password" : "Show password"
-                          }
-                        >
-                          {showPassword ? (
-                            <EyeOff className="size-4" />
-                          ) : (
-                            <Eye className="size-4" />
-                          )}
-                        </button>
+              {isAdminEdit && (
+                <section className="team-hero">
+                  <div className="team-hero__glow team-hero__glow--a" />
+                  <div className="team-hero__glow team-hero__glow--b" />
+                  <div className="team-hero__row">
+                    <div className="team-hero__who">
+                      <div className="team-hero__avatar">
+                        {getInitials(
+                          subAccount?.name || editingAccount?.name || "Account",
+                        )}
                       </div>
+                      <div className="team-hero__id">
+                        <p className="team-hero__eyebrow">
+                          Team Profile Center
+                        </p>
+                        <h3 className="team-hero__name">
+                          {subAccount?.name ||
+                            editingAccount?.name ||
+                            "Team member"}
+                        </h3>
+                        <p className="team-hero__sub">
+                          {subAccount?.email ||
+                            subAccount?.userName ||
+                            "Edit account profile and assignments"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="team-hero__pill">
+                      <ShieldCheck className="size-4" />
+                      {getAccountRoleLabel(subAccount ?? editingAccount) || "Administrator view"}
+                    </div>
+                  </div>
+                  <div className="team-hero__meta">
+                    <div>
+                      <p className="team-hero__meta-label">Username</p>
+                      <p className="team-hero__meta-value">
+                        {subAccount?.userName || "Not provided"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Phone number
+                      </p>
+                      <p className="mt-1 truncate font-medium text-foreground">
+                        {subAccount?.phoneNumber || "Not provided"}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+              )}
 
-                      {formErrors?.password && (
+              {!isAdminEdit && (
+                <section className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">
+                      Account Details
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      Enter the basic information for this team member.
+                    </p>
+                  </div>
+                  {/* ACCOUNT DETAILS FORM */}
+                  {!editingAccount && (
+                  <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2">
+                    {/* NAME */}
+                    <div className="space-y-1.5">
+                      <TextField
+                        label="Name"
+                        labelClassName="text-sm font-medium text-foreground"
+                        id="name"
+                        name="name"
+                        required
+                        value={subAccount?.name ?? ""}
+                        onChange={(event) =>
+                          handleSubAccountChange("name", event.target.value)
+                        }
+                        placeholder="e.g. Priya Sharma"
+                        autoComplete="off"
+                      />
+
+                      {formErrors?.name && (
                         <p className="text-xs text-destructive">
-                          {formErrors.password}
+                          {formErrors.name}
                         </p>
                       )}
                     </div>
-                  )}
-                  {!editingAccount && (
+
+                    {/* PHONE */}
                     <div className="space-y-1.5">
-                      <div className="relative">
-                        <TextField
-                          label="Confirm Password"
-                          labelClassName="text-sm font-medium text-foreground"
-                          id="account-confirm-password"
-                          name="password_confirmation"
-                          required
-                          type={showConfirmPassword ? "text" : "password"}
-                          value={subAccount?.password_confirmation ?? ""}
-                          onChange={(event) =>
-                            handleSubAccountChange(
-                              "password_confirmation",
-                              event.target.value,
-                            )
-                          }
-                          placeholder="Re-enter password"
-                          autoComplete="new-password"
-                          className="pr-10"
-                        />
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setShowConfirmPassword((value) => !value)
-                          }
-                          className="absolute right-2 top-8 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                          aria-label={
-                            showConfirmPassword
-                              ? "Hide confirm password"
-                              : "Show confirm password"
-                          }
-                        >
-                          {showConfirmPassword ? (
-                            <EyeOff className="size-4" />
-                          ) : (
-                            <Eye className="size-4" />
-                          )}
-                        </button>
-                      </div>
-
-                      {/* Live match feedback — only once the user has typed
-                          something, so it never nags on an empty field. */}
-                      {passwordConfirmation ? (
-                        passwordsMatch ? (
-                          <p className="flex items-center gap-1 text-xs text-success">
-                            <CircleCheck className="size-3.5" aria-hidden="true" />
-                            Passwords match
-                          </p>
-                        ) : (
-                          <p className="text-xs text-destructive">
-                            Passwords do not match
-                          </p>
-                        )
-                      ) : formErrors?.password_confirmation ? (
-                        <p className="text-xs text-destructive">
-                          {formErrors.password_confirmation}
-                        </p>
-                      ) : null}
-                    </div>
-                  )}
-                </div>
-              </section>
-
-              {/* ACCESS DETAILS */}
-              <section className="mt-7 space-y-4">
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground">
-                    Access & Assignment
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Select the user&rsquo;s role and assign them to a branch.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2">
-                  {/* USER TYPE */}
-                  <div className="space-y-1.5">
-                    <div>
-                      <ReusableSelect
+                      <TextField
+                        label="Phone Number"
+                        labelClassName="text-sm font-medium text-foreground"
+                        id="phone-number"
                         required
-                        label="User Type"
-                        withPortal
-                        value={subAccount?.user_type_id ?? ""}
-                        onChange={(value) =>
-                          handleSubAccountChange("user_type_id", value)
+                        name="phoneNumber"
+                        value={subAccount?.phoneNumber ?? ""}
+                        onChange={(event) =>
+                          handleSubAccountChange(
+                            "phoneNumber",
+                            event.target.value,
+                          )
                         }
-                        options={USER_TYPE_OPTIONS}
-                        placeholder="Select user type"
+                        placeholder="e.g. 9876543210"
+                        autoComplete="off"
                       />
+
+                      {formErrors?.phoneNumber && (
+                        <p className="text-xs text-destructive">
+                          {formErrors.phoneNumber}
+                        </p>
+                      )}
                     </div>
-                    {formErrors?.user_type_id && (
-                      <p className="text-xs text-destructive">
-                        {formErrors.user_type_id}
-                      </p>
+
+                    {/* USERNAME */}
+                    <div className="space-y-1.5">
+                      <TextField
+                        label="Username"
+                        labelClassName="text-sm font-medium text-foreground"
+                        id="account-username"
+                        name="userName"
+                        value={subAccount?.userName ?? ""}
+                        onChange={(event) =>
+                          handleSubAccountChange("userName", event.target.value)
+                        }
+                        placeholder="e.g. priya.sharma"
+                        autoComplete="off"
+                      />
+
+                      {formErrors?.username && (
+                        <p className="text-xs text-destructive">
+                          {formErrors.username}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <TextField
+                        label="Email"
+                        labelClassName="text-sm font-medium text-foreground"
+                        id="account-email"
+                        name="email"
+                        value={subAccount?.email ?? ""}
+                        onChange={(event) =>
+                          handleSubAccountChange("email", event.target.value)
+                        }
+                        placeholder="e.g. priya.sharma@example.com"
+                        autoComplete="off"
+                      />
+
+                      {formErrors?.email && (
+                        <p className="text-xs text-destructive">
+                          {formErrors.email}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* PASSWORD */}
+                    {!editingAccount && (
+                      <div className="space-y-1.5">
+                        <div className="relative">
+                          <TextField
+                            label="Password"
+                            labelClassName="text-sm font-medium text-foreground"
+                            id="account-password"
+                            name="password"
+                            required
+                            type={showPassword ? "text" : "password"}
+                            value={subAccount?.password ?? ""}
+                            onChange={(event) =>
+                              handleSubAccountChange(
+                                "password",
+                                event.target.value,
+                              )
+                            }
+                            placeholder="Minimum 8 characters"
+                            autoComplete="new-password"
+                            className="pr-10"
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword((value) => !value)}
+                            className="absolute right-2 top-8 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground
+                  "
+                            aria-label={
+                              showPassword ? "Hide password" : "Show password"
+                            }
+                          >
+                            {showPassword ? (
+                              <EyeOff className="size-4" />
+                            ) : (
+                              <Eye className="size-4" />
+                            )}
+                          </button>
+                        </div>
+
+                        {formErrors?.password && (
+                          <p className="text-xs text-destructive">
+                            {formErrors.password}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {!editingAccount && (
+                      <div className="space-y-1.5">
+                        <div className="relative">
+                          <TextField
+                            label="Confirm Password"
+                            labelClassName="text-sm font-medium text-foreground"
+                            id="account-confirm-password"
+                            name="password_confirmation"
+                            required
+                            type={showConfirmPassword ? "text" : "password"}
+                            value={subAccount?.password_confirmation ?? ""}
+                            onChange={(event) =>
+                              handleSubAccountChange(
+                                "password_confirmation",
+                                event.target.value,
+                              )
+                            }
+                            placeholder="Re-enter password"
+                            autoComplete="new-password"
+                            className="pr-10"
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowConfirmPassword((value) => !value)
+                            }
+                            className="absolute right-2 top-8 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                            aria-label={
+                              showConfirmPassword
+                                ? "Hide confirm password"
+                                : "Show confirm password"
+                            }
+                          >
+                            {showConfirmPassword ? (
+                              <EyeOff className="size-4" />
+                            ) : (
+                              <Eye className="size-4" />
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Live match feedback — only once the user has typed
+                          something, so it never nags on an empty field. */}
+                        {passwordConfirmation ? (
+                          passwordsMatch ? (
+                            <p className="flex items-center gap-1 text-xs text-success">
+                              <CircleCheck
+                                className="size-3.5"
+                                aria-hidden="true"
+                              />
+                              Passwords match
+                            </p>
+                          ) : (
+                            <p className="text-xs text-destructive">
+                              Passwords do not match
+                            </p>
+                          )
+                        ) : formErrors?.password_confirmation ? (
+                          <p className="text-xs text-destructive">
+                            {formErrors.password_confirmation}
+                          </p>
+                        ) : null}
+                      </div>
                     )}
                   </div>
 
-                  {/* BRANCH */}
-                  <div className="space-y-1.5">
-                    <ReusableSelect
-                      label="Branch"
-                      required
-                      withPortal
-                      value={subAccount?.branchId ?? ""}
-                      onChange={(value) =>
-                        handleSubAccountChange("branchId", value)
-                      }
-                      options={subAccountBranchOptions}
-                      placeholder="Select branch"
-                    />
-
-                    {formErrors?.branchId && (
-                      <p className="text-xs text-destructive">
-                        {formErrors.branchId}
+                  )}
+                  {editingAccount && (
+                    <section className="team-hero">
+                  <div className="team-hero__glow team-hero__glow--a" />
+                  <div className="team-hero__glow team-hero__glow--b" />
+                  <div className="team-hero__row">
+                    <div className="team-hero__who">
+                      <div className="team-hero__avatar">
+                        {getInitials(
+                          subAccount?.name || editingAccount?.name || "Account",
+                        )}
+                      </div>
+                      <div className="team-hero__id">
+                        <p className="team-hero__eyebrow">
+                          Team Profile Center
+                        </p>
+                        <h3 className="team-hero__name">
+                          {subAccount?.name ||
+                            editingAccount?.name ||
+                            "Team member"}
+                        </h3>
+                        <p className="team-hero__sub">
+                          {subAccount?.email ||
+                            subAccount?.userName ||
+                            "Edit account profile and assignments"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="team-hero__pill">
+                      <ShieldCheck className="size-4" />
+                      {getAccountRoleLabel(subAccount ?? editingAccount) || "Administrator view"}
+                    </div>
+                  </div>
+                  <div className="team-hero__meta">
+                    <div>
+                      <p className="team-hero__meta-label">Username</p>
+                      <p className="team-hero__meta-value">
+                        {subAccount?.userName || "Not provided"}
                       </p>
-                    )}
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Phone number
+                      </p>
+                      <p className="mt-1 truncate font-medium text-foreground">
+                        {subAccount?.phoneNumber || "Not provided"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Email
+                      </p>
+                      <p className="mt-1 truncate font-medium text-foreground">
+                        {subAccount?.email || "Not provided"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Branch
+                      </p>
+                      <p className="mt-1 truncate font-medium text-foreground">
+                        {subAccount?.branchId || "Not provided"}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+                  )}
+                </section>
+              )}
+
+              {!isAdminEdit && (
+                <section className="mt-7 space-y-4">
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">
+                      Access & Assignment
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      Select the user&rsquo;s role and assign them to a branch.
+                    </p>
                   </div>
 
-                  {/* PRIVILEGES â€” required for all user types except type 1 */}
-                  {/* {String(subAccount?.usertypeId ?? "").trim() !== "1" && (
+                  <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2">
+                    {/* USER TYPE */}
+                    <div className="space-y-1.5">
+                      <div>
+                        <ReusableSelect
+                          required
+                          label="User Type"
+                          withPortal
+                          readOnly
+                          value={subAccount?.user_type_id ?? ""}
+                          onChange={(value) =>
+                            handleSubAccountChange("user_type_id", value)
+                          }
+                          options={USER_TYPE_OPTIONS}
+                          placeholder="Select user type"
+                        />
+                      </div>
+                      {formErrors?.user_type_id && (
+                        <p className="text-xs text-destructive">
+                          {formErrors.user_type_id}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* BRANCH */}
+                    <div className="space-y-1.5">
+                      <ReusableSelect
+                        label="Branch"
+                        required
+                        withPortal
+                        readOnly
+                        value={subAccount?.branchId ?? ""}
+                        onChange={(value) =>
+                          handleSubAccountChange("branchId", value)
+                        }
+                        options={subAccountBranchOptions}
+                        placeholder="Select branch"
+                      />
+
+                      {formErrors?.branchId && (
+                        <p className="text-xs text-destructive">
+                          {formErrors.branchId}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* PRIVILEGES â€” required for all user types except type 1 */}
+                    {/* {String(subAccount?.usertypeId ?? "").trim() !== "1" && (
                     <div className="space-y-1.5">
                       <ReusableSelect
                         label="Privileges"
@@ -1289,11 +1537,101 @@ const TeamPage = ({
                       )}
                     </div>
                   )} */}
-                </div>
-              </section>
+                  </div>
+                </section>
+              )}
 
               {/* CLASS & SECTION */}
-              {authAccName?.user_type_id !== 1 && (
+              {isAdminEdit ? (
+                <section className="mt-7">
+                  <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-semibold text-foreground">
+                        Class & Section Privileges
+                      </h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Read-only overview of the classes and sections assigned
+                        to this account.
+                      </p>
+                    </div>
+                    {!isLoadingPrivileges &&
+                      adminPrivilegeGroups.length > 0 && (
+                        <span className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-300">
+                          {adminPrivilegeGroups.length}{" "}
+                          {adminPrivilegeGroups.length === 1
+                            ? "class"
+                            : "classes"}
+                        </span>
+                      )}
+                  </div>
+
+                  {isLoadingPrivileges ? (
+                    <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 p-5 text-sm text-muted-foreground">
+                      <Loader2 className="size-4 animate-spin" />
+                      Loading saved privileges…
+                    </div>
+                  ) : adminPrivilegeGroups.length > 0 ? (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {adminPrivilegeGroups.map(({ className, sections }) => (
+                        <article
+                          key={className}
+                          className="rounded-xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/70 p-4 shadow-sm dark:border-indigo-900/60 dark:from-card dark:to-indigo-950/30"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5">
+                              <span className="flex size-9 items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white shadow-sm">
+                                {className}
+                              </span>
+                              <div>
+                                <p className="text-sm font-semibold text-foreground">
+                                  Class {className}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {sections.length}{" "}
+                                  {sections.length === 1
+                                    ? "section"
+                                    : "sections"}
+                                </p>
+                              </div>
+                            </div>
+                            <ShieldCheck
+                              className="size-4 text-indigo-500"
+                              aria-hidden="true"
+                            />
+                          </div>
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {sections.length > 0 ? (
+                              sections.map((section) => (
+                                <span
+                                  key={`${className}-${section}`}
+                                  className="inline-flex min-w-9 items-center justify-center rounded-full border border-indigo-200 bg-white px-3 py-1 text-sm font-semibold text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-200"
+                                >
+                                  {section}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                No section assigned
+                              </span>
+                            )}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-border bg-muted/20 px-5 py-8 text-center">
+                      <ShieldCheck className="mx-auto size-8 text-muted-foreground/60" />
+                      <p className="mt-2 text-sm font-medium text-foreground">
+                        No class or section privileges
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        There are no saved class and section assignments for
+                        this account.
+                      </p>
+                    </div>
+                  )}
+                </section>
+              ) : authAccName?.user_type_id !== 1 ? (
                 <section className="mt-7">
                   <div className="mb-4">
                     <h3 className="text-sm font-semibold text-foreground">
@@ -1312,7 +1650,13 @@ const TeamPage = ({
                     </div>
                   ) : null}
 
-                  <div className={isLoadingPrivileges ? "pointer-events-none opacity-60" : undefined}>
+                  <div
+                    className={
+                      isLoadingPrivileges
+                        ? "pointer-events-none opacity-60"
+                        : undefined
+                    }
+                  >
                     <ClassSectionManager
                       getSchoolBranch={getSchoolBranch}
                       subAccountBranch={subAccountBranch}
@@ -1323,31 +1667,33 @@ const TeamPage = ({
                   {/* <div className="rounded-lg border border-border bg-muted/20 p-4">
           </div> */}
                 </section>
-              )}
+              ) : null}
             </div>
 
             {/* FOOTER */}
-            <DialogFooter className="shrink-0 border-t border-border bg-background px-6 py-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onAddOpenChange(false)}
-                disabled={isSaving}
-              >
-                <X className="size-4" />
-                Cancel
-              </Button>
+            {!isAdminEdit && (
+              <DialogFooter className="shrink-0 border-t border-border bg-background px-6 py-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onAddOpenChange(false)}
+                  disabled={isSaving}
+                >
+                  <X className="size-4" />
+                  Cancel
+                </Button>
 
-              <Button type="submit" disabled={isSaving}>
-                <CirclePlus className="size-4" />
+                <Button type="submit" disabled={isSaving}>
+                  <CirclePlus className="size-4" />
 
-                {isSaving
-                  ? "Saving..."
-                  : editingAccount
-                    ? "Save Changes"
-                    : "Create Account"}
-              </Button>
-            </DialogFooter>
+                  {isSaving
+                    ? "Saving..."
+                    : editingAccount
+                      ? "Save Changes"
+                      : "Create Account"}
+                </Button>
+              </DialogFooter>
+            )}
           </form>
         </DialogContent>
       </Dialog>

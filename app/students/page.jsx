@@ -63,7 +63,11 @@ function StudentsList() {
   const viewMode = searchParams.get("view") ?? "card";
 
   const requestedLimit = Number(searchParams.get("limit"));
-  const isTableView = tableView === "table";
+  // Single source of truth for "table vs cards": the global appearance
+  // `tableView` setting. The URL `view` param is legacy — honour it only when
+  // it explicitly says "table", so the table (and its pagination footer)
+  // can't silently disappear when the two flags disagree.
+  const isTableView = tableView === "table" || viewMode === "table";
   const limit = PAGE_SIZE_OPTIONS.includes(requestedLimit)
     ? requestedLimit
     : isTableView
@@ -636,7 +640,7 @@ function StudentsList() {
       <div className="relative mb-0 min-w-0 min-h-[clamp(16rem,55dvh,42rem)]">
         {isInitialLoading ? (
           <TableSkeleton rows={limit} cols={8} />
-        ) : tableView === "table" ? (
+        ) : isTableView ? (
           <StudentsDataTable
             data={rows}
             backQuery={searchParams.toString()}
@@ -648,7 +652,7 @@ function StudentsList() {
             pageSizeOptions={PAGE_SIZE_OPTIONS}
             onPageChange={setPage}
             onPageSizeChange={setLimit}
-            isLoading={isInitialLoading}
+            isLoading={loading || isFetching}
           />
         ) : (
           <StudentsCards

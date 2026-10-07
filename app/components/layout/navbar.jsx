@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ThemeToggle } from "./themeToggle";
+import { ROLE_LABELS } from "@/lib/user-role";
 
 export function Navbar({ title = "Dashboard", sticky = true }) {
   const router = useRouter();
@@ -18,6 +19,10 @@ export function Navbar({ title = "Dashboard", sticky = true }) {
   const userInitials = displayName
     .split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "S";
   const signedInRole = authUser?.role || "User";
+  console.log(authUser,"signedInRole");
+  const getRole = ROLE_LABELS[signedInRole?.toLowerCase()] || signedInRole;
+  console.log(getRole,"ROLE_LABELS");
+  
 
   const handleLogout = () => {
     dispatch(clearAuthSession());
@@ -32,8 +37,6 @@ export function Navbar({ title = "Dashboard", sticky = true }) {
     <header
       className={cn(
         "flex h-16 items-center gap-4 border-none border-border bg-background/80 px-4 backdrop-blur supports-backdrop-filter:bg-background/60 sm:px-6",
-        // In top-nav mode the TopNav bar already sticks to the viewport, so a
-        // second sticky header would stack underneath it.
         sticky && "sticky top-0 z-40",
       )}
     >
@@ -79,7 +82,7 @@ export function Navbar({ title = "Dashboard", sticky = true }) {
           <PopoverContent align="end" className="z-70 w-56 p-2">
             <div onClick={handleSetting} className="mb-2 border-b border-border px-2 pb-2 cursor-pointer">
               <p suppressHydrationWarning className="text-sm font-semibold text-foreground">{displayName}</p>
-              <p suppressHydrationWarning className="text-xs text-muted-foreground">{signedInRole} account</p>
+              <p suppressHydrationWarning className="text-xs text-muted-foreground">{getRole} account</p>
             </div>
 
             <Button

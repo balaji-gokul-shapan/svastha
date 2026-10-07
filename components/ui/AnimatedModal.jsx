@@ -1,11 +1,14 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
 import { Button } from "./button";
 import { cn } from "../../lib/utils";
+
+const subscribeNoop = () => () => {};
 
 const overlayVariants = {
   hidden: { opacity: 0 },
@@ -28,6 +31,12 @@ function AnimatedModal({
   closeOnOverlayClick = true,
   ariaLabel = "Dialog",
 }) {
+  const portalContainer = React.useSyncExternalStore(
+    subscribeNoop,
+    () => document.body,
+    () => null
+  );
+
   React.useEffect(() => {
     if (!open) return undefined;
 
@@ -41,7 +50,9 @@ function AnimatedModal({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [open, onClose]);
 
-  return (
+  if (!portalContainer) return null;
+
+  return createPortal(
     <AnimatePresence>
       {open ? (
         <motion.div
@@ -52,8 +63,8 @@ function AnimatedModal({
           )}
           role="dialog"
           aria-modal="true"
-            aria-label={ariaLabel}
-            variants={overlayVariants}
+          aria-label={ariaLabel}
+          variants={overlayVariants}
           initial="hidden"
           animate="visible"
           exit="hidden"
@@ -102,7 +113,8 @@ function AnimatedModal({
           </motion.div>
         </motion.div>
       ) : null}
-    </AnimatePresence>
+    </AnimatePresence>,
+    portalContainer
   );
 }
 

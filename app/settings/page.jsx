@@ -608,6 +608,7 @@ import {
 import { setReportField } from "@/lib/features/reportSettingsSlice";
 import dynamic from "next/dynamic";
 
+import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import { Settings } from "lucide-react";
 import {
@@ -668,7 +669,6 @@ const buildPrivilegesPayload = (value) => {
   let entries;
 
   if (Array.isArray(value)) {
-
     const looksLikeClassSectionObjects =
       value.length > 0 &&
       value.every(
@@ -869,6 +869,7 @@ const Page = () => {
   }, []);
 
   const profileInputRef = useRef(null);
+  
 
   const [profileImageFile, setProfileImageFile] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
@@ -894,8 +895,7 @@ const Page = () => {
     name: profileName,
     username: profileUsername,
     password: "********",
-    phoneNumber:
-      authUser?.phone_number ?? account?.phone_number ?? "",
+    phoneNumber: authUser?.phone_number ?? account?.phone_number ?? "",
     email: profileEmail,
   });
 
@@ -1336,6 +1336,7 @@ const Page = () => {
     branchId: "",
     previleges: "",
     password_confirmation: "",
+    email: "",
   });
   console.log(subAccount, "subAccount");
 
@@ -1370,6 +1371,7 @@ const Page = () => {
       user_type_id: "",
       branchId: "",
       previleges: "",
+      email: "",
       password_confirmation: "",
     });
     setShowPassword(false);
@@ -1392,6 +1394,7 @@ const Page = () => {
       branchId: account.branchId || "",
       previleges: account.previleges || "",
       password_confirmation: "",
+      email: account.email || "",
     });
     setShowPassword(false);
     setFormErrors({});
@@ -1582,6 +1585,7 @@ const Page = () => {
     const phoneNumber = (subAccount.phoneNumber || "").trim();
     const password = subAccount.password || "";
     const passwordConfirmation = subAccount.password_confirmation || "";
+    const email = (subAccount.email || "").trim();
     // Keep RAW for zod validation — Number("") becomes 0, which slips past
     // the "required" refine and reaches the backend as undefined.
     const usertypeId = subAccount.user_type_id ?? "";
@@ -1604,6 +1608,7 @@ const Page = () => {
       name,
       userName,
       phoneNumber,
+      email,
       password,
       password_confirmation: passwordConfirmation,
       branchId,
@@ -1650,8 +1655,8 @@ const Page = () => {
       console.log(previlegesResult, "subAccountresult");
 
       const apiId = editingAccount?.apiId ?? editingAccount?.id ?? null;
+      
 
-      // Local-only (seed/demo) rows have no API id - update locally, skip API.
       if (apiId == null || apiId === "") {
         setAccounts((prev) =>
           prev.map((account) =>
@@ -1713,7 +1718,7 @@ const Page = () => {
           password,
           user_type_id: Number(usertypeId) || undefined,
           branch_id: Number(branchId) || undefined,
-
+          email,
           ...(password && !editingAccount
             ? { password_confirmation: passwordConfirmation }
             : {}),
@@ -1764,6 +1769,7 @@ const Page = () => {
     setDeleteTarget(null);
   };
 
+
   const renderActiveTab = () => {
     switch (activeTab) {
       case "appearance":
@@ -1794,6 +1800,7 @@ const Page = () => {
       case "my-details":
         return (
           <MyDetailsPage
+            profileInputRef={profileInputRef}
             profileImageFile={profileImageFile}
             setProfileImageFile={setProfileImageFile}
             clearProfileImage={clearProfileImage}
@@ -1890,6 +1897,7 @@ const Page = () => {
             deleteTarget={deleteTarget}
             setDeleteTarget={setDeleteTarget}
             onConfirmDelete={handleConfirmDelete}
+            getRole={getRole}
           />
         );
     }
@@ -1913,7 +1921,19 @@ const Page = () => {
           <h1 className="text-2xl font-bold text-foreground">Settings</h1>
         </div>
 
-        {renderActiveTab()}
+        {/* Animated tab switch: keyed by activeTab so each aside change
+            fades + slides the new panel in; mode="wait" prevents overlap. */}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.28, ease: [0.22, 0.61, 0.36, 1] }}
+          >
+            {renderActiveTab()}
+          </motion.div>
+        </AnimatePresence>
       </div>
       {/* {renderActiveTab()} */}
     </div>

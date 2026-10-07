@@ -4,6 +4,7 @@ import { isValidElement, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {
   getCampId,
+  getCampDate,
   getScreeningKeys,
   getCampPrimaryDoctorId,
   isScreeningKeyAssigned,
@@ -16,6 +17,7 @@ import {
   Cake,
   Calendar,
   CalendarCheck,
+  Clock,
   Check,
   CheckCircle2,
   Copy,
@@ -24,6 +26,7 @@ import {
   Eye,
   IdCard,
   IdCardLanyard,
+  MapPin,
   Mars,
   School,
   Syringe,
@@ -95,7 +98,9 @@ function CopyableInfo({
         <h6 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           {label}
         </h6>
-        <p className={`truncate text-xs font-bold tracking-wide ${valueClass}`}>{value}</p>
+        <p className={`truncate text-xs font-bold tracking-wide ${valueClass}`}>
+          {value}
+        </p>
       </div>
       {hasCopy ? (
         <button
@@ -113,6 +118,52 @@ function CopyableInfo({
         </button>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Compact inline credential chip — renders a value (UHID, registration number)
+ * in mono with a one-click copy button. The button is flagged `data-pdf-hide`
+ * so the exported PDF keeps a clean, static chip.
+ */
+function CopyChip({ value, label, className = "" }) {
+  const [copied, setCopied] = useState(false);
+  const text = String(value ?? "").trim();
+
+  if (!text || text === "--") return null;
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      toast.success(`${label} copied`, { description: text });
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast.error(`Could not copy ${label}`);
+    }
+  };
+
+  return (
+    <span
+      className={cn(
+        "report-doc__chip inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 align-middle font-mono text-[11px] font-semibold",
+        className,
+      )}
+    >
+      {text}
+      <button
+        type="button"
+        onClick={handleCopy}
+        aria-label={`Copy ${label}`}
+        data-pdf-hide
+        className={cn(
+          "report-doc__chip-button flex size-4 items-center justify-center rounded transition-colors",
+          copied && "report-doc__chip-button--done",
+        )}
+      >
+        {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+      </button>
+    </span>
   );
 }
 
@@ -300,7 +351,7 @@ function StatusCard({
             {details.map(([label, value]) => (
               <div key={label} className="status-card__row">
                 <dt className="status-card__label">{label}</dt>
-                <dd className="status-card__value">{value}</dd>
+                <dd className="status-card__value capitalize">{value}</dd>
               </div>
             ))}
           </dl>
@@ -363,7 +414,10 @@ function MobileReportCard({ area, finding, remark, showRemarks = true }) {
 
 function formatDateTime(date) {
   if (!date) return "--";
-  return new Date(date).toLocaleString("en-IN", {
+  const parsedDate = new Date(date);
+  if (Number.isNaN(parsedDate.getTime())) return "--";
+
+  return parsedDate.toLocaleString("en-IN", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -430,6 +484,7 @@ export default function HealthCheckContent({
   camp,
   assignedScreeningIds = [],
   activeEvent,
+  primaryDoctorDetails,
 }) {
   const dispatch = useDispatch();
   const employeeFullName = useAppSelector(selectEmployeeFullName);
@@ -444,7 +499,7 @@ export default function HealthCheckContent({
     [authUser, selectUser],
   );
   console.log(authUser, "authUser");
-  console.log(employeeFullName, "employeeFullName");
+  console.log(primaryDoctorDetails, "primaryDoctorDetails");
 
   console.log(selectUser, "ldii");
   const reportRef = useRef(null);
@@ -462,10 +517,7 @@ export default function HealthCheckContent({
   if (signatureError) {
     console.warn("[HealthCheckContent] Doctor signature:", signatureError);
   }
-  console.log(branchProp, "dsdsdsdd");
   const DoctorDetails = selectUser?.branch ?? selectUser;
-  console.log(assignedScreeningIds, "wwwwwassignedScreeningIds");
-
   const signatoryName = useMemo(() => {
     const candidates = [
       DoctorDetails?.name ?? DoctorDetails?.label,
@@ -580,16 +632,32 @@ export default function HealthCheckContent({
   const schoolAddress = {
     address_line_1:
       String(
-        selectedSchool?.address_line_1 ?? selectedSchool?.address_line1 ?? activeEvent?.branch?.address_line_1 ?? "",
+        selectedSchool?.address_line_1 ??
+          selectedSchool?.address_line1 ??
+          activeEvent?.branch?.address_line_1 ??
+          "",
       ).trim() || null,
     address_line_2:
       String(
-        selectedSchool?.address_line_2 ?? selectedSchool?.address_line2 ?? activeEvent?.branch?.address_line_2 ?? "",
+        selectedSchool?.address_line_2 ??
+          selectedSchool?.address_line2 ??
+          activeEvent?.branch?.address_line_2 ??
+          "",
       ).trim() || null,
-    area: String(selectedSchool?.area ?? activeEvent?.branch?.area ?? "").trim() || null,
-    city: String(selectedSchool?.city ?? activeEvent?.branch?.city ?? "").trim() || null,
-    state: String(selectedSchool?.state ?? activeEvent?.branch?.state ?? "").trim() || null,
-    country: String(selectedSchool?.country ?? activeEvent?.branch?.country ?? "").trim() || null,
+    area:
+      String(selectedSchool?.area ?? activeEvent?.branch?.area ?? "").trim() ||
+      null,
+    city:
+      String(selectedSchool?.city ?? activeEvent?.branch?.city ?? "").trim() ||
+      null,
+    state:
+      String(
+        selectedSchool?.state ?? activeEvent?.branch?.state ?? "",
+      ).trim() || null,
+    country:
+      String(
+        selectedSchool?.country ?? activeEvent?.branch?.country ?? "",
+      ).trim() || null,
     pincode:
       String(
         selectedSchool?.pincode ??
@@ -600,7 +668,10 @@ export default function HealthCheckContent({
       ).trim() || null,
     registration_number:
       String(
-        selectedSchool?.registration_number ?? selectedSchool?.reg_no ?? activeEvent?.branch?.registration_number ?? "",
+        selectedSchool?.registration_number ??
+          selectedSchool?.reg_no ??
+          activeEvent?.branch?.registration_number ??
+          "",
       ).trim() || null,
   };
   console.log(schoolAddress, "schoolAddress");
@@ -616,6 +687,39 @@ export default function HealthCheckContent({
   ]
     .filter(Boolean)
     .join(", ");
+
+  const campLocationText =
+    [
+      activeEvent?.branch?.area ??
+      activeEvent?.school?.area ??
+        activeEvent?.area ??
+        camp?.school?.area ??
+        camp?.area,
+      activeEvent?.school?.city ??
+        activeEvent?.city ??
+        camp?.school?.city ??
+        camp?.city,
+      activeEvent?.school?.state ??
+        activeEvent?.state ??
+        camp?.school?.state ??
+        camp?.state,
+    ]
+      .filter(Boolean)
+      .join(", ") ||
+    activeEvent?.location ||
+    camp?.location ||
+    "";
+    console.log(camp,"activeEvent");
+    
+  const reportCampDate = formatCampDate(
+    getCampDate(activeEvent) || getCampDate(camp) || camp?.date,
+  );
+  const campUpdatedAt = formatDateTime(
+    activeEvent?.updated_at ??
+      activeEvent?.updatedAt ??
+      student?.updated_at ??
+      student?.updatedAt,
+  );
 
   const classValue = student?.class ?? student?.Class ?? "--";
   const sectionValue = student?.sec ?? student?.section ?? "--";
@@ -1343,7 +1447,10 @@ export default function HealthCheckContent({
                 <div className="relative flex shrink-0 justify-start sm:justify-center">
                   <div className="report-doc__photo flex h-32 w-28 items-center justify-center overflow-hidden text-center">
                     {/* soft ring behind the photo for depth */}
-                    <span aria-hidden="true" className="pointer-events-none absolute -inset-1 rounded-2xl bg-gradient-to-br from-primary/15 via-transparent to-success/15" />
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute -inset-1 rounded-2xl bg-gradient-to-br from-primary/15 via-transparent to-success/15"
+                    />
                     {studentPhoto ? (
                       <Image
                         src={studentPhoto}
@@ -1372,7 +1479,10 @@ export default function HealthCheckContent({
                     <h2 className="min-w-0 flex-1 basis-48 wrap-break-word text-2xl font-extrabold uppercase leading-tight tracking-wide text-foreground">
                       {studentName}
                     </h2>
-                    <span className="hidden h-1 w-16 shrink-0 rounded-full bg-gradient-to-r from-primary to-success sm:block" aria-hidden="true" />
+                    <span
+                      className="hidden h-1 w-16 shrink-0 rounded-full bg-gradient-to-r from-primary to-success sm:block"
+                      aria-hidden="true"
+                    />
                   </div>
                   <div className="flex w-full flex-row items-center justify-between gap-2 pb-1">
                     <div className="flex flex-row items-center gap-2">
@@ -1480,75 +1590,128 @@ export default function HealthCheckContent({
                   icon={CalendarCheck}
                 />
               </div>
+              <div className="report-doc__meta" aria-label="Camp information">
+                <span className="report-doc__field">
+                  <span className="report-doc__field-icon-wrap">
+                    <Calendar
+                      className="report-doc__field-icon"
+                      aria-hidden="true"
+                    />
+                  </span>
+                  <span className="report-doc__field-copy flex">
+                    <span className="report-doc__field-label">Camp date {" "}</span>
+                    <span className="report-doc__field-value">
+                      {reportCampDate || "Not available"}
+                    </span>
+                  </span>
+                </span>
+
+                <span className="report-doc__field">
+                  <span className="report-doc__field-icon-wrap report-doc__field-icon-wrap--updated">
+                    <Clock
+                      className="report-doc__field-icon"
+                      aria-hidden="true"
+                    />
+                  </span>
+                  <span className="report-doc__field-copy">
+                    <span className="report-doc__field-label">
+                      Last updated {" "}
+                    </span>
+                    <span className="report-doc__field-value">
+                      {campUpdatedAt}
+                    </span>
+                  </span>
+                </span>
+
+                <span className="report-doc__field">
+                  <span className="report-doc__field-icon-wrap report-doc__field-icon-wrap--location">
+                    <MapPin
+                      className="report-doc__field-icon"
+                      aria-hidden="true"
+                    />
+                  </span>
+                  <span className="report-doc__field-copy">
+                    <span className="report-doc__field-label">Location {" "}</span>
+                    <span className="report-doc__field-value">
+                      {campLocationText || "Not available"}
+                    </span>
+                  </span>
+                </span>
+              </div>
             </div>
           </section>
         ) : null}
 
         {showStatusCards ? (
-          <section className={`grid grid-cols-2 gap-3 ${statusGridCols}`}>
-            {showVitals ? (
-              <StatusCard
-                icon={Activity}
-                title="Physical Health"
-                status={physicalExamFinding || "Normal"}
-                tone="physical"
-                record={generalCardRecord}
-              />
-            ) : null}
-            {showVision ? (
-              <StatusCard
-                icon={Eye}
-                title="Vision"
-                status={visionStatus || "Normal"}
-                tone="vision"
-                record={visionCardRecord}
-              />
-            ) : null}
-            {showHearing ? (
-              <StatusCard
-                icon={Ear}
-                title="Hearing"
-                status={hearingFinding || "Normal"}
-                tone="hearing"
-                record={hearingCardRecord}
-              />
-            ) : null}
-            {showDental ? (
-              <StatusCard
-                icon={ToothIcon}
-                title="Oral Health"
-                status={dentalExamFinding || "Normal"}
-                tone="oral"
-                record={dentalCardRecord}
-              />
-            ) : null}
-            {showImmunization ? (
-              <StatusCard
-                icon={Syringe}
-                title="Vaccination"
-                status="Up to Date"
-                tone="immunization"
-              />
-            ) : null}
+          <>
+            <h3 className="report-doc__heading mb-3 text-sm font-semibold text-foreground">
+              Health Status
+            </h3>
+            <section className={`grid grid-cols-2 gap-3 ${statusGridCols}`}>
+              {showVitals ? (
+                <StatusCard
+                  icon={Activity}
+                  title="Physical Health"
+                  status={physicalExamFinding || "Normal"}
+                  tone="physical"
+                  record={generalCardRecord}
+                />
+              ) : null}
+              {showVision ? (
+                <StatusCard
+                  icon={Eye}
+                  title="Vision"
+                  status={visionStatus || "Normal"}
+                  tone="vision"
+                  record={visionCardRecord}
+                />
+              ) : null}
+              {showHearing ? (
+                <StatusCard
+                  icon={Ear}
+                  title="Hearing"
+                  status={hearingFinding || "Normal"}
+                  tone="hearing"
+                  record={hearingCardRecord}
+                />
+              ) : null}
+              {showDental ? (
+                <StatusCard
+                  icon={ToothIcon}
+                  title="Oral Health"
+                  status={dentalExamFinding || "Normal"}
+                  tone="oral"
+                  record={dentalCardRecord}
+                />
+              ) : null}
+              {showImmunization ? (
+                <StatusCard
+                  icon={Syringe}
+                  title="Vaccination"
+                  status="Up to Date"
+                  tone="immunization"
+                />
+              ) : null}
 
-            {showEnt ? (
-              <StatusCard
-                icon={EarNoseThroatOutlineIcon}
-                title="ENT"
-                status={entExamFinding || "Normal"}
-                tone="ent"
-                iconSize="size-5"
-                iconProps={{
-                  className: "[&_g]:fill-none",
-                  stroke: "currentColor",
-                  strokeWidth: 1.5,
-                  strokeLinecap: "round",
-                  strokeLinejoin: "round",
-                }}
-                record={entCardRecord}
-              />
-            ) : null}
-          </section>
+              {showEnt ? (
+                <StatusCard
+                  icon={EarNoseThroatOutlineIcon}
+                  title="ENT"
+                  status={entExamFinding || "Normal"}
+                  tone="ent"
+                  iconSize="size-5"
+                  iconProps={{
+                    className: "[&_g]:fill-none",
+                    stroke: "currentColor",
+                    strokeWidth: 1.5,
+                    strokeLinecap: "round",
+                    strokeLinejoin: "round",
+                  }}
+                  record={entCardRecord}
+                />
+              ) : null}
+            </section>
+          </>
         ) : null}
 
         <section>
@@ -1755,7 +1918,7 @@ export default function HealthCheckContent({
               </p>
             </section> */}
 
-        <div className="report-doc__verification relative flex flex-col gap-5 rounded-lg border border-border/70 bg-card/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="report-doc__verification relative flex flex-col gap-4 p-4">
           {/* <div className="flex items-start gap-3 sm:max-w-[calc(50%-4.5rem)]">
             <div className="flex size-20 shrink-0 items-center justify-center rounded-md border border-dashed border-border bg-background">
               {studentPhoto ? (
@@ -1795,65 +1958,207 @@ export default function HealthCheckContent({
             </div>
           </div> */}
 
-          <div className="flex size-25 aspect-square shrink-0 flex-col items-center justify-center self-center rounded-full border-2 border-dashed border-primary/40 text-center rotate-325 sm:absolute sm:left-3/5 z-1 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2">
-            <Image src="/logo.svg" alt="Svastha" width={28} height={28} />
-            <span className="mt-1 font-sf text-sm font-bold tracking-wide text-brand-blue">
-              Svastha
-            </span>
-            <span className="text-[9px] tracking-[0.18em] text-primary">
-              Authorized Signatory
-            </span>
-            <span className="text-[9px] text-muted-foreground text-brand-green">
-              SMS
-            </span>
+          {/* Certificate ornament — radial wash, corner brackets and a dotted
+              security rule. Purely presentational, never read by the PDF
+              exporter. */}
+          <div
+            aria-hidden="true"
+            className="report-doc__verification-ornament pointer-events-none absolute inset-0"
+          >
+            <span className="report-doc__corner report-doc__corner--tl" />
+            <span className="report-doc__corner report-doc__corner--tr" />
+            <span className="report-doc__corner report-doc__corner--bl" />
+            <span className="report-doc__corner report-doc__corner--br" />
           </div>
 
-          <div className="space-y-1 text-right sm:ml-auto sm:max-w-[calc(50%-4.5rem)]">
-            <div className="flex justify-end">
-              <div className="relative h-28 w-72">
-                {doctorSignatureUrl ? (
-                  <Image
-                    src={doctorSignatureUrl}
-                    alt="Doctor signature"
-                    fill
-                    sizes="288px"
-                    unoptimized={isInlineSignature}
-                    className="object-contain"
+          <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            {/* Left — attestation plaque: identity tile + verification copy */}
+            {/* <div className="flex w-full min-w-0 items-start gap-3 sm:max-w-[calc(50%-4.5rem)]">
+              <div className="report-doc__verification-tile relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-lg">
+                {studentPhoto ? (
+                  // Student photos can be blob:/data: URLs from the report
+                  // itself, so next/image can't be used here.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={studentPhoto}
+                    alt="Student"
+                    className="size-full object-cover"
                   />
                 ) : (
-                  <div className="report-doc__photo flex h-28 w-72 items-center justify-center overflow-hidden rounded-lg border-dotted border bg-muted">
-                    <span className="text-xs text-muted-foreground">
-                      No signature
+                  <>
+                    <span className="report-doc__qr-mark report-doc__qr-mark--tl" />
+                    <span className="report-doc__qr-mark report-doc__qr-mark--tr" />
+                    <span className="report-doc__qr-mark report-doc__qr-mark--bl" />
+                    <span className="report-doc__verification-accent text-[9px] font-bold uppercase tracking-[0.2em]">
+                      QR
                     </span>
-                  </div>
+                    <span className="report-doc__verification-muted absolute bottom-1.5 right-1.5 text-[7px]">
+                      Photo
+                    </span>
+                  </>
                 )}
               </div>
-            </div>
-            <p className="text-sm font-semibold text-foreground">
-              {"Dr. S. Aravind"}
-              {/* {signatoryName ? `${signatoryName}` : "Doctor"} */}
-              <span className="ml-1 text-xs font-medium text-primary">
-                MBBS
+
+              <div className="report-doc__verification-copy min-w-0 space-y-1.5 text-xs">
+                <p className="report-doc__verification-accent flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em]">
+                  <CheckCircle2 className="size-3.5 shrink-0" />
+                  Digital Attestation &amp; Verification
+                </p>
+
+                <p className="leading-relaxed">
+                  Scan QR or verify with UHID{" "}
+                  <CopyChip value={uhid} label="UHID" /> on Svastha Portal.
+                </p>
+
+                {schoolAddress.registration_number ? (
+                  <p className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                    <span className="report-doc__verification-strong font-medium">
+                      SHA-256 Verified Medical Seal
+                    </span>
+                    <CopyChip
+                      value={`#${schoolAddress.registration_number}`}
+                      label="Registration number"
+                    />
+                  </p>
+                ) : null}
+
+                <span
+                  className={cn(
+                    "report-doc__verification-status inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                    doctorSignatureUrl
+                      ? "report-doc__verification-status--signed"
+                      : "report-doc__verification-status--pending",
+                  )}
+                >
+                  <span className="report-doc__verification-status-dot size-1.5 rounded-full" />
+                  {doctorSignatureUrl
+                    ? "Digitally signed by the Primary Doctor"
+                    : "Awaiting Primary Doctor Sign-off"}
+                </span>
+              </div>
+            </div> */}
+
+            <div className="report-doc__verification-stamp relative flex size-26 aspect-square shrink-0 flex-col items-center justify-center gap-0.5 self-center text-center shadow-sm rotate-325 sm:absolute sm:left-1/2 z-1 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2">
+              <span
+                aria-hidden="true"
+                className="report-doc__stamp-ring pointer-events-none"
+              />
+              <span
+                aria-hidden="true"
+                className="report-doc__stamp-ring report-doc__stamp-ring--inner pointer-events-none"
+              />
+              <Image src="/logo.svg" alt="Svastha" width={28} height={28} />
+              <span className="report-doc__stamp-brand mt-1 font-sf text-sm font-bold tracking-wide">
+                Svastha
               </span>
-            </p>
-            <p className="text-xs text-muted-foreground">Primary Examiner</p>
-            <p className="text-xs text-foreground">
-              Verified at: {" "}
-              <small className="text-xs text-muted-foreground">
-                {formatCampDate(activeEvent?.updated_at)}
-              </small>
-            </p>
-            {/* <p className="text-xs text-muted-foreground">
-              {schoolName} &amp; Primary Examiner
-            </p> */}
-            {/* <p className="text-xs text-muted-foreground">
-                  Svastha School Health &amp; Preventive Services
-                </p> */}
-            {/* {schoolAddress.registration_number ? (
-              <p className="text-xs font-medium text-primary">
-                Reg. No: {schoolAddress.registration_number}
+              <span className="report-doc__verification-accent text-[9px] tracking-[0.18em]">
+                Authorized Signatory
+              </span>
+              <span className="report-doc__stamp-code text-[9px]">SMS</span>
+            </div>
+
+            <div className="relative w-full min-w-0 space-y-1.5 text-right sm:ml-auto sm:max-w-[calc(50%-4.5rem)]">
+              <div className="flex justify-end">
+                <div className="report-doc__verification-signature relative h-28 w-72 rounded-lg">
+                  {/* Corner brackets — frame the signature like a scan/capture
+                      target and echo the plaque tile on the left. */}
+                  <span
+                    aria-hidden="true"
+                    className="report-doc__signature-corner report-doc__signature-corner--tl pointer-events-none"
+                  />
+                  <span
+                    aria-hidden="true"
+                    className="report-doc__signature-corner report-doc__signature-corner--tr pointer-events-none"
+                  />
+                  <span
+                    aria-hidden="true"
+                    className="report-doc__signature-corner report-doc__signature-corner--bl pointer-events-none"
+                  />
+                  <span
+                    aria-hidden="true"
+                    className="report-doc__signature-corner report-doc__signature-corner--br pointer-events-none"
+                  />
+                  {doctorSignatureUrl ? (
+                    <Image
+                      src={doctorSignatureUrl}
+                      alt="Doctor signature"
+                      fill
+                      sizes="288px"
+                      unoptimized={isInlineSignature}
+                      className="object-contain p-1"
+                    />
+                  ) : (
+                    <div className="report-doc__photo report-doc__signature-empty flex h-full w-full items-center justify-center overflow-hidden rounded-md border-dotted border">
+                      <span className="report-doc__verification-muted text-xs">
+                        No signature
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* The signature rule the examiner signs across. */}
+              <div className="report-doc__signature-rule ml-auto h-px w-72" />
+              <p className="text-sm font-semibold">
+                {primaryDoctorDetails?.emp_name || signatoryName || "Doctor"}
+                <span className="report-doc__verification-accent ml-1 text-xs font-medium">
+                  MBBS
+                </span>
               </p>
-            ) : null} */}
+              <p className="report-doc__verification-muted text-xs">
+                Primary Examiner
+              </p>
+              <p className="flex items-center justify-end gap-1 text-xs">
+                Verified at:
+                <small className="report-doc__verification-muted flex items-center gap-1 text-xs">
+                  <CalendarCheck className="size-3" />
+                  {formatCampDate(activeEvent?.updated_at)}
+                </small>
+              </p>
+              {/* <p className="text-xs text-muted-foreground">
+                {schoolName} &amp; Primary Examiner
+              </p> */}
+              {/* <p className="text-xs text-muted-foreground">
+                    Svastha School Health &amp; Preventive Services
+                  </p> */}
+              {/* {schoolAddress.registration_number ? (
+                <p className="text-xs font-medium text-primary">
+                  Reg. No: {schoolAddress.registration_number}
+                </p>
+              ) : null} */}
+            </div>
+          </div>
+
+          <div className="report-doc__verification-band relative -mx-4 -mb-4 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 border-t border-dashed px-4 py-2 text-[10px]">
+            <span className="report-doc__verification-accent font-semibold uppercase tracking-[0.22em]">
+              Svastha · Digitally Attested
+            </span>
+            <span aria-hidden="true" className="report-doc__verification-sep">
+              •
+            </span>
+            <span className="report-doc__verification-muted font-mono">
+              UHID {uhid}
+            </span>
+            {schoolAddress.registration_number ? (
+              <>
+                <span
+                  aria-hidden="true"
+                  className="report-doc__verification-sep"
+                >
+                  •
+                </span>
+                <span className="report-doc__verification-muted font-mono">
+                  REG #{schoolAddress.registration_number}
+                </span>
+              </>
+            ) : null}
+            <span aria-hidden="true" className="report-doc__verification-sep">
+              •
+            </span>
+            <span className="report-doc__verification-muted flex items-center gap-1">
+              <CalendarCheck className="size-3" />
+              {formatCampDate(activeEvent?.updated_at)}
+            </span>
           </div>
         </div>
       </div>

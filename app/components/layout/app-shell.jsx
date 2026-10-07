@@ -12,6 +12,7 @@ import { AppBreadcrumb } from "./app-breadcrumb";
 import { Navbar } from "./navbar";
 import { Sidebar } from "./sidebar";
 import { TopNav } from "./top-nav";
+import { AnimatePresence, motion } from "framer-motion";
 
 const CHROMELESS_ROUTES = ["/login", "/register"];
 
@@ -67,7 +68,26 @@ export function AppShell({ children }) {
     <>
       <Navbar title="Dashboard" sticky={!isTopNav} />
       <AppBreadcrumb />
-      <main className="min-w-0 flex-1 p-4 py-1.5 sm:px-6">{children}</main>
+      <main className="min-w-0 flex-1 p-4 py-1.5 sm:px-6">
+        {/* Animate the incoming page immediately while removing the outgoing
+            page from layout so it cannot delay or shift the new content. */}
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.div
+            key={pathname ?? "initial"}
+            initial={{ opacity: 0, x: 20, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, x: -12 }}
+            transition={{
+              opacity: { duration: 0.3, ease: "easeOut" },
+              x: { duration: 0.34, ease: [0.22, 0.61, 0.36, 1] },
+              y: { duration: 0.34, ease: [0.22, 0.61, 0.36, 1] },
+            }}
+            style={{ willChange: "transform, opacity" }}
+          >
+            {children}
+          </motion.div>
+        </AnimatePresence>
+      </main>
     </>
   );
 
@@ -94,7 +114,19 @@ export function AppShell({ children }) {
            * (e.g. a data table on mobile) stretches the whole page instead of
            * scrolling inside its own container.
            */}
-          <div className="flex min-w-0 flex-1 flex-col">{content}</div>
+          <motion.div
+            className="flex min-w-0 flex-1 flex-col"
+            layout="position"
+            initial={true}
+            transition={{
+              type: "spring",
+              stiffness: 240,
+              damping: 32,
+              mass: 0.8,
+            }}
+          >
+            {content}
+          </motion.div>
         </>
       )}
     </SidebarProvider>

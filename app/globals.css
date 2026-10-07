@@ -2891,8 +2891,453 @@
 }
 
 /* ==========================================================================
-   8. CUSTOM UTILITIES
+   TEAM ACCOUNT DIALOG
+   Indigo "admin workspace" accent resolved through global colour tokens, so
+   the dialog honours light/dark themes and the report-doc blocks stay
+   reusable outside TeamPage.
+   Naming: .team-<block> with __element / --modifier (same BEM flavour as
+   .my-details-* above). Only presentation lives here — markup keeps the same
+   structure, props and handlers.
    ========================================================================== */
+
+@layer components {
+  /* ---- dialog chrome (winner over shadcn Dialog base, 0,2,0 beats 0,1,0) -- */
+  .team-dialog.team-dialog--admin {
+    max-width: 64rem;
+    border-color: color-mix(in oklch, var(--color-domain-hearing) 35%, var(--color-border));
+    box-shadow: 0 32px 80px -32px
+      color-mix(in oklch, var(--color-domain-hearing) 45%, transparent);
+  }
+
+  .team-dialog__header.team-dialog__header--admin {
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--color-domain-hearing) 10%, var(--color-background)),
+      var(--color-background),
+      color-mix(in oklch, var(--color-domain-oral) 8%, var(--color-background))
+    );
+  }
+
+  .team-dialog__badge {
+    display: flex;
+    width: 2.25rem;
+    height: 2.25rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.75rem;
+    color: var(--color-primary-foreground);
+    background: var(--color-domain-hearing);
+    box-shadow: 0 2px 6px -2px
+      color-mix(in oklch, var(--color-domain-hearing) 60%, transparent);
+  }
+
+  .team-dialog__badge svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  /* ---- scrollable dialog body ---- */
+  .team-dialog__body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 1.25rem 1.5rem;
+  }
+
+  /* ---- admin hero banner ---- */
+  .team-hero {
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 1.75rem;
+    border: 1px solid
+      color-mix(in oklch, var(--color-domain-hearing) 30%, var(--color-border));
+    border-radius: 1rem;
+    padding: 1.25rem;
+    background: linear-gradient(
+      135deg,
+      color-mix(in oklch, var(--color-domain-hearing) 12%, var(--color-card)),
+      var(--color-card),
+      color-mix(in oklch, var(--color-domain-oral) 10%, var(--color-card))
+    );
+    box-shadow: 0 2px 8px -4px
+      color-mix(in oklch, var(--color-foreground) 18%, transparent);
+  }
+
+  .team-hero__glow {
+    position: absolute;
+    border-radius: 9999px;
+    pointer-events: none;
+    filter: blur(48px);
+  }
+
+  .team-hero__glow--a {
+    top: -4rem;
+    right: -2.5rem;
+    width: 11rem;
+    height: 11rem;
+    background: color-mix(in oklch, var(--color-domain-hearing) 22%, transparent);
+  }
+
+  .team-hero__glow--b {
+    bottom: -5rem;
+    right: 6rem;
+    width: 10rem;
+    height: 10rem;
+    background: color-mix(in oklch, var(--color-domain-oral) 22%, transparent);
+  }
+
+  .team-hero__row {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .team-hero__who {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .team-hero__avatar {
+    display: flex;
+    width: 4rem;
+    height: 4rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 1rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-primary-foreground);
+    background: linear-gradient(
+      135deg,
+      var(--color-domain-hearing),
+      var(--color-domain-oral)
+    );
+    box-shadow: 0 12px 28px -12px
+      color-mix(in oklch, var(--color-domain-hearing) 65%, transparent);
+  }
+
+  .team-hero__id {
+    min-width: 0;
+  }
+
+  .team-hero__eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--color-domain-hearing);
+  }
+
+  .team-hero__name {
+    margin-top: 0.25rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-foreground);
+  }
+
+  .team-hero__sub {
+    margin-top: 0.25rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.875rem;
+    color: var(--color-muted-foreground);
+  }
+
+  .team-hero__pill {
+    display: inline-flex;
+    width: fit-content;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid
+      color-mix(in oklch, var(--color-domain-hearing) 30%, var(--color-border));
+    border-radius: 9999px;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-domain-hearing);
+    background: color-mix(in oklch, var(--color-card) 80%, transparent);
+    box-shadow: 0 1px 2px
+      color-mix(in oklch, var(--color-foreground) 8%, transparent);
+  }
+
+  .team-hero__meta {
+    position: relative;
+    margin-top: 1.25rem;
+    display: grid;
+    gap: 0.75rem;
+    border-top: 1px solid
+      color-mix(in oklch, var(--color-domain-hearing) 28%, var(--color-border));
+    padding-top: 1rem;
+    font-size: 0.875rem;
+  }
+
+  .team-hero__meta-label {
+    font-size: 0.75rem;
+    color: var(--color-muted-foreground);
+  }
+
+  .team-hero__meta-value {
+    margin-top: 0.25rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+    color: var(--color-foreground);
+  }
+
+  @media (min-width: 40rem) {
+    .team-hero__row {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .team-hero__meta {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  /* ---- form sections (Account Details / Access & Assignment) ---- */
+  .team-section {
+    margin-top: 1.75rem;
+  }
+
+  .team-section:first-child {
+    margin-top: 0;
+  }
+
+  .team-section + .team-section {
+    margin-top: 1.75rem;
+  }
+
+  .team-section__head {
+    margin-bottom: 1rem;
+  }
+
+  .team-section__title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-foreground);
+  }
+
+  .team-section__title--lg {
+    font-size: 1rem;
+  }
+
+  .team-section__desc {
+    font-size: 0.75rem;
+    color: var(--color-muted-foreground);
+  }
+
+  .team-section__desc--sm {
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+  }
+
+  .team-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 1.25rem;
+    row-gap: 1rem;
+  }
+
+  @media (min-width: 48rem) {
+    .team-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .team-field {
+    display: grid;
+    gap: 0.375rem;
+    align-content: start;
+  }
+
+  .team-error {
+    font-size: 0.75rem;
+    color: var(--color-destructive);
+  }
+
+  /* ---- privilege overview (admin read-only) ---- */
+  .team-priv__head {
+    margin-bottom: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .team-priv__count {
+    border: 1px solid
+      color-mix(in oklch, var(--color-domain-hearing) 30%, var(--color-border));
+    border-radius: 9999px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-domain-hearing);
+    background: color-mix(in oklch, var(--color-domain-hearing) 10%, var(--color-card));
+  }
+
+  .team-priv__grid {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  @media (min-width: 40rem) {
+    .team-priv__grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .team-priv__grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  .team-priv-card {
+    border: 1px solid
+      color-mix(in oklch, var(--color-domain-hearing) 22%, var(--color-border));
+    border-radius: 0.75rem;
+    padding: 1rem;
+    background: linear-gradient(
+      135deg,
+      var(--color-card),
+      color-mix(in oklch, var(--color-domain-hearing) 10%, var(--color-card))
+    );
+    box-shadow: 0 1px 2px
+      color-mix(in oklch, var(--color-foreground) 8%, transparent);
+  }
+
+  .team-priv-card__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .team-priv-card__who {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+  }
+
+  .team-priv-card__grade {
+    display: flex;
+    width: 2.25rem;
+    height: 2.25rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--color-primary-foreground);
+    background: var(--color-domain-hearing);
+    box-shadow: 0 1px 2px
+      color-mix(in oklch, var(--color-foreground) 12%, transparent);
+  }
+
+  .team-priv-card__name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-foreground);
+  }
+
+  .team-priv-card__sub {
+    font-size: 0.75rem;
+    color: var(--color-muted-foreground);
+  }
+
+  .team-priv-card__check {
+    width: 1rem;
+    height: 1rem;
+    color: var(--color-domain-hearing);
+  }
+
+  .team-priv-card__sections {
+    margin-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .team-priv-card__chip {
+    display: inline-flex;
+    min-width: 2.25rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid
+      color-mix(in oklch, var(--color-domain-hearing) 32%, var(--color-border));
+    border-radius: 9999px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-domain-hearing);
+    background: var(--color-card);
+  }
+
+  /* ---- loading / empty / gating states ---- */
+  .team-state {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    font-size: 0.875rem;
+    color: var(--color-muted-foreground);
+    background: color-mix(in oklch, var(--color-muted) 30%, transparent);
+  }
+
+  .team-state--sm {
+    margin-bottom: 1rem;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+  }
+
+  .team-state--dim {
+    pointer-events: none;
+    opacity: 0.6;
+  }
+
+  .team-empty {
+    border: 1px dashed var(--color-border);
+    border-radius: 0.75rem;
+    padding: 2rem 1.25rem;
+    text-align: center;
+    background: color-mix(in oklch, var(--color-muted) 20%, transparent);
+  }
+
+  .team-empty__icon {
+    margin-inline: auto;
+    width: 2rem;
+    height: 2rem;
+    color: color-mix(in oklch, var(--color-muted-foreground) 60%, transparent);
+  }
+
+  .team-empty__title {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-foreground);
+  }
+
+  .team-empty__desc {
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--color-muted-foreground);
+  }
+}
 
 @layer utilities {
   .bg-brand-gradient {
@@ -3724,6 +4169,127 @@ input[type="number"] {
       var(--success)
     );
   }
+  /* Compact camp context row inside the report identity header. */
+  .report-doc__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    width: 100%;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top-width: 1px;
+    border-top-color: color-mix(in oklch, var(--border) 55%, transparent);
+  }
+
+  .report-doc__field {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    min-width: 0;
+    padding: 0.2rem 0.45rem;
+    border: 1px solid color-mix(in oklch, var(--primary) 12%, var(--border));
+    border-radius: 9999px;
+    background: color-mix(in oklch, #ffffff 76%, var(--muted));
+    box-shadow: 0 1px 6px -6px color-mix(in oklch, var(--primary) 50%, transparent);
+    transition:
+      transform 160ms ease,
+      border-color 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  .report-doc__field:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in oklch, var(--primary) 32%, var(--border));
+    box-shadow: 0 4px 10px -10px color-mix(in oklch, var(--primary) 65%, transparent);
+  }
+
+  .report-doc__field-icon-wrap {
+    display: inline-flex;
+    width: 1.1rem;
+    height: 1.1rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    color: var(--primary);
+  }
+
+  .report-doc__field-icon {
+    width: 0.65rem;
+    height: 0.65rem;
+  }
+
+  .report-doc__field-icon-wrap--updated {
+    border-color: color-mix(in oklch, var(--success) 24%, transparent);
+    background: color-mix(in oklch, var(--success) 10%, #ffffff);
+    color: var(--success);
+  }
+
+  .report-doc__field-icon-wrap--location {
+    border-color: color-mix(in oklch, #e59b24 26%, transparent);
+    background: color-mix(in oklch, #e59b24 11%, #ffffff);
+    color: color-mix(in oklch, #9a5b00 82%, var(--foreground));
+  }
+
+  .report-doc__field-copy {
+    display: inline-flex;
+    min-width: 0;
+    flex-direction: row;
+    gap: 0.2rem;
+    align-items: baseline;
+  }
+
+  .report-doc__field-label {
+    display: inline-block;
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+    white-space: nowrap;
+  }
+
+  .report-doc__field-value {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--foreground);
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+    white-space: nowrap;
+    max-width: 8rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .dark .report-doc__field {
+    background: color-mix(in oklch, var(--card) 80%, var(--muted));
+  }
+
+  .dark .report-doc__field-icon-wrap {
+    background: color-mix(in oklch, var(--primary) 16%, var(--card));
+  }
+
+  .dark .report-doc__field-icon-wrap--updated {
+    background: color-mix(in oklch, var(--success) 16%, var(--card));
+  }
+
+  .dark .report-doc__field-icon-wrap--location {
+    background: color-mix(in oklch, #e59b24 16%, var(--card));
+  }
+
+  @media print {
+    .report-doc__meta {
+      border-top-color: color-mix(in oklch, var(--border) 65%, transparent);
+    }
+
+    .report-doc__field {
+      transform: none;
+      box-shadow: none;
+      break-inside: avoid;
+    }
+
+  }
+
 
   /* Photo slot — soft dotted well with inner glow. */
   .report-doc__photo {
@@ -3782,6 +4348,275 @@ input[type="number"] {
   .report-doc__signoff {
     border-top: 1px solid color-mix(in oklch, var(--border) 90%, transparent);
     padding-top: 0.75rem;
+  }
+
+  /* -------------------------------------------------------------------------
+     Verification / attestation footer (report-doc__verification).
+     Every colour, gradient and tint for this block is sourced from the global
+     tokens here — the markup in HealthCheckContent.jsx only carries structure
+     and layout utilities.
+     ------------------------------------------------------------------------- */
+  .report-doc__verification {
+    /* Local aliases so the many alpha steps of the brand colour below read as
+       one palette instead of repeated color-mix() calls. */
+    --verify-accent: color-mix(in oklch, var(--primary) 40%, transparent);
+    --verify-accent-soft: color-mix(in oklch, var(--primary) 30%, transparent);
+    --verify-accent-faint: color-mix(in oklch, var(--primary) 25%, transparent);
+    --verify-accent-strong: color-mix(in oklch, var(--primary) 50%, transparent);
+
+    border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: color-mix(in oklch, var(--card) 40%, transparent);
+  }
+
+  /* Text palette helpers shared by the block. */
+  .report-doc__verification-accent {
+    color: var(--primary);
+  }
+
+  .report-doc__verification-strong {
+    color: var(--foreground);
+  }
+
+  .report-doc__verification-muted {
+    color: var(--muted-foreground);
+  }
+
+  .report-doc__verification-sep {
+    color: color-mix(in oklch, var(--muted-foreground) 50%, transparent);
+  }
+
+  /* Certificate ornament — brand/success radial wash plus a dotted security
+     rule, painted from pseudo-elements so the markup only holds the four
+     corner brackets. */
+  .report-doc__verification-ornament::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(
+        120% 140% at 0% 0%,
+        color-mix(in oklch, var(--primary) 12%, transparent),
+        transparent 60%
+      ),
+      radial-gradient(
+        90% 130% at 100% 100%,
+        color-mix(in oklch, var(--success) 10%, transparent),
+        transparent 55%
+      );
+  }
+
+  .report-doc__verification-ornament::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 1.5rem;
+    right: 1.5rem;
+    height: 1px;
+    opacity: 0.4;
+    background: repeating-linear-gradient(90deg, var(--primary) 0 6px, transparent 6px 12px);
+  }
+
+  .report-doc__corner {
+    position: absolute;
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .report-doc__corner--tl {
+    top: 0;
+    left: 0;
+    border-top: 2px solid var(--verify-accent);
+    border-left: 2px solid var(--verify-accent);
+  }
+
+  .report-doc__corner--tr {
+    top: 0;
+    right: 0;
+    border-top: 2px solid var(--verify-accent);
+    border-right: 2px solid var(--verify-accent);
+  }
+
+  .report-doc__corner--bl {
+    bottom: 0;
+    left: 0;
+    border-bottom: 2px solid var(--verify-accent);
+    border-left: 2px solid var(--verify-accent);
+  }
+
+  .report-doc__corner--br {
+    bottom: 0;
+    right: 0;
+    border-bottom: 2px solid var(--verify-accent);
+    border-right: 2px solid var(--verify-accent);
+  }
+
+  /* Identity tile + QR finder-pattern placeholder. */
+  .report-doc__verification-tile {
+    border: 1px dashed var(--verify-accent);
+    background: var(--background);
+  }
+
+  .report-doc__qr-mark {
+    position: absolute;
+    width: 0.875rem;
+    height: 0.875rem;
+    border: 2px solid var(--verify-accent);
+    border-radius: 2px;
+  }
+
+  .report-doc__qr-mark--tl {
+    top: 0.375rem;
+    left: 0.375rem;
+  }
+
+  .report-doc__qr-mark--tr {
+    top: 0.375rem;
+    right: 0.375rem;
+  }
+
+  .report-doc__qr-mark--bl {
+    bottom: 0.375rem;
+    left: 0.375rem;
+  }
+
+  /* Attestation copy sits muted, with accent/strong spans lifting keywords. */
+  .report-doc__verification-copy {
+    color: var(--muted-foreground);
+  }
+
+  /* Live sign-off status pill — the dot takes the pill colour via currentColor. */
+  .report-doc__verification-status--signed {
+    border-color: color-mix(in oklch, var(--success) 40%, transparent);
+    background: color-mix(in oklch, var(--success) 10%, transparent);
+    color: var(--success);
+  }
+
+  .report-doc__verification-status--pending {
+    border-color: color-mix(in oklch, var(--warning) 30%, transparent);
+    background: color-mix(in oklch, var(--warning) 10%, transparent);
+    color: var(--warning);
+  }
+
+  .report-doc__verification-status-dot {
+    background: currentColor;
+  }
+
+  /* Credential chips (CopyChip) — self-contained so the component also works
+     outside .report-doc__verification. */
+  .report-doc__chip {
+    border-color: color-mix(in oklch, var(--primary) 30%, transparent);
+    background: color-mix(in oklch, var(--primary) 5%, transparent);
+    color: var(--foreground);
+  }
+
+  .report-doc__chip-button {
+    color: color-mix(in oklch, var(--muted-foreground) 70%, transparent);
+  }
+
+  .report-doc__chip-button:hover {
+    background: color-mix(in oklch, var(--primary) 10%, transparent);
+    color: var(--primary);
+  }
+
+  .report-doc__chip-button--done {
+    color: var(--success);
+  }
+
+  /* Rubber stamp. */
+  .report-doc__verification-stamp {
+    border: 2px dashed var(--verify-accent);
+    border-radius: 9999px;
+    background: color-mix(in oklch, var(--background) 70%, transparent);
+  }
+
+  .report-doc__stamp-ring {
+    position: absolute;
+    inset: 0.25rem;
+    border: 1px solid var(--verify-accent-soft);
+    border-radius: 9999px;
+  }
+
+  .report-doc__stamp-ring--inner {
+    inset: 0.5rem;
+    border: 1px dotted var(--verify-accent-faint);
+  }
+
+  .report-doc__stamp-brand {
+    color: var(--brand-blue);
+  }
+
+  .report-doc__stamp-code {
+    color: var(--brand-green);
+  }
+
+  /* Signature plate + capture-style corner brackets. */
+  .report-doc__verification-signature {
+    border: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+    background: color-mix(in oklch, var(--background) 50%, transparent);
+  }
+
+  .report-doc__signature-corner {
+    position: absolute;
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+
+  .report-doc__signature-corner--tl {
+    top: -1px;
+    left: -1px;
+    border-top: 2px solid var(--verify-accent-strong);
+    border-left: 2px solid var(--verify-accent-strong);
+  }
+
+  .report-doc__signature-corner--tr {
+    top: -1px;
+    right: -1px;
+    border-top: 2px solid var(--verify-accent-strong);
+    border-right: 2px solid var(--verify-accent-strong);
+  }
+
+  .report-doc__signature-corner--bl {
+    bottom: -1px;
+    left: -1px;
+    border-bottom: 2px solid var(--verify-accent-strong);
+    border-left: 2px solid var(--verify-accent-strong);
+  }
+
+  .report-doc__signature-corner--br {
+    bottom: -1px;
+    right: -1px;
+    border-bottom: 2px solid var(--verify-accent-strong);
+    border-right: 2px solid var(--verify-accent-strong);
+  }
+
+  .report-doc__signature-empty {
+    background: var(--muted);
+  }
+
+  .report-doc__signature-empty > span {
+    color: var(--muted-foreground);
+  }
+
+  /* Dashed rule the examiner signs across. */
+  .report-doc__signature-rule {
+    background: repeating-linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--foreground) 35%, transparent) 0 6px,
+      transparent 6px 12px
+    );
+  }
+
+  /* Microprint verification band — bank-note style strip. */
+  .report-doc__verification-band {
+    border-top-color: var(--verify-accent-soft);
+    background-image: linear-gradient(
+      to right,
+      color-mix(in oklch, var(--primary) 5%, transparent),
+      var(--background) 50%,
+      color-mix(in oklch, var(--success) 5%, transparent)
+    );
   }
 }
 
@@ -4203,8 +5038,7 @@ input[type="number"] {
     position: relative;
     overflow: hidden;
     padding: 0.35rem 0;
-    /* Fade cards as they leave the window so they dissolve at both edges
-       instead of being hard-clipped by the container. */
+
     mask-image: linear-gradient(
       to right,
       transparent,
@@ -4240,8 +5074,7 @@ input[type="number"] {
     /* Card 12.5rem + 0.5rem margin = 13rem. Must match ITEM_WIDTH. */
     width: 12.5rem;
     margin-right: 0.5rem;
-    /* Fixed so every card is identical — a variable height would desync the
-       JS translate (which is index * ITEM_WIDTH) from the layout. */
+
     height: 7.5rem;
     display: flex;
     align-items: stretch;
@@ -5357,9 +6190,7 @@ input[type="number"] {
   }
 
   .sl-row > td:first-child::before {
-    /* The accent bar is a desktop affordance. In card mode the first cell's
-       pseudo-element can carry the data-label, so the bar's box styling is
-       reset rather than the pseudo-element being hidden outright. */
+
     position: static;
     inset: auto;
     width: auto;
@@ -5381,12 +6212,7 @@ input[type="number"] {
 
 /* ==========================================================================
    STUDENT OVERVIEW CHARTS
-   A presentation layer for the dashboard charts (see
-   components/dashboard/student-overview-charts.jsx). Scoped to .soc-* so no
-   other card or chart is affected, and built from the existing theme tokens
-   via color-mix so it follows light/dark automatically. Recharts already
-   animates bars, pies and areas on mount, so nothing here relies on a CSS
-   keyframe to make a chart visible.
+  
    ========================================================================== */
 
 .soc-card {

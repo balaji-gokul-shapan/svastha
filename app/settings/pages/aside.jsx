@@ -1,5 +1,6 @@
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
+import { motion } from 'framer-motion';
 import React from 'react'
 
 const Aside = ({settings, navQuery, query, activeTab, setActiveTab}) => {
@@ -35,16 +36,24 @@ const Aside = ({settings, navQuery, query, activeTab, setActiveTab}) => {
                 type="button"
                 onClick={() => setActiveTab(item.id)}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors cursor-pointer ${
+                className={`relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors cursor-pointer ${
                   isActive
-                    ? "bg-muted text-foreground"
+                    ? "text-foreground"
                     : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                 }`}
               >
-                {NavIcon ? <NavIcon className="size-4" /> : null}
-                <span className="flex-1 text-left">{item.label}</span>
+                {/* Sliding active pill — layoutId makes it glide between tabs. */}
+                {isActive ? (
+                  <motion.span
+                    layoutId="settings-aside-active"
+                    className="absolute inset-0 rounded-lg bg-muted"
+                    transition={{ type: "spring", stiffness: 420, damping: 36 }}
+                  />
+                ) : null}
+                {NavIcon ? <NavIcon className="size-4 relative" /> : null}
+                <span className="flex-1 text-left relative">{item.label}</span>
                 {item.badge ? (
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                  <span className="relative rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
                     {item.badge}
                   </span>
                 ) : null}

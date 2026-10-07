@@ -7,6 +7,7 @@ import { ChevronDown } from "lucide-react";
 
 import Image from "next/image";
 
+import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAuthRole } from "@/lib/user-role";
 
@@ -70,11 +71,19 @@ export function TopNav() {
 
   const linkClasses = (active) =>
     cn(
-      "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-      active
-        ? "bg-primary/10 text-primary"
-        : "text-foreground/80 hover:bg-primary/10 hover:text-primary",
+      "relative flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+      active ? "text-primary" : "text-foreground/80 hover:text-primary",
     );
+
+  // Sliding active pill — same pattern as the settings aside:
+  // one shared layoutId glides between tabs on route change.
+  const ActivePill = ({ id }) => (
+    <motion.span
+      layoutId={id}
+      className="absolute inset-0 rounded-md bg-primary/10"
+      transition={{ type: "spring", stiffness: 420, damping: 36 }}
+    />
+  );
 
   return (
     <header
@@ -97,9 +106,7 @@ export function TopNav() {
             ha
           </span>
         </Link>
-        {/* No `overflow-x-auto` here: it establishes a clipping context, which
-           would cut off the absolutely-positioned submenu dropdown. Narrow
-           screens drop the labels to icons instead of scrolling. */}
+
         <div className="flex min-w-0 flex-1 items-center gap-1">
           {primaryItems.map((item) => {
             const Icon = item.icon;
@@ -116,10 +123,11 @@ export function TopNav() {
                   title={item.label}
                   className={cn(linkClasses(active), "shrink-0")}
                 >
+                  {active ? <ActivePill id="topnav-active" /> : null}
                   {Icon ? (
-                    <Icon className="size-4 shrink-0" strokeWidth={2} />
+                    <Icon className="size-4 shrink-0 relative" strokeWidth={2} />
                   ) : null}
-                  <span className="hidden whitespace-nowrap md:inline">
+                  <span className="hidden whitespace-nowrap md:inline relative">
                     {item.label}
                   </span>
                 </Link>
@@ -139,53 +147,63 @@ export function TopNav() {
                   }
                   className={cn(linkClasses(active), "shrink-0")}
                 >
+                  {active ? <ActivePill id="topnav-active" /> : null}
                   {Icon ? (
-                    <Icon className="size-4 shrink-0" strokeWidth={2} />
+                    <Icon className="size-4 shrink-0 relative" strokeWidth={2} />
                   ) : null}
-                  <span className="hidden whitespace-nowrap md:inline">
+                  <span className="hidden whitespace-nowrap md:inline relative">
                     {item.label}
                   </span>
                   <ChevronDown
                     className={cn(
-                      "hidden size-3.5 shrink-0 transition-transform md:block",
+                      "hidden size-3.5 shrink-0 transition-transform md:block relative",
                       openMenu === item.label && "rotate-180",
                     )}
                   />
                 </button>
 
-                {openMenu === item.label ? (
-                  <div
-                    role="menu"
-                    className="absolute left-0 top-full z-[60] mt-1 min-w-[220px] overflow-hidden rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg"
-                  >
-                    {item.children.map((child) => {
-                      const ChildIcon = child.icon;
-                      const childActive = isRouteActive(pathname, child.href);
+                <AnimatePresence>
+                  {openMenu === item.label ? (
+                    <motion.div
+                      role="menu"
+                      initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                      transition={{ duration: 0.18, ease: "easeOut" }}
+                      className="absolute left-0 top-full z-[60] mt-1 min-w-[220px] origin-top overflow-hidden rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg"
+                    >
+                      {item.children.map((child) => {
+                        const ChildIcon = child.icon;
+                        const childActive = isRouteActive(pathname, child.href);
 
-                      return (
-                        <Link
-                          key={child.href}
-                          href={child.href}
-                          role="menuitem"
-                          onClick={() => setOpenMenu(null)}
-                          className={cn(
-                            "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
-                            childActive
-                              ? "bg-primary/10 text-primary"
-                              : "text-foreground/80 hover:bg-primary/10 hover:text-primary",
-                          )}
-                        >
-                          {ChildIcon ? (
-                            <ChildIcon className="size-4 shrink-0" />
-                          ) : null}
-                          <span className="whitespace-nowrap">
-                            {child.label}
-                          </span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                ) : null}
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            role="menuitem"
+                            onClick={() => setOpenMenu(null)}
+                            className={cn(
+                              "relative flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
+                              childActive
+                                ? "text-primary"
+                                : "text-foreground/80 hover:text-primary",
+                            )}
+                          >
+                            {childActive ? (
+                              <ActivePill id="topnav-submenu-active" />
+                            ) : null}
+                            {ChildIcon ? (
+                              <ChildIcon className="size-4 shrink-0 relative" />
+                            ) : null}
+                            <span className="whitespace-nowrap relative">
+                              {child.label}
+                            </span>
+                          </Link>
+                        );
+                      })}
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
               </div>
             );
           })}
@@ -202,13 +220,16 @@ export function TopNav() {
                 aria-label={item.label}
                 title={item.label}
                 className={cn(
-                  "flex size-9 items-center justify-center rounded-md transition-colors",
+                  "relative flex size-9 items-center justify-center rounded-md transition-colors",
                   isRouteActive(pathname, item.href)
-                    ? "bg-primary/10 text-primary"
-                    : "text-foreground/80 hover:bg-primary/10 hover:text-primary",
+                    ? "text-primary"
+                    : "text-foreground/80 hover:text-primary",
                 )}
               >
-                {Icon ? <Icon className="size-4" strokeWidth={2} /> : null}
+                {isRouteActive(pathname, item.href) ? (
+                  <ActivePill id="topnav-bottom-active" />
+                ) : null}
+                {Icon ? <Icon className="size-4 relative" strokeWidth={2} /> : null}
               </Link>
             );
           })}

@@ -8,7 +8,7 @@ import { getAllScreening } from "@/lib/features/registerScreeningSlice";
 import { getAllEvents } from "@/lib/features/getEventAssignSlice";
 import { getAllStudent } from "@/lib/features/getAllStudentSlice";
 import {
-  getDashboard,
+  getSchoolDashboard,
   getDashboardSummary,
 } from "@/lib/features/dashboardSlice";
 
@@ -25,6 +25,8 @@ export const useSchoolSuperAdminApi = (role, requestedSchoolBranchId) => {
     getRole === "super_admin" ||
     getRole === "school" ||
     getRole === "school_admin";
+  const canLoadSchoolDashboard =
+    canAccessAllSchoolBranches || getRole === "school_sub_account";
 
   const {
     data: getAllSchoolBranch = {},
@@ -46,8 +48,8 @@ export const useSchoolSuperAdminApi = (role, requestedSchoolBranchId) => {
     error: dashboardError,
   } = useQuery({
     queryKey: ["dashboard", getRole],
-    queryFn: () => dispatch(getDashboard()).unwrap(),
-    enabled: Boolean(getRole),
+    queryFn: () => dispatch(getSchoolDashboard()).unwrap(),
+    enabled: canLoadSchoolDashboard,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
@@ -108,11 +110,7 @@ export const useSchoolSuperAdminApi = (role, requestedSchoolBranchId) => {
   } = useQuery({
     queryKey: ["school-dashboard-events", getRole],
     queryFn: () => dispatch(getAllEvents()).unwrap(),
-    enabled:
-      getRole === "admin" ||
-      getRole === "school" ||
-      getRole === "school_admin" ||
-      getRole === "school_sub_account",
+    enabled: canLoadSchoolDashboard,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
   });
@@ -146,6 +144,7 @@ const {
 } = useQuery({
   queryKey: ["getAllScreening"],
   queryFn: () => dispatch(getAllScreening()).unwrap(),
+  enabled: canLoadSchoolDashboard,
   staleTime: 5 * 60 * 1000,
   refetchOnWindowFocus: false,
 });
@@ -156,7 +155,7 @@ const {
   } = useQuery({
     queryKey: ["dashboardSummary", getRole],
     queryFn: () => dispatch(getDashboardSummary()).unwrap(),
-    enabled: Boolean(getRole),
+    enabled: canLoadSchoolDashboard,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });

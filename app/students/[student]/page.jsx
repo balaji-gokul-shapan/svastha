@@ -499,7 +499,7 @@ function StudentDetailPageInner() {
               student.status,
             )}`}
           >
-            {student?.status ?? "—"}
+            {student?.status ?? "-"}
           </span>
         )}
         {/* <Button className="inline-flex bg-primary px-4 py-2 rounded-full">
@@ -511,7 +511,7 @@ function StudentDetailPageInner() {
       </div>
 
       {isImageModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+        <div className="fixed h-fit inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-9/10 md:max-w-1/3 lg:max-w-1/4 rounded-xl border border-border bg-card p-5 shadow-xl">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-base font-semibold text-foreground">

@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { motion } from "framer-motion";
 import * as React from "react";
 
 import { createCoreRowModel, flexRender, useTable } from "@tanstack/react-table";
@@ -59,6 +60,10 @@ function getHeaderLabel(columnDef) {
 }
 
 
+// Opt-in animated body row (React 19 passes `ref` through props, so the
+// plain TableRow spreads it onto <tr> without a forwardRef wrapper).
+const MotionTableRow = motion.create(TableRow);
+
 export function DataTable({
   columns,
   data = [],
@@ -71,6 +76,16 @@ export function DataTable({
   pageSizeOptions = [10, 20, 50, 100],
 
   serverPagination,
+  // Controlled local pagination (report table): when provided, page state
+  // lives in the PARENT so switching table -> detailed -> table keeps your
+  // page (e.g. 32) instead of resetting to 1 on remount.
+  pageIndex: controlledPageIndex,
+  onPageIndexChange,
+  pageSize: controlledPageSize,
+  onPageSizeChange: onControlledPageSizeChange,
+  // Opt-in staggered row fade-in (students table). Off by default so every
+  // existing table keeps its exact current markup/behaviour.
+  animateRows = false,
   isLoading = false,
   className,
   // Applied to the inner <table>. Use it to force a `min-w-*` so narrow
@@ -94,8 +109,28 @@ export function DataTable({
   // `sort` is { id, desc } or null (unsorted). Page state is clamped on read so
   // a shrinking dataset can never render an out-of-range blank page.
   const [sort, setSort] = React.useState(null);
-  const [pageIndex, setPageIndex] = React.useState(0);
-  const [pageSize, setPageSize] = React.useState(initialPageSize);
+  const [innerPageIndex, setInnerPageIndex] = React.useState(0);
+  const [innerPageSize, setInnerPageSize] = React.useState(initialPageSize);
+  const isControlledPage = typeof controlledPageIndex === "number";
+  const pageIndex = isControlledPage ? controlledPageIndex : innerPageIndex;
+  const setPageIndex = React.useCallback(
+    (next) => {
+      const value = typeof next === "function" ? next(pageIndex) : next;
+      if (!isControlledPage) setInnerPageIndex(value);
+      onPageIndexChange?.(value);
+    },
+    [isControlledPage, onPageIndexChange, pageIndex],
+  );
+
+  const isControlledPageSize = typeof controlledPageSize === "number";
+  const pageSize = isControlledPageSize ? controlledPageSize : innerPageSize;
+  const setPageSize = React.useCallback(
+    (next) => {
+      if (!isControlledPageSize) setInnerPageSize(next);
+      onControlledPageSizeChange?.(next);
+    },
+    [isControlledPageSize, onControlledPageSizeChange],
+  );
 
   const table = useTable({
     data,
@@ -136,8 +171,6 @@ export function DataTable({
     return sort.desc ? sorted.reverse() : sorted;
   }, [rows, sort, getSortValue]);
 
-  // Server-driven mode: the caller owns paging, so rows are rendered as-is and
-  // the footer mirrors the server's own numbers.
   const isServerPaginated = Boolean(serverPagination);
   const serverPage = Math.max(1, Number(serverPagination?.page) || 1);
   const serverTotalPages = Math.max(
@@ -168,8 +201,6 @@ export function DataTable({
   const activePage = isServerPaginated ? serverPage : safePageIndex + 1;
   const activePageSize = isServerPaginated ? serverPageSize : pageSize;
 
-  // `lastRow` counts the rows actually rendered on this page, so a narrowed
-  // page never claims more rows than the user can see.
   const firstRow =
     totalRows === 0
       ? 0
@@ -177,7 +208,7 @@ export function DataTable({
   const lastRow = isServerPaginated
     ? Math.min(totalRows, (serverPage - 1) * serverPageSize + sortedRows.length)
     : Math.min(totalRows, (safePageIndex + 1) * pageSize);
-  const showFooter = (isServerPaginated || enablePagination) && totalRows > 0;
+  const showFooter = isServerPaginated || (enablePagination && totalRows > 0);
 
   const toggleSort = (columnId) => {
     setSort((prev) => {
@@ -262,9 +293,25 @@ export function DataTable({
           </TableHeader>
           <TableBody>
             {pageRows.length ? (
-              pageRows.map((row) => (
-                <TableRow
+              pageRows.map((row, rowIndex) => {
+                const Row = animateRows ? MotionTableRow : TableRow;
+
+                return (
+                <Row
                   key={row.id}
+                  // Staggered fade-in: capped delay so page 50 doesn't take
+                  // seconds to finish animating.
+                  {...(animateRows
+                    ? {
+                        initial: { opacity: 0, y: 6 },
+                        animate: { opacity: 1, y: 0 },
+                        transition: {
+                          duration: 0.28,
+                          delay: Math.min(rowIndex * 0.035, 0.5),
+                          ease: "easeOut",
+                        },
+                      }
+                    : {})}
                   className={cn(
                     onRowClick ? "cursor-pointer" : undefined,
                     rowClassName,
@@ -320,8 +367,9 @@ export function DataTable({
                         : String(cell.getValue() ?? "")}
                     </TableCell>
                   ))}
-                </TableRow>
-              ))
+                </Row>
+                );
+              })
             ) : (
               <TableRow>
                 <TableCell
@@ -348,6 +396,7 @@ export function DataTable({
             </p>
 
             <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+              <span className="text-xs text-muted-foreground">Rows per page</span>
               <ReusableSelect
                 // label="Rows per page"
                 value={String(activePageSize)}
