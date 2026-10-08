@@ -1126,6 +1126,598 @@
    ========================================================================== */
 
 @layer components {
+  .school-insights {
+    --school-insights-blue: #2563eb;
+    --school-insights-green: #059669;
+    --school-insights-violet: #7c3aed;
+    --school-insights-amber: #d97706;
+    --school-insights-rose: #e11d48;
+    position: relative;
+    display: grid;
+    gap: 1rem;
+    overflow: hidden;
+    padding: 1.15rem;
+    border: 1px solid color-mix(in oklch, var(--primary) 18%, var(--border));
+    border-radius: 1.35rem;
+    background:
+      radial-gradient(ellipse at 95% 0%, rgb(99 102 241 / 0.09), transparent 38%),
+      radial-gradient(ellipse at 0% 100%, rgb(16 185 129 / 0.08), transparent 34%),
+      linear-gradient(145deg, var(--card), color-mix(in oklch, var(--card) 90%, var(--muted)));
+    box-shadow:
+      0 1px 2px rgb(15 23 42 / 0.04),
+      0 18px 45px -34px rgb(37 99 235 / 0.42);
+  }
+
+  .school-insights__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.25rem 0.15rem 0.75rem;
+  }
+
+  .school-insights__header h2 {
+    margin: 0.4rem 0 0;
+    color: var(--foreground);
+    font-size: clamp(1.15rem, 2vw, 1.55rem);
+    font-weight: 750;
+    letter-spacing: -0.035em;
+  }
+
+  .school-insights__header p,
+  .school-insights__panel-heading p {
+    margin: 0.2rem 0 0;
+    color: var(--muted-foreground);
+    font-size: 0.78rem;
+  }
+
+  .school-insights__eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--primary);
+    font-size: 0.67rem;
+    font-weight: 750;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+  }
+
+  .school-insights__eyebrow svg {
+    width: 0.9rem;
+    height: 0.9rem;
+  }
+
+  .school-insights__header-mark {
+    display: grid;
+    width: 3rem;
+    height: 3rem;
+    flex: 0 0 auto;
+    place-items: center;
+    border: 1px solid rgb(99 102 241 / 0.16);
+    border-radius: 1rem;
+    background: linear-gradient(145deg, rgb(59 130 246 / 0.13), rgb(16 185 129 / 0.13));
+    color: var(--primary);
+  }
+
+  .school-insights__header-mark svg {
+    width: 1.35rem;
+    height: 1.35rem;
+  }
+
+  .school-insights__stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .school-insights__stat {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    min-height: 8.5rem;
+    flex-direction: column;
+    align-items: flex-start;
+    overflow: hidden;
+    padding: 0.95rem;
+    border: 1px solid color-mix(in oklch, var(--stat-tone) 20%, var(--border));
+    border-radius: 1rem;
+    background:
+      radial-gradient(circle at 100% 0%, color-mix(in oklch, var(--stat-tone) 13%, transparent), transparent 52%),
+      color-mix(in oklch, var(--card) 94%, var(--stat-tone));
+  }
+
+  .school-insights__stat::after {
+    position: absolute;
+    right: -1.25rem;
+    bottom: -2.1rem;
+    width: 5rem;
+    height: 5rem;
+    border: 1px solid color-mix(in oklch, var(--stat-tone) 17%, transparent);
+    border-radius: 50%;
+    content: "";
+  }
+
+  .school-insights__stat--blue { --stat-tone: var(--school-insights-blue); }
+  .school-insights__stat--green { --stat-tone: var(--school-insights-green); }
+  .school-insights__stat--violet { --stat-tone: var(--school-insights-violet); }
+  .school-insights__stat--amber { --stat-tone: var(--school-insights-amber); }
+
+  .school-insights__stat-icon {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    border-radius: 0.65rem;
+    background: color-mix(in oklch, var(--stat-tone) 13%, transparent);
+    color: var(--stat-tone);
+  }
+
+  .school-insights__stat-icon svg {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .school-insights__stat-label {
+    margin-top: 0.75rem;
+    color: var(--muted-foreground);
+    font-size: 0.7rem;
+    font-weight: 650;
+  }
+
+  .school-insights__stat strong {
+    color: var(--foreground);
+    font-size: 1.65rem;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.05em;
+  }
+
+  .school-insights__stat-detail {
+    margin-top: 0.25rem;
+    color: var(--muted-foreground);
+    font-size: 0.65rem;
+  }
+
+  .school-insights__breakdowns,
+  .school-insights__bottom-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .school-insights__bottom-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .school-insights__panel {
+    min-width: 0;
+    padding: 1rem;
+    border: 1px solid color-mix(in oklch, var(--border) 85%, transparent);
+    border-radius: 1rem;
+    background: color-mix(in oklch, var(--card) 88%, transparent);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.55);
+  }
+
+  .school-insights__panel-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    margin-bottom: 0.95rem;
+  }
+
+  .school-insights__panel-heading h3 {
+    margin: 0;
+    color: var(--foreground);
+    font-size: 0.88rem;
+    font-weight: 750;
+  }
+
+  .school-insights__icon {
+    display: grid;
+    width: 2.35rem;
+    height: 2.35rem;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 0.75rem;
+  }
+
+  .school-insights__icon svg {
+    width: 1.1rem;
+    height: 1.1rem;
+  }
+
+  .school-insights__icon--blue { color: #2563eb; background: rgb(59 130 246 / 0.12); }
+  .school-insights__icon--violet { color: #7c3aed; background: rgb(139 92 246 / 0.13); }
+  .school-insights__icon--amber { color: #b45309; background: rgb(245 158 11 / 0.15); }
+  .school-insights__icon--green { color: #047857; background: rgb(16 185 129 / 0.13); }
+  .school-insights__icon--rose { color: #be123c; background: rgb(244 63 94 / 0.13); }
+
+  .school-insights__bar-list {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .school-insights__bar-row {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .school-insights__bar-label {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    color: var(--muted-foreground);
+    font-size: 0.72rem;
+  }
+
+  .school-insights__bar-label span:last-child {
+    color: var(--foreground);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .school-insights__track {
+    height: 0.45rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: color-mix(in oklch, var(--muted) 82%, var(--border));
+  }
+
+  .school-insights__fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+  }
+
+  .school-insights__fill--blue {
+    background: linear-gradient(90deg, #3b82f6, #22d3ee);
+  }
+
+  .school-insights__fill--violet {
+    background: linear-gradient(90deg, #8b5cf6, #ec4899);
+  }
+
+  .school-insights__classes {
+    overflow: hidden;
+  }
+
+  .school-insights__class-grid {
+    display: grid;
+    max-height: 22rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.55rem;
+    overflow: auto;
+    padding: 0.1rem 0.15rem 0.25rem 0;
+  }
+
+  .school-insights__class-card {
+    min-width: 0;
+    padding: 0.65rem;
+    border: 1px solid color-mix(in oklch, var(--primary) 12%, var(--border));
+    border-radius: 0.8rem;
+    background: linear-gradient(145deg, color-mix(in oklch, var(--primary) 5%, var(--card)), var(--card));
+  }
+
+  .school-insights__class-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.35rem;
+    color: var(--foreground);
+    font-size: 0.7rem;
+  }
+
+  .school-insights__class-heading span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .school-insights__class-heading strong {
+    color: var(--primary);
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .school-insights__section-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-top: 0.5rem;
+  }
+
+  .school-insights__section-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.18rem 0.35rem;
+    border-radius: 999px;
+    background: color-mix(in oklch, var(--muted) 78%, transparent);
+    color: var(--muted-foreground);
+    font-size: 0.58rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .school-insights__section-chip b {
+    color: var(--foreground);
+    font-weight: 700;
+  }
+
+  .school-insights__screening-list {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .school-insights__screening-row {
+    display: grid;
+    grid-template-columns: auto minmax(4rem, 1fr) auto auto;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.55rem 0.6rem;
+    border-radius: 0.65rem;
+    background: color-mix(in oklch, var(--muted) 45%, transparent);
+    color: var(--muted-foreground);
+    font-size: 0.66rem;
+  }
+
+  .school-insights__screening-dot {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #14b8a6, #3b82f6);
+    box-shadow: 0 0 0 3px rgb(20 184 166 / 0.11);
+  }
+
+  .school-insights__screening-name {
+    color: var(--foreground);
+    font-weight: 700;
+  }
+
+  .school-insights__screening-row strong {
+    min-width: 1.8rem;
+    color: var(--primary);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .school-insights__outcome-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.45rem;
+  }
+
+  .school-insights__outcome {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.6rem 0.5rem;
+    border: 1px solid transparent;
+    border-radius: 0.7rem;
+  }
+
+  .school-insights__outcome span {
+    font-size: 0.6rem;
+    font-weight: 650;
+    line-height: 1.25;
+  }
+
+  .school-insights__outcome strong {
+    font-size: 1.1rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .school-insights__outcome--good {
+    border-color: rgb(16 185 129 / 0.15);
+    background: rgb(16 185 129 / 0.08);
+    color: #047857;
+  }
+
+  .school-insights__outcome--followup {
+    border-color: rgb(245 158 11 / 0.17);
+    background: rgb(245 158 11 / 0.09);
+    color: #b45309;
+  }
+
+  .school-insights__outcome--referral {
+    border-color: rgb(139 92 246 / 0.16);
+    background: rgb(139 92 246 / 0.09);
+    color: #6d28d9;
+  }
+
+  .school-insights__followup-line {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.6rem;
+    padding: 0.55rem 0.6rem;
+    border-radius: 0.65rem;
+    background: color-mix(in oklch, var(--muted) 48%, transparent);
+    color: var(--muted-foreground);
+    font-size: 0.61rem;
+  }
+
+  .school-insights__followup-line strong {
+    margin-right: auto;
+    color: var(--foreground);
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .school-insights__women {
+    background:
+      radial-gradient(ellipse at 100% 0%, rgb(244 63 94 / 0.1), transparent 58%),
+      color-mix(in oklch, var(--card) 88%, transparent);
+  }
+
+  .school-insights__women-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+  }
+
+  .school-insights__women-stats div {
+    display: flex;
+    flex-direction: column;
+    padding: 0.75rem;
+    border: 1px solid rgb(244 63 94 / 0.13);
+    border-radius: 0.8rem;
+    background: color-mix(in oklch, var(--card) 78%, rgb(244 63 94 / 0.1));
+  }
+
+  .school-insights__women-stats strong {
+    color: #be123c;
+    font-size: 1.4rem;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+
+  .school-insights__women-stats span,
+  .school-insights__women-note,
+  .school-insights__empty {
+    color: var(--muted-foreground);
+    font-size: 0.68rem;
+  }
+
+  .school-insights__women-note {
+    margin: 0.75rem 0 0;
+    line-height: 1.5;
+  }
+
+  .school-insights__finding-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.65rem;
+  }
+
+  .school-insights__finding-list span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.28rem 0.45rem;
+    border: 1px solid rgb(244 63 94 / 0.14);
+    border-radius: 999px;
+    background: rgb(244 63 94 / 0.06);
+    color: var(--muted-foreground);
+    font-size: 0.58rem;
+  }
+
+  .school-insights__finding-list strong {
+    color: #be123c;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .school-insights__empty {
+    margin: 0;
+    padding: 0.75rem 0;
+  }
+
+  .school-insights__message {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-color: color-mix(in oklch, var(--destructive) 30%, var(--border));
+  }
+
+  .school-insights__message > svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex: 0 0 auto;
+    color: var(--destructive);
+  }
+
+  .school-insights__message h2,
+  .school-insights__message p {
+    margin: 0;
+  }
+
+  .school-insights__message h2 {
+    color: var(--foreground);
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+
+  .school-insights__message p {
+    margin-top: 0.2rem;
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+  }
+
+  .school-insights__loading {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .school-insights__loading span {
+    min-height: 8rem;
+    border-radius: 1rem;
+    background: linear-gradient(100deg, var(--muted) 30%, color-mix(in oklch, var(--muted) 45%, white) 50%, var(--muted) 70%);
+    background-size: 220% 100%;
+    animation: school-insights-shimmer 1.4s ease-in-out infinite;
+  }
+
+  @keyframes school-insights-shimmer {
+    to { background-position-x: -220%; }
+  }
+
+  @media (max-width: 900px) {
+    .school-insights__stats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .school-insights__bottom-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .school-insights__class-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 640px) {
+    .school-insights {
+      gap: 0.75rem;
+      padding: 0.8rem;
+      border-radius: 1rem;
+    }
+
+    .school-insights__breakdowns,
+    .school-insights__bottom-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .school-insights__header-mark {
+      width: 2.5rem;
+      height: 2.5rem;
+    }
+
+    .school-insights__class-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 380px) {
+    .school-insights__stats {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .school-insights__loading span {
+      animation: none;
+    }
+  }
+
+  .dark .school-insights {
+    background:
+      radial-gradient(ellipse at 95% 0%, rgb(99 102 241 / 0.14), transparent 38%),
+      radial-gradient(ellipse at 0% 100%, rgb(16 185 129 / 0.11), transparent 34%),
+      linear-gradient(145deg, var(--card), color-mix(in oklch, var(--card) 88%, var(--muted)));
+  }
+}
   /* ------------------------------------------------------------------------
      Page container
      ------------------------------------------------------------------------ */
@@ -2150,7 +2742,6 @@
 
     padding: 1.5rem;
   }
-}
 
 /* ==========================================================================
    7. PROFILE SETTINGS

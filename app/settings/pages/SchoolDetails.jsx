@@ -133,9 +133,7 @@ const SchoolDetails = ({
   /* ============================================================
      PINCODE LOOKUP — step 5 (Address & Contact)
      Identical behaviour to the registration form's
-     BranchAddressFields: a 6-digit pincode fetches the area / city /
-     state option lists and fills only the fields the user hasn't
-     typed into.
+ 
      ============================================================ */
   const {
     isReady: pincodeReady,
@@ -178,10 +176,6 @@ const SchoolDetails = ({
       Object.keys(updates).forEach((field) => delete next[field]);
       return next;
     });
-    // formData is read for comparison only — including it would re-run this
-    // on every keystroke the autofill itself causes. formData.pincode IS a
-    // dependency so re-opening the wizard re-evaluates the saved record.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pincodeAutofill, pincodeError, pincodeReady, formData.pincode]);
 
   const [selectedClassIds, setSelectedClassIds] = useState([]);
@@ -204,20 +198,70 @@ const SchoolDetails = ({
     setFieldValue("pincode", normalizePincode(value));
   console.log(getUserAccount, "getRole");
 
-  // Academic class/section options (multi-select)
-  const classOptions = SECTION_OPTIONS.map((opt) => {
-    const grade = opt.label.match(/(\d+)/)?.[1];
-    return grade ? { value: `${grade}`, label: `${grade}` } : null;
-  })
-    .filter(Boolean)
-    .filter((opt, i, arr) => arr.findIndex((o) => o.value === opt.value) === i);
+  
+  // Unwrap branch profile — API may return { data: {...} } or { data: [...] }.
+  const branchProfile = useMemo(() => {
+    const raw = getSchoolBranchData?.data ?? getSchoolBranchData;
+    if (Array.isArray(raw)) return raw[0] ?? {};
+    return raw ?? {};
+  }, [getSchoolBranchData]);
 
-  const sectionOptions = SECTION_OPTIONS.map((opt) => {
-    const section = opt.label.split(" - ")[1];
-    return section ? { value: section, label: section } : null;
-  })
-    .filter(Boolean)
-    .filter((opt, i, arr) => arr.findIndex((o) => o.value === opt.value) === i);
+
+  const toOptionList = (raw) => {
+    if (raw == null) return [];
+    const items = Array.isArray(raw) ? raw : String(raw).split(",");
+    const mapped = items
+      .map((item) => {
+        if (item == null) return null;
+        if (typeof item === "object") {
+          const value = String(item.value ?? item.label ?? "").trim();
+          if (!value) return null;
+          return {
+            value,
+            label: String(item.label ?? item.value).trim(),
+          };
+        }
+        const value = String(item).trim();
+        if (!value) return null;
+        return { value, label: value };
+      })
+      .filter(Boolean);
+    // De-dupe by value, preserving first-seen order.
+    return mapped.filter(
+      (opt, i, arr) => arr.findIndex((o) => o.value === opt.value) === i,
+    );
+  };
+
+  const mergeWithDefaults = (saved, defaults) => {
+    if (!saved.length) return defaults;
+    const seen = new Set(saved.map((o) => o.value));
+    const extras = defaults.filter((o) => !seen.has(o.value));
+    return [...saved, ...extras];
+  };  
+
+  const classOptions = useMemo(() => {
+    const defaults = SECTION_OPTIONS.map((opt) => {
+      const grade = opt.label.match(/(\d+)/)?.[1];
+      return grade ? { value: `${grade}`, label: `${grade}` } : null;
+    })
+      .filter(Boolean)
+      .filter((opt, i, arr) => arr.findIndex((o) => o.value === opt.value) === i);
+    const saved = toOptionList(branchProfile?.class);
+    const merged = mergeWithDefaults(saved, defaults);
+    return Array.isArray(merged) ? merged : [];
+  }, [branchProfile]);
+
+  const sectionOptions = useMemo(() => {
+    const defaults = SECTION_OPTIONS.map((opt) => {
+      const section = opt.label.split(" - ")[1];
+      return section ? { value: section, label: section } : null;
+    })
+      .filter(Boolean)
+      .filter((opt, i, arr) => arr.findIndex((o) => o.value === opt.value) === i);
+    const saved = toOptionList(branchProfile?.section);
+    const merged = mergeWithDefaults(saved, defaults);
+    return Array.isArray(merged) ? merged : [];
+  }, [branchProfile]);
 
   const syncClassToForm = (ids) => {
     setSelectedClassIds(ids);
@@ -791,21 +835,21 @@ const SchoolDetails = ({
 
   // Opens the existing step wizard pre-filled with the branch's saved details.
   const handleEditBranch = (branch) => {
-    // A school_sub_account's card is built from the SCHOOL ACCOUNT, which
-    // doesn't carry the branch wizard fields. Pre-fill from the real branch
-    // record (/schools/branch) instead, falling back to the clicked card.
     const isSubAccount = getRole === "school_sub_account";
-    const record = isSubAccount
+    const rawRecord = isSubAccount
       ? (getSchoolBranchData?.data ?? getSchoolBranchData ?? branch)
       : branch;
+    // getSchoolBranchData?.data can be an array (list endpoint) — unwrap it.
+    const record = Array.isArray(rawRecord)
+      ? (rawRecord[0] ?? branch)
+      : (rawRecord ?? branch);
     setEditingBranch(record);
     console.log(getRole, "editingBranch");
 
-    // New record → whatever we auto-filled for the previous one is no longer
-    // "ours"; this record's saved values must never be treated as auto-filled.
+
     lastFilledRef.current = {};
 
-    // Pre-fill every wizard field from the record, tolerating missing keys.
+
     setFormData({
       ...EMPTY_FORM,
       ...Object.fromEntries(
@@ -816,21 +860,24 @@ const SchoolDetails = ({
       ),
     });
 
-    // The form stores classes/sections as "1, 2" strings; the multi-selects
-    // need id arrays — parse them back, matching by option value OR label.
-    const toIds = (csv, options) =>
-      String(record?.[csv] ?? "")
+    const toIds = (csv, options) => {
+      const list = Array.isArray(options) ? options : [];
+      if (list.length === 0) return [];
+      return String(record?.[csv] ?? "")
         .split(",")
         .map((value) => value.trim())
         .filter(Boolean)
         .map((value) => {
-          const match = options.find(
+          const match = list.find(
             (option) =>
-              String(option.value) === value || option.label === value,
+              String(option?.value) === value || option?.label === value,
           );
-          return match ? match.value : null;
+          // Keep unknown saved values selectable instead of dropping them —
+          // ReusableMultiSelect normalizes plain strings to {value,label}.
+          return match ? match.value : value;
         })
-        .filter((id) => id !== null);
+        .filter((id) => id !== null && id !== undefined && id !== "");
+    };
 
     setSelectedClassIds(toIds("class", classOptions));
     setSelectedSectionIds(toIds("section", sectionOptions));

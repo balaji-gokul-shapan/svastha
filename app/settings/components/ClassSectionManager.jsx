@@ -119,7 +119,8 @@ export default function ClassSectionManager({
   // ---------------------------------------------------------------
   function normalizeToMap(input) {
     if (!input) return {};
-
+    console.log(input,"sssssinput");
+    
     // JSON-encoded string → parse first.
     if (typeof input === "string") {
       const text = input.trim();
@@ -195,6 +196,8 @@ export default function ClassSectionManager({
   const [applyTargets, setApplyTargets] = useState([]);
   console.log("initialClassSections", initialClassSections);
   console.log("activeClass", activeClass);
+  console.log(classSections,"classSectionsdddd");
+  
   
 
  
@@ -307,6 +310,7 @@ export default function ClassSectionManager({
           {refinedresult.map((cls) => {
             const count = (classSections[cls] || []).length;
             const isActive = cls === activeClass;
+            
 
             return (
               <button
@@ -321,7 +325,7 @@ export default function ClassSectionManager({
                     ? "bg-primary/10 font-medium text-primary"
                     : "text-foreground hover:bg-muted"
                 } ${
-                  count > 1
+                  count > 0
                     ? "border border-primary/30 text-primary"
                     : "border border-transparent"
                 }`}
@@ -395,7 +399,8 @@ export default function ClassSectionManager({
                   .filter((cls) => cls !== activeClass)
                   .map((cls) => {
                     const count = (classSections[cls] || []).length;
-
+                    console.log(count,"wwwwwwcount");
+                    
                     return (
                       <label
                         key={cls}

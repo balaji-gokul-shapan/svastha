@@ -90,7 +90,7 @@ const ALERT_ICONS = {
   info: Info,
 };
 
-export function BranchDetailsPanel({ branch, summary }) {
+export function BranchDetailsPanel({ hasRole, branch, summary }) {
   const displayData = branch ?? summary;
   const status = String(displayData?.status ?? "Not available").trim();
   const isActive = status.toLowerCase() === "active";
@@ -102,6 +102,7 @@ export function BranchDetailsPanel({ branch, summary }) {
       ? `${number.toLocaleString()} sq.ft`
       : "Not provided";
   };
+console.log(hasRole, "hasRole");
 
   return (
     <section className="rounded-2xl border border-border/80 bg-gradient-to-r from-slate-50 via-white to-blue-50/60 p-4 shadow-sm sm:p-5 dark:from-slate-950 dark:via-slate-950 dark:to-blue-950/30">
@@ -166,7 +167,7 @@ export function BranchDetailsPanel({ branch, summary }) {
   );
 }
 
-export function SchoolDetailsCard({ school }) {
+export function SchoolDetailsCard({ school, hasRole }) {
   const [copiedField, setCopiedField] = React.useState("");
   const details = school?.school ?? school?.branch_data ?? school?.branch ?? {};
   const value = (topLevel, nested, fallback = "Not provided") => {
@@ -389,7 +390,7 @@ export function SchoolDetailsCard({ school }) {
             </div>
           </div>
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className={`grid gap-4 ${hasRole !== "teacher" ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
           <div className="rounded-2xl border bg-muted/20 p-4">
             <div className="mb-3 flex items-center gap-2">
               <Users className="size-4 text-violet-600" />
@@ -430,6 +431,7 @@ export function SchoolDetailsCard({ school }) {
               </p>
             </div>
           </div>
+          {hasRole !== "teacher" && (
           <div className="rounded-2xl border border-blue-100 bg-slate-50/70 p-4 dark:border-blue-950 dark:bg-slate-900/40">
             <div className="mb-3 flex items-center gap-2">
               <ShieldCheck className="size-4 text-blue-600" />
@@ -471,6 +473,7 @@ export function SchoolDetailsCard({ school }) {
               )}
             </div>
           </div>
+          )}
         </div>
       </CardContent>
     </Card>

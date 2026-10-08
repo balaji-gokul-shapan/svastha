@@ -84,10 +84,7 @@
 
 import * as React from "react";
 import ReusableSelect from "@/components/ui/reusable-select";
-import {
-  getCampDisplayLabel,
-  getCampId,
-} from "@/lib/camp-utils";
+import { getCampDisplayLabel, getCampId } from "@/lib/camp-utils";
 
 // export function DashboardHeader({
 //   user,
@@ -242,18 +239,17 @@ export function DashboardHeader({
   dashboardSummaryData,
   dashboardSummaryLoading,
   dashboardSummaryError,
-  schoolBranch
+  schoolBranch,
 }) {
-  console.log(branchOptions,"branchOptions");
-  
+  console.log(branchOptions, "branchOptions");
 
   const resolvedBranchOptions = React.useMemo(() => {
     /* NOTE: `branchOptions` is ALWAYS a non-empty array (the parent seeds it with
        the "all" row), so the old `branchOptions.length` guard always won and this
        fallback was dead code. Only fall back when there is nothing beyond "all". */
-    const hasRealOption = (Array.isArray(branchOptions) ? branchOptions : []).some(
-      (option) => String(option?.value ?? "").trim() !== "all",
-    );
+    const hasRealOption = (
+      Array.isArray(branchOptions) ? branchOptions : []
+    ).some((option) => String(option?.value ?? "").trim() !== "all");
 
     if (hasRealOption) {
       return branchOptions;
@@ -265,9 +261,7 @@ export function DashboardHeader({
       { value: "all", label: "All Branches" },
       ...(Array.isArray(schoolBranch) ? schoolBranch : [])
         .map((branch) => {
-          const value = String(
-            branch?.id ?? branch?.branch_id ?? "",
-          ).trim();
+          const value = String(branch?.id ?? branch?.branch_id ?? "").trim();
 
           return {
             value,
@@ -296,17 +290,14 @@ export function DashboardHeader({
     .trim()
     .toLowerCase();
 
+  console.log(normalizedRole, "normalizedRole");
+
   const isDoctor =
     normalizedRole === "doctor" ||
     normalizedRole === "staff" ||
     normalizedRole === "primary_doctor";
 
-  // Admins manage branches; everyone else (incl. a doctor) gets camps.
-  const showsBranchFilter =
-    normalizedRole === "admin" ||
-    normalizedRole === "superadmin" ||
-    normalizedRole === "school";
-
+  const showsBranchFilter = normalizedRole === "superadmin";
   /*
    * Camp options come from the doctor's assigned events. `events` may still be
    * a raw `{ data: [...] }` response, so unwrap it before mapping.
@@ -344,25 +335,28 @@ export function DashboardHeader({
   }, [events]);
 
   const rawName =
-    user?.account?.name ?? user?.emp_name ?? user?.label ?? user?.full_name ?? user?.user_name ?? "";
-    console.log(user,"rawName");
-    
+    user?.account?.name ??
+    user?.emp_name ??
+    user?.label ??
+    user?.full_name ??
+    user?.user_name ??
+    "";
+  console.log(user, "rawName");
+
   const displayName = rawName
     ? rawName.charAt(0).toUpperCase() + rawName.toLowerCase().slice(1)
     : "there";
-    const hour = new Date().getHours();
+  const hour = new Date().getHours();
 
-const greeting =
-  hour < 12 ? "Good morning" :
-  hour < 18 ? "Good afternoon" :
-  "Good evening";
-
+  const greeting =
+    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   return (
     <div className="flex w-full flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
       <div className="min-w-0">
         <h1 className="text-xl font-bold tracking-tight capitalize break-words md:text-4xl">
-           {" "} {greeting}, {" "} {displayName}
+          {" "}
+          {greeting}, {displayName}
         </h1>
 
         <p className="text-sm text-muted-foreground">
@@ -371,15 +365,13 @@ const greeting =
       </div>
 
       {/* Full width on mobile, auto on desktop so it never squeezes the title */}
-      <section
-        className="school-subaccount-filter w-full shrink-0 sm:w-auto sm:min-w-[16rem]"
-        aria-label={isDoctor ? "Camp filter" : "Branch filter"}
-      >
-        {(isDoctor || showsBranchFilter) && (
+      {(isDoctor || showsBranchFilter) && (
+        <section
+          className="school-subaccount-filter w-full shrink-0 sm:w-auto sm:min-w-[16rem]"
+          aria-label={isDoctor ? "Camp filter" : "Branch filter"}
+        >
           <ReusableSelect
             label={isDoctor ? "Camp" : "Branch"}
-            // A doctor filters by their assigned CAMPS; everyone else by branch.
-            // Hardcoding the branch list here is what made a doctor see branches.
             options={isDoctor ? resolvedCampOptions : resolvedBranchOptions}
             value={(isDoctor ? selectedCampId : selectedBranchId) ?? "all"}
             onChange={(value) =>
@@ -389,9 +381,10 @@ const greeting =
             searchPlaceholder={isDoctor ? "Search camp..." : "Search branch..."}
             disabled={Boolean(isDoctor ? eventsLoading : branchesLoading)}
           />
-        )}
-        {/* Removed as it's now conditionally rendered above */}
-      </section>
+
+          {/* Removed as it's now conditionally rendered above */}
+        </section>
+      )}
     </div>
   );
 }

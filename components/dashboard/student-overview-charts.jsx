@@ -1,6 +1,5 @@
 // "use client";
 
-
 // import React from "react";
 
 // import { normalizeEvents } from "@/lib/dashboard-stats";
@@ -144,7 +143,11 @@
 // }
 import * as React from "react";
 import { DashboardHeader } from "./components/DashboardHeader";
-import { BranchDetailsPanel, SchoolDetailsCard } from "./components/dashboard-sections";
+import {
+  BranchDetailsPanel,
+  SchoolDetailsCard,
+} from "./components/dashboard-sections";
+import SchoolDashboardInsights from "./components/SchoolDashboardInsights";
 
 export default function StudentOverviewCharts({
   user,
@@ -159,22 +162,41 @@ export default function StudentOverviewCharts({
   schoolBranch,
   getAllSchoolBranchLoading,
   getAllSchoolBranchError,
+  getSchoolBranchData,
+  getSchoolBranchLoading,
+  getSchoolBranchError,
   eventsLoading = false,
 }) {
 
+const normalizeValue = (value) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+const resolvedRole = normalizeValue(userAuthRole ?? role ?? "");
+const hasRole = Boolean(resolvedRole);
+const isDoctor = ["doctor", "staff", "primary_doctor"].includes(resolvedRole);
   const getAllBranches = React.useMemo(
-    () => (Array.isArray(dashboardData?.data?.branches) ? dashboardData.data.branches : []),
+    () =>
+      Array.isArray(dashboardData?.data?.branches)
+        ? dashboardData.data.branches
+        : [],
     [dashboardData],
   );
 
   const getAllEvents = React.useMemo(
-    () => (Array.isArray(dashboardData?.data?.events) ? dashboardData.data.events : []),
+    () =>
+      Array.isArray(dashboardData?.data?.events)
+        ? dashboardData.data.events
+        : [],
     [dashboardData],
   );
 
   /* ------------------------------------------------------------------ */
   /* Branch catalogue - the union of both branch sources                */
   /* ------------------------------------------------------------------ */
+  console.log(dashboardSummaryData, "dashboardSummaryData");
+const ResolvedSchoolBranch = { branch: schoolBranch ?? null };
 
   const allSchoolBranches = React.useMemo(() => {
     if (Array.isArray(schoolBranch)) return schoolBranch;
@@ -188,22 +210,24 @@ export default function StudentOverviewCharts({
     return [];
   }, [schoolBranch]);
 
-  /* A branch id is spelled several ways across the two endpoints (id /
-     branch_id / branchId / school_branch_id). Comparing only `id` against
-     `branch_id` is why the selected row was frequently not found. */
+  const schoolBranchProfile = React.useMemo(() => {
+    let profile = getSchoolBranchData?.data ?? getSchoolBranchData;
+
+    if (Array.isArray(profile)) {
+      profile = profile[0] ?? null;
+    }
+
+    if (!profile || typeof profile !== "object") return null;
+    return profile.data && typeof profile.data === "object"
+      ? (profile.data.data ?? profile.data)
+      : profile;
+  }, [getSchoolBranchData]);
+
   const readBranchIds = (branch) =>
     [branch?.id, branch?.branch_id, branch?.branchId, branch?.school_branch_id]
       .map((value) => String(value ?? "").trim())
       .filter(Boolean);
 
-  /*
-   * The dropdown is fed by `getAllBranches` (the dashboard payload) while the
-   * cards read `allSchoolBranches` (getAllSchoolBranch). When /dashboard returns
-   * no branches, `selectedBranch` resolved to null even though the school-branch
-   * list was fully populated - so `selectedSchool` was null and
-   * SchoolDetailsCard never rendered at all. Merging both into one catalogue
-   * means a selection always resolves, whichever list the option came from.
-   */
   const branchCatalogue = React.useMemo(() => {
     const merged = [];
 
@@ -272,27 +296,46 @@ export default function StudentOverviewCharts({
 
     // Match on ANY of the branch's id fields, not just the first.
     return (
-      branchCatalogue.find((branch) => readBranchIds(branch).includes(wanted)) ??
-      null
+      branchCatalogue.find((branch) =>
+        readBranchIds(branch).includes(wanted),
+      ) ?? null
     );
   }, [branchCatalogue, selectedBranchId]);
 
   /* Prefer the exact getAllSchoolBranch match (richest row); fall back to the
      catalogue row so the card still renders when nothing lines up. */
   const selectedSchool = React.useMemo(() => {
-    if (!selectedBranchId || selectedBranchId === "all") return null;
-    if (!selectedBranch) return null;
+    if (!selectedBranchId || selectedBranchId === "all") {
+      return schoolBranchProfile;
+    }
+    if (!selectedBranch) return schoolBranchProfile;
 
     const wanted = new Set(readBranchIds(selectedBranch));
-    if (wanted.size === 0) return null;
+    if (wanted.size === 0) return schoolBranchProfile ?? selectedBranch;
 
     const match = allSchoolBranches.find((branch) =>
       readBranchIds(branch).some((id) => wanted.has(id)),
     );
 
-    return match ?? selectedBranch;
-  }, [allSchoolBranches, selectedBranchId, selectedBranch]);
+    const profileMatchesSelection = readBranchIds(schoolBranchProfile).some(
+      (id) => wanted.has(id),
+    );
 
+    return (
+      match ?? (profileMatchesSelection ? schoolBranchProfile : selectedBranch)
+    );
+  }, [
+    allSchoolBranches,
+    selectedBranchId,
+    selectedBranch,
+    schoolBranchProfile,
+  ]);
+
+  const hasSelectedSchool =
+    selectedSchool != null &&
+    typeof selectedSchool === "object" &&
+    !Array.isArray(selectedSchool) &&
+    Object.keys(selectedSchool).length > 0;
 
   /* ------------------------------------------------------------------ */
   /* Branch summary                                                     */
@@ -329,7 +372,7 @@ export default function StudentOverviewCharts({
   /* ------------------------------------------------------------------ */
 
   const [selectedCampId, setSelectedCampId] = React.useState("all");
-
+  console.log(selectedSchool, "selectedSchool");
 
   return (
     <div className="w-full space-y-4 p-4 md:space-y-5 md:p-6">
@@ -372,9 +415,20 @@ export default function StudentOverviewCharts({
         // selectedCampId={selectedCampId}
         // onCampChange={onCampChange}
       />
-    
-      <BranchDetailsPanel branch={selectedBranch} summary={branchSummary} />
-      {selectedSchool ? <SchoolDetailsCard school={selectedSchool} /> : null}
+      {hasRole && !isDoctor && (
+        <>
+          <SchoolDashboardInsights
+            data={dashboardSummaryData}
+            isLoading={dashboardSummaryLoading}
+            error={dashboardSummaryError}
+          />
+          <BranchDetailsPanel  branch={selectedBranch} summary={branchSummary} />
+
+          {hasSelectedSchool ? (
+            <SchoolDetailsCard hasRole={role} school={selectedSchool} />
+          ) : null}
+        </>
+      )}
     </div>
   );
 }

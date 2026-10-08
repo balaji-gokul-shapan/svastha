@@ -109,9 +109,7 @@ export default function ReusableSelect({
   }, [open, withPortal]);
 
 
-  // Debounced server search: when the parent supplies onSearch, forward the
-  // keyword so it can query the backend and swap the options list. Falls back
-  // to local filtering when onSearch is not provided.
+
   useEffect(() => {
     if (!onSearch) return;
     if (skipNextSearchRef.current) {
@@ -135,8 +133,7 @@ export default function ReusableSelect({
   );
 
   const filteredOptions = useMemo(() => {
-    // When a server search is active, the parent is responsible for returning
-    // the matching options — skip local filtering so we don't hide them.
+
     if (onSearch) return normalizedOptions;
     const keyword = searchTerm.trim().toLowerCase();
     if (!keyword) {

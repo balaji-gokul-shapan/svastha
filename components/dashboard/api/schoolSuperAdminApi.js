@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { getAllSchoolBranches } from "@/lib/features/registerSchoolBranchSlice";
+import { getAllSchoolBranches, getSchoolBranch } from "@/lib/features/registerSchoolBranchSlice";
 import { useQuery } from "@tanstack/react-query";
 import { useAppDispatch } from "@/lib/hooks";
 import { useAuthRole } from "@/lib/user-role";
@@ -9,7 +9,6 @@ import { getAllEvents } from "@/lib/features/getEventAssignSlice";
 import { getAllStudent } from "@/lib/features/getAllStudentSlice";
 import {
   getSchoolDashboard,
-  getDashboardSummary,
 } from "@/lib/features/dashboardSlice";
 
 export const useSchoolSuperAdminApi = (role, requestedSchoolBranchId) => {
@@ -19,6 +18,9 @@ export const useSchoolSuperAdminApi = (role, requestedSchoolBranchId) => {
     .trim()
     .toLowerCase()
     .replace(/[\s-]+/g, "_");
+
+    console.log(getRole,"getRole");
+    
   const canAccessAllSchoolBranches =
     getRole === "admin" ||
     getRole === "superadmin" ||
@@ -39,9 +41,20 @@ export const useSchoolSuperAdminApi = (role, requestedSchoolBranchId) => {
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
   });
+  const {
+    data: getSchoolBranchData = {},
+    isLoading: getSchoolBranchLoading,
+    error: getSchoolBranchError,
+  } = useQuery({
+    queryKey: ["getSchoolBranch", getRole],
+    queryFn: () => dispatch(getSchoolBranch()).unwrap(),
+    enabled: canAccessAllSchoolBranches || getRole === "teacher",
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+  console.log(getSchoolBranchData,"getSchoolBranchData");
+  
 
-  // Dashboard aggregates for the school/admin dashboard. Fetched up front so the
-  // caller's own branch can be derived from it (see `schoolBranch` below).
   const {
     data: dashboardData,
     isLoading: dashboardLoading,
@@ -76,6 +89,9 @@ export const useSchoolSuperAdminApi = (role, requestedSchoolBranchId) => {
 
     return scoped ?? dashboardBranches[0] ?? null;
   }, [dashboardBranches, dashboardData]);
+
+  console.log(schoolBranch,"schoolBranch3333333");
+  
 
   const schoolBranchId = String(
     schoolBranch?.id ??
@@ -148,19 +164,10 @@ const {
   staleTime: 5 * 60 * 1000,
   refetchOnWindowFocus: false,
 });
-  const {
-    data: dashboardSummaryData,
-    isLoading: dashboardSummaryLoading,
-    error: dashboardSummaryError,
-  } = useQuery({
-    queryKey: ["dashboardSummary", getRole],
-    queryFn: () => dispatch(getDashboardSummary()).unwrap(),
-    enabled: canLoadSchoolDashboard,
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
-
   return {
+    getSchoolBranchData,
+    getSchoolBranchLoading,
+    getSchoolBranchError,
     getAllSchoolBranch,
     getAllSchoolBranchLoading,
     getAllSchoolBranchError,
@@ -183,8 +190,8 @@ const {
     dashboardData,
     dashboardLoading,
     dashboardError,
-    dashboardSummaryData,
-    dashboardSummaryLoading,
-    dashboardSummaryError,
+    dashboardSummaryData: dashboardData,
+    dashboardSummaryLoading: dashboardLoading,
+    dashboardSummaryError: dashboardError,
   };
 };

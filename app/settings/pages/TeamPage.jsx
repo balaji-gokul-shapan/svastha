@@ -62,6 +62,17 @@ import {
 } from "../datas/settingsData";
 import { EmptyState } from "@/components/ui/empty-state";
 import dynamic from "next/dynamic";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 // import ClassSectionManager from "../components/ClassSectionManager";
 const ClassSectionManager = dynamic(
   () => import("../components/ClassSectionManager"),
@@ -864,7 +875,7 @@ const TeamPage = ({
                             Class &amp; Section Access
                           </p>
                           <div className="flex flex-wrap gap-1">
-                            {privilegeLabels.map((label) => (
+                            {privilegeLabels?.slice(0, 3).map((label) => (
                               <span
                                 key={label}
                                 className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
@@ -872,6 +883,37 @@ const TeamPage = ({
                                 {label}
                               </span>
                             ))}
+
+                            {privilegeLabels.length > 3 ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge
+                                    variant="ghost"
+                                    className="cursor-default border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
+                                  >
+                                    + {privilegeLabels.length - 3} more
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  side="top"
+                                  className="max-w-64"
+                                >
+                                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                    {privilegeLabels.length - 3} more
+                                  </p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {privilegeLabels.slice(3).map((label) => (
+                                      <span
+                                        key={label}
+                                        className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
+                                      >
+                                        {label}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : null}
                           </div>
                         </div>
                       ) : null}
@@ -1148,7 +1190,8 @@ const TeamPage = ({
                     </div>
                     <div className="team-hero__pill">
                       <ShieldCheck className="size-4" />
-                      {getAccountRoleLabel(subAccount ?? editingAccount) || "Administrator view"}
+                      {getAccountRoleLabel(subAccount ?? editingAccount) ||
+                        "Administrator view"}
                     </div>
                   </div>
                   <div className="team-hero__meta">
@@ -1182,279 +1225,282 @@ const TeamPage = ({
                   </div>
                   {/* ACCOUNT DETAILS FORM */}
                   {!editingAccount && (
-                  <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2">
-                    {/* NAME */}
-                    <div className="space-y-1.5">
-                      <TextField
-                        label="Name"
-                        labelClassName="text-sm font-medium text-foreground"
-                        id="name"
-                        name="name"
-                        required
-                        value={subAccount?.name ?? ""}
-                        onChange={(event) =>
-                          handleSubAccountChange("name", event.target.value)
-                        }
-                        placeholder="e.g. Priya Sharma"
-                        autoComplete="off"
-                      />
-
-                      {formErrors?.name && (
-                        <p className="text-xs text-destructive">
-                          {formErrors.name}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* PHONE */}
-                    <div className="space-y-1.5">
-                      <TextField
-                        label="Phone Number"
-                        labelClassName="text-sm font-medium text-foreground"
-                        id="phone-number"
-                        required
-                        name="phoneNumber"
-                        value={subAccount?.phoneNumber ?? ""}
-                        onChange={(event) =>
-                          handleSubAccountChange(
-                            "phoneNumber",
-                            event.target.value,
-                          )
-                        }
-                        placeholder="e.g. 9876543210"
-                        autoComplete="off"
-                      />
-
-                      {formErrors?.phoneNumber && (
-                        <p className="text-xs text-destructive">
-                          {formErrors.phoneNumber}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* USERNAME */}
-                    <div className="space-y-1.5">
-                      <TextField
-                        label="Username"
-                        labelClassName="text-sm font-medium text-foreground"
-                        id="account-username"
-                        name="userName"
-                        value={subAccount?.userName ?? ""}
-                        onChange={(event) =>
-                          handleSubAccountChange("userName", event.target.value)
-                        }
-                        placeholder="e.g. priya.sharma"
-                        autoComplete="off"
-                      />
-
-                      {formErrors?.username && (
-                        <p className="text-xs text-destructive">
-                          {formErrors.username}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <TextField
-                        label="Email"
-                        labelClassName="text-sm font-medium text-foreground"
-                        id="account-email"
-                        name="email"
-                        value={subAccount?.email ?? ""}
-                        onChange={(event) =>
-                          handleSubAccountChange("email", event.target.value)
-                        }
-                        placeholder="e.g. priya.sharma@example.com"
-                        autoComplete="off"
-                      />
-
-                      {formErrors?.email && (
-                        <p className="text-xs text-destructive">
-                          {formErrors.email}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* PASSWORD */}
-                    {!editingAccount && (
+                    <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2">
+                      {/* NAME */}
                       <div className="space-y-1.5">
-                        <div className="relative">
-                          <TextField
-                            label="Password"
-                            labelClassName="text-sm font-medium text-foreground"
-                            id="account-password"
-                            name="password"
-                            required
-                            type={showPassword ? "text" : "password"}
-                            value={subAccount?.password ?? ""}
-                            onChange={(event) =>
-                              handleSubAccountChange(
-                                "password",
-                                event.target.value,
-                              )
-                            }
-                            placeholder="Minimum 8 characters"
-                            autoComplete="new-password"
-                            className="pr-10"
-                          />
+                        <TextField
+                          label="Name"
+                          labelClassName="text-sm font-medium text-foreground"
+                          id="name"
+                          name="name"
+                          required
+                          value={subAccount?.name ?? ""}
+                          onChange={(event) =>
+                            handleSubAccountChange("name", event.target.value)
+                          }
+                          placeholder="e.g. Priya Sharma"
+                          autoComplete="off"
+                        />
 
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword((value) => !value)}
-                            className="absolute right-2 top-8 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground
-                  "
-                            aria-label={
-                              showPassword ? "Hide password" : "Show password"
-                            }
-                          >
-                            {showPassword ? (
-                              <EyeOff className="size-4" />
-                            ) : (
-                              <Eye className="size-4" />
-                            )}
-                          </button>
-                        </div>
-
-                        {formErrors?.password && (
+                        {formErrors?.name && (
                           <p className="text-xs text-destructive">
-                            {formErrors.password}
+                            {formErrors.name}
                           </p>
                         )}
                       </div>
-                    )}
-                    {!editingAccount && (
+
+                      {/* PHONE */}
                       <div className="space-y-1.5">
-                        <div className="relative">
-                          <TextField
-                            label="Confirm Password"
-                            labelClassName="text-sm font-medium text-foreground"
-                            id="account-confirm-password"
-                            name="password_confirmation"
-                            required
-                            type={showConfirmPassword ? "text" : "password"}
-                            value={subAccount?.password_confirmation ?? ""}
-                            onChange={(event) =>
-                              handleSubAccountChange(
-                                "password_confirmation",
-                                event.target.value,
-                              )
-                            }
-                            placeholder="Re-enter password"
-                            autoComplete="new-password"
-                            className="pr-10"
-                          />
+                        <TextField
+                          label="Phone Number"
+                          labelClassName="text-sm font-medium text-foreground"
+                          id="phone-number"
+                          required
+                          name="phoneNumber"
+                          value={subAccount?.phoneNumber ?? ""}
+                          onChange={(event) =>
+                            handleSubAccountChange(
+                              "phoneNumber",
+                              event.target.value,
+                            )
+                          }
+                          placeholder="e.g. 9876543210"
+                          autoComplete="off"
+                        />
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setShowConfirmPassword((value) => !value)
-                            }
-                            className="absolute right-2 top-8 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                            aria-label={
-                              showConfirmPassword
-                                ? "Hide confirm password"
-                                : "Show confirm password"
-                            }
-                          >
-                            {showConfirmPassword ? (
-                              <EyeOff className="size-4" />
-                            ) : (
-                              <Eye className="size-4" />
-                            )}
-                          </button>
-                        </div>
-
-                        {/* Live match feedback — only once the user has typed
-                          something, so it never nags on an empty field. */}
-                        {passwordConfirmation ? (
-                          passwordsMatch ? (
-                            <p className="flex items-center gap-1 text-xs text-success">
-                              <CircleCheck
-                                className="size-3.5"
-                                aria-hidden="true"
-                              />
-                              Passwords match
-                            </p>
-                          ) : (
-                            <p className="text-xs text-destructive">
-                              Passwords do not match
-                            </p>
-                          )
-                        ) : formErrors?.password_confirmation ? (
+                        {formErrors?.phoneNumber && (
                           <p className="text-xs text-destructive">
-                            {formErrors.password_confirmation}
+                            {formErrors.phoneNumber}
                           </p>
-                        ) : null}
+                        )}
                       </div>
-                    )}
-                  </div>
 
+                      {/* USERNAME */}
+                      <div className="space-y-1.5">
+                        <TextField
+                          label="Username"
+                          labelClassName="text-sm font-medium text-foreground"
+                          id="account-username"
+                          name="userName"
+                          value={subAccount?.userName ?? ""}
+                          onChange={(event) =>
+                            handleSubAccountChange(
+                              "userName",
+                              event.target.value,
+                            )
+                          }
+                          placeholder="e.g. priya.sharma"
+                          autoComplete="off"
+                        />
+
+                        {formErrors?.username && (
+                          <p className="text-xs text-destructive">
+                            {formErrors.username}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <TextField
+                          label="Email"
+                          labelClassName="text-sm font-medium text-foreground"
+                          id="account-email"
+                          name="email"
+                          value={subAccount?.email ?? ""}
+                          onChange={(event) =>
+                            handleSubAccountChange("email", event.target.value)
+                          }
+                          placeholder="e.g. priya.sharma@example.com"
+                          autoComplete="off"
+                        />
+
+                        {formErrors?.email && (
+                          <p className="text-xs text-destructive">
+                            {formErrors.email}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* PASSWORD */}
+                      {!editingAccount && (
+                        <div className="space-y-1.5">
+                          <div className="relative">
+                            <TextField
+                              label="Password"
+                              labelClassName="text-sm font-medium text-foreground"
+                              id="account-password"
+                              name="password"
+                              required
+                              type={showPassword ? "text" : "password"}
+                              value={subAccount?.password ?? ""}
+                              onChange={(event) =>
+                                handleSubAccountChange(
+                                  "password",
+                                  event.target.value,
+                                )
+                              }
+                              placeholder="Minimum 8 characters"
+                              autoComplete="new-password"
+                              className="pr-10"
+                            />
+
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword((value) => !value)}
+                              className="absolute right-2 top-8 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground
+                  "
+                              aria-label={
+                                showPassword ? "Hide password" : "Show password"
+                              }
+                            >
+                              {showPassword ? (
+                                <EyeOff className="size-4" />
+                              ) : (
+                                <Eye className="size-4" />
+                              )}
+                            </button>
+                          </div>
+
+                          {formErrors?.password && (
+                            <p className="text-xs text-destructive">
+                              {formErrors.password}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {!editingAccount && (
+                        <div className="space-y-1.5">
+                          <div className="relative">
+                            <TextField
+                              label="Confirm Password"
+                              labelClassName="text-sm font-medium text-foreground"
+                              id="account-confirm-password"
+                              name="password_confirmation"
+                              required
+                              type={showConfirmPassword ? "text" : "password"}
+                              value={subAccount?.password_confirmation ?? ""}
+                              onChange={(event) =>
+                                handleSubAccountChange(
+                                  "password_confirmation",
+                                  event.target.value,
+                                )
+                              }
+                              placeholder="Re-enter password"
+                              autoComplete="new-password"
+                              className="pr-10"
+                            />
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setShowConfirmPassword((value) => !value)
+                              }
+                              className="absolute right-2 top-8 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                              aria-label={
+                                showConfirmPassword
+                                  ? "Hide confirm password"
+                                  : "Show confirm password"
+                              }
+                            >
+                              {showConfirmPassword ? (
+                                <EyeOff className="size-4" />
+                              ) : (
+                                <Eye className="size-4" />
+                              )}
+                            </button>
+                          </div>
+
+                          {/* Live match feedback — only once the user has typed
+                          something, so it never nags on an empty field. */}
+                          {passwordConfirmation ? (
+                            passwordsMatch ? (
+                              <p className="flex items-center gap-1 text-xs text-success">
+                                <CircleCheck
+                                  className="size-3.5"
+                                  aria-hidden="true"
+                                />
+                                Passwords match
+                              </p>
+                            ) : (
+                              <p className="text-xs text-destructive">
+                                Passwords do not match
+                              </p>
+                            )
+                          ) : formErrors?.password_confirmation ? (
+                            <p className="text-xs text-destructive">
+                              {formErrors.password_confirmation}
+                            </p>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
                   )}
                   {editingAccount && (
                     <section className="team-hero">
-                  <div className="team-hero__glow team-hero__glow--a" />
-                  <div className="team-hero__glow team-hero__glow--b" />
-                  <div className="team-hero__row">
-                    <div className="team-hero__who">
-                      <div className="team-hero__avatar">
-                        {getInitials(
-                          subAccount?.name || editingAccount?.name || "Account",
-                        )}
+                      <div className="team-hero__glow team-hero__glow--a" />
+                      <div className="team-hero__glow team-hero__glow--b" />
+                      <div className="team-hero__row">
+                        <div className="team-hero__who">
+                          <div className="team-hero__avatar">
+                            {getInitials(
+                              subAccount?.name ||
+                                editingAccount?.name ||
+                                "Account",
+                            )}
+                          </div>
+                          <div className="team-hero__id">
+                            <p className="team-hero__eyebrow">
+                              Team Profile Center
+                            </p>
+                            <h3 className="team-hero__name">
+                              {subAccount?.name ||
+                                editingAccount?.name ||
+                                "Team member"}
+                            </h3>
+                            <p className="team-hero__sub">
+                              {subAccount?.email ||
+                                subAccount?.userName ||
+                                "Edit account profile and assignments"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="team-hero__pill">
+                          <ShieldCheck className="size-4" />
+                          {getAccountRoleLabel(subAccount ?? editingAccount) ||
+                            "Administrator view"}
+                        </div>
                       </div>
-                      <div className="team-hero__id">
-                        <p className="team-hero__eyebrow">
-                          Team Profile Center
-                        </p>
-                        <h3 className="team-hero__name">
-                          {subAccount?.name ||
-                            editingAccount?.name ||
-                            "Team member"}
-                        </h3>
-                        <p className="team-hero__sub">
-                          {subAccount?.email ||
-                            subAccount?.userName ||
-                            "Edit account profile and assignments"}
-                        </p>
+                      <div className="team-hero__meta">
+                        <div>
+                          <p className="team-hero__meta-label">Username</p>
+                          <p className="team-hero__meta-value">
+                            {subAccount?.userName || "Not provided"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            Phone number
+                          </p>
+                          <p className="mt-1 truncate font-medium text-foreground">
+                            {subAccount?.phoneNumber || "Not provided"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Email</p>
+                          <p className="mt-1 truncate font-medium text-foreground">
+                            {subAccount?.email || "Not provided"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            Branch
+                          </p>
+                          <p className="mt-1 truncate font-medium text-foreground">
+                            {subAccount?.branchId || "Not provided"}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="team-hero__pill">
-                      <ShieldCheck className="size-4" />
-                      {getAccountRoleLabel(subAccount ?? editingAccount) || "Administrator view"}
-                    </div>
-                  </div>
-                  <div className="team-hero__meta">
-                    <div>
-                      <p className="team-hero__meta-label">Username</p>
-                      <p className="team-hero__meta-value">
-                        {subAccount?.userName || "Not provided"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        Phone number
-                      </p>
-                      <p className="mt-1 truncate font-medium text-foreground">
-                        {subAccount?.phoneNumber || "Not provided"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        Email
-                      </p>
-                      <p className="mt-1 truncate font-medium text-foreground">
-                        {subAccount?.email || "Not provided"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        Branch
-                      </p>
-                      <p className="mt-1 truncate font-medium text-foreground">
-                        {subAccount?.branchId || "Not provided"}
-                      </p>
-                    </div>
-                  </div>
-                </section>
+                    </section>
                   )}
                 </section>
               )}

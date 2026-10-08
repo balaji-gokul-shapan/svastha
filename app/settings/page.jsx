@@ -622,7 +622,7 @@ import {
   updatePrivileges,
   getPrivileges,
 } from "@/lib/features/registerStaffAccount";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { buildSubAccountSchema } from "./validation/sub-account-validation-schema";
 const AppearancePage = dynamic(() => import("./pages/AppearancePage"));
 const MyDetailsPage = dynamic(() => import("./pages/MyDetailspage"));
@@ -643,14 +643,48 @@ const SecurityQuestionsPage = dynamic(
 // import ProfilePage from "./pages/ProfilePage";
 // import AppearancePage from "./pages/AppearancePage";
 
-const buildPrivilegesPayload = (value) => {
+const toList = (raw) => {
+  if (raw == null) return [];
+  const items = Array.isArray(raw) ? raw : String(raw).split(",");
+  return items
+    .map((item) => {
+      if (item == null) return "";
+      if (typeof item === "object")
+        return String(item.name ?? item.label ?? item.value ?? item.id ?? "").trim();
+      return String(item).trim();
+    })
+    .filter(Boolean);
+};
+
+// Branch order matters: index 0 => id "1". "6" stays "6", "Pre-KG" becomes
+// its 1-based position in the branch class list (e.g. 13th => "13").
+const toIndexId = (label, orderList) => {
+  const text = String(label ?? "").trim();
+  if (!text) return "";
+  if (/^\d+$/.test(text)) return text;
+  const idx = (Array.isArray(orderList) ? orderList : []).findIndex(
+    (item) => String(item ?? "").trim().toLowerCase() === text.toLowerCase(),
+  );
+  return idx >= 0 ? String(idx + 1) : text;
+};
+
+const buildPrivilegesPayload = (value, branchClassOrder = [], branchSectionOrder = []) => {
+  const classOrder = toList(branchClassOrder);
+  const sectionOrder = toList(branchSectionOrder);
+  const toClassId = (cls) => toIndexId(cls, classOrder);
   const toSectionId = (section) => {
     const label = String(section ?? "").trim();
+    if (!label) return "";
+    // Known section label in branch order wins (A=>1 even if custom order).
+    const idx = sectionOrder.findIndex(
+      (item) => String(item ?? "").trim().toLowerCase() === label.toLowerCase(),
+    );
+    if (idx >= 0) return String(idx + 1);
     if (/^[A-Z]$/i.test(label)) {
       // The privileges API stores standard sections by their 1-based ID.
       return String(label.toUpperCase().charCodeAt(0) - "A".charCodeAt(0) + 1);
     }
-    return label;
+    return toIndexId(label, sectionOrder);
   };
 
   if (typeof value === "string") {
@@ -658,8 +692,13 @@ const buildPrivilegesPayload = (value) => {
     if (!text) return "";
 
     const pairs = text.split(",").map((entry) => {
-      const match = /^(\d+)-([A-Za-z0-9]+)$/.exec(entry.trim());
-      return match ? `${match[1]}-${toSectionId(match[2])}` : null;
+      const clean = entry.trim();
+      const sep = clean.lastIndexOf("-");
+      if (sep < 0) return null;
+      const cls = clean.slice(0, sep).trim();
+      const sec = clean.slice(sep + 1).trim();
+      if (!cls || !sec) return null;
+      return `${toClassId(cls)}-${toSectionId(sec)}`;
     });
 
     return pairs.every(Boolean) ? pairs.join(",") : text;
@@ -704,6 +743,8 @@ const buildPrivilegesPayload = (value) => {
 
   return entries
     .flatMap(([key, sections]) => {
+      const classId = toClassId(key);
+      if (!classId) return [];
       const list = Array.isArray(sections)
         ? sections
         : String(sections ?? "")
@@ -714,7 +755,7 @@ const buildPrivilegesPayload = (value) => {
       return list
         .map(toSectionId)
         .filter(Boolean)
-        .map((section) => `${key}-${section}`);
+        .map((section) => `${classId}-${section}`);
     })
     .join(",");
 };
@@ -723,6 +764,7 @@ const Page = () => {
   const [activeTab, setActiveTab] = useState("my-details");
   const [navQuery, setNavQuery] = useState("");
   const dispatch = useAppDispatch();
+  const queryClient = useQueryClient();
 
   const authUser = useAppSelector(selectAuthUser);
 
@@ -1005,6 +1047,7 @@ const Page = () => {
 
     toast.success("Appearance settings saved");
   };
+console.log(getRole,"getRolesssssssssssssssss");
 
   const {
     data: getAllSchoolBranch = {},
@@ -1016,7 +1059,7 @@ const Page = () => {
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
 
-    enabled: Boolean(getRole) && getRole !== "school_sub_account",
+    enabled: Boolean(getRole) && getRole !== "school",
   });
 
   const {
@@ -1382,6 +1425,52 @@ const Page = () => {
     setIsLoadingPrivileges(false);
   };
 
+  // Order lists for the branch currently picked in the dialog — used to map
+  // labels ("Pre-KG") to the 1-based index ids the backend expects.
+  const selectedBranchOrder = React.useMemo(() => {
+    const branchId = String(subAccount?.branchId ?? "").trim();
+    const pick = (obj) =>
+      obj?.class ?? obj?.class_name ?? obj?.Class ?? obj?.classes ?? "";
+    const pickSec = (obj) =>
+      obj?.section ?? obj?.section_name ?? obj?.Section ?? obj?.sections ?? "";
+
+    // Prefer the dropdown option (carries class/section CSV for the branch).
+    const opt = (getBranchDataForSubAccount ?? []).find(
+      (o) => String(o?.id ?? "").trim() === branchId,
+    );
+    if (opt && (opt.class || opt.section)) {
+      return { classes: toList(opt.class), sections: toList(opt.section) };
+    }
+
+    // Then the full branch list.
+    const list = Array.isArray(getAllSchoolBranch)
+      ? getAllSchoolBranch
+      : (getAllSchoolBranch?.data ?? []);
+    const found = list.find(
+      (b) => String(b?.id ?? b?.branch_id ?? "").trim() === branchId,
+    );
+    if (found) {
+      return { classes: toList(pick(found)), sections: toList(pickSec(found)) };
+    }
+
+    // Fallback: single-branch profile + dialog branchClassSection memo.
+    const single = getSchoolBranchData?.data ?? getSchoolBranchData;
+    const one = Array.isArray(single) ? single[0] : single;
+    if (one && (pick(one) || pickSec(one))) {
+      return { classes: toList(pick(one)), sections: toList(pickSec(one)) };
+    }
+    return {
+      classes: toList(branchClassSection?.class),
+      sections: toList(branchClassSection?.section),
+    };
+  }, [
+    subAccount?.branchId,
+    getBranchDataForSubAccount,
+    getAllSchoolBranch,
+    getSchoolBranchData,
+    branchClassSection,
+  ]);
+
   // Edit
   const handleEditAccount = async (account) => {
     setEditingAccount(account);
@@ -1576,7 +1665,12 @@ const Page = () => {
     event.preventDefault();
 
     // Flatten selections into the API's class-section-ID string format.
-    const previlegesResult = buildPrivilegesPayload(subAccount?.previleges);
+    // Branch order maps labels ("Pre-KG") -> index ("13"), digits pass through.
+    const previlegesResult = buildPrivilegesPayload(
+      subAccount?.previleges,
+      selectedBranchOrder.classes,
+      selectedBranchOrder.sections,
+    );
 
     console.log(previlegesResult, "subAccountresult");
 
@@ -1650,7 +1744,11 @@ const Page = () => {
 
     // Update
     if (editingAccount) {
-      const previlegesResult = buildPrivilegesPayload(subAccount?.previleges);
+      const previlegesResult = buildPrivilegesPayload(
+        subAccount?.previleges,
+        selectedBranchOrder.classes,
+        selectedBranchOrder.sections,
+      );
 
       console.log(previlegesResult, "subAccountresult");
 
@@ -1688,8 +1786,14 @@ const Page = () => {
           }),
         ).unwrap();
 
+        await Promise.all([
+          refetchSubAccounts(),
+          queryClient.invalidateQueries({
+            queryKey: ["sub-account-privileges"],
+          }),
+        ]);
+
         toast.success("Account updated");
-        await refetchSubAccounts();
         setIsAddOpen(false);
         resetAddForm();
       } catch (error) {

@@ -501,13 +501,17 @@ const getUserRole = roleMap[authRoleFromHook] || null;
     dashboardSummaryData,
     dashboardSummaryLoading,
     dashboardSummaryError,
+    getSchoolBranchData,
+    getSchoolBranchLoading,
+    getSchoolBranchError,
   } = useSchoolSuperAdminApi(
     getUserRole,
     selectedBranchId === "all" ? "" : selectedBranchId,
   );
 
   console.log(dashboardData?.data, "dashboardDataWWWWW");
-
+  console.log(dashboardData,"dashboardData");
+  
   const {
     assignedEvents,
     assignEventLoading,
@@ -543,6 +547,9 @@ const getUserRole = roleMap[authRoleFromHook] || null;
       dashboardSummaryLoading={dashboardSummaryLoading}
       dashboardSummaryError={dashboardSummaryError}
       schoolBranch={getAllSchoolBranch?.data ?? getAllSchoolBranch}
+      getSchoolBranchData={getSchoolBranchData}
+      getSchoolBranchLoading={getSchoolBranchLoading}
+      getSchoolBranchError={getSchoolBranchError}
       getAllSchoolBranchLoading={getAllSchoolBranchLoading}
       getAllSchoolBranchError={getAllSchoolBranchError}
       eventsLoading={schoolEventsLoading}
