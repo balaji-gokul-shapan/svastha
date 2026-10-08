@@ -29,6 +29,11 @@ import {
   Stethoscope,
   Users,
   XCircle,
+  Mars,
+  Venus,
+  Accessibility,
+  Toilet,
+  Droplets,
 } from "lucide-react";
 
 import {
@@ -41,7 +46,6 @@ import {
   Pie,
   PieChart,
   ResponsiveContainer,
-  Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
@@ -49,6 +53,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import HealthWorkerFormOutlineIcon from "@iconify-react/healthicons/health-worker-form-outline";
 import {
   ALERT_TONE_CLASSES,
@@ -90,11 +99,292 @@ const ALERT_ICONS = {
   info: Info,
 };
 
-export function BranchDetailsPanel({ hasRole, branch, summary }) {
-  const displayData = branch ?? summary;
-  const status = String(displayData?.status ?? "Not available").trim();
+
+/* -------------------------------------------------------------------------
+   Sanitation helpers
+   ------------------------------------------------------------------------- */
+
+// Fields read from the branch row. The section only renders if at least one
+// of them exists on the data (e.g. the "All branches" summary may not have them).
+const FACILITY_FIELDS = [
+  "boys_toilets",
+  "girls_toilets",
+  "boys_toilets_with_washroom",
+  "girls_toilets_with_washroom",
+  "male_staff_washrooms",
+  "female_staff_washrooms",
+  "differently_abled_washrooms",
+];
+
+// API may send numbers or numeric strings; anything invalid counts as 0.
+const toCount = (v) => {
+  const n = Math.floor(Number(v));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+};
+
+// Gender is never shown by colour alone: every row also has an icon and a label.
+const TONES = {
+  male: {
+    icon: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    door: "bg-blue-500",
+  },
+  female: {
+    icon: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+    door: "bg-rose-500",
+  },
+  access: {
+    icon: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+    door: "bg-violet-500",
+  },
+};
+
+// One small door per toilet/washroom. Capped so large counts stay tidy.
+function Doors({ count, tone, max = 10 }) {
+  if (count === 0) {
+    return (
+      <span
+        aria-hidden
+        className="block h-4 w-16 rounded-md border border-dashed border-border"
+      />
+    );
+  }
+  return (
+    <div aria-hidden className="flex flex-wrap items-center gap-1">
+      {Array.from({ length: Math.min(count, max) }, (_, i) => (
+        <span
+          key={i}
+          className={`h-4 w-2.5 rounded-t-full rounded-b-[2px] ${tone.door}`}
+        />
+      ))}
+      {count > max && (
+        <span className="ml-1 text-xs font-medium text-muted-foreground">
+          +{count - max}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function FacilityRow({ icon: Icon, tone, label, count, note }) {
+  return (
+    <div className="flex items-start gap-3">
+      <div
+        className={`flex size-9 shrink-0 items-center justify-center rounded-xl ${tone.icon}`}
+      >
+        <Icon className="size-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="text-sm text-foreground">{label}</p>
+          <p className="text-xl font-semibold tabular-nums text-foreground">
+            {count}
+          </p>
+        </div>
+        <div className="mt-1.5">
+          <Doors count={count} tone={tone} />
+        </div>
+        {note}
+      </div>
+    </div>
+  );
+}
+
+const withWashroomNote = (n) =>
+  n > 0 ? (
+    <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+      <Droplets className="size-3" />
+      {n} with washroom
+    </p>
+  ) : null;
+
+function SanitationSection({ data }) {
+  const boys = toCount(data.boys_toilets);
+  const girls = toCount(data.girls_toilets);
+  const boysWithWashroom = toCount(data.boys_toilets_with_washroom);
+  const girlsWithWashroom = toCount(data.girls_toilets_with_washroom);
+  const maleStaff = toCount(data.male_staff_washrooms);
+  const femaleStaff = toCount(data.female_staff_washrooms);
+  const accessible = toCount(data.differently_abled_washrooms);
+
+  const students = toCount(data.total_students);
+  const staff =
+    toCount(data.total_teaching_staff) + toCount(data.total_non_teaching_staff);
+
+  const studentToilets = boys + girls;
+  const boysPct = studentToilets ? Math.round((boys / studentToilets) * 100) : 0;
+  const total = studentToilets + maleStaff + femaleStaff + accessible;
+  const allEmpty =
+    total + boysWithWashroom + girlsWithWashroom === 0;
+
+  const accessStatus = allEmpty
+    ? { label: "Not recorded", dot: "bg-muted-foreground/40" }
+    : accessible > 0
+      ? { label: "Available", dot: "bg-emerald-500" }
+      : { label: "Not available", dot: "bg-amber-500" };
+
+  return (
+    <div className="mt-5 border-t border-border/80 pt-5">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h3 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+            <Toilet className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+            Toilets and washrooms
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Facilities for students and staff, by gender
+          </p>
+        </div>
+        {total > 0 && (
+          <p className="text-xs text-muted-foreground">
+            <span className="text-sm font-semibold tabular-nums text-foreground">
+              {total}
+            </span>{" "}
+            in total
+          </p>
+        )}
+      </div>
+
+      <div className="mt-4 grid divide-y rounded-xl border bg-card lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+        {/* Students */}
+        <div className="space-y-4 p-4">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Students</p>
+            <p className="text-xs text-muted-foreground">
+              {students > 0
+                ? `${students.toLocaleString()} enrolled`
+                : "Enrolment not provided"}
+            </p>
+          </div>
+          
+          <FacilityRow
+            icon={Mars}
+            tone={TONES.male}
+            label="Boys toilets"
+            count={boys}
+            note={withWashroomNote(boysWithWashroom)}
+          />
+          <FacilityRow
+            icon={Venus}
+            tone={TONES.female}
+            label="Girls toilets"
+            count={girls}
+            note={withWashroomNote(girlsWithWashroom)}
+          />
+          {studentToilets > 0 && (
+            <div>
+              <div
+                role="img"
+                aria-label={`${boysPct}% boys and ${100 - boysPct}% girls of all student toilets`}
+                className="flex h-1.5 overflow-hidden rounded-full bg-muted"
+              >
+                <div
+                  className="bg-blue-500 motion-safe:transition-[width] motion-safe:duration-500"
+                  style={{ width: `${boysPct}%` }}
+                />
+                <div
+                  className="bg-rose-500 motion-safe:transition-[width] motion-safe:duration-500"
+                  style={{ width: `${100 - boysPct}%` }}
+                />
+              </div>
+              {students > 0 && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  About 1 toilet for every{" "}
+                  {Math.round(students / studentToilets).toLocaleString()}{" "}
+                  students
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Staff */}
+        <div className="space-y-4 p-4">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Staff</p>
+            <p className="text-xs text-muted-foreground">
+              {staff > 0 ? `${staff.toLocaleString()} teaching and non-teaching` : "Staff count not provided"}
+            </p>
+          </div>
+          <FacilityRow
+            icon={Mars}
+            tone={TONES.male}
+            label="Male staff washrooms"
+            count={maleStaff}
+          />
+          <FacilityRow
+            icon={Venus}
+            tone={TONES.female}
+            label="Female staff washrooms"
+            count={femaleStaff}
+          />
+        </div>
+
+        {/* Accessible */}
+        <div className="space-y-4 p-4">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Accessibility</p>
+            <p className="text-xs text-muted-foreground">
+              Washrooms for differently-abled users
+            </p>
+          </div>
+          <FacilityRow
+            icon={Accessibility}
+            tone={TONES.access}
+            label="Differently-abled washrooms"
+            count={accessible}
+            note={
+              <p className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
+                <span className={`size-2 rounded-full ${accessStatus.dot}`} />
+                {accessStatus.label}
+              </p>
+            }
+          />
+        </div>
+      </div>
+
+      {allEmpty && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          No toilet or washroom counts have been entered for this branch yet.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------
+   Branch panel (original logic unchanged; sanitation section added at the end)
+   ------------------------------------------------------------------------- */
+
+export function BranchDetailsPanel({ hasRole, branch, summary, selectedSchool }) {
+  const unwrap = (v) => {
+    if (!v) return null;
+    if (Array.isArray(v)) return v[0] ?? null;
+    const d = v?.data ?? v;
+    if (Array.isArray(d)) return d[0] ?? null;
+    if (d && typeof d === "object" && d.data && typeof d.data === "object")
+      return d.data.data ?? d.data;
+    return d && typeof d === "object" ? d : null;
+  };
+
+  const branchRow = unwrap(branch);
+  const schoolRow = unwrap(selectedSchool);
+  const summaryRow =
+    summary && typeof summary === "object" && !Array.isArray(summary)
+      ? summary
+      : null;
+
+  const displayData = branchRow ?? schoolRow ?? summaryRow;
+  const isAggregate =
+    !branchRow && !schoolRow?.status && summaryRow?.status === "All branches";
+
+  const status = String(
+    branchRow?.status ??
+      schoolRow?.status ??
+      (isAggregate ? "All branches" : "Not available"),
+  ).trim();
   const isActive = status.toLowerCase() === "active";
   const buildingArea = displayData?.total_building_area_sqft;
+
   const landArea = displayData?.total_land_area_sqft;
   const formatArea = (value) => {
     const number = Number(value);
@@ -102,7 +392,9 @@ export function BranchDetailsPanel({ hasRole, branch, summary }) {
       ? `${number.toLocaleString()} sq.ft`
       : "Not provided";
   };
-console.log(hasRole, "hasRole");
+
+  const hasFacilityData =
+    displayData && FACILITY_FIELDS.some((key) => key in displayData);
 
   return (
     <section className="rounded-2xl border border-border/80 bg-gradient-to-r from-slate-50 via-white to-blue-50/60 p-4 shadow-sm sm:p-5 dark:from-slate-950 dark:via-slate-950 dark:to-blue-950/30">
@@ -113,13 +405,11 @@ console.log(hasRole, "hasRole");
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-foreground">
-              {summary?.status === "All branches"
-                ? "All branches"
-                : "Branch overview"}
+              {isAggregate ? "All branches" : "Branch overview"}
             </p>
             <p className="text-xs text-muted-foreground">
-              {summary?.status === "All branches"
-                ? `Aggregated across ${summary?.branchCount ?? 0} branches`
+              {isAggregate
+                ? `Aggregated across ${summaryRow?.branchCount ?? 0} branches`
                 : "Property and operational details"}
             </p>
           </div>
@@ -163,6 +453,8 @@ console.log(hasRole, "hasRole");
           </div>
         )}
       </div>
+
+      {hasFacilityData && <SanitationSection data={displayData} />}
     </section>
   );
 }
@@ -215,10 +507,7 @@ export function SchoolDetailsCard({ school, hasRole }) {
     ? `tel:${contactPhone.replace(/[^\d+]/g, "")}`
     : null;
   const emailUrl = hasContactEmail ? `mailto:${contactEmail}` : null;
-  /* A row from getAllSchoolBranch is a BRANCH, so it often carries only
-     `branch_name` / `school_name` and no `name`. Without these fallbacks the
-     card title rendered "Not provided" while the real name sat unread in the
-     subtitle directly below it. */
+
   const schoolName =
     value("name", "name", "") ||
     value("school_name", "school_name", "") ||
@@ -372,9 +661,21 @@ export function SchoolDetailsCard({ school, hasRole }) {
                   <p className="text-[10px] uppercase text-muted-foreground">
                     {label}
                   </p>
-                  <p className="mt-1 truncate text-sm font-bold text-cyan-700 dark:text-cyan-300">
-                    {detail}
-                  </p>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p className="mt-1 cursor-default truncate text-sm font-bold text-cyan-700 dark:text-cyan-300">
+                        {detail}
+                      </p>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-64">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        {label}
+                      </p>
+                      <p className="mt-1 break-words text-sm font-semibold">
+                        {detail}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               ))}
             </div>
@@ -390,7 +691,9 @@ export function SchoolDetailsCard({ school, hasRole }) {
             </div>
           </div>
         </div>
-        <div className={`grid gap-4 ${hasRole !== "teacher" ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
+        <div
+          className={`grid gap-4 ${hasRole !== "teacher" ? "md:grid-cols-2" : "md:grid-cols-1"}`}
+        >
           <div className="rounded-2xl border bg-muted/20 p-4">
             <div className="mb-3 flex items-center gap-2">
               <Users className="size-4 text-violet-600" />
@@ -432,47 +735,47 @@ export function SchoolDetailsCard({ school, hasRole }) {
             </div>
           </div>
           {hasRole !== "teacher" && (
-          <div className="rounded-2xl border border-blue-100 bg-slate-50/70 p-4 dark:border-blue-950 dark:bg-slate-900/40">
-            <div className="mb-3 flex items-center gap-2">
-              <ShieldCheck className="size-4 text-blue-600" />
-              <p className="text-sm font-semibold">Official identifiers</p>
-            </div>
-            <div className="space-y-2">
-              {copyDetails.map(
-                ({ field, label, value: detailValue, icon: Icon }) => (
-                  <div
-                    key={field}
-                    className="flex items-center gap-3 rounded-xl border border-blue-200/70 bg-white p-3 dark:border-blue-900 dark:bg-slate-950/70"
-                  >
-                    <Icon className="size-4 shrink-0 text-blue-600" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] uppercase text-muted-foreground">
-                        {label}
-                      </p>
-                      <p className="truncate text-sm font-bold">
-                        {detailValue}
-                      </p>
-                      {copiedField === field ? (
-                        <p className="text-[10px] font-semibold text-emerald-600">
-                          Copied to clipboard
-                        </p>
-                      ) : null}
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="size-8 text-muted-foreground hover:bg-blue-100 hover:text-blue-700"
-                      aria-label={`Copy ${label}`}
-                      onClick={() => copyValue(field, detailValue)}
+            <div className="rounded-2xl border border-blue-100 bg-slate-50/70 p-4 dark:border-blue-950 dark:bg-slate-900/40">
+              <div className="mb-3 flex items-center gap-2">
+                <ShieldCheck className="size-4 text-blue-600" />
+                <p className="text-sm font-semibold">Official identifiers</p>
+              </div>
+              <div className="space-y-2">
+                {copyDetails.map(
+                  ({ field, label, value: detailValue, icon: Icon }) => (
+                    <div
+                      key={field}
+                      className="flex items-center gap-3 rounded-xl border border-blue-200/70 bg-white p-3 dark:border-blue-900 dark:bg-slate-950/70"
                     >
-                      <Copy className="size-3.5" />
-                    </Button>
-                  </div>
-                ),
-              )}
+                      <Icon className="size-4 shrink-0 text-blue-600" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] uppercase text-muted-foreground">
+                          {label}
+                        </p>
+                        <p className="truncate text-sm font-bold">
+                          {detailValue}
+                        </p>
+                        {copiedField === field ? (
+                          <p className="text-[10px] font-semibold text-emerald-600">
+                            Copied to clipboard
+                          </p>
+                        ) : null}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-muted-foreground hover:bg-blue-100 hover:text-blue-700"
+                        aria-label={`Copy ${label}`}
+                        onClick={() => copyValue(field, detailValue)}
+                      >
+                        <Copy className="size-3.5" />
+                      </Button>
+                    </div>
+                  ),
+                )}
+              </div>
             </div>
-          </div>
           )}
         </div>
       </CardContent>

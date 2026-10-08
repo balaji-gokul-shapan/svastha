@@ -422,7 +422,7 @@ const ResolvedSchoolBranch = { branch: schoolBranch ?? null };
             isLoading={dashboardSummaryLoading}
             error={dashboardSummaryError}
           />
-          <BranchDetailsPanel  branch={selectedBranch} summary={branchSummary} />
+          <BranchDetailsPanel selectedSchool={selectedSchool} branch={selectedBranch} summary={branchSummary} />
 
           {hasSelectedSchool ? (
             <SchoolDetailsCard hasRole={role} school={selectedSchool} />

@@ -122,8 +122,10 @@ export default function SchoolDashboardInsights({
   isLoading = false,
   error = null,
 }) {
+  
   const summary = React.useMemo(() => unwrapSummary(data), [data]);
-  const students = summary?.students ?? {};
+  const students = summary?.students?.students ?? {};
+  console.log(students,"studentswwwwwwwwww");
   const screeningCount = summary?.screening_count ?? {};
   const screeningData = summary?.screening_data ?? {};
   const byType = screeningData?.by_type ?? {};
@@ -176,19 +178,20 @@ export default function SchoolDashboardInsights({
   }
 
   if (!summary) return null;
+console.log(summary?.students?.women_special?.screened,"summary?.women_special");
 
   const gender = students?.gender_wise ?? {};
   const ageGroups = students?.age_wise ?? {};
   const screeningTypes = Object.entries(byType);
-  const womenScreened = numberValue(summary?.women_special?.screened?.total);
+  const womenScreened = numberValue(summary?.students?.women_special?.screened?.total);
   const womenFindings = numberValue(
-    summary?.women_special?.screened?.with_finding,
+    summary?.students?.women_special?.screened?.with_finding,
   );
   const currentStatus = summary?.current_screening_status ?? {};
   const followUpStatus = summary?.follow_up_status ?? {};
   const referralCount = summary?.referral_count ?? {};
   const womenFindingRows = Object.values(
-    summary?.women_special?.findings ?? {},
+    summary?.students?.women_special?.findings ?? {},
   )
     .filter((finding) => numberValue(finding?.total) > 0)
     .slice(0, 4);
