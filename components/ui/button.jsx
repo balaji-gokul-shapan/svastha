@@ -1,3 +1,4 @@
+import * as React from "react";
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva } from "class-variance-authority";
 
@@ -45,13 +46,32 @@ function Button({
   variant = "default",
   size = "default",
   cursor = "pointer",
+  asChild = false,
+  children,
   ...props
 }) {
+  // Base UI v1 uses the `render` prop instead of Radix-style `asChild`.
+  // Translate it here so `<Button asChild><Link /></Button>` doesn't leak
+  // `asChild` onto the DOM <button> (React unknown-prop warning).
+  if (asChild && React.isValidElement(children)) {
+    return (
+      <ButtonPrimitive
+        data-slot="button"
+        className={cn(buttonVariants({ variant, size, className }))}
+        render={children}
+        {...props}
+      />
+    );
+  }
+
   return (
     <ButtonPrimitive
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
-      {...props} />
+      {...props}
+    >
+      {children}
+    </ButtonPrimitive>
   );
 }
 

@@ -20,6 +20,7 @@ import { selectUserAccount } from "@/lib/features/auth-slice";
 import useAssignedEvents from "@/lib/useAssignedEvents";
 import { useAuthRole } from "@/lib/user-role";
 import { toast } from "sonner";
+import useScreeningStatuses from "../report/utilities/useScreeningStatuses";
 
 const FILTER_DEFAULTS = {
   search: "",
@@ -63,10 +64,7 @@ function StudentsList() {
   const viewMode = searchParams.get("view") ?? "card";
 
   const requestedLimit = Number(searchParams.get("limit"));
-  // Single source of truth for "table vs cards": the global appearance
-  // `tableView` setting. The URL `view` param is legacy — honour it only when
-  // it explicitly says "table", so the table (and its pagination footer)
-  // can't silently disappear when the two flags disagree.
+
   const isTableView = tableView === "table" || viewMode === "table";
   const limit = PAGE_SIZE_OPTIONS.includes(requestedLimit)
     ? requestedLimit
@@ -376,7 +374,6 @@ function StudentsList() {
         getFilterStudent({
           all: true,
           status: "all",
-
           branch_id: schoolName,
           academicYear,
           classFilter,

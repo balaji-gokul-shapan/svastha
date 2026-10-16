@@ -691,7 +691,7 @@ export default function HealthCheckContent({
   const campLocationText =
     [
       activeEvent?.branch?.area ??
-      activeEvent?.school?.area ??
+        activeEvent?.school?.area ??
         activeEvent?.area ??
         camp?.school?.area ??
         camp?.area,
@@ -709,8 +709,8 @@ export default function HealthCheckContent({
     activeEvent?.location ||
     camp?.location ||
     "";
-    console.log(camp,"activeEvent");
-    
+  console.log(camp, "activeEvent");
+
   const reportCampDate = formatCampDate(
     getCampDate(activeEvent) || getCampDate(camp) || camp?.date,
   );
@@ -819,6 +819,8 @@ export default function HealthCheckContent({
 
   const getWeight = (weight) =>
     formatMetric(weight ?? generalScreeningRecord?.weight, "kg");
+
+ 
 
   const getAllRecordForGeneral = () => ({
     height: getHeight(),
@@ -948,8 +950,6 @@ export default function HealthCheckContent({
     return "";
   };
 
-  /* ENT has no `consolidate_report_result`, so derive the headline status the   */
-  /* same way dental does: fall back through the summary/result/status fields. */
   const getEntStatus = () =>
     getRecordName(
       entScreeningRecord,
@@ -1011,6 +1011,40 @@ export default function HealthCheckContent({
     ),
     status: getEntStatus(),
   });
+   const getAllScreeningStatuses = () => ({
+    general:
+      getRecordName(
+        generalScreeningRecord,
+        "consolidate_report_result",
+        "result",
+        "status",
+      ) || "--",
+
+    vision:
+      getRecordName(
+        visionScreeningRecord,
+        "consolidate_report_result",
+        "result",
+        "status",
+      ) || "--",
+
+    dental: getDentalStatus(),
+
+    hearing:
+      getRecordName(
+        hearingScreeningRecord,
+        "consolidate_report_result",
+        "result",
+        "status",
+      ) ||
+      hearingScreeningRecord?.overall_status ||
+      "--",
+
+    ent: getEntStatus(),
+  });
+  const screeningStatuses = getAllScreeningStatuses();
+
+  console.log("All screening statuses:", screeningStatuses);
 
   const generalRecord = getAllRecordForGeneral();
   const visionRecord = getAllRecordForVision();
@@ -1599,7 +1633,7 @@ export default function HealthCheckContent({
                     />
                   </span>
                   <span className="report-doc__field-copy flex">
-                    <span className="report-doc__field-label">Camp date {" "}</span>
+                    <span className="report-doc__field-label">Camp date </span>
                     <span className="report-doc__field-value">
                       {reportCampDate || "Not available"}
                     </span>
@@ -1615,7 +1649,7 @@ export default function HealthCheckContent({
                   </span>
                   <span className="report-doc__field-copy">
                     <span className="report-doc__field-label">
-                      Last updated {" "}
+                      Last updated{" "}
                     </span>
                     <span className="report-doc__field-value">
                       {campUpdatedAt}
@@ -1631,7 +1665,7 @@ export default function HealthCheckContent({
                     />
                   </span>
                   <span className="report-doc__field-copy">
-                    <span className="report-doc__field-label">Location {" "}</span>
+                    <span className="report-doc__field-label">Location </span>
                     <span className="report-doc__field-value">
                       {campLocationText || "Not available"}
                     </span>

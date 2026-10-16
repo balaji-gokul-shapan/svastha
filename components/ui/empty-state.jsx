@@ -1,5 +1,4 @@
 import { Inbox } from "lucide-react";
-
 import { cn } from "../../lib/utils"; 
 
 export function EmptyState({
@@ -10,7 +9,7 @@ export function EmptyState({
   className,
 }) {
   return (
-    <div className={cn("flex flex-col items-center justify-center gap-2 py-8 text-center", className)}>
+    <div className={cn("w-full min-w-full max-w-none flex flex-col items-center justify-center gap-2 py-8 text-center", className)}>
       <span className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
         <Icon className="size-5" />
       </span>

@@ -785,6 +785,8 @@ const ProfilePage = ({
 
   return (
     <article className="profile-settings-shell overflow-hidden rounded-2xl border border-border bg-card">
+              <div className="h-1 w-full bg-gradient-to-r from-primary via-primary/50 to-transparent" />
+
       <header className="profile-settings-heading relative overflow-hidden px-5 py-6 sm:px-7 sm:py-7">
         <div
           aria-hidden="true"

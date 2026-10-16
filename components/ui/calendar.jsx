@@ -49,9 +49,28 @@ function toDateOnly(date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
+function asDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export function Calendar({ mode, selected, onSelect, defaultMonth, maxDate }) {
+  const isRangeMode = mode === "range";
+
+  const range =
+    isRangeMode && selected && !(selected instanceof Date)
+      ? { from: asDate(selected.from), to: asDate(selected.to) }
+      : null;
+  const singleDate = !isRangeMode ? asDate(selected) : null;
+
   const [currentMonth, setCurrentMonth] = React.useState(
-    startOfMonth(defaultMonth ?? selected ?? new Date()),
+    startOfMonth(
+      asDate(defaultMonth) ?? range?.from ?? range?.to ?? singleDate ?? new Date(),
+    ),
   );
 
   const maxDateOnly = maxDate ? toDateOnly(maxDate) : null;
@@ -74,6 +93,24 @@ export function Calendar({ mode, selected, onSelect, defaultMonth, maxDate }) {
 
   const canGoNext =
     !maxDateOnly || addMonths(currentMonth, 1) <= startOfMonth(maxDateOnly);
+
+  const handleDayClick = (day) => {
+    const picked = toDateOnly(day);
+
+    if (!isRangeMode) {
+      onSelect?.(picked);
+      return;
+    }
+
+    const from = range?.from ?? null;
+    const to = range?.to ?? null;
+
+    if (!from || (from && to) || picked < toDateOnly(from)) {
+      onSelect?.({ from: picked, to: null });
+    } else {
+      onSelect?.({ from, to: picked });
+    }
+  };
 
   const weekDayLabels = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
   const monthLabels = [
@@ -184,8 +221,21 @@ export function Calendar({ mode, selected, onSelect, defaultMonth, maxDate }) {
 
         {days.map((day) => {
           const outside = day.getMonth() !== currentMonth.getMonth();
-          const selectedDay = selected ? isSameDay(day, selected) : false;
           const dayOnly = toDateOnly(day);
+          const isRangeEnd =
+            isRangeMode &&
+            range &&
+            ((range.from && isSameDay(day, range.from)) ||
+              (range.to && isSameDay(day, range.to)));
+          const inRange =
+            isRangeMode &&
+            range?.from &&
+            range?.to &&
+            dayOnly > toDateOnly(range.from) &&
+            dayOnly < toDateOnly(range.to);
+          const selectedDay = Boolean(
+            singleDate ? isSameDay(day, singleDate) : isRangeEnd,
+          );
           const disabled =
             (maxDateOnly && dayOnly > maxDateOnly) ||
             (minDateOnly && dayOnly < minDateOnly);
@@ -195,12 +245,14 @@ export function Calendar({ mode, selected, onSelect, defaultMonth, maxDate }) {
               key={toIsoDate(day)}
               type="button"
               disabled={Boolean(disabled)}
-              onClick={() => onSelect?.(new Date(dayOnly))}
+              onClick={() => handleDayClick(day)}
               className={cn(
                 "h-9 rounded-md text-sm transition-colors",
                 selectedDay
                   ? "bg-primary text-primary-foreground"
-                  : "hover:bg-muted text-foreground",
+                  : inRange
+                    ? "bg-primary/15 text-foreground"
+                    : "hover:bg-muted text-foreground",
                 outside && !selectedDay && "text-muted-foreground",
                 disabled &&
                   "cursor-not-allowed opacity-40 hover:bg-transparent",

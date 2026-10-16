@@ -455,10 +455,11 @@ import { useSchoolSuperAdminApi } from "./api/schoolSuperAdminApi";
 import { useAuthRole } from "@/lib/user-role";
 import { useSelector } from "react-redux";
 import StudentOverviewCharts from "./student-overview-charts";
+import { useAppSelector } from "@/lib/hooks";
+import { selectIsPrimaryDoctorRole } from "@/lib/features/auth-slice";
 
 const MasterDashboard = () => {
   const authRoleFromHook = useAuthRole();
-  console.log(authRoleFromHook, "authRoleFromHook");
   const {
     user: authUser,
     account,
@@ -467,25 +468,22 @@ const MasterDashboard = () => {
   } = useSelector((state) => state.auth);
   console.log({ authUser, account, account_type, role, authRoleFromHook });
 
+  const isPrimaryDoctorRole = useAppSelector(selectIsPrimaryDoctorRole);
 
-  // const getUserRole = {
-  //   doctor: authRoleFromHook === "doctor",
-  //   superAdmin: authRoleFromHook === "admin",
-  //   Admin: authRoleFromHook === "school",
-  //   teacher: authRoleFromHook === "teacher",
-  // };
   const roleMap = {
-  doctor: "doctor",
-  admin: "superAdmin",
-  school: "Admin",
-  teacher: "teacher",
-};
+    doctor: "doctor",
+    admin: "superAdmin",
+    school: "Admin",
+    teacher: "teacher",
+  };
 
-const getUserRole = roleMap[authRoleFromHook] || null;
+  const getUserRole = roleMap[authRoleFromHook] || null;
 
   const [selectedBranchId, setSelectedBranchId] = React.useState("all");
   const [selectedDoctorId, setSelectedDoctorId] = React.useState("all");
   const [selectedCampId, setSelectedCampId] = React.useState("all");
+  const [appliedFilters, setAppliedFilters] = React.useState({});
+
   const {
     getAllSchoolBranch,
     getAllSchoolBranchLoading,
@@ -507,11 +505,12 @@ const getUserRole = roleMap[authRoleFromHook] || null;
   } = useSchoolSuperAdminApi(
     getUserRole,
     selectedBranchId === "all" ? "" : selectedBranchId,
+    appliedFilters,
   );
 
   console.log(dashboardData?.data, "dashboardDataWWWWW");
-  console.log(dashboardData,"dashboardData");
-  
+  console.log(dashboardData, "dashboardData");
+
   const {
     assignedEvents,
     assignEventLoading,
@@ -530,11 +529,48 @@ const getUserRole = roleMap[authRoleFromHook] || null;
     screeningError,
     getStudentByEventLoading,
     getStudentByEventError,
-  } = useDoctorApi(undefined, selectedDoctorId, selectedCampId);
+    doctorDashboardData,
+    doctorDashboardLoading,
+    doctorDashboardError,
+    doctorSchoolDashboardData,
+    doctorSchoolDashboardLoading,
+    doctorSchoolDashboardError,
+    doctorDashboardSummaryData,
+    doctorDashboardSummaryLoading,
+    doctorDashboardSummaryError,
+    doctorDashboardEventsData,
+    doctorDashboardEventsLoading,
+    doctorDashboardEventsError,
 
-   
-   
-   
+    getDoctorDashboardScheduleSummary,
+    getDoctorDashboardScheduleSummaryLoading,
+    getDoctorDashboardScheduleSummaryError,
+  } = useDoctorApi(undefined, selectedDoctorId, selectedCampId, appliedFilters);
+  console.log(doctorDashboardEventsData, "doctorDashboardEventsData");
+console.log(appliedFilters,"appliedFilters");
+
+  /* Bundle the doctor-role figures for <DoctorDashboardInsights /> — same
+     values useDoctorApi already computes, no extra fetches. */
+  const doctorInsights = {
+    eventsData: doctorDashboardEventsData,
+    eventsLoading: doctorDashboardEventsLoading,
+    eventsError: doctorDashboardEventsError,
+    students: {
+      total: totalStudents,
+      male: maleStudents,
+      female: femaleStudents,
+      other: otherStudents,
+      ageGroups,
+    },
+    screening: {
+      general: generalScreeningRecord?.length,
+      dental: dentalScreeningRecord?.length,
+      vision: visionScreeningRecord?.length,
+      hearing: hearingScreeningRecord?.length,
+    },
+    screeningLoading,
+  };
+
   return (
     <StudentOverviewCharts
       user={authUser}
@@ -553,6 +589,14 @@ const getUserRole = roleMap[authRoleFromHook] || null;
       getAllSchoolBranchLoading={getAllSchoolBranchLoading}
       getAllSchoolBranchError={getAllSchoolBranchError}
       eventsLoading={schoolEventsLoading}
+      appliedFilters={appliedFilters}
+      setAppliedFilters={setAppliedFilters}
+      doctorDashboardEventsData={doctorDashboardEventsData}
+      doctorDashboardEventsLoading={doctorDashboardEventsLoading}
+      doctorDashboardEventsError={doctorDashboardEventsError}
+      doctorInsights={doctorInsights}
+      selectedCampId={selectedCampId}
+      onCampChange={setSelectedCampId}
     />
   );
 };

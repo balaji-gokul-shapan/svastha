@@ -627,7 +627,7 @@ export function SchoolDetailsCard({ school, hasRole }) {
                 address
               )}
             </p>
-            <p className="mt-2 text-xs text-muted-foreground">
+            {/* <p className="mt-2 text-xs text-muted-foreground">
               {mapUrl ? (
                 <a
                   href={mapUrl}
@@ -641,7 +641,7 @@ export function SchoolDetailsCard({ school, hasRole }) {
               ) : (
                 location
               )}
-            </p>
+            </p> */}
           </div>
           <div className="rounded-2xl border border-cyan-100 bg-cyan-50/60 p-4 dark:border-cyan-950 dark:bg-cyan-950/20">
             <div className="mb-3 flex items-center gap-2">

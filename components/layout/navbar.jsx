@@ -17,6 +17,20 @@ export function Navbar({ title = "Dashboard" }) {
   const userInitials = displayName
     .split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "S";
   const signedInRole = authUser?.role || "User";
+  const avatarRole = (() => {
+    const key = String(signedInRole ?? "").trim().toLowerCase();
+    const map = {
+      admin: "admin",
+      school: "school",
+      school_admin: "school",
+      teacher: "teacher",
+      doctor: "doctor",
+      staff: "staff",
+      school_sub_account: "staff",
+      accountant: "accountant",
+    };
+    return map[key];
+  })();
 
   const handleLogout = () => {
     dispatch(clearAuthSession());
@@ -60,7 +74,7 @@ export function Navbar({ title = "Dashboard" }) {
               type="button"
               className="flex flex-row items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground shadow-sm transition hover:scale-105 hover:bg-accent/70 hover:text-accent-foreground"
             >
-              <div suppressHydrationWarning className="flex size-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+              <div suppressHydrationWarning data-role={avatarRole} className="user-avatar flex size-9 items-center justify-center rounded-full text-sm font-semibold">
                 {userInitials}
               </div>
               <p suppressHydrationWarning className="hidden md:block">{displayName}</p>

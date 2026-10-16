@@ -1,5 +1,8 @@
 import { useMemo } from "react";
-import { getAllSchoolBranches, getSchoolBranch } from "@/lib/features/registerSchoolBranchSlice";
+import {
+  getAllSchoolBranches,
+  getSchoolBranch,
+} from "@/lib/features/registerSchoolBranchSlice";
 import { useQuery } from "@tanstack/react-query";
 import { useAppDispatch } from "@/lib/hooks";
 import { useAuthRole } from "@/lib/user-role";
@@ -7,11 +10,13 @@ import { getAllSubAccount } from "@/lib/features/registerStaffAccount";
 import { getAllScreening } from "@/lib/features/registerScreeningSlice";
 import { getAllEvents } from "@/lib/features/getEventAssignSlice";
 import { getAllStudent } from "@/lib/features/getAllStudentSlice";
-import {
-  getSchoolDashboard,
-} from "@/lib/features/dashboardSlice";
+import { getSchoolDashboard } from "@/lib/features/dashboardSlice";
 
-export const useSchoolSuperAdminApi = (role, requestedSchoolBranchId) => {
+export const useSchoolSuperAdminApi = (
+  role,
+  requestedSchoolBranchId,
+  appliedFilters = {},
+) => {
   const dispatch = useAppDispatch();
   const authRole = useAuthRole();
   const getRole = String(role ?? authRole ?? "")
@@ -19,8 +24,8 @@ export const useSchoolSuperAdminApi = (role, requestedSchoolBranchId) => {
     .toLowerCase()
     .replace(/[\s-]+/g, "_");
 
-    console.log(getRole,"getRole");
-    
+  console.log(getRole, "getRolevvvvvvvvvvvv");
+
   const canAccessAllSchoolBranches =
     getRole === "admin" ||
     getRole === "superadmin" ||
@@ -28,7 +33,22 @@ export const useSchoolSuperAdminApi = (role, requestedSchoolBranchId) => {
     getRole === "school" ||
     getRole === "school_admin";
   const canLoadSchoolDashboard =
-    canAccessAllSchoolBranches || getRole === "school_sub_account";
+    canAccessAllSchoolBranches || getRole === "teacher";
+
+  const dashboardFilterArgs = useMemo(() => {
+    const range = appliedFilters?.selectedDate ?? null;
+    const from = String(range?.from ?? "").trim();
+    const to = String(range?.to ?? "").trim();
+    const branchId = String(appliedFilters?.branchId ?? "").trim();
+    const campId = String(appliedFilters?.campId ?? "").trim();
+
+    const args = {};
+    if (from) args.from_date = from;
+    if (to) args.to_date = to;
+    if (branchId && branchId !== "all") args.branch_id = branchId;
+    if (campId && campId !== "all") args.camp_id = campId;
+    return args;
+  }, [appliedFilters]);
 
   const {
     data: getAllSchoolBranch = {},
@@ -52,21 +72,19 @@ export const useSchoolSuperAdminApi = (role, requestedSchoolBranchId) => {
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
   });
-  console.log(getSchoolBranchData,"getSchoolBranchData");
-  
+  console.log(getSchoolBranchData, "getSchoolBranchData");
 
   const {
     data: dashboardData,
     isLoading: dashboardLoading,
     error: dashboardError,
   } = useQuery({
-    queryKey: ["dashboard", getRole],
-    queryFn: () => dispatch(getSchoolDashboard()).unwrap(),
+    queryKey: ["dashboard", getRole, dashboardFilterArgs],
+    queryFn: () => dispatch(getSchoolDashboard(dashboardFilterArgs)).unwrap(),
     enabled: canLoadSchoolDashboard,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
-
 
   const dashboardBranches = useMemo(() => {
     const list = dashboardData?.data?.branches;
@@ -90,8 +108,7 @@ export const useSchoolSuperAdminApi = (role, requestedSchoolBranchId) => {
     return scoped ?? dashboardBranches[0] ?? null;
   }, [dashboardBranches, dashboardData]);
 
-  console.log(schoolBranch,"schoolBranch3333333");
-  
+  console.log(schoolBranch, "schoolBranch3333333");
 
   const schoolBranchId = String(
     schoolBranch?.id ??
@@ -140,9 +157,12 @@ export const useSchoolSuperAdminApi = (role, requestedSchoolBranchId) => {
     error: getAllStudentError,
   } = useQuery({
     queryKey: ["school-dashboard-students", getRole, resolvedSchoolBranchId],
-    queryFn: () => dispatch(getAllStudent({
-      branch_id: resolvedSchoolBranchId,
-    })).unwrap(),
+    queryFn: () =>
+      dispatch(
+        getAllStudent({
+          branch_id: resolvedSchoolBranchId,
+        }),
+      ).unwrap(),
     enabled:
       getRole === "admin" ||
       getRole === "school" ||
@@ -151,19 +171,19 @@ export const useSchoolSuperAdminApi = (role, requestedSchoolBranchId) => {
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
   });
-console.log(getAllStudentData,"getAllStudentData");
+  console.log(getAllStudentData, "getAllStudentData");
 
-const {
-  data: getAllScreeningData = [],
-  isLoading: getAllScreeningLoading,
-  error: getAllScreeningError,
-} = useQuery({
-  queryKey: ["getAllScreening"],
-  queryFn: () => dispatch(getAllScreening()).unwrap(),
-  enabled: canLoadSchoolDashboard,
-  staleTime: 5 * 60 * 1000,
-  refetchOnWindowFocus: false,
-});
+  const {
+    data: getAllScreeningData = [],
+    isLoading: getAllScreeningLoading,
+    error: getAllScreeningError,
+  } = useQuery({
+    queryKey: ["getAllScreening"],
+    queryFn: () => dispatch(getAllScreening()).unwrap(),
+    enabled: canLoadSchoolDashboard,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
   return {
     getSchoolBranchData,
     getSchoolBranchLoading,

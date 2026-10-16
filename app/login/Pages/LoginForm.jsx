@@ -128,8 +128,8 @@ const LoginForm = () => {
                 className="brightness-0 invert"
               />
             </motion.span>
-            <div className="flex min-w-0 flex-col">
-              <span className="login-wordmark text-2xl">
+            <div className="flex min-w-0 flex-col font-sf">
+              <span className=" login-wordmark text-2xl">
                 Svas<em>t</em>ha
               </span>
               <small className="login-tagline py-1">
@@ -144,7 +144,7 @@ const LoginForm = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
           >
-            <CardTitle className="font-sf text-left text-3xl font-semibold tracking-tight">
+            <CardTitle className=" text-left text-3xl font-semibold tracking-tight">
               Welcome
             </CardTitle>
             <CardDescription className="text-sm leading-relaxed">

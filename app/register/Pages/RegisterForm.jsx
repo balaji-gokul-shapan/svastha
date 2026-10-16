@@ -113,16 +113,13 @@ const initialForm = {
   email: "",
 
   /* Step 2 — correspondent & principal.
-     These MUST exist as empty strings: the zod schema uses z.string() (not
-     z.string().optional()), and an `undefined` value fails with
-     "expected string, received undefined" before the .min() rule — and any
-     custom message — can ever run. */
+ */
   correspondent_name: "",
-  correspondent_designation: "",
+  correspondent_designation: "Correspondent",
   correspondent_phone: "",
   correspondent_email: "",
   principal_name: "",
-  principal_designation: "",
+  principal_designation: "Principal",
   principal_phone: "",
   principal_email: "",
   area: "",
@@ -407,12 +404,13 @@ export default function SchoolRegistrationPage() {
           district: form.district,
           country: form.country,
           pincode: form.pincode,
-          correspondent_designation: form.correspondent_designation,
+          correspondent_designation:
+            form.correspondent_designation || "Correspondent",
           correspondent_name: form.correspondent_name,
           correspondent_phone: form.correspondent_phone,
           correspondent_email: form.correspondent_email,
           principal_name: form.principal_name,
-          principal_designation: form.principal_designation,
+          principal_designation: form.principal_designation || "Principal",
           principal_phone: form.principal_phone,
           principal_email: form.principal_email,
         };
@@ -421,26 +419,19 @@ export default function SchoolRegistrationPage() {
 
       case 3:
         schema = schoolStepThreeSchema;
-
         values = {
           branches: form.branches,
         };
-
         break;
 
       case 4:
         schema = schoolStepFourSchema;
-
         values = {
           school_name_with_location: form.school_name_with_location,
-
           school_profile: form.school_profile,
-
           school_website_url: form.school_website_url,
-
           is_active: form.is_active,
         };
-
         break;
 
       default:
@@ -484,8 +475,16 @@ export default function SchoolRegistrationPage() {
   };
 
   const handleSubmit = async () => {
+    // Designations are fixed by role — always send them even if the
+    // read-only inputs were never touched.
+    const formWithFixedDesignations = {
+      ...form,
+      correspondent_designation: "Correspondent",
+      principal_designation: "Principal",
+    };
+
     // Final gate — validate the COMPLETE form, not just step 4.
-    const result = schoolRegistrationSchema.safeParse(form);
+    const result = schoolRegistrationSchema.safeParse(formWithFixedDesignations);
 
     if (!result.success) {
       setFormErrors(result.error.format());
@@ -988,7 +987,6 @@ function SchoolDetails({ form, updateField, errors, toggleMultipleBranches }) {
           }}
         /> */}
 
-
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 md:col-span-2">
           <NumberStepperField
             label="Total Number of Students"
@@ -1191,9 +1189,10 @@ function ContactAddress({
                 label="Contact Person Name"
                 required
                 value={form.correspondent_name}
-                onChange={(e) =>
-                  updateField("correspondent_name", e.target.value)
-                }
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                  updateField("correspondent_name", value);
+                }}
                 placeholder="Full name"
                 error={getError(errors, "correspondent_name") || undefined}
               />
@@ -1201,10 +1200,7 @@ function ContactAddress({
               <TextField
                 id="reg-contact-designation"
                 label="Designation"
-                value={"Correspondent" || form.correspondent_designation}
-                onChange={(e) =>
-                  updateField("correspondent_designation", e.target.value)
-                }
+                value={form.correspondent_designation || "Correspondent"}
                 placeholder="Correspondent"
                 error={
                   getError(errors, "correspondent_designation") || undefined
@@ -1236,7 +1232,9 @@ function ContactAddress({
                 required
                 type="email"
                 value={form.correspondent_email}
-                onChange={(e) => updateField("correspondent_email", e.target.value)}
+                onChange={(e) =>
+                  updateField("correspondent_email", e.target.value)
+                }
                 placeholder="school@example.com"
                 error={getError(errors, "correspondent_email") || undefined}
               />
@@ -1266,31 +1264,22 @@ function ContactAddress({
                 label="Contact Person Name"
                 required
                 value={form.principal_name}
-                onChange={(e) =>
-                  updateField("principal_name", e.target.value)
-                }
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                  updateField("principal_name", value);
+                }}
+                // onChange={(e) => updateField("principal_name", e.target.value)}
                 placeholder="Full name"
-                error={
-                  getError(errors, "principal_name") || undefined
-                }
+                error={getError(errors, "principal_name") || undefined}
               />
 
               <TextField
                 id="reg-secondary-contact-designation"
                 label="Designation"
-                value={"Principal" || form.principal_designation}
-                onChange={(e) =>
-                  updateField(
-                    "principal_designation",
-                    e.target.value,
-                  )
-                }
+                value={form.principal_designation || "Principal"}
                 placeholder="Principal"
                 readOnly
-                error={
-                  getError(errors, "principal_designation") ||
-                  undefined
-                }
+                error={getError(errors, "principal_designation") || undefined}
               />
 
               <TextField
@@ -1308,10 +1297,7 @@ function ContactAddress({
                   )
                 }
                 placeholder="+91 XXXXX XXXXX"
-                error={
-                  getError(errors, "principal_phone") ||
-                  undefined
-                }
+                error={getError(errors, "principal_phone") || undefined}
               />
 
               <TextField
@@ -1320,14 +1306,9 @@ function ContactAddress({
                 required
                 type="email"
                 value={form.principal_email}
-                onChange={(e) =>
-                  updateField("principal_email", e.target.value)
-                }
+                onChange={(e) => updateField("principal_email", e.target.value)}
                 placeholder="school@example.com"
-                error={
-                  getError(errors, "principal_email") ||
-                  undefined
-                }
+                error={getError(errors, "principal_email") || undefined}
               />
             </div>
           </CardContent>
@@ -1608,16 +1589,18 @@ function Branches({ form, addBranch, updateBranch, removeBranch, errors }) {
                     getError={(field) => getBranchError(index, field)}
                   />
 
-                  
-
                   <BranchField
                     label="Contact Person"
                     required
                     value={branch.contact_person_name}
                     error={getBranchError(index, "contact_person_name")}
-                    onChange={(value) =>
-                      updateBranch(index, "contact_person_name", value)
-                    }
+                    onChange={(value) => {
+                      const filtered = String(value ?? "").replace(
+                        /[^a-zA-Z\s]/g,
+                        "",
+                      );
+                      updateBranch(index, "contact_person_name", filtered);
+                    }}
                   />
 
                   <BranchField

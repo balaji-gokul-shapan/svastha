@@ -618,7 +618,7 @@ const TeamPage = ({
           ACCOUNTS
       ================================= */}
 
-      <article className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+      <article className="sl-scroll-panel">
         {/* Accent rail */}
         <div className="h-1 w-full bg-gradient-to-r from-primary via-primary/50 to-transparent" />
 

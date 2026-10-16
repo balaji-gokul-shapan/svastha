@@ -74,7 +74,7 @@ export function DataTable({
   enableSorting = false,
   initialPageSize = 10,
   pageSizeOptions = [10, 20, 50, 100],
-
+  statusesByKey,
   serverPagination,
   // Controlled local pagination (report table): when provided, page state
   // lives in the PARENT so switching table -> detailed -> table keeps your
@@ -91,15 +91,13 @@ export function DataTable({
   // Applied to the inner <table>. Use it to force a `min-w-*` so narrow
   // screens scroll the table horizontally instead of squeezing every column.
   tableClassName,
-  // Opt-in presentation hooks. All default to undefined so existing callers
-  // keep their current markup exactly.
+
   rootClassName,
   shellClassName,
   headClassName,
   rowClassName,
   footClassName,
-  // When true, each body cell receives `data-label` from its column header so
-  // a stylesheet can render the label when the table collapses into cards.
+
   withCellLabels = false,
   columnWidths,
   selectHeader = null,

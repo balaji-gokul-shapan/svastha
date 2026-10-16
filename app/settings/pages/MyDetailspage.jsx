@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
+  Building2,
   Camera,
   Clock,
   Fingerprint,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import { getRoleLabel, useAuthRole } from "@/lib/user-role";
 import { useAppSelector } from "@/lib/hooks";
+import { cn } from "@/lib/utils";
 import { getDisplayProfileImageUrl } from "@/lib/profile-image-utils";
 import { getProfileImage } from "@/lib/features/profileImageRegister";
 import { useDispatch } from "react-redux";
@@ -22,6 +24,9 @@ import FormField from "../components/FormField";
 import { LoginActivity } from "../components/LoginActivity";
 import { DeviceSession } from "../components/DeviceSession";
 import { AccountAccess } from "../components/AccountAccess";
+import { StatOverviewCard } from "../components/StatOverviewCard";
+import { SchoolBranchCard } from "../components/SchoolBranchCard";
+import { AccountCard } from "../components/AccountCard";
 
 export default function MyDetailsPage({
   profileImageFile,
@@ -30,7 +35,8 @@ export default function MyDetailsPage({
   username,
   password,
   profileInputRef,
-  // Staged preview owned by the settings page (same source ProfilePage shows).
+  accounts,
+  AllSchoolBranch,
   imagePreviewUrl: parentPreviewUrl,
   onChange,
 }) {
@@ -51,6 +57,43 @@ export default function MyDetailsPage({
   // Role as a string ("admin" | "school" | "school_sub_account" | "doctor" | …).
   const role = useAuthRole();
   const roleLabel = getRoleLabel(role);
+
+  // ── School branches from the AllSchoolBranch prop (no extra API call) ──
+  const allBranches = useMemo(() => {
+    if (!AllSchoolBranch) return [];
+    if (Array.isArray(AllSchoolBranch)) return AllSchoolBranch;
+    return AllSchoolBranch?.data ?? [];
+  }, [AllSchoolBranch]);
+
+  const activeBranches = allBranches.filter(
+    (b) => String(b.status ?? "active").toLowerCase() === "active",
+  );
+  const branchSchools = useMemo(
+    () =>
+      new Set(
+        allBranches
+          .map((b) => b.school_name || b.school?.name || b.schoolName || "")
+          .filter(Boolean),
+      ).size,
+    [allBranches],
+  );
+
+  // ── Connected accounts from the accounts prop (no extra API call) ──
+  const [accountStatusFilter, setAccountStatusFilter] = useState("all");
+  const accountsList = useMemo(() => {
+    const list = Array.isArray(accounts) ? accounts : [];
+    if (accountStatusFilter === "all") return list;
+    return list.filter(
+      (a) => String(a.status ?? "active").toLowerCase() === accountStatusFilter,
+    );
+  }, [accounts, accountStatusFilter]);
+
+  const activeAccounts = accountsList.filter(
+    (a) => String(a.status ?? "active").toLowerCase() === "active",
+  );
+  const pendingAccounts = accountsList.filter(
+    (a) => String(a.status ?? "active").toLowerCase() === "pending",
+  );
 
   // Local object URL for a staged file ONLY — revoked separately so we never
   // revoke the parent's preview URL or the remote saved image.
@@ -114,8 +157,10 @@ export default function MyDetailsPage({
   }, [profileImageFile, savedProfileImageUrl, name, username, password]);
 
   return (
-    <section className="my-details-shell space-y-5">
-      <header className="my-details-heading overflow-hidden rounded-2xl border border-border p-4 sm:p-6">
+    <section className="my-details-shell relative space-y-5 sl-scroll-panel lg:shadow-[inset_0_-8px_16px_-8px_rgba(0,0,0,0.06)] scrollbar-none after:pointer-events-none after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-gray-200 sl-scroll-panel">
+      {" "}
+      <div className="h-1 w-full bg-gradient-to-r from-primary via-primary/50 to-transparent" />
+      <header className="my-details-heading sticky top-0 z-20 overflow-hidden rounded-2xl border border-border p-4 sm:p-6">
         <div className="my-details-heading__grid" aria-hidden="true" />
         <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-center gap-4">
@@ -131,7 +176,8 @@ export default function MyDetailsPage({
                 My details
               </h2>
               <p className="mt-1 max-w-2/3 text-sm leading-6 text-muted-foreground sm:text-base">
-                Keep your profile current and review your account security at a glance.
+                Keep your profile current and review your account security at a
+                glance.
               </p>
             </div>
           </div>
@@ -144,7 +190,6 @@ export default function MyDetailsPage({
           ) : null}
         </div>
       </header>
-
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(230px,0.55fr)_minmax(230px,0.55fr)]">
         {/* CONTAINER query, not a viewport one. This card is a grid column that
             is only ~1.45fr wide at lg, so on a 1280px screen it is ~500px — yet
@@ -165,7 +210,11 @@ export default function MyDetailsPage({
               >
                 {imagePreviewUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={imagePreviewUrl} alt="Profile preview" className="size-full object-cover" />
+                  <img
+                    src={imagePreviewUrl}
+                    alt="Profile preview"
+                    className="size-full object-cover"
+                  />
                 ) : (
                   <span className="flex size-full items-center justify-center text-muted-foreground transition-colors group-hover:text-primary">
                     <UserRound className="size-10" />
@@ -196,10 +245,16 @@ export default function MyDetailsPage({
               <p className="mt-1 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 text-sm text-muted-foreground @md:justify-start">
                 <Mail className="size-3.5 shrink-0" aria-hidden="true" />
                 <span className="min-w-0 break-all">
-                  {username ? `${username}@svastha.app` : "Add a username to see your handle"}
+                  {username
+                    ? `${username}@svastha.app`
+                    : "Add a username to see your handle"}
                 </span>
               </p>
-              {imageError ? <p className="mt-2 text-xs font-medium text-destructive">{imageError}</p> : null}
+              {imageError ? (
+                <p className="mt-2 text-xs font-medium text-destructive">
+                  {imageError}
+                </p>
+              ) : null}
               {/* <div className="mt-4 flex flex-col gap-2 @xs:flex-row @xs:flex-wrap @md:justify-start">
                 <button
                   type="button"
@@ -224,8 +279,12 @@ export default function MyDetailsPage({
           <CompletenessRing percent={completeness} />
           <div>
             <p className="my-details-label">Profile completeness</p>
-            <p className="text-lg font-semibold text-foreground">Looking good</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">Complete your profile for a smoother experience.</p>
+            <p className="text-lg font-semibold text-foreground">
+              Looking good
+            </p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Complete your profile for a smoother experience.
+            </p>
           </div>
         </article>
 
@@ -236,11 +295,12 @@ export default function MyDetailsPage({
           <div>
             <p className="my-details-label">Account status</p>
             <p className="text-lg font-semibold text-success">Active</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">Your account is in good standing.</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Your account is in good standing.
+            </p>
           </div>
         </article>
       </div>
-
       <div className="grid gap-4 lg:grid-cols-2">
         <article className="my-details-panel my-details-panel--activity overflow-hidden rounded-2xl border border-border bg-card">
           <div className="my-details-panel__header">
@@ -269,14 +329,131 @@ export default function MyDetailsPage({
               </span>
               <div>
                 <p className="my-details-label">This session</p>
-                <h3 className="my-details-panel__title">Device &amp; session</h3>
+                <h3 className="my-details-panel__title">
+                  Device &amp; session
+                </h3>
               </div>
             </div>
           </div>
           <DeviceSession />
         </article>
       </div>
+      {/* ─── School Network ─── */}
+      <article className="my-details-panel my-details-panel--access overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="my-details-panel__header">
+          <div className="my-details-panel__heading">
+            <span className="my-details-panel__icon my-details-panel__icon--blue">
+              <Building2 className="size-5" aria-hidden="true" />
+            </span>
+            <div>
+              <p className="my-details-label">School network</p>
+              <h3 className="my-details-panel__title">Connected branches</h3>
+            </div>
+          </div>
+          <div className="my-details-panel__actions">
+            <p className="text-xs font-medium text-muted-foreground">
+              {activeBranches.length} of {allBranches.length} active
+            </p>
+          </div>
+        </div>
+        <div className="my-details-panel__body">
+          <section className="my-details-network">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <StatOverviewCard
+                label="Total branches"
+                value={allBranches.length}
+                icon="building"
+                color="primary"
+              />
+              <StatOverviewCard
+                label="Active branches"
+                value={activeBranches.length}
+                icon="shield"
+                color="emerald"
+              />
+              <StatOverviewCard
+                label="Schools"
+                value={branchSchools || allBranches.length}
+                icon="users"
+                color="indigo"
+              />
+            </div>
+          </section>
+        </div>
+      </article>
+      {/* ─── Connected Accounts ─── */}
+      <article className="my-details-panel my-details-panel--access overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="my-details-panel__header">
+          <div className="my-details-panel__heading">
+            <span className="my-details-panel__icon my-details-panel__icon--blue">
+              <UserRound className="size-5" aria-hidden="true" />
+            </span>
+            <div>
+              <p className="my-details-label">Connected accounts</p>
+              <h3 className="my-details-panel__title">Team members</h3>
+            </div>
+          </div>
+          <div className="my-details-panel__actions">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="font-medium text-muted-foreground">Filter:</span>
+              {["all", "active", "pending"].map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setAccountStatusFilter(status)}
+                  className={cn(
+                    "px-3 py-1 rounded-md text-xs font-medium transition-colors",
+                    accountStatusFilter === status
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80",
+                  )}
+                >
+                  {status === "all" ? "All" : status}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="my-details-panel__body">
+          <section className="my-details-accounts">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <StatOverviewCard
+                label="Total accounts"
+                value={accountsList.length}
+                icon="users"
+                color="primary"
+              />
+              <StatOverviewCard
+                label="Active"
+                value={activeAccounts.length}
+                icon="shield"
+                color="emerald"
+              />
+              <StatOverviewCard
+                label="Pending"
+                value={pendingAccounts.length}
+                icon="clock"
+                color="amber"
+              />
+            </div>
 
+            {/* <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {accountsList.length > 0 ? (
+            accountsList.map((account) => (
+              <AccountCard
+                key={account.id ?? account.apiId ?? account.user_id}
+                account={account}
+              />
+            ))
+          ) : (
+            <div className="col-span-full flex flex-col items-center justify-center py-12 rounded-2xl border-2 border-dashed border-border bg-muted/50 text-muted-foreground">
+              <UserRound className="size-8 mb-2 opacity-50" aria-hidden="true" />
+              <p className="text-sm">No connected accounts found</p>
+            </div>
+          )}
+        </div> */}
+          </section>
+        </div>
+      </article>
       <article className="my-details-panel my-details-panel--access overflow-hidden rounded-2xl border border-border bg-card">
         <div className="my-details-panel__header">
           <div className="my-details-panel__heading">

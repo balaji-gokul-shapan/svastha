@@ -41,7 +41,7 @@ const TabsList = React.forwardRef(({ className, ...props }, ref) => (
 ));
 TabsList.displayName = "TabsList";
 
-const TabsTrigger = React.forwardRef(({ className, value, ...props }, ref) => {
+const TabsTrigger = React.forwardRef(({ className, value, onClick, ...props }, ref) => {
   const { activeTab, setActiveTab } = React.useContext(TabsContext);
   const isActive = activeTab === value;
 
@@ -59,8 +59,11 @@ const TabsTrigger = React.forwardRef(({ className, value, ...props }, ref) => {
           : "text-muted-foreground hover:text-foreground",
         className
       )}
-      onClick={() => setActiveTab(value)}
       {...props}
+      onClick={(e) => {
+        onClick?.(e);
+        if (!e.defaultPrevented) setActiveTab(value);
+      }}
     />
   );
 });

@@ -706,7 +706,7 @@ const SchoolStudentFilter = ({
   return (
   <div
     className={`grid gap-3 sm:grid-cols-2 md:grid-cols-3 my-4 ${
-      showSchoolName ? "xl:grid-cols-5" : "xl:grid-cols-4"
+      showSchoolName ? "xl:grid-cols-3" : "xl:grid-cols-4"
     }`}
   >
     {showSchoolName && (

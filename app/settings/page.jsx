@@ -650,7 +650,9 @@ const toList = (raw) => {
     .map((item) => {
       if (item == null) return "";
       if (typeof item === "object")
-        return String(item.name ?? item.label ?? item.value ?? item.id ?? "").trim();
+        return String(
+          item.name ?? item.label ?? item.value ?? item.id ?? "",
+        ).trim();
       return String(item).trim();
     })
     .filter(Boolean);
@@ -663,12 +665,19 @@ const toIndexId = (label, orderList) => {
   if (!text) return "";
   if (/^\d+$/.test(text)) return text;
   const idx = (Array.isArray(orderList) ? orderList : []).findIndex(
-    (item) => String(item ?? "").trim().toLowerCase() === text.toLowerCase(),
+    (item) =>
+      String(item ?? "")
+        .trim()
+        .toLowerCase() === text.toLowerCase(),
   );
   return idx >= 0 ? String(idx + 1) : text;
 };
 
-const buildPrivilegesPayload = (value, branchClassOrder = [], branchSectionOrder = []) => {
+const buildPrivilegesPayload = (
+  value,
+  branchClassOrder = [],
+  branchSectionOrder = [],
+) => {
   const classOrder = toList(branchClassOrder);
   const sectionOrder = toList(branchSectionOrder);
   const toClassId = (cls) => toIndexId(cls, classOrder);
@@ -677,7 +686,10 @@ const buildPrivilegesPayload = (value, branchClassOrder = [], branchSectionOrder
     if (!label) return "";
     // Known section label in branch order wins (A=>1 even if custom order).
     const idx = sectionOrder.findIndex(
-      (item) => String(item ?? "").trim().toLowerCase() === label.toLowerCase(),
+      (item) =>
+        String(item ?? "")
+          .trim()
+          .toLowerCase() === label.toLowerCase(),
     );
     if (idx >= 0) return String(idx + 1);
     if (/^[A-Z]$/i.test(label)) {
@@ -911,7 +923,6 @@ const Page = () => {
   }, []);
 
   const profileInputRef = useRef(null);
-  
 
   const [profileImageFile, setProfileImageFile] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
@@ -1047,7 +1058,7 @@ const Page = () => {
 
     toast.success("Appearance settings saved");
   };
-console.log(getRole,"getRolesssssssssssssssss");
+  console.log(getRole, "getRolesssssssssssssssss");
 
   const {
     data: getAllSchoolBranch = {},
@@ -1753,7 +1764,6 @@ console.log(getRole,"getRolesssssssssssssssss");
       console.log(previlegesResult, "subAccountresult");
 
       const apiId = editingAccount?.apiId ?? editingAccount?.id ?? null;
-      
 
       if (apiId == null || apiId === "") {
         setAccounts((prev) =>
@@ -1873,7 +1883,6 @@ console.log(getRole,"getRolesssssssssssssssss");
     setDeleteTarget(null);
   };
 
-
   const renderActiveTab = () => {
     switch (activeTab) {
       case "appearance":
@@ -1912,6 +1921,8 @@ console.log(getRole,"getRolesssssssssssssssss");
             username={settingsFormData.username}
             password={settingsFormData.password}
             onChange={handleSettingsChange}
+            accounts={accounts}
+            AllSchoolBranch={getAllSchoolBranch}
           />
         );
 
@@ -2018,11 +2029,25 @@ console.log(getRole,"getRolesssssssssssssssss");
         setActiveTab={setActiveTab}
       />
       <div className="min-w-0 flex-1 space-y-6">
-        <div className="flex items-center gap-2">
-          <Settings size={24} />
-          {/* <span className="size-2 rounded-full bg-foreground" /> */}
+        <div className="flex items-start gap-3 lg:sticky lg:top-0 lg:z-20">
+          <div className="mt-1 flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Settings size={22} />
+          </div>
 
-          <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+          <div className="min-w-0 w-full space-y-1">
+            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+              Personal workspace
+            </span>
+
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              Your details, your way.
+            </h1>
+
+            <p className="min-w-2xl text-sm leading-6 text-muted-foreground">
+              Manage your profile, personalize your experience, and keep your
+              account details up to date.
+            </p>
+          </div>
         </div>
 
         {/* Animated tab switch: keyed by activeTab so each aside change

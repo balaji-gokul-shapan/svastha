@@ -148,6 +148,7 @@ import {
   SchoolDetailsCard,
 } from "./components/dashboard-sections";
 import SchoolDashboardInsights from "./components/SchoolDashboardInsights";
+import DoctorDashboardInsights from "./components/DoctorDashboardInsights";
 
 export default function StudentOverviewCharts({
   user,
@@ -166,16 +167,23 @@ export default function StudentOverviewCharts({
   getSchoolBranchLoading,
   getSchoolBranchError,
   eventsLoading = false,
+  appliedFilters,
+  setAppliedFilters,
+  doctorDashboardEventsData,
+  doctorDashboardEventsLoading,
+  doctorDashboardEventsError,
+  doctorInsights = null,
+  selectedCampId,
+  onCampChange,
 }) {
-
-const normalizeValue = (value) =>
-  String(value ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, "_");
-const resolvedRole = normalizeValue(userAuthRole ?? role ?? "");
-const hasRole = Boolean(resolvedRole);
-const isDoctor = ["doctor", "staff", "primary_doctor"].includes(resolvedRole);
+  const normalizeValue = (value) =>
+    String(value ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_");
+  const resolvedRole = normalizeValue(userAuthRole ?? role ?? "");
+  const hasRole = Boolean(resolvedRole);
+  const isDoctor = ["doctor", "staff", "primary_doctor"].includes(resolvedRole);
   const getAllBranches = React.useMemo(
     () =>
       Array.isArray(dashboardData?.data?.branches)
@@ -196,12 +204,11 @@ const isDoctor = ["doctor", "staff", "primary_doctor"].includes(resolvedRole);
   /* Branch catalogue - the union of both branch sources                */
   /* ------------------------------------------------------------------ */
   console.log(dashboardSummaryData, "dashboardSummaryData");
-const ResolvedSchoolBranch = { branch: schoolBranch ?? null };
+  const ResolvedSchoolBranch = { branch: schoolBranch ?? null };
 
   const allSchoolBranches = React.useMemo(() => {
     if (Array.isArray(schoolBranch)) return schoolBranch;
     if (Array.isArray(schoolBranch?.data)) return schoolBranch.data;
-    /* Some endpoints wrap twice: { data: { data: [...] } } */
     if (Array.isArray(schoolBranch?.data?.data)) return schoolBranch.data.data;
     if (Array.isArray(schoolBranch?.branches)) return schoolBranch.branches;
     if (Array.isArray(schoolBranch?.data?.branches)) {
@@ -244,8 +251,6 @@ const ResolvedSchoolBranch = { branch: schoolBranch ?? null };
       if (existingIndex === -1) {
         merged.push(branch);
       } else if (ids.length > readBranchIds(merged[existingIndex]).length) {
-        // Same branch from both lists: keep the row carrying more ids, which is
-        // the richer getAllSchoolBranch record.
         merged[existingIndex] = branch;
       }
     }
@@ -258,7 +263,7 @@ const ResolvedSchoolBranch = { branch: schoolBranch ?? null };
   /* ------------------------------------------------------------------ */
 
   const [selectedBranchId, setSelectedBranchId] = React.useState("all");
-
+  const [selectedDate, setSelectedDate] = React.useState(null);
   const branchOptions = React.useMemo(() => {
     const seen = new Set();
 
@@ -302,8 +307,6 @@ const ResolvedSchoolBranch = { branch: schoolBranch ?? null };
     );
   }, [branchCatalogue, selectedBranchId]);
 
-  /* Prefer the exact getAllSchoolBranch match (richest row); fall back to the
-     catalogue row so the card still renders when nothing lines up. */
   const selectedSchool = React.useMemo(() => {
     if (!selectedBranchId || selectedBranchId === "all") {
       return schoolBranchProfile;
@@ -367,12 +370,18 @@ const ResolvedSchoolBranch = { branch: schoolBranch ?? null };
     };
   }, [branchCatalogue, selectedBranch]);
 
+  console.log(selectedCampId, "selectedCampId");
+  console.log(role, "222222222role");
+
+  const handleDashboardSearch = ({ selectedDate, branchId, eventId }) => {
+    console.log("Selected date range:", selectedDate);
+    setAppliedFilters({ selectedDate, branchId, eventId });
+  };
+
   /* ------------------------------------------------------------------ */
   /* Selected camp (doctor)                                             */
   /* ------------------------------------------------------------------ */
-
-  const [selectedCampId, setSelectedCampId] = React.useState("all");
-  console.log(selectedSchool, "selectedSchool");
+  console.log(doctorDashboardEventsData, "doctorDashboardEventsData");
 
   return (
     <div className="w-full space-y-4 p-4 md:space-y-5 md:p-6">
@@ -390,16 +399,19 @@ const ResolvedSchoolBranch = { branch: schoolBranch ?? null };
         branchOptions={branchOptions}
         branchesLoading={getAllSchoolBranchLoading}
         branchesError={getAllSchoolBranchError}
-        eventsLoading={eventsLoading}
+        eventsLoading={isDoctor ? doctorDashboardEventsLoading : eventsLoading}
         selectedBranchId={selectedBranchId}
         selectedBranch={selectedBranch}
         onBranchChange={setSelectedBranchId}
-        events={getAllEvents}
+        events={isDoctor ? doctorDashboardEventsData : getAllEvents}
         selectedCampId={selectedCampId}
-        onCampChange={setSelectedCampId}
+        onCampChange={onCampChange}
         schoolBranch={schoolBranch}
         getAllSchoolBranchLoading={getAllSchoolBranchLoading}
         getAllSchoolBranchError={getAllSchoolBranchError}
+        selectedDate={selectedDate}
+        onDateChange={setSelectedDate}
+        onSearch={handleDashboardSearch}
         // userAuthRole={userAuthRole}
         // branches={dashboardBranches}
         // branchesLoading={branchesLoading}
@@ -415,18 +427,24 @@ const ResolvedSchoolBranch = { branch: schoolBranch ?? null };
         // selectedCampId={selectedCampId}
         // onCampChange={onCampChange}
       />
+      {hasRole && isDoctor ? (
+        <DoctorDashboardInsights {...(doctorInsights ?? {})} />
+      ) : null}
       {hasRole && !isDoctor && (
         <>
+          <BranchDetailsPanel
+            selectedSchool={selectedSchool}
+            branch={selectedBranch}
+            summary={branchSummary}
+          />
+          {hasSelectedSchool && role !== "teacher" ? (
+            <SchoolDetailsCard hasRole={role} school={selectedSchool} />
+          ) : null}
           <SchoolDashboardInsights
             data={dashboardSummaryData}
             isLoading={dashboardSummaryLoading}
             error={dashboardSummaryError}
           />
-          <BranchDetailsPanel selectedSchool={selectedSchool} branch={selectedBranch} summary={branchSummary} />
-
-          {hasSelectedSchool ? (
-            <SchoolDetailsCard hasRole={role} school={selectedSchool} />
-          ) : null}
         </>
       )}
     </div>

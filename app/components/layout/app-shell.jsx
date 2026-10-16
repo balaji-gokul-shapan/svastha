@@ -31,7 +31,9 @@ export function AppShell({ children }) {
     (state) => state.appearanceSettings?.sidebarPosition ?? "side",
   );
   const isTopNav = sidebarPosition === "top";
-  const hideChrome = CHROMELESS_ROUTES.some((route) => pathname?.startsWith(route));
+  const hideChrome = CHROMELESS_ROUTES.some((route) =>
+    pathname?.startsWith(route),
+  );
 
   // "Are we on the client?" without a setState-in-effect: the server snapshot is
   // false so the server render and the hydrating render agree on the loader,
@@ -58,7 +60,11 @@ export function AppShell({ children }) {
   if (!isClient || !isAuthenticated) {
     return (
       <FullScreenLoader
-        label={isAuthenticated ? "Loading your dashboard...!" : "Please wait, We are getting things ready...!"}
+        label={
+          isAuthenticated
+            ? "Loading your dashboard...!"
+            : "Please wait, We are getting things ready...!"
+        }
         imageSrc="/GIFs/loader.gif"
       />
     );
@@ -74,13 +80,14 @@ export function AppShell({ children }) {
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.div
             key={pathname ?? "initial"}
-            initial={{ opacity: 0, x: 20, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, x: -12 }}
+            initial={{ opacity: 0, scale: 0.96, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.98 }}
             transition={{
-              opacity: { duration: 0.3, ease: "easeOut" },
-              x: { duration: 0.34, ease: [0.22, 0.61, 0.36, 1] },
-              y: { duration: 0.34, ease: [0.22, 0.61, 0.36, 1] },
+              type: "spring",
+              stiffness: 180,
+              damping: 24,
+              mass: 0.8,
             }}
             style={{ willChange: "transform, opacity" }}
           >
@@ -101,7 +108,6 @@ export function AppShell({ children }) {
       ) : (
         <>
           <Sidebar />
-
           {/*
            * Mobile only: opens the off-canvas sheet. The TopNav has no sheet of
            * its own, so this trigger is hidden in that mode.

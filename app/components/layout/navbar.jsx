@@ -3,26 +3,91 @@
 import { Bell, ChevronDown, LogOut, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
-import { clearAuthSession } from "@/lib/features/auth-slice";
+import {
+  clearAuthSession,
+  selectIsPrimaryDoctorRole,
+} from "@/lib/features/auth-slice";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { ThemeToggle } from "./themeToggle";
-import { ROLE_LABELS } from "@/lib/user-role";
+import { getRoleLabel, useAuthRole } from "@/lib/user-role";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Doctor01Icon,
+  Doctor03Icon,
+  HierarchyCircle02Icon,
+  ManagerIcon,
+  TeacherIcon,
+} from "@hugeicons/core-free-icons";
+import { useAppSelector } from "@/lib/hooks";
+
+const ROLE_ICONS = {
+  admin: ManagerIcon,
+  "school admin": HierarchyCircle02Icon,
+  teacher: TeacherIcon,
+  "primary doctor": Doctor01Icon,
+};
 
 export function Navbar({ title = "Dashboard", sticky = true }) {
   const router = useRouter();
   const dispatch = useDispatch();
   const authUser = useSelector((state) => state.auth?.user);
+  const isPrimaryDoctorRole = useAppSelector(selectIsPrimaryDoctorRole);
+  const displayName =
+    authUser?.account?.name || authUser?.label || authUser?.username || "Guest";
+  const userInitials =
+    displayName
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() || "")
+      .join("") || "S";
+  const role = useAuthRole();
+  const roleLabel = getRoleLabel(role);
+  const normalizedRoleLabel = roleLabel?.toLowerCase();
 
-  const displayName = authUser?.account?.name || authUser?.label || authUser?.username || "Guest";
-  const userInitials = displayName
-    .split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "S";
-  const signedInRole = authUser?.role || "User";
-  console.log(authUser,"signedInRole");
-  const getRole = ROLE_LABELS[signedInRole?.toLowerCase()] || signedInRole;
-  console.log(getRole,"ROLE_LABELS");
-  
+  const userViewName =
+    normalizedRoleLabel === "admin"
+      ? "Branch Admin (Correspondent)"
+      : normalizedRoleLabel === "doctor" && !isPrimaryDoctorRole
+        ? "Doctor"
+        : normalizedRoleLabel === "teacher"
+          ? "Teacher"
+          : normalizedRoleLabel === "doctor" && isPrimaryDoctorRole
+            ? "Primary doctor"
+            : normalizedRoleLabel === "school admin"
+              ? "School Admin (Principal)"
+              : "";
+
+  const avatarRole =
+    normalizedRoleLabel === "admin"
+      ? "admin"
+      : normalizedRoleLabel === "school admin"
+        ? "school"
+        : normalizedRoleLabel === "doctor"
+          ? isPrimaryDoctorRole
+            ? "primary-doctor"
+            : "doctor"
+          : normalizedRoleLabel === "teacher"
+            ? "teacher"
+            : normalizedRoleLabel === "school staff" ||
+                normalizedRoleLabel === "staff"
+              ? "staff"
+              : normalizedRoleLabel === "accountant"
+                ? "accountant"
+                : undefined;
+
+  const RoleIcon =
+    normalizedRoleLabel === "doctor" || normalizedRoleLabel === "primary doctor"
+      ? isPrimaryDoctorRole
+        ? Doctor01Icon
+        : Doctor03Icon
+      : (ROLE_ICONS[normalizedRoleLabel] ?? null);
 
   const handleLogout = () => {
     dispatch(clearAuthSession());
@@ -30,8 +95,8 @@ export function Navbar({ title = "Dashboard", sticky = true }) {
   };
 
   const handleSetting = () => {
-    router.push("/settings")
-  }
+    router.push("/settings");
+  };
 
   return (
     <header
@@ -69,20 +134,84 @@ export function Navbar({ title = "Dashboard", sticky = true }) {
           <PopoverTrigger asChild>
             <button
               type="button"
-              className="flex flex-row items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground shadow-sm transition hover:scale-105 hover:bg-accent/70 hover:text-accent-foreground"
+              className="flex flex-row items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground shadow-sm transition hover:scale-105 hover:border-accent/70 hover:text-accent-foreground"
             >
-              <div suppressHydrationWarning className="flex size-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+              <div
+                suppressHydrationWarning
+                data-role={avatarRole}
+                className="user-avatar flex size-9 items-center justify-center rounded-full text-sm font-semibold"
+              >
                 {userInitials}
               </div>
-              <p suppressHydrationWarning className="hidden md:block">{displayName}</p>
+              {RoleIcon ? (
+                <span data-role={avatarRole} className="role-icon">
+                  <HugeiconsIcon
+                    icon={RoleIcon}
+                    size={24}
+                    color="currentColor"
+                    strokeWidth={1.5}
+                    aria-hidden="true"
+                  />
+                </span>
+              ) : null}
+              {/* Trigger: initials tile + role glyph + role-tinted name */}
+              <p
+                suppressHydrationWarning
+                data-role={avatarRole}
+                className="role-name hidden font-semibold md:block"
+              >
+                {displayName}
+              </p>
               <ChevronDown className="size-4 text-muted-foreground" />
             </button>
           </PopoverTrigger>
 
           <PopoverContent align="end" className="z-70 w-56 p-2">
-            <div onClick={handleSetting} className="mb-2 border-b border-border px-2 pb-2 cursor-pointer">
-              <p suppressHydrationWarning className="text-sm font-semibold text-foreground">{displayName}</p>
-              <p suppressHydrationWarning className="text-xs text-muted-foreground">{getRole} account</p>
+            {/* <Stethoscope
+              aria-hidden="true"
+              className="mx-auto mb-2 size-6 text-muted-foreground"
+            /> */}
+
+            <div
+              onClick={handleSetting}
+              className="mb-2 border-b border-border px-2 pb-2 cursor-pointer"
+            >
+              <p
+                suppressHydrationWarning
+                data-role={avatarRole}
+                className="role-name text-sm font-semibold"
+              >
+                {displayName}
+              </p>
+              <p
+                suppressHydrationWarning
+                className="text-xs text-muted-foreground"
+              >
+                {userViewName.match(/\((.*?)\)/) ? (
+                  <>
+                    <span
+                      data-role={avatarRole}
+                      className="role-name font-semibold"
+                    >
+                      {userViewName.match(/\((.*?)\)/)?.[1]}
+                    </span>
+                    <br />
+                    <span>
+                      {userViewName
+                        .replace(/\s*\(.*?\)/, "")
+                        .replace(/[()]/g, "")}{" "}
+                    </span>
+                  </>
+                ) : (
+                  <span
+                    data-role={avatarRole}
+                    className="role-name font-semibold"
+                  >
+                    {userViewName.replace(/[()]/g, "")}
+                  </span>
+                )}{" "}
+                account
+              </p>
             </div>
 
             <Button

@@ -1,13 +1,78 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries } from "@tanstack/react-query";
 import { useAppDispatch } from "@/lib/hooks";
 import { getHearingScreening } from "@/lib/features/getHearingScreening";
 import { getInitialScreening } from "@/lib/features/getInitialScreening";
 import { getDentalScreening } from "@/lib/features/getDentalScreening";
 import { getVisionScreening } from "@/lib/features/getVisionScreening";
 import { getEntScreening } from "@/lib/features/getEntScreening";
+
+/* -------------------------------------------------------------------------- */
+/* Config: one entry per screening type. Adding a new screening = one row.     */
+/* -------------------------------------------------------------------------- */
+
+const SCREENING_DEFS = [
+  {
+    key: "general",
+    queryKey: ["initial-screening", "health-card"],
+    thunk: getInitialScreening,
+  },
+  { key: "hearing", queryKey: ["hearing-screening"], thunk: getHearingScreening },
+  { key: "dental", queryKey: ["dental-screening"], thunk: getDentalScreening },
+  { key: "vision", queryKey: ["vision-screening"], thunk: getVisionScreening },
+  { key: "ent", queryKey: ["ent-screening"], thunk: getEntScreening },
+];
+
+const RECORD_KEYS = [
+  "id",
+  "cus_id",
+  "CUS_ID",
+  "student_cus_id",
+  "student_id",
+  "studentId",
+  "school_registration_number",
+  "admission_number",
+  "svastha_id",
+  "uhid",
+  "student_id_ref",
+  "student.id",
+  "student.cus_id",
+  "student.CUS_ID",
+  "student.student_id",
+  "student.svastha_id",
+  "student.school_registration_number",
+  "student.admission_number",
+];
+
+const getPath = (obj, path) =>
+  path.split(".").reduce((acc, part) => acc?.[part], obj);
+
+const WRAPPER_KEYS = ["data", "items", "results", "records", "rows"];
+
+/** Flatten any backend envelope into a plain record array. */
+function unwrapRows(source) {
+  if (Array.isArray(source)) return source;
+  if (!source || typeof source !== "object") return [];
+
+  for (const key of WRAPPER_KEYS) {
+    const nested = source[key];
+    if (Array.isArray(nested)) return nested;
+    if (nested && typeof nested === "object") {
+      const rows = unwrapRows(nested);
+      if (rows.length) return rows;
+    }
+  }
+
+  return source.id != null ? [source] : [];
+}
+
+/**
+ * useScreeningRecordByFilter — ONE hook that fetches every screening type for
+ * a student (optionally scoped to a camp) and returns the matched record per
+ * type. Use it everywhere instead of per-screening thunks:
+ */
 
 export function useScreeningRecordByFilter({
   getId,
@@ -22,234 +87,131 @@ export function useScreeningRecordByFilter({
   const normalizedClassFilter = String(classFilter ?? "").trim();
   const normalizedSectionFilter = String(sectionFilter ?? "").trim();
 
-  // Hearing screening for this student.
-  const {
-    data: hearingScreeningData = [],
-    isLoading: hearingLoading,
-    error: hearingError,
-  } = useQuery({
-    queryKey: ["hearing-screening", normalizedId, selectedCampId],
-    queryFn: () =>
-      dispatch(
-        getHearingScreening({
-          studentId: normalizedId,
-          campId: selectedCampId,
-        }),
-      ).unwrap(),
-    enabled: hasStudent,
-    staleTime: 60_000,
+  // One query per screening type, driven by SCREENING_DEFS so the five
+  // fetches stay identical except for key + thunk. useQueries (plural) is
+  // the rules-of-hooks-safe way to run a dynamic list of queries — never
+  // call useQuery inside .map().
+  const queries = useQueries({
+    queries: SCREENING_DEFS.map((def) => ({
+      queryKey: [...def.queryKey, normalizedId, selectedCampId],
+      queryFn: () =>
+        dispatch(
+          def.thunk({
+            studentId: normalizedId,
+            campId: selectedCampId,
+            all: true,
+            class: normalizedClassFilter,
+            section: normalizedSectionFilter,
+          }),
+        ).unwrap(),
+      enabled: hasStudent,
+      staleTime: 60_000,
+    })),
   });
 
-  const {
-    data: generalScreeningPayload = [],
-    isLoading: generalLoading,
-    error: generalError,
-  } = useQuery({
-    queryKey: [
-      "initial-screening",
-      "health-card",
-      normalizedId,
-      selectedCampId,
-    ],
-    queryFn: () =>
-      dispatch(
-        getInitialScreening({
-          studentId: normalizedId,
-          campId: selectedCampId,
-          all: true,
-        }),
-      ).unwrap(),
-    enabled: hasStudent,
-    staleTime: 60_000,
-  });
-  console.log(selectedCampId,  "hasStudent");
-  console.log(selectedCampId,selectedCampId, generalScreeningPayload, "generalScreeningPayloadwwwww");
+  const [generalQ, hearingQ, dentalQ, visionQ, entQ] = queries;
 
-  const {
-    data: dentalScreeningDataPayload = [],
-    isLoading: dentalLoading,
-    error: dentalError,
-  } = useQuery({
-    queryKey: ["dental-screening", normalizedId, selectedCampId],
-    queryFn: () =>
-      dispatch(
-        // Student-scoped: /codings/student/{studentId}[/{campId}]. Replaces the
-        // camp-required `filterDentalScreening`, so it works with camp.id null.
-        getDentalScreening({
-          studentId: normalizedId,
-          campId: selectedCampId,
-        }),
-      ).unwrap(),
-    enabled: hasStudent,
-    staleTime: 60_000,
-  });
-
-  console.log(dentalScreeningDataPayload, "dentalScreeningDataPayload");
-
-  // ENT screening for this student.
-  const {
-    data: entScreeningDataPayload = [],
-    isLoading: entLoading,
-    error: entError,
-  } = useQuery({
-    queryKey: ["ent-screening", normalizedId, selectedCampId],
-    queryFn: () =>
-      dispatch(
-        getEntScreening({ studentId: normalizedId, campId: selectedCampId }),
-      ).unwrap(),
-    enabled: hasStudent,
-    staleTime: 60_000,
-  });
-
-  console.log(entScreeningDataPayload, "entScreeningDataPayload");
-
-  // Vision screening for this student.
-  const {
-    data: visionScreeningData = [],
-    isLoading: visionLoading,
-    error: visionError,
-  } = useQuery({
-    queryKey: ["vision-screening", normalizedId, selectedCampId],
-    queryFn: () =>
-      dispatch(
-        getVisionScreening({ studentId: normalizedId, campId: selectedCampId }),
-      ).unwrap(),
-    enabled: hasStudent,
-    staleTime: 60_000,
-  });
-
-  const generalScreeningItems = useMemo(() => {
-    const unwrap = (source) => {
-      if (Array.isArray(source)) {
-        return source;
-      }
-
-      if (!source || typeof source !== "object") {
-        return [];
-      }
-
-      for (const key of ["data", "items", "results", "records", "rows"]) {
-        const nested = source[key];
-
-        if (Array.isArray(nested)) {
-          return nested;
-        }
-
-        if (nested && typeof nested === "object") {
-          const rows = unwrap(nested);
-
-          if (rows.length) {
-            return rows;
-          }
-        }
-      }
-
-      return source.id != null ? [source] : [];
-    };
-
-    return unwrap(generalScreeningPayload);
-  }, [generalScreeningPayload]);
-
-  console.log(generalScreeningItems, "generalScreeningItems");
+  const generalScreeningItems = useMemo(
+    () => unwrapRows(generalQ.data ?? []),
+    [generalQ.data],
+  );
 
   const studentKeys = useMemo(
     () => new Set([normalizedId.toLowerCase()].filter(Boolean)),
     [normalizedId],
   );
 
-  const findRecordByStudentKeys = (records) => {
-    if (!studentKeys.size || !Array.isArray(records) || !records.length) {
-      return null;
+  const pickScopedRecord = (records) => {
+    const list = Array.isArray(records) ? records : [];
+    if (!studentKeys.size || !list.length) {
+      return list.length === 1 ? (list[0] ?? null) : null;
     }
 
     return (
-      records.find((record) => {
-        const recordKeys = [
-          record?.id,
-          record?.cus_id,
-          record?.CUS_ID,
-          record?.student_cus_id,
-          record?.student_id,
-          record?.studentId,
-          record?.school_registration_number,
-          record?.admission_number,
-          record?.svastha_id,
-          record?.uhid,
-          record?.student?.id,
-          record?.student?.cus_id,
-          record?.student?.CUS_ID,
-          record?.student_id_ref,
-          record?.student?.student_id,
-          record?.student?.svastha_id,
-          record?.student?.school_registration_number,
-          record?.student?.admission_number,
-        ]
-          .map((value) =>
-            String(value ?? "")
-              .trim()
-              .toLowerCase(),
-          )
-          .filter(Boolean);
+      list.find((record) => {
+        const recordKeys = RECORD_KEYS.map((path) =>
+          String(getPath(record, path) ?? "")
+            .trim()
+            .toLowerCase(),
+        ).filter(Boolean);
 
         return recordKeys.some((key) => studentKeys.has(key));
-      }) ?? null
+      }) ?? (list.length === 1 ? list[0] : null)
     );
   };
-
-  const pickScopedRecord = (records) => {
-    const list = Array.isArray(records) ? records : [];
-    return (
-      findRecordByStudentKeys(list) ?? (list.length === 1 ? list[0] : null)
-    );
-  };
-
 
   const generalScreeningRecord = useMemo(
     () => pickScopedRecord(generalScreeningItems),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [generalScreeningItems, studentKeys],
   );
-  console.log(generalScreeningRecord, "generalScreeningRecord");
 
   // These endpoints are already scoped to /<test>/student/{studentId}.
   const hearingScreeningRecord = useMemo(
-    () => pickScopedRecord(hearingScreeningData),
+    () => pickScopedRecord(hearingQ.data),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hearingScreeningData, studentKeys],
+    [hearingQ.data, studentKeys],
   );
 
   const dentalScreeningRecord = useMemo(
-    () => pickScopedRecord(dentalScreeningDataPayload),
+    () => pickScopedRecord(dentalQ.data),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dentalScreeningDataPayload, studentKeys],
+    [dentalQ.data, studentKeys],
   );
 
   const visionScreeningRecord = useMemo(
-    () => pickScopedRecord(visionScreeningData),
+    () => pickScopedRecord(visionQ.data),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [visionScreeningData, studentKeys],
+    [visionQ.data, studentKeys],
   );
 
   // This endpoint is already scoped to /ent-assessment/student/{studentId}.
   const entScreeningRecord = useMemo(
-    () => pickScopedRecord(entScreeningDataPayload),
+    () => pickScopedRecord(entQ.data),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [entScreeningDataPayload, studentKeys],
+    [entQ.data, studentKeys],
   );
 
+  const records = useMemo(
+    () => ({
+      general: generalScreeningRecord,
+      hearing: hearingScreeningRecord,
+      dental: dentalScreeningRecord,
+      vision: visionScreeningRecord,
+      ent: entScreeningRecord,
+    }),
+    [
+      generalScreeningRecord,
+      hearingScreeningRecord,
+      dentalScreeningRecord,
+      visionScreeningRecord,
+      entScreeningRecord,
+    ],
+  );
+
+  const refetch = () => Promise.all(queries.map((q) => q.refetch()));
+
   return {
+    records,
     generalScreeningRecord,
     hearingScreeningRecord,
     dentalScreeningRecord,
     visionScreeningRecord,
     entScreeningRecord,
     isLoading:
-      hearingLoading ||
-      generalLoading ||
-      dentalLoading ||
-      visionLoading ||
-      entLoading,
+      hearingQ.isLoading ||
+      generalQ.isLoading ||
+      dentalQ.isLoading ||
+      visionQ.isLoading ||
+      entQ.isLoading,
     error:
-      hearingError || generalError || dentalError || visionError || entError,
+      hearingQ.error ||
+      generalQ.error ||
+      dentalQ.error ||
+      visionQ.error ||
+      entQ.error,
+    refetch,
   };
 }
+
+export default useScreeningRecordByFilter;

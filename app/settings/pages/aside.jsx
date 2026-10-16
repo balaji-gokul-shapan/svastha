@@ -5,7 +5,7 @@ import React from 'react'
 
 const Aside = ({settings, navQuery, query, activeTab, setActiveTab}) => {
   return (
-    <aside className="w-full shrink-0 lg:w-60">
+    <aside className="z-10 lg:sticky lg:top-0 w-full shrink-0 lg:w-60">
         {/* <div className="flex items-center gap-2">
           <span className="size-2 rounded-full bg-foreground" />
           <span className="text-sm font-semibold text-foreground">

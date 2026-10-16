@@ -85,6 +85,9 @@
 import * as React from "react";
 import ReusableSelect from "@/components/ui/reusable-select";
 import { getCampDisplayLabel, getCampId } from "@/lib/camp-utils";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { Button } from "@/components/ui/button";
+import { CalendarSearch } from "lucide-react";
 
 // export function DashboardHeader({
 //   user,
@@ -240,6 +243,9 @@ export function DashboardHeader({
   dashboardSummaryLoading,
   dashboardSummaryError,
   schoolBranch,
+  selectedDate,
+  onDateChange,
+  onSearch,
 }) {
   console.log(branchOptions, "branchOptions");
 
@@ -298,16 +304,17 @@ export function DashboardHeader({
     normalizedRole === "primary_doctor";
 
   const showsBranchFilter = normalizedRole === "superadmin";
-  /*
-   * Camp options come from the doctor's assigned events. `events` may still be
-   * a raw `{ data: [...] }` response, so unwrap it before mapping.
-   */
+
   const resolvedCampOptions = React.useMemo(() => {
+    /* Camps arrive as: a bare array, `{ data: [...] }` (events API), or
+       `{ total, list: [...] }` (doctor-dashboard events). */
     const list = Array.isArray(events)
       ? events
       : Array.isArray(events?.data)
         ? events.data
-        : [];
+        : Array.isArray(events?.list)
+          ? events.list
+          : [];
 
     const seen = new Set();
 
@@ -320,7 +327,10 @@ export function DashboardHeader({
           return {
             value,
             label: String(
-              getCampDisplayLabel(camp) || camp?.title || "",
+              getCampDisplayLabel(camp) ||
+                camp?.title ||
+                camp?.event_name ||
+                "",
             ).trim(),
           };
         })
@@ -360,16 +370,17 @@ export function DashboardHeader({
         </h1>
 
         <p className="text-sm text-muted-foreground">
-          Here&apos;s what&apos;s happening in your school today.
+          {`Here's what's happening in your ${role === "doctor" ? "camp"  : role === "teacher" ? "class" : "school"} today.`} 
         </p>
       </div>
 
       {/* Full width on mobile, auto on desktop so it never squeezes the title */}
-      {(isDoctor || showsBranchFilter) && (
+      {/* {(isDoctor || showsBranchFilter) && ( */}
         <section
-          className="school-subaccount-filter w-full shrink-0 sm:w-auto sm:min-w-[16rem]"
+          className="school-subaccount-filter flex w-full shrink-0 flex-col gap-3 sm:w-auto sm:min-w-[16rem] sm:flex-row sm:items-end lg:min-w-[26rem]"
           aria-label={isDoctor ? "Camp filter" : "Branch filter"}
         >
+           {(isDoctor || showsBranchFilter) && (
           <ReusableSelect
             label={isDoctor ? "Camp" : "Branch"}
             options={isDoctor ? resolvedCampOptions : resolvedBranchOptions}
@@ -380,11 +391,33 @@ export function DashboardHeader({
             placeholder={isDoctor ? "Select camp" : "Select branch"}
             searchPlaceholder={isDoctor ? "Search camp..." : "Search branch..."}
             disabled={Boolean(isDoctor ? eventsLoading : branchesLoading)}
+            className="min-w-0 flex-1"
           />
-
-          {/* Removed as it's now conditionally rendered above */}
+          )}
+          <DateRangePicker
+            id="dashboard-date-range"
+            label="Date range"
+            value={selectedDate}
+            onValueChange={onDateChange}
+            placeholder="Select date range"
+            maxDate={new Date()}
+            className="min-w-0 flex-1"
+          />
+          <Button
+            type="button"
+            onClick={() => {
+              onSearch?.({
+                selectedDate,
+                branchId: selectedBranchId,
+                eventId: selectedCampId,
+              });
+            }}
+          >
+            <CalendarSearch />
+           
+          </Button>
         </section>
-      )}
+      {/* )} */}
     </div>
   );
 }

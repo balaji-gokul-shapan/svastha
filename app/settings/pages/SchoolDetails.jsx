@@ -198,14 +198,12 @@ const SchoolDetails = ({
     setFieldValue("pincode", normalizePincode(value));
   console.log(getUserAccount, "getRole");
 
-  
   // Unwrap branch profile — API may return { data: {...} } or { data: [...] }.
   const branchProfile = useMemo(() => {
     const raw = getSchoolBranchData?.data ?? getSchoolBranchData;
     if (Array.isArray(raw)) return raw[0] ?? {};
     return raw ?? {};
   }, [getSchoolBranchData]);
-
 
   const toOptionList = (raw) => {
     if (raw == null) return [];
@@ -237,7 +235,7 @@ const SchoolDetails = ({
     const seen = new Set(saved.map((o) => o.value));
     const extras = defaults.filter((o) => !seen.has(o.value));
     return [...saved, ...extras];
-  };  
+  };
 
   const classOptions = useMemo(() => {
     const defaults = SECTION_OPTIONS.map((opt) => {
@@ -245,7 +243,9 @@ const SchoolDetails = ({
       return grade ? { value: `${grade}`, label: `${grade}` } : null;
     })
       .filter(Boolean)
-      .filter((opt, i, arr) => arr.findIndex((o) => o.value === opt.value) === i);
+      .filter(
+        (opt, i, arr) => arr.findIndex((o) => o.value === opt.value) === i,
+      );
     const saved = toOptionList(branchProfile?.class);
     const merged = mergeWithDefaults(saved, defaults);
     return Array.isArray(merged) ? merged : [];
@@ -257,7 +257,9 @@ const SchoolDetails = ({
       return section ? { value: section, label: section } : null;
     })
       .filter(Boolean)
-      .filter((opt, i, arr) => arr.findIndex((o) => o.value === opt.value) === i);
+      .filter(
+        (opt, i, arr) => arr.findIndex((o) => o.value === opt.value) === i,
+      );
     const saved = toOptionList(branchProfile?.section);
     const merged = mergeWithDefaults(saved, defaults);
     return Array.isArray(merged) ? merged : [];
@@ -430,7 +432,6 @@ const SchoolDetails = ({
       ? "Unable to save school details. Please try again."
       : String(message);
   }
-
 
   const STEP_SWAP_GUARD_MS = 400;
 
@@ -846,9 +847,7 @@ const SchoolDetails = ({
     setEditingBranch(record);
     console.log(getRole, "editingBranch");
 
-
     lastFilledRef.current = {};
-
 
     setFormData({
       ...EMPTY_FORM,
@@ -908,8 +907,10 @@ const SchoolDetails = ({
   };
 
   return (
-    <section className="sd-school-shell">
-      <header className="sd-school-hero">
+    <section className="sd-school-shell sl-scroll-panel">
+      <div className="h-1 w-full bg-gradient-to-r from-primary via-primary/50 to-transparent" />
+
+      <header className="sd-school-hero lg:sticky lg:top-0 z-10">
         <div className="sd-school-hero__content">
           <div className="sd-school-hero__eyebrow">
             <span className="sd-icon-badge sd-icon-badge--large">

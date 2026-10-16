@@ -96,7 +96,7 @@ export const schoolStepTwoSchema = z.object({
     .min(1, "Pincode is required")
     .regex(/^\d{6}$/, "Enter a valid 6-digit pincode"),
 
-  principal_name: z.string().trim().min(1, "Principal name is required"),
+  principal_name: z.string().trim().min(1, "Principal name is required").regex(/^[a-zA-Z\s]+$/, "Only letters and spaces are allowed"),
 
   principal_designation: z.string().trim().optional(),
 
@@ -114,7 +114,8 @@ export const schoolStepTwoSchema = z.object({
   correspondent_name: z
     .string()
     .trim()
-    .min(1, "Correspondent name is required"),
+    .min(1, "Correspondent name is required")
+    .regex(/^[a-zA-Z\s]+$/, "Only letters and spaces are allowed"),
 
   correspondent_designation: z.string().trim().optional(),
 
@@ -171,7 +172,8 @@ const branchSchema = z.object({
   contact_person_name: z
     .string()
     .trim()
-    .min(1, "Branch contact person is required"),
+    .min(1, "Branch contact person is required")
+    .regex(/^[a-zA-Z\s]+$/, "Only letters and spaces are allowed")  ,
 
   contact_person_designation: z.string().trim().optional(),
 

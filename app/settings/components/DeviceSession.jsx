@@ -10,7 +10,6 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-
 const SESSION_STARTED_LABEL = new Date().toLocaleString("en-IN", {
   day: "2-digit",
   month: "short",
@@ -22,20 +21,6 @@ const SESSION_STARTED_LABEL = new Date().toLocaleString("en-IN", {
 
 /**
  * DEVICE & SESSION
- * ----------------
- * Answers "what am I signed in from, right now?" — the complement to the
- * Login activity card next to it, which answers "when did I sign in?".
- * Handy when a user has to reach support and needs to describe their setup.
- *
- * Everything here comes from the browser, so it is read through
- * `useSyncExternalStore` rather than during render: `navigator` does not exist
- * while the server renders, and a snapshot read during render would produce
- * different markup on the server than on the client — exactly the mismatch
- * React hydration reports.
- *
- * Device facts are fixed for the lifetime of a tab, so they are read once and
- * cached at module scope below, giving React a referentially stable snapshot
- * without a `useState` + `useEffect` pair.
  */
 
 let cachedDeviceSnapshot = null;
@@ -45,7 +30,8 @@ function readDeviceSnapshot() {
   if (typeof window === "undefined") return "";
 
   const ua = navigator.userAgent ?? "";
-  const platform = navigator.userAgentData?.platform || navigator.platform || "";
+  const platform =
+    navigator.userAgentData?.platform || navigator.platform || "";
 
   const browser = /Edg\//.test(ua)
     ? "Edge"
@@ -77,7 +63,8 @@ function readDeviceSnapshot() {
 
   let timezone = "Unavailable";
   try {
-    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Unavailable";
+    timezone =
+      Intl.DateTimeFormat().resolvedOptions().timeZone || "Unavailable";
   } catch {
     timezone = "Unavailable";
   }
@@ -143,8 +130,18 @@ export function DeviceSession() {
           label: "Device",
           value: `${device.os} · ${device.browser}`,
         },
-        { key: "display", icon: Laptop, label: "Display", value: device.screen },
-        { key: "timezone", icon: Globe, label: "Time zone", value: device.timezone },
+        {
+          key: "display",
+          icon: Laptop,
+          label: "Display",
+          value: device.screen,
+        },
+        {
+          key: "timezone",
+          icon: Globe,
+          label: "Time zone",
+          value: device.timezone,
+        },
         {
           key: "language",
           icon: Languages,
@@ -193,10 +190,16 @@ export function DeviceSession() {
           ))}
         </dl>
       ) : (
-        <div className="my-details-device-list" aria-label="Loading device details">
+        <div
+          className="my-details-device-list"
+          aria-label="Loading device details"
+        >
           {[0, 1, 2, 3, 4].map((row) => (
             <div key={row} className="my-details-device-row animate-pulse">
-              <span className="my-details-device-row__icon" aria-hidden="true" />
+              <span
+                className="my-details-device-row__icon"
+                aria-hidden="true"
+              />
               <span className="h-3 w-24 rounded bg-muted" />
               <span className="ml-auto h-3 w-28 rounded bg-muted" />
             </div>

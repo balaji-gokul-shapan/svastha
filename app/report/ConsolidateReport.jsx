@@ -3,10 +3,11 @@
 import StudentFilter from "../health-checks/utilities/studentFilter";
 import useStudentFilter from "./utilities/useStudentFilter";
 import HealthCheckContent from "./components/HealthCheckContent";
-import ReportStudentsTable, { idOf as idOfReportStudent } from "./components/ReportStudentsTable";
+import StudentReportTableModal from "./components/StudentReportTableModal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { ClipboardPlus, FileSpreadsheet, Search } from "lucide-react";
+import { ReportNotReady } from "./components/ReportNotReady";
 import SchoolStudentFilter from "../students/utilities/SchoolStudentFilter";
 import { useAppSelector } from "@/lib/hooks";
 import {
@@ -74,6 +75,7 @@ export default function ConsolidateReport() {
     setStudentId,
   } = useStudentFilter();
   const [selectedBranch, setSelectedBranch] = useState(null);
+  const [reportModalStudent, setReportModalStudent] = useState(null);
   const [activeTab, setActiveTab] = useState("single-report");
   const [reportView, setReportView] = useState("detailed");
   const [reportTablePageIndex, setReportTablePageIndex] = useState(0);
@@ -92,12 +94,10 @@ export default function ConsolidateReport() {
       selectedSchoolBranch?.branch_id ??
       filterProps?.formData?.branchName,
     branchLabel: selectedSchoolBranch?.branch_name,
-    
   });
 
   const isPrimaryDoctor = activeCampEvent?.primary_doctor === Number(1);
-  console.log(activeCampEvent,"activeCampEvent");
-  
+  console.log(activeCampEvent, "activeCampEvent");
 
   const assignedScreeningIds = getScreeningIds(activeCampEvent);
   const assignedScreeningKeys = getScreeningKeys(activeCampEvent);
@@ -119,10 +119,10 @@ export default function ConsolidateReport() {
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
-  console.log(getRole);
-  console.log(ownBranchRecord,"ownBranchRecord");
-
-
+  console.log(getRole, "getRole");
+  const checkisActiveEventStatus = activeCampEvent?.status === true ?? false;
+  console.log(checkisActiveEventStatus , getRole === "doctor","gate");
+  
   const defaultBranch = useMemo(() => {
     const record = ownBranchRecord?.data ?? ownBranchRecord ?? null;
 
@@ -194,7 +194,7 @@ export default function ConsolidateReport() {
       ),
     };
   }, [selectUser, ownBranchRecord]);
-  
+  console.log(reportView, "reportView");
 
   return (
     <div className="min-h-screen">
@@ -280,37 +280,6 @@ export default function ConsolidateReport() {
           </TabsList> */}
         </div>
 
-        {/* {getRole === "doctor" ? (
-          activeTab !== "report-table" ? (
-            <StudentFilter {...filterProps} />
-          ) : null
-        ) : activeTab !== "report-table" ? (
-          <SchoolStudentFilter
-            selectRole={selectUser?.user_type_id ?? ROLE_IDS[getRole]}
-            {...filterProps}
-            onSelectedBranchChange={setSelectedBranch}
-            ownBranch={defaultBranch}
-          />
-        ) : null} */}
-        {getRole === "doctor" ? (
-
-          <StudentFilter {...filterProps} {...doctorFilterProps} />
-        ) : (
-          <SchoolStudentFilter
-            selectRole={selectUser?.user_type_id ?? ROLE_IDS[getRole]}
-            classSectionPrivileges={
-              selectUser?.previleges ?? selectUser?.privileges
-            }
-            {...filterProps}
-            selectedSchoolBranch={selectedSchoolBranch}
-            setSelectedSchoolBranch={setSelectedSchoolBranch}
-            {...doctorFilterProps}
-            onSelectedBranchChange={setSelectedBranch}
-            ownBranch={defaultBranch}
-          />
-        )}
-        {/* Tab content — every <TabsContent> is a direct child of <Tabs>. */}
-       
         {activeTab === "single-report" ? (
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Button
@@ -331,90 +300,134 @@ export default function ConsolidateReport() {
             </Button>
           </div>
         ) : null}
-        <TabsContent value="single-report">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={reportView}
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3, ease: [0.22, 0.61, 0.36, 1] }}
-            >
-          {reportView === "table" ? (
-            <div className="space-y-3">
-              <ReportStudentsTable
-                students={students}
-                isLoading={isStudentsLoading}
-                pageIndex={reportTablePageIndex}
-                onPageIndexChange={setReportTablePageIndex}
-                pageSize={reportTablePageSize}
-                onPageSizeChange={(size) => {
-                  setReportTablePageSize(size);
-                  setReportTablePageIndex(0);
-                }}
-                onSelectStudent={(row) => {
-                  const id = idOfReportStudent(row);
-                  if (id) setStudentId(id);
-                  setReportView("detailed");
-                }}
-              />
-            </div>
-          ) : hasUnknownScreeningIds ? (
-            <NoScreeningsAssignedState />
-          ) : selectedStudent ? (
-            <div className="space-y-3">
-              <HealthCheckContent
-                selectUser={selectUser}
-                selectedSchoolBranch={selectedSchoolBranch}
-                setSelectedSchoolBranch={setSelectedSchoolBranch}
-                student={selectedStudent}
-                branch={
-                  selectedSchoolBranch ?? selectedBranch ?? defaultBranch
-                }
-                camp={selectedCamp}
-                activeEvent={activeCampEvent}
-                primaryDoctorDetails={
-                  activeCampEvent?.primaryDoctorDetailsData
-                    ?.primaryDoctorDetails ?? null
-                }
-                assignedScreeningIds={assignedScreeningIds}
-                {...filterProps}
-              />
-            </div>
-          ) : (
-            <ReportEmptyState />
-          )}
-            </motion.div>
-          </AnimatePresence>
-        </TabsContent>
 
-        <TabsContent value="report-table">
-          {/* {selectedStudent ? ( */}
-          {hasUnknownScreeningIds ? (
-            <NoScreeningsAssignedState />
+        {reportView === "detailed" &&
+          (getRole === "doctor" ? (
+            <StudentFilter {...filterProps} {...doctorFilterProps} />
           ) : (
-            <div className="space-y-3">
-              {/* <HealthCheckContent
+            <SchoolStudentFilter
+              selectRole={selectUser?.user_type_id ?? ROLE_IDS[getRole]}
+              classSectionPrivileges={
+                selectUser?.previleges ?? selectUser?.privileges
+              }
+              {...filterProps}
+              selectedSchoolBranch={selectedSchoolBranch}
+              setSelectedSchoolBranch={setSelectedSchoolBranch}
+              {...doctorFilterProps}
+              onSelectedBranchChange={setSelectedBranch}
+              ownBranch={defaultBranch}
+            />
+          ))}
+        {/* Tab content — every <TabsContent> is a direct child of <Tabs>. */}
+        {checkisActiveEventStatus || getRole === "doctor" ? (
+          <>
+            <TabsContent value="single-report">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={reportView}
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.3, ease: [0.22, 0.61, 0.36, 1] }}
+                >
+                  {reportView === "table" ? (
+                    <StudentReportTableModal
+                      students={students}
+                      isLoading={isStudentsLoading}
+                      pageIndex={reportTablePageIndex}
+                      onPageIndexChange={setReportTablePageIndex}
+                      pageSize={reportTablePageSize}
+                      onPageSizeChange={(size) => {
+                        setReportTablePageSize(size);
+                        setReportTablePageIndex(0);
+                      }}
+                      modalStudent={reportModalStudent}
+                      onSelectStudent={(row) => {
+                        // Modal only — never switch reportView away from the table.
+                        setReportModalStudent(row ?? null);
+                      }}
+                      onCloseModal={() => setReportModalStudent(null)}
+                      selectUser={selectUser}
+                      selectedSchoolBranch={selectedSchoolBranch}
+                      setSelectedSchoolBranch={setSelectedSchoolBranch}
+                      selectedBranch={selectedBranch}
+                      defaultBranch={defaultBranch}
+                      selectedCamp={selectedCamp}
+                      activeEvent={activeCampEvent}
+                      primaryDoctorDetails={
+                        activeCampEvent?.primaryDoctorDetailsData
+                          ?.primaryDoctorDetails ?? null
+                      }
+                      assignedScreeningIds={assignedScreeningIds}
+                      filterProps={filterProps}
+                    />
+                  ) : hasUnknownScreeningIds ? (
+                    <NoScreeningsAssignedState />
+                  ) : selectedStudent ? (
+                    <div className="space-y-3">
+                      <HealthCheckContent
+                        selectUser={selectUser}
+                        selectedSchoolBranch={selectedSchoolBranch}
+                        setSelectedSchoolBranch={setSelectedSchoolBranch}
+                        student={selectedStudent}
+                        branch={
+                          selectedSchoolBranch ??
+                          selectedBranch ??
+                          defaultBranch
+                        }
+                        camp={selectedCamp}
+                        activeEvent={activeCampEvent}
+                        primaryDoctorDetails={
+                          activeCampEvent?.primaryDoctorDetailsData
+                            ?.primaryDoctorDetails ?? null
+                        }
+                        assignedScreeningIds={assignedScreeningIds}
+                        {...filterProps}
+                      />
+                    </div>
+                  ) : (
+                    <ReportEmptyState />
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </TabsContent>
+
+            <TabsContent value="report-table">
+              {/* {selectedStudent ? ( */}
+              {hasUnknownScreeningIds ? (
+                <NoScreeningsAssignedState />
+              ) : (
+                <div className="space-y-3">
+                  {/* <HealthCheckContent
                   selectUser={selectUser}
                   student={selectedStudent}
                   branch={defaultBranch ?? selectedBranch}
                   camp={selectedCamp}
                 /> */}
-              <PrimaryDoctorTab
-                event={activeCampEvent}
-                camp={selectedCamp}
-                student={selectedStudent}
-                assignedScreeningIds={assignedScreeningIds}
-                assignedScreeningKeys={assignedScreeningKeys}
-                classFilter={classFilter}
-                sectionFilter={sectionFilter}
-              />
-            </div>
-          )}
-          {/* ) : ( */}
-          {/* <ReportEmptyState /> */}
-          {/* )} */}
-        </TabsContent>
+                  <PrimaryDoctorTab
+                    event={activeCampEvent}
+                    camp={selectedCamp}
+                    student={selectedStudent}
+                    assignedScreeningIds={assignedScreeningIds}
+                    assignedScreeningKeys={assignedScreeningKeys}
+                    classFilter={classFilter}
+                    sectionFilter={sectionFilter}
+                  />
+                </div>
+              )}
+              {/* ) : ( */}
+              {/* <ReportEmptyState /> */}
+              {/* )} */}
+            </TabsContent>
+          </>
+        ) : (
+          <div className="w-full py-12">
+            <ReportNotReady
+              title="Report Not Ready"
+              description="The report is not yet ready. Please check after some time."
+            />
+          </div>
+        )}
 
         {/* <TabsContent value="primary-doctor">
           <div className="space-y-3">

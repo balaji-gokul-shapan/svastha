@@ -19,6 +19,9 @@ import { Button } from "@/components/ui/button";
 import { useDispatch } from "react-redux";
 import { toast } from "sonner";
 import { deleteStudent } from "@/lib/features/DeleteStudentSlice";
+import useScreeningStatuses from "@/app/report/utilities/useScreeningStatuses";
+import { studentKeyOf } from "@/lib/features/screeningStatusSlice";
+import { getCampId } from "@/lib/camp-utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,6 +54,146 @@ function StatusPill({ status }) {
       <Icon className="size-3.5 shrink-0" />
       {status}
     </span>
+  );
+}
+
+const SCREENING_TONES = {
+  followUp: {
+    label: "Need Follow Up",
+    barClass: "bg-warning",
+    textClass: "text-warning",
+  },
+  good: {
+    label: "Good",
+    barClass: "bg-success",
+    textClass: "text-success",
+  },
+  normal: {
+    label: "Normal",
+    barClass: "bg-info",
+    textClass: "text-info",
+  },
+  none: {
+    label: "--",
+    barClass: "bg-muted-foreground/30",
+    textClass: "text-muted-foreground",
+  },
+};
+
+function resolveOverallTone(statuses) {
+  const values = Object.values(statuses ?? {})
+    .map((value) => String(value ?? "").trim().toLowerCase())
+    .filter((value) => value && value !== "--");
+  console.log(values,"ssssssvalues");
+  
+  if (!values.length) return "none";
+
+  if (
+    values.some((value) =>
+      /(refer|follow|abnormal|risk|high|severe|fail|positive)/.test(value),
+    )
+  ) {
+    return "followUp";
+  }
+
+  if (values.some((value) => /good/.test(value))) return "good";
+
+  return "normal";
+}
+
+const SCREENING_LABELS = {
+  general: "General",
+  vision: "Vision",
+  dental: "Dental",
+  hearing: "Hearing",
+  ent: "ENT",
+};
+
+function toneOfValue(value) {
+  const v = String(value ?? "").trim().toLowerCase();
+  if (!v || v === "--") return "none";
+  if (/(refer|follow|abnormal|risk|high|severe|fail|positive)/.test(v)) {
+    return "followUp";
+  }
+  if (/good/.test(v)) return "good";
+  return "normal";
+}
+
+/*
+ * Per-screening breakdown + the "+N" count. The overall tone stays
+ * resolveOverallTone()'s (worst-first); extras = how many RECORDED screenings
+ * disagree with it, rendered as "Good +2" (overall Good, 2 others differ).
+ */
+function summarizeBreakdown(statuses) {
+  const breakdown = Object.entries(statuses ?? {})
+    .filter(([key]) => SCREENING_LABELS[key])
+    .map(([key, value]) => ({
+      key,
+      label: SCREENING_LABELS[key],
+      value: String(value ?? "").trim() || "--",
+      tone: toneOfValue(value),
+    }));
+
+  const recorded = breakdown.filter((entry) => entry.tone !== "none");
+  if (!recorded.length) return { breakdown, recorded, extras: 0 };
+
+  const overall = resolveOverallTone(statuses);
+  const extras = recorded.filter((entry) => entry.tone !== overall).length;
+
+  return { breakdown, recorded, extras };
+}
+
+function ScreeningStatusIndicator({ statuses, isLoading }) {
+  if (isLoading) {
+    return (
+      <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+        <span className="h-4 w-1 shrink-0 animate-pulse rounded-full bg-muted-foreground/30" />
+        …
+      </span>
+    );
+  }
+
+  const toneKey = resolveOverallTone(statuses);
+  const tone = SCREENING_TONES[toneKey] ?? SCREENING_TONES.none;
+  const { breakdown, recorded, extras } = summarizeBreakdown(statuses);
+
+  const trigger = (
+    <span className="inline-flex items-center gap-2">
+      <span
+        className={`h-4 w-1 shrink-0 rounded-full ${tone.barClass}`}
+        aria-hidden="true"
+      />
+      <span className={`text-xs font-medium ${tone.textClass}`}>
+        {tone.label}
+        {extras > 0 ? (
+          <span className="ml-1 text-muted-foreground">+{extras}</span>
+        ) : null}
+      </span>
+    </span>
+  );
+
+  // Nothing recorded yet — no tooltip, the "--" bar speaks for itself.
+  if (!recorded.length) return trigger;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+      <TooltipContent className="space-y-1.5">
+        <p className="text-xs font-semibold">Screening summary</p>
+        {breakdown.map((entry) => (
+          <p key={entry.key} className="flex items-center gap-2 text-xs">
+            <span
+              className={`size-1.5 shrink-0 rounded-full ${SCREENING_TONES[entry.tone].barClass}`}
+              aria-hidden="true"
+            />
+            <span className="text-muted-foreground">{entry.label}:</span>
+            <span className={SCREENING_TONES[entry.tone].textClass}>
+              {entry.value}
+            </span>
+          </p>
+        ))}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -302,6 +445,8 @@ export function StudentsDataTable({
   onPageChange,
   onPageSizeChange,
   isLoading = false,
+  selectedCamp = null,
+  activeEvent = null,
 }) {
   const router = useRouter();
   const dispatch = useDispatch();
@@ -373,6 +518,37 @@ export function StudentsDataTable({
   };
   const clearSelection = () => setSelectedIds(new Set());
 
+  // Per-student screening statuses (Redux-cached). `data` is already the
+  // server-paginated page (serverPagination mode), so no local slicing.
+  const visibleStudents = React.useMemo(() => data, [data]);
+  const { statusesByKey } = useScreeningStatuses(visibleStudents, {
+    campId: getCampId(selectedCamp ?? activeEvent),
+  });
+  console.log(visibleStudents, "visibleStudents");
+  console.log(statusesByKey, "statusesByKey");
+
+  const tableColumns = React.useMemo(
+    () => [
+      ...columns,
+      {
+        id: "screening_status",
+        header: "Health Status",
+        cell: ({ row }) => {
+          const key = studentKeyOf(row.original);
+          const entry = statusesByKey[key];
+          return (
+            <ScreeningStatusIndicator
+              statuses={entry?.statuses}
+              isLoading={entry?.status === "loading"}
+            />
+          );
+        },
+      },
+    ],
+    [statusesByKey],
+  );
+    
+
   // The checkbox is rendered as a leading select rail by DataTable rather than
   // as a column definition, so it does not take a slot in the column order and
   // every data column keeps its own index and width.
@@ -418,7 +594,7 @@ export function StudentsDataTable({
         </div>
       )}
       <DataTable
-        columns={columns}
+        columns={tableColumns}
         data={data}
         pageSizeOptions={pageSizeOptions}
         serverPagination={{
@@ -441,7 +617,7 @@ export function StudentsDataTable({
         headClassName="sl-head"
         rowClassName="sl-row"
         withCellLabels
-        columnWidths={["9rem", "11rem", "auto", "8rem", "11rem", "9rem"]}
+        columnWidths={["9rem", "11rem", "auto", "8rem", "11rem", "9rem", "9rem"]}
         emptyState={
           <EmptyState
             title="No students found"

@@ -22,7 +22,6 @@ const APPEARANCE_THEMES = [
   { id: "dark", label: "Dark" },
 ];
 
-
 const SIDEBAR_POSITIONS = [
   { id: "side", label: "Side" },
   { id: "top", label: "Top" },
@@ -47,7 +46,9 @@ function MiniSidebarPreview({ position }) {
   return (
     <span className="flex h-20 w-full flex-col overflow-hidden">
       {position === "top" ? (
-        <span className={`flex h-1/3 flex-row items-center gap-1 p-1.5 ${side}`}>
+        <span
+          className={`flex h-1/3 flex-row items-center gap-1 p-1.5 ${side}`}
+        >
           {railItems}
         </span>
       ) : null}
@@ -357,9 +358,10 @@ const AppearancePage = ({
   onCancel,
   onSave,
 }) => {
-
   return (
-    <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+    <section className="sl-scroll-panel">
+      <div className="h-1 w-full bg-gradient-to-r from-primary via-primary/50 to-transparent" />
+
       <div className="appearance-header flex items-start justify-between gap-4 border-b border-border/60 px-4 py-4 sm:px-6 sm:py-5">
         {/* <div className="min-w-0">
           <h2 className="text-lg font-semibold tracking-tight text-foreground">
@@ -369,20 +371,20 @@ const AppearancePage = ({
             Change how Svastha UI looks and feels in your browser.
           </p>
         </div> */}
-         <div className="sd-school-hero__eyebrow">
-            <span className="sd-icon-badge sd-icon-badge--large">
-              <PanelsTopLeft className="size-6 text-white" aria-hidden="true" />
-            </span>
-            <div>
-              <div className="flex items-baseline gap-2">
-                <span className="profile-settings-eyebrow__dot" />
-                <p className="sd-school-hero__kicker">Personalized Appearance</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="sd-school-hero__title">Appearance</h2>
-              </div>
+        <div className="sd-school-hero__eyebrow ">
+          <span className="sd-icon-badge sd-icon-badge--large">
+            <PanelsTopLeft className="size-6 text-white" aria-hidden="true" />
+          </span>
+          <div>
+            <div className="flex items-baseline gap-2">
+              <span className="profile-settings-eyebrow__dot" />
+              <p className="sd-school-hero__kicker">Personalized Appearance</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="sd-school-hero__title">Appearance</h2>
             </div>
           </div>
+        </div>
         <Button
           type="button"
           variant="ghost"

@@ -172,7 +172,7 @@ export default function HelpPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-[80rem] pb-10">
+    <div className="mx-auto w-full pb-10">
       <HelpHero
         query={query}
         onQueryChange={setQuery}
