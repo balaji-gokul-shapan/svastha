@@ -1,6 +1,16 @@
 "use client";
 
-import { Bell, ChevronDown, LogOut, Search } from "lucide-react";
+import {
+  Bell,
+  BriefcaseBusiness,
+  ChevronDown,
+  GraduationCap,
+  LogOut,
+  School,
+  Search,
+  Stethoscope,
+  UserCog,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -16,21 +26,13 @@ import {
 } from "@/components/ui/popover";
 import { ThemeToggle } from "./themeToggle";
 import { getRoleLabel, useAuthRole } from "@/lib/user-role";
-import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  Doctor01Icon,
-  Doctor03Icon,
-  HierarchyCircle02Icon,
-  ManagerIcon,
-  TeacherIcon,
-} from "@hugeicons/core-free-icons";
 import { useAppSelector } from "@/lib/hooks";
 
 const ROLE_ICONS = {
-  admin: ManagerIcon,
-  "school admin": HierarchyCircle02Icon,
-  teacher: TeacherIcon,
-  "primary doctor": Doctor01Icon,
+  admin: BriefcaseBusiness,
+  "school admin": School,
+  teacher: GraduationCap,
+  "primary doctor": Stethoscope,
 };
 
 export function Navbar({ title = "Dashboard", sticky = true }) {
@@ -85,8 +87,8 @@ export function Navbar({ title = "Dashboard", sticky = true }) {
   const RoleIcon =
     normalizedRoleLabel === "doctor" || normalizedRoleLabel === "primary doctor"
       ? isPrimaryDoctorRole
-        ? Doctor01Icon
-        : Doctor03Icon
+        ? Stethoscope
+        : UserCog
       : (ROLE_ICONS[normalizedRoleLabel] ?? null);
 
   const handleLogout = () => {
@@ -145,10 +147,8 @@ export function Navbar({ title = "Dashboard", sticky = true }) {
               </div>
               {RoleIcon ? (
                 <span data-role={avatarRole} className="role-icon">
-                  <HugeiconsIcon
-                    icon={RoleIcon}
-                    size={24}
-                    color="currentColor"
+                  <RoleIcon
+                    className="size-6"
                     strokeWidth={1.5}
                     aria-hidden="true"
                   />
