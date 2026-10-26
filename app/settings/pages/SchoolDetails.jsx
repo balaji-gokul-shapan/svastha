@@ -40,7 +40,7 @@ import ImageCropper from "@/components/imageCropper";
 import { uploadSchoolLogo } from "@/lib/features/registerSchoolSlice";
 import ReusableSelect from "@/components/ui/reusable-select";
 import { usePincodeOptions } from "@/lib/usePincodeOptions";
-import { normalizePincode } from "@/lib/features/getPincode.slice";
+import { normalizePincode } from "@/lib/features/getPincodeSlice";
 
 const steps = [
   {
